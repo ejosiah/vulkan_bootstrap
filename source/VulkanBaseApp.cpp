@@ -213,46 +213,70 @@ SwapChainSupportDetails VulkanBaseApp::querySwapChainSupport() {
 }
 
 void VulkanBaseApp::createLogicalDevice() {
-    std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
     VkPhysicalDeviceFeatures enabledFeatures{};
-    std::set<uint32_t> indices{ queueFamilyIndices.graphics.value()};
+//    std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
+//    std::set<uint32_t> indices{ queueFamilyIndices.graphics.value()};
+//
+//    float queuePriority = 1.f;
+//    for(auto queueFamilyIndex : indices){
+//        VkDeviceQueueCreateInfo queueCreateInfo{};
+//        queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+//        queueCreateInfo.queueFamilyIndex = queueFamilyIndex;
+//        queueCreateInfo.pQueuePriorities = &queuePriority;
+//        queueCreateInfo.queueCount = 1;
+//        queueCreateInfos.push_back(queueCreateInfo);
+//    }
+//
+//    VkDeviceCreateInfo createInfo{};
+//    createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+//    createInfo.enabledExtensionCount = deviceExtensions.size();
+//    createInfo.ppEnabledExtensionNames = deviceExtensions.data();
+//    createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
+//    createInfo.pQueueCreateInfos = queueCreateInfos.data();
+//    createInfo.pEnabledFeatures = &enabledFeatures;
+//    if(enableValidation){
+//        createInfo.enabledLayerCount = validationLayers.size();
+//        createInfo.ppEnabledLayerNames = validationLayers.data();
+//    }
+//
+//    REPORT_ERROR(vkCreateDevice(physicalDevice, &createInfo, nullptr, &device), "Failed to create device");
+//
+//    vkGetDeviceQueue(device, queueFamilyIndices.graphics.value(), 0, &queues.graphics);
+//    vkGetDeviceQueue(device, queueFamilyIndices.present.value(), 0, &queues.present);
 
-    float queuePriority = 1.f;
-    for(auto queueFamilyIndex : indices){
-        VkDeviceQueueCreateInfo queueCreateInfo{};
-        queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-        queueCreateInfo.queueFamilyIndex = queueFamilyIndex;
-        queueCreateInfo.pQueuePriorities = &queuePriority;
-        queueCreateInfo.queueCount = 1;
-        queueCreateInfos.push_back(queueCreateInfo);
-    }
-
-    VkDeviceCreateInfo createInfo{};
-    createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-    createInfo.enabledExtensionCount = deviceExtensions.size();
-    createInfo.ppEnabledExtensionNames = deviceExtensions.data();
-    createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
-    createInfo.pQueueCreateInfos = queueCreateInfos.data();
-    createInfo.pEnabledFeatures = &enabledFeatures;
-    if(enableValidation){
-        createInfo.enabledLayerCount = validationLayers.size();
-        createInfo.ppEnabledLayerNames = validationLayers.data();
-    }
-
-    REPORT_ERROR(vkCreateDevice(physicalDevice, &createInfo, nullptr, &device), "Failed to create device");
-
-    vkGetDeviceQueue(device, queueFamilyIndices.graphics.value(), 0, &queues.graphics);
-    vkGetDeviceQueue(device, queueFamilyIndices.present.value(), 0, &queues.present);
+    vulkanDevice.createLogicalDevice(enabledFeatures, deviceExtensions, validationLayers, surface, VK_QUEUE_GRAPHICS_BIT);
+    device = vulkanDevice.logicalDevice;
+    queues.graphics = vulkanDevice.queues.graphics;
+    queues.present = vulkanDevice.queues.present;
+    queueFamilyIndices.graphics = vulkanDevice.queueFamilyIndex.graphics;
+    queueFamilyIndices.present = vulkanDevice.queueFamilyIndex.present;
 }
 
 void VulkanBaseApp::pickPhysicalDevice() {
     REPORT_ERROR(glfwCreateWindowSurface(instance, window, nullptr, &surface), "Failed to load surface");
-    uint32_t size;
-    vkEnumeratePhysicalDevices(instance, &size, nullptr);
-    std::vector<VkPhysicalDevice> physicalDevices(size);
-    vkEnumeratePhysicalDevices(instance, &size, physicalDevices.data());
-    physicalDevice = physicalDevices.front();
-    getQueueFamily();
+//    uint32_t size;
+//    vkEnumeratePhysicalDevices(instance, &size, nullptr);
+//    std::vector<VkPhysicalDevice> physicalDevices(size);
+//    vkEnumeratePhysicalDevices(instance, &size, physicalDevices.data());
+//    physicalDevice = physicalDevices.front();
+//    vulkanDevice = VulkanDevice{physicalDevice};
+//    getQueueFamily();
+    auto pDevices = enumerate<VkPhysicalDevice>([&](uint32_t* size, VkPhysicalDevice* pDevice){
+        return vkEnumeratePhysicalDevices(instance, size, pDevice);
+    });
+
+    std::vector<VulkanDevice> devices(pDevices.size());
+    std::transform(begin(pDevices), end(pDevices), begin(devices),[&](auto pDevice){
+        return VulkanDevice{pDevice};
+    });
+
+    std::sort(begin(devices), end(devices), [](auto& a, auto& b){
+        return a.score() > b.score();
+    });
+
+    vulkanDevice = std::move(devices.front());
+    physicalDevice = vulkanDevice.physicalDevice;
+    spdlog::info("selected device: {}", vulkanDevice.name());
 }
 
 void VulkanBaseApp::getQueueFamily() {

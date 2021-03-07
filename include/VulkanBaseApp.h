@@ -11,6 +11,7 @@
 #include "container_operations.h"
 #include "primitives.h"
 #include "vk_mem_alloc.h"
+#include "VulkanDevice.h"
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #define GLM_FORCE_RADIANS
 #include <glm/glm.hpp>
@@ -187,6 +188,7 @@ private:
     VkInstance instance = VK_NULL_HANDLE;
     VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
     VkDevice device = VK_NULL_HANDLE;
+    VulkanDevice vulkanDevice;
     GLFWwindow* window = nullptr;
     std::vector<const char*> instanceExtensions;
     std::vector<const char*> validationLayers;
