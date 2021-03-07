@@ -204,16 +204,6 @@ private:
     VkSurfaceKHR surface = VK_NULL_HANDLE;
     SwapChainDetails swapChainDetails;
 
-    struct  {
-        std::optional<uint32_t> graphics;
-        std::optional<uint32_t> present;
-    } queueFamilyIndices;
-
-    struct {
-        VkQueue graphics;
-        VkQueue present;
-    } queues;
-
     std::vector<Vertex> vertices = {
             {{-0.5f, -0.5f, 0.0f, 1.0f}, glm::vec3(0), {1.0f, 0.0f, 0.0f}, glm::vec2(0)},
             {{0.5f, -0.5f, 0.0f, 1.0f}, glm::vec3(0), {0.0f, 1.0f, 0.0f}, glm::vec2(0)},

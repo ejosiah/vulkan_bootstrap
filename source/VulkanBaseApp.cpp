@@ -141,12 +141,12 @@ void VulkanBaseApp::createSwapChain() {
     createInfo.imageArrayLayers = 1;
     createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-    if(queueFamilyIndices.graphics.value() == queueFamilyIndices.present.value()){
+    if(vulkanDevice.queueFamilyIndex.graphics.value() == vulkanDevice.queueFamilyIndex.present.value()){
         createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
         createInfo.queueFamilyIndexCount = 0;
         createInfo.pQueueFamilyIndices = nullptr;
     }else{
-        std::vector<uint32_t> indices{queueFamilyIndices.graphics.value(), queueFamilyIndices.present.value()};
+        std::vector<uint32_t> indices{vulkanDevice.queueFamilyIndex.graphics.value(), vulkanDevice.queueFamilyIndex.present.value()};
         createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
         createInfo.queueFamilyIndexCount = 2;
         createInfo.pQueueFamilyIndices = indices.data();
@@ -215,7 +215,7 @@ SwapChainSupportDetails VulkanBaseApp::querySwapChainSupport() {
 void VulkanBaseApp::createLogicalDevice() {
     VkPhysicalDeviceFeatures enabledFeatures{};
 //    std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
-//    std::set<uint32_t> indices{ queueFamilyIndices.graphics.value()};
+//    std::set<uint32_t> indices{ vulkanDevice.queueFamilyIndex.graphics.value()};
 //
 //    float queuePriority = 1.f;
 //    for(auto queueFamilyIndex : indices){
@@ -241,26 +241,15 @@ void VulkanBaseApp::createLogicalDevice() {
 //
 //    REPORT_ERROR(vkCreateDevice(physicalDevice, &createInfo, nullptr, &device), "Failed to create device");
 //
-//    vkGetDeviceQueue(device, queueFamilyIndices.graphics.value(), 0, &queues.graphics);
-//    vkGetDeviceQueue(device, queueFamilyIndices.present.value(), 0, &queues.present);
+//    vkGetDeviceQueue(device, vulkanDevice.queueFamilyIndex.graphics.value(), 0, &vulkanDevice.queues.graphics);
+//    vkGetDeviceQueue(device, vulkanDevice.queueFamilyIndex.present.value(), 0, &vulkanDevice.queues.present);
 
     vulkanDevice.createLogicalDevice(enabledFeatures, deviceExtensions, validationLayers, surface, VK_QUEUE_GRAPHICS_BIT);
     device = vulkanDevice.logicalDevice;
-    queues.graphics = vulkanDevice.queues.graphics;
-    queues.present = vulkanDevice.queues.present;
-    queueFamilyIndices.graphics = vulkanDevice.queueFamilyIndex.graphics;
-    queueFamilyIndices.present = vulkanDevice.queueFamilyIndex.present;
 }
 
 void VulkanBaseApp::pickPhysicalDevice() {
     REPORT_ERROR(glfwCreateWindowSurface(instance, window, nullptr, &surface), "Failed to load surface");
-//    uint32_t size;
-//    vkEnumeratePhysicalDevices(instance, &size, nullptr);
-//    std::vector<VkPhysicalDevice> physicalDevices(size);
-//    vkEnumeratePhysicalDevices(instance, &size, physicalDevices.data());
-//    physicalDevice = physicalDevices.front();
-//    vulkanDevice = VulkanDevice{physicalDevice};
-//    getQueueFamily();
     auto pDevices = enumerate<VkPhysicalDevice>([&](uint32_t* size, VkPhysicalDevice* pDevice){
         return vkEnumeratePhysicalDevices(instance, size, pDevice);
     });
@@ -287,12 +276,12 @@ void VulkanBaseApp::getQueueFamily() {
 
     for(int i = 0; i < size; i++){
         if(queueFamilyProperties[i].queueFlags & VK_QUEUE_GRAPHICS_BIT){
-            queueFamilyIndices.graphics = i;
+            vulkanDevice.queueFamilyIndex.graphics = i;
 
             VkBool32 present;
             vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, i, surface, &present);
             if(present){
-                queueFamilyIndices.present = i;
+                vulkanDevice.queueFamilyIndex.present = i;
             }
             break;
         }
@@ -303,7 +292,7 @@ void VulkanBaseApp::createCommandPool() {
     VkCommandPoolCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
     createInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-    createInfo.queueFamilyIndex = queueFamilyIndices.graphics.value();
+    createInfo.queueFamilyIndex = vulkanDevice.queueFamilyIndex.graphics.value();
 
     REPORT_ERROR(vkCreateCommandPool(device, &createInfo, nullptr, &commandPool), "Failed to create command pool!");
 }
@@ -404,7 +393,7 @@ void VulkanBaseApp::createVertexBuffer() {
 
     vmaCreateBuffer(memoryAllocator, &createInfo, &allocInfo, &vertexBuffer.resource, &vertexBuffer.allocation, nullptr);
 
-    oneTimeCommand(queues.graphics, [&](VkCommandBuffer cmdBuffer){
+    oneTimeCommand(vulkanDevice.queues.graphics, [&](VkCommandBuffer cmdBuffer){
        VkBufferCopy copy{};
        copy.size = size;
        copy.dstOffset = 0;
@@ -440,7 +429,7 @@ void VulkanBaseApp::createIndexBuffer() {
 
     vmaCreateBuffer(memoryAllocator, &createInfo, &allocInfo, &indexBuffer.resource, &indexBuffer.allocation, nullptr);
 
-    oneTimeCommand(queues.graphics, [&](auto cmdBuffer){
+    oneTimeCommand(vulkanDevice.queues.graphics, [&](auto cmdBuffer){
         VkBufferCopy copy{};
         copy.size = size;
         copy.srcOffset = 0;
@@ -512,7 +501,7 @@ void VulkanBaseApp::createTextureBuffers() {
 
     transitionImageLayout(texture.image.resource, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
-    oneTimeCommand(queues.graphics, [&](auto cmdBuffer){
+    oneTimeCommand(vulkanDevice.queues.graphics, [&](auto cmdBuffer){
         VkBufferImageCopy  region{};
         region.bufferOffset = 0;
         region.bufferRowLength = 0;
@@ -584,7 +573,7 @@ uint32_t VulkanBaseApp::findMemoryTypeIndex(uint32_t memoryTypeBitsReq, VkMemory
 void VulkanBaseApp::transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout,
                                           VkImageLayout newLayout) {
 
-    oneTimeCommand(queues.graphics, [&](VkCommandBuffer commandBuffer) {
+    oneTimeCommand(vulkanDevice.queues.graphics, [&](VkCommandBuffer commandBuffer) {
 
         VkImageMemoryBarrier barrier{};
         barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -910,7 +899,7 @@ void VulkanBaseApp::drawFrame() {
 
     vkResetFences(device, 1, &inFlightFences[currentFrame]);
 
-    REPORT_ERROR(vkQueueSubmit(queues.graphics, 1, &submitInfo, inFlightFences[currentFrame]), "Failed to submit command");
+    REPORT_ERROR(vkQueueSubmit(vulkanDevice.queues.graphics, 1, &submitInfo, inFlightFences[currentFrame]), "Failed to submit command");
 
     VkPresentInfoKHR presentInfo{};
     presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
@@ -920,7 +909,7 @@ void VulkanBaseApp::drawFrame() {
     presentInfo.pSwapchains = &swapChainDetails.swapchain;
     presentInfo.pImageIndices = &imageIndex;
 
-   res =  vkQueuePresentKHR(queues.present, &presentInfo);
+   res =  vkQueuePresentKHR(vulkanDevice.queues.present, &presentInfo);
     if(res == VK_SUBOPTIMAL_KHR || res == VK_ERROR_OUT_OF_DATE_KHR || resized) {
         resized = false;
         recreateSwapChain();
