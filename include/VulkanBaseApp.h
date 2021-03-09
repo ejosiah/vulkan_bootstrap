@@ -15,6 +15,7 @@
 #include "VulkanResource.h"
 #include "VulkanSurface.h"
 #include "VulkanSwapChain.h"
+#include "VulkanRenderPass.h"
 
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #define GLM_FORCE_RADIANS
@@ -225,6 +226,7 @@ private:
     VkCommandPool commandPool = VK_NULL_HANDLE;
     std::vector<VkCommandBuffer> commandBuffers;
     VkCommandBuffer pushConstantCmdBuffer;
+    VulkanRenderPass vkRenderPass;
     VkRenderPass renderPass = VK_NULL_HANDLE;
 
     VkPipeline pipeline = VK_NULL_HANDLE;

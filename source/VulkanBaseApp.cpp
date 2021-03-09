@@ -784,7 +784,9 @@ void VulkanBaseApp::createRenderPass() {
     createInfo.dependencyCount = 1;
     createInfo.pDependencies = &dependency;
 
-    REPORT_ERROR(vkCreateRenderPass(device, &createInfo, nullptr, &renderPass), "Failed to create Render pass");
+    vkRenderPass = VulkanRenderPass{ device, {attachmentDesc}, {subpassDesc }, {dependency}};
+    renderPass = vkRenderPass.renderPass;
+//    REPORT_ERROR(vkCreateRenderPass(device, &createInfo, nullptr, &renderPass), "Failed to create Render pass");
 }
 
 void VulkanBaseApp::createSyncObjects() {
