@@ -14,6 +14,7 @@
 #include "VulkanDevice.h"
 #include "VulkanResource.h"
 #include "VulkanSurface.h"
+#include "VulkanSwapChain.h"
 
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #define GLM_FORCE_RADIANS
@@ -202,6 +203,7 @@ private:
     VmaAllocator memoryAllocator;
 
     VulkanSurface surface;
+    VulkanSwapChain swapChain;
     SwapChainDetails swapChainDetails;
 
     std::vector<Vertex> vertices = {

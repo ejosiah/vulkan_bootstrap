@@ -127,59 +127,65 @@ void VulkanBaseApp::createInstance() {
 }
 
 void VulkanBaseApp::createSwapChain() {
-    SwapChainSupportDetails details = querySwapChainSupport();
-    VkSurfaceFormatKHR format = chooseSurfaceFormat(details.formats);
-    VkPresentModeKHR mode = choosePresentMode(details.presentMode);
-    VkSwapchainCreateInfoKHR createInfo{};
-    createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-    createInfo.surface = surface;
-    createInfo.minImageCount = details.capabilities.minImageCount + 1;
-    createInfo.imageFormat = format.format;
-    createInfo.imageColorSpace = format.colorSpace;
-    createInfo.imageExtent = details.capabilities.currentExtent;
-    createInfo.imageArrayLayers = 1;
-    createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-
-    if(device.queueFamilyIndex.graphics.value() == device.queueFamilyIndex.present.value()){
-        createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-        createInfo.queueFamilyIndexCount = 0;
-        createInfo.pQueueFamilyIndices = nullptr;
-    }else{
-        std::vector<uint32_t> indices{device.queueFamilyIndex.graphics.value(), device.queueFamilyIndex.present.value()};
-        createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
-        createInfo.queueFamilyIndexCount = 2;
-        createInfo.pQueueFamilyIndices = indices.data();
-    }
-    createInfo.preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
-    createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-    createInfo.presentMode = mode;
-    createInfo.clipped = VK_TRUE;
-
-    REPORT_ERROR(vkCreateSwapchainKHR(device, &createInfo, nullptr, &swapChainDetails.swapchain), "Failed to create Swap chain");
-    uint32_t size;
-    vkGetSwapchainImagesKHR(device, swapChainDetails.swapchain, &size, nullptr);
-    swapChainDetails.images.resize(size);
-    vkGetSwapchainImagesKHR(device, swapChainDetails.swapchain, &size, swapChainDetails.images.data());
-
-    swapChainDetails.extent = details.capabilities.currentExtent;
-    swapChainDetails.format = format.format;
-    swapChainDetails.imageviews.resize(size);
-    VkImageViewCreateInfo imageViewCreateInfo{};
-    VkImageSubresourceRange   range{};
-    range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    range.baseMipLevel = 0;
-    range.baseArrayLayer = 0;
-    range.layerCount = 1;
-    range.levelCount = 1;
-
-    for(auto i = 0; i < size; i++){
-        imageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        imageViewCreateInfo.image = swapChainDetails.images[i];
-        imageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-        imageViewCreateInfo.format = swapChainDetails.format;
-        imageViewCreateInfo.subresourceRange = range;
-        REPORT_ERROR(vkCreateImageView(device, &imageViewCreateInfo, nullptr, &swapChainDetails.imageviews[i]), "Failed to create image view");
-    }
+    swapChain = VulkanSwapChain{ device, surface, static_cast<uint32_t>(width), static_cast<uint32_t>(height)};
+    swapChainDetails.swapchain = swapChain;
+    swapChainDetails.extent = swapChain.extent;
+    swapChainDetails.format = swapChain.format;
+    swapChainDetails.images = swapChain.images;
+    swapChainDetails.imageviews = swapChain.imageViews;
+//    SwapChainSupportDetails details = querySwapChainSupport();
+//    VkSurfaceFormatKHR format = chooseSurfaceFormat(details.formats);
+//    VkPresentModeKHR mode = choosePresentMode(details.presentMode);
+//    VkSwapchainCreateInfoKHR createInfo{};
+//    createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+//    createInfo.surface = surface;
+//    createInfo.minImageCount = details.capabilities.minImageCount + 1;
+//    createInfo.imageFormat = format.format;
+//    createInfo.imageColorSpace = format.colorSpace;
+//    createInfo.imageExtent = details.capabilities.currentExtent;
+//    createInfo.imageArrayLayers = 1;
+//    createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+//
+//    if(device.queueFamilyIndex.graphics.value() == device.queueFamilyIndex.present.value()){
+//        createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+//        createInfo.queueFamilyIndexCount = 0;
+//        createInfo.pQueueFamilyIndices = nullptr;
+//    }else{
+//        std::vector<uint32_t> indices{device.queueFamilyIndex.graphics.value(), device.queueFamilyIndex.present.value()};
+//        createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
+//        createInfo.queueFamilyIndexCount = 2;
+//        createInfo.pQueueFamilyIndices = indices.data();
+//    }
+//    createInfo.preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
+//    createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+//    createInfo.presentMode = mode;
+//    createInfo.clipped = VK_TRUE;
+//
+//    REPORT_ERROR(vkCreateSwapchainKHR(device, &createInfo, nullptr, &swapChainDetails.swapchain), "Failed to create Swap chain");
+//    uint32_t size;
+//    vkGetSwapchainImagesKHR(device, swapChainDetails.swapchain, &size, nullptr);
+//    swapChainDetails.images.resize(size);
+//    vkGetSwapchainImagesKHR(device, swapChainDetails.swapchain, &size, swapChainDetails.images.data());
+//
+//    swapChainDetails.extent = details.capabilities.currentExtent;
+//    swapChainDetails.format = format.format;
+//    swapChainDetails.imageviews.resize(size);
+//    VkImageViewCreateInfo imageViewCreateInfo{};
+//    VkImageSubresourceRange   range{};
+//    range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+//    range.baseMipLevel = 0;
+//    range.baseArrayLayer = 0;
+//    range.layerCount = 1;
+//    range.levelCount = 1;
+//
+//    for(auto i = 0; i < size; i++){
+//        imageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+//        imageViewCreateInfo.image = swapChainDetails.images[i];
+//        imageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+//        imageViewCreateInfo.format = swapChainDetails.format;
+//        imageViewCreateInfo.subresourceRange = range;
+//        REPORT_ERROR(vkCreateImageView(device, &imageViewCreateInfo, nullptr, &swapChainDetails.imageviews[i]), "Failed to create image view");
+//    }
 
 }
 
