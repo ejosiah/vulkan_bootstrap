@@ -128,11 +128,6 @@ void VulkanBaseApp::createInstance() {
 
 void VulkanBaseApp::createSwapChain() {
     swapChain = VulkanSwapChain{ device, surface, static_cast<uint32_t>(width), static_cast<uint32_t>(height)};
-    swapChainDetails.swapchain = swapChain;
-    swapChainDetails.extent = swapChain.extent;
-    swapChainDetails.format = swapChain.format;
-    swapChainDetails.images = swapChain.images;
-    swapChainDetails.imageviews = swapChain.imageViews;
 //    SwapChainSupportDetails details = querySwapChainSupport();
 //    VkSurfaceFormatKHR format = chooseSurfaceFormat(details.formats);
 //    VkPresentModeKHR mode = choosePresentMode(details.presentMode);
@@ -161,15 +156,15 @@ void VulkanBaseApp::createSwapChain() {
 //    createInfo.presentMode = mode;
 //    createInfo.clipped = VK_TRUE;
 //
-//    REPORT_ERROR(vkCreateSwapchainKHR(device, &createInfo, nullptr, &swapChainDetails.swapchain), "Failed to create Swap chain");
+//    REPORT_ERROR(vkCreateSwapchainKHR(device, &createInfo, nullptr, &swapChain), "Failed to create Swap chain");
 //    uint32_t size;
-//    vkGetSwapchainImagesKHR(device, swapChainDetails.swapchain, &size, nullptr);
+//    vkGetSwapchainImagesKHR(device, swapChain, &size, nullptr);
 //    swapChainDetails.images.resize(size);
-//    vkGetSwapchainImagesKHR(device, swapChainDetails.swapchain, &size, swapChainDetails.images.data());
+//    vkGetSwapchainImagesKHR(device, swapChain, &size, swapChainDetails.images.data());
 //
-//    swapChainDetails.extent = details.capabilities.currentExtent;
-//    swapChainDetails.format = format.format;
-//    swapChainDetails.imageviews.resize(size);
+//    swapChain.extent = details.capabilities.currentExtent;
+//    swapChain.format = format.format;
+//    swapChain.imageViews.resize(size);
 //    VkImageViewCreateInfo imageViewCreateInfo{};
 //    VkImageSubresourceRange   range{};
 //    range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -182,9 +177,9 @@ void VulkanBaseApp::createSwapChain() {
 //        imageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 //        imageViewCreateInfo.image = swapChainDetails.images[i];
 //        imageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-//        imageViewCreateInfo.format = swapChainDetails.format;
+//        imageViewCreateInfo.format = swapChain.format;
 //        imageViewCreateInfo.subresourceRange = range;
-//        REPORT_ERROR(vkCreateImageView(device, &imageViewCreateInfo, nullptr, &swapChainDetails.imageviews[i]), "Failed to create image view");
+//        REPORT_ERROR(vkCreateImageView(device, &imageViewCreateInfo, nullptr, &swapChain.imageViews[i]), "Failed to create image view");
 //    }
 
 }
@@ -254,7 +249,7 @@ void VulkanBaseApp::createCommandPool() {
 }
 
 void VulkanBaseApp::createCommandBuffer() {
-    commandBuffers.resize(swapChainDetails.images.size() + 1);
+    commandBuffers.resize(swapChain.imageCount() + 1);
 
     VkCommandBufferAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -282,7 +277,7 @@ void VulkanBaseApp::createCommandBuffer() {
         renderPassBeginInfo.renderPass = renderPass;
         renderPassBeginInfo.framebuffer = framebuffers[i];
         renderPassBeginInfo.renderArea.offset = {0, 0};
-        renderPassBeginInfo.renderArea.extent = swapChainDetails.extent;
+        renderPassBeginInfo.renderArea.extent = swapChain.extent;
         renderPassBeginInfo.clearValueCount = 1;
         renderPassBeginInfo.pClearValues = &clear;
         vkCmdBeginRenderPass(commandBuffers[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE );
@@ -372,7 +367,7 @@ void VulkanBaseApp::createIndexBuffer() {
 }
 
 void VulkanBaseApp::createCameraBuffers() {
-    cameraBuffers.resize(swapChainDetails.images.size());
+    cameraBuffers.resize(swapChain.imageCount());
     VkDeviceSize size = sizeof(Camera);
 
     VkBufferCreateInfo createInfo{};
@@ -384,7 +379,7 @@ void VulkanBaseApp::createCameraBuffers() {
     VmaAllocationCreateInfo allocInfo{};
     allocInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
 
-    for(auto i = 0; i < swapChainDetails.images.size(); i++){
+    for(auto i = 0; i < swapChain.imageCount(); i++){
         REPORT_ERROR(vmaCreateBuffer(memoryAllocator, &createInfo, &allocInfo, &cameraBuffers[i].resource, &cameraBuffers[i].allocation, nullptr), "Failed to create Camera buffer");
     }
 }
@@ -610,7 +605,7 @@ std::vector<char> VulkanBaseApp::loadFile(const std::string& path) {
 void VulkanBaseApp::createFramebuffer() {
     assert(renderPass != VK_NULL_HANDLE);
 
-    framebuffers.resize(swapChainDetails.images.size());
+    framebuffers.resize(swapChain.imageCount());
     framebuffers.resize(swapChain.imageCount());
     for(int i = 0; i < framebuffers.size(); i++){
         framebuffers[i] = VulkanFramebuffer{device, renderPass, {swapChain.imageViews[i] }
@@ -650,15 +645,15 @@ void VulkanBaseApp::createGraphicsPipeline() {
 
 
     VkViewport viewport{};
-    viewport.width = swapChainDetails.extent.width;
-    viewport.height = swapChainDetails.extent.height;
+    viewport.width = swapChain.extent.width;
+    viewport.height = swapChain.extent.height;
     viewport.minDepth = 0;
     viewport.maxDepth = 1;
     viewport.x = 0;
     viewport.y = 0;
 
     VkRect2D scissor{};
-    scissor.extent = swapChainDetails.extent;
+    scissor.extent = swapChain.extent;
     scissor.offset = {0, 0};
 
     VkPipelineViewportStateCreateInfo viewportState{};
@@ -741,7 +736,7 @@ void VulkanBaseApp::createGraphicsPipeline() {
 void VulkanBaseApp::createRenderPass() {
 
     VkAttachmentDescription attachmentDesc{};
-    attachmentDesc.format = swapChainDetails.format;
+    attachmentDesc.format = swapChain.format;
     attachmentDesc.samples = VK_SAMPLE_COUNT_1_BIT;
     attachmentDesc.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     attachmentDesc.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -785,7 +780,7 @@ void VulkanBaseApp::createSyncObjects() {
     imageAcquired.resize(MAX_IN_FLIGHT_FRAMES);
     renderingFinished.resize(MAX_IN_FLIGHT_FRAMES);
     inFlightFences.resize(MAX_IN_FLIGHT_FRAMES);
-    inFlightImages.resize(swapChainDetails.images.size());
+    inFlightImages.resize(swapChain.imageCount());
 
     VkSemaphoreCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -803,7 +798,7 @@ void VulkanBaseApp::createSyncObjects() {
 void VulkanBaseApp::drawFrame() {
     vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
     uint32_t imageIndex;
-    auto res = vkAcquireNextImageKHR(device, swapChainDetails.swapchain, UINT64_MAX, imageAcquired[currentFrame], VK_NULL_HANDLE, &imageIndex);
+    auto res = vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, imageAcquired[currentFrame], VK_NULL_HANDLE, &imageIndex);
 
     if(res == VK_ERROR_OUT_OF_DATE_KHR ) {
         recreateSwapChain();
@@ -838,7 +833,7 @@ void VulkanBaseApp::drawFrame() {
     presentInfo.waitSemaphoreCount = 1;
     presentInfo.pWaitSemaphores = &renderingFinished[currentFrame];
     presentInfo.swapchainCount = 1;
-    presentInfo.pSwapchains = &swapChainDetails.swapchain;
+    presentInfo.pSwapchains = swapChain;
     presentInfo.pImageIndices = &imageIndex;
 
    res =  vkQueuePresentKHR(device.queues.present, &presentInfo);
@@ -899,7 +894,7 @@ void VulkanBaseApp::createDescriptorSetLayout() {
 }
 
 void VulkanBaseApp::createDescriptorPool() {
-    const auto swapChainImageCount = static_cast<uint32_t>(swapChainDetails.images.size());
+    const auto swapChainImageCount = static_cast<uint32_t>(swapChain.imageCount());
     descriptorSets.resize(swapChainImageCount);
 
     VkDescriptorPoolSize uniformPoolSize{};
@@ -917,7 +912,7 @@ void VulkanBaseApp::createDescriptorPool() {
 
     VkDescriptorPoolCreateInfo createPoolInfo{};
     createPoolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    createPoolInfo.maxSets = swapChainDetails.images.size();
+    createPoolInfo.maxSets = swapChain.imageCount();
     createPoolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
     createPoolInfo.pPoolSizes = poolSizes.data();
 
@@ -926,7 +921,7 @@ void VulkanBaseApp::createDescriptorPool() {
 
 void VulkanBaseApp::createDescriptorSet() {
 
-    const auto swapChainImageCount = static_cast<uint32_t>(swapChainDetails.images.size());
+    const auto swapChainImageCount = static_cast<uint32_t>(swapChain.imageCount());
 
     std::vector<VkDescriptorSetLayout> layouts(swapChainImageCount, descriptorSetLayout);
     VkDescriptorSetAllocateInfo allocInfo{};
@@ -975,7 +970,7 @@ void VulkanBaseApp::createDescriptorSet() {
 void VulkanBaseApp::update(float time) {
     camera.model = glm::rotate(glm::mat4(1.0f), time * glm::half_pi<float>(), {0.0f, 0.0f, 1.0f});
     camera.view = glm::lookAt({2.0f, 2.0f, 2.0f}, glm::vec3(0.0f), {0.0f, 0.0f, 1.0f});
-    camera.proj = glm::perspective(glm::quarter_pi<float>(), swapChainDetails.extent.width/ static_cast<float>(swapChainDetails.extent.height), 0.1f, 10.0f);
+    camera.proj = glm::perspective(glm::quarter_pi<float>(), swapChain.extent.width/ static_cast<float>(swapChain.extent.height), 0.1f, 10.0f);
     //camera.proj[1][1] *= 1;
     //sendPushConstants();
     auto& buffer = cameraBuffers[currentImageIndex];
@@ -1003,8 +998,8 @@ void VulkanBaseApp::cleanupSwapChain() {
     for(auto& framebuffer : framebuffers) vkDestroyFramebuffer(device, framebuffer, nullptr);
     vkDestroyRenderPass(device, renderPass, nullptr);
 
-    for(auto& imageView : swapChainDetails.imageviews) vkDestroyImageView(device, imageView, nullptr);
-    vkDestroySwapchainKHR(device, swapChainDetails.swapchain, nullptr);
+    for(auto& imageView : swapChain.imageViews) vkDestroyImageView(device, imageView, nullptr);
+    vkDestroySwapchainKHR(device, swapChain, nullptr);
 
     for(auto& cameraBuffer : cameraBuffers){
         vmaDestroyBuffer(memoryAllocator, cameraBuffer, cameraBuffer.allocation);

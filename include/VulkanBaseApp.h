@@ -206,7 +206,6 @@ private:
 
     VulkanSurface surface;
     VulkanSwapChain swapChain;
-    SwapChainDetails swapChainDetails;
 
     std::vector<Vertex> vertices = {
             {{-0.5f, -0.5f, 0.0f, 1.0f}, glm::vec3(0), {1.0f, 0.0f, 0.0f}, glm::vec2(0)},

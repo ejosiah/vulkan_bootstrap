@@ -138,6 +138,10 @@ struct VulkanSwapChain{
         return swapChain;
     }
 
+    operator VkSwapchainKHR*() {
+        return &swapChain;
+    }
+
     VkSwapchainKHR swapChain = VK_NULL_HANDLE;
     VkDevice device = VK_NULL_HANDLE;
     VkFormat format = VK_FORMAT_UNDEFINED;
