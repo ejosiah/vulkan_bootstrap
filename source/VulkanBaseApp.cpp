@@ -611,17 +611,10 @@ void VulkanBaseApp::createFramebuffer() {
     assert(renderPass != VK_NULL_HANDLE);
 
     framebuffers.resize(swapChainDetails.images.size());
-    for(int i = 0; i < swapChainDetails.imageviews.size(); i++){
-        VkFramebufferCreateInfo createInfo{};
-        createInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-        createInfo.renderPass = renderPass;
-        createInfo.attachmentCount = 1;
-        createInfo.pAttachments = &swapChainDetails.imageviews[i];
-        createInfo.width = swapChainDetails.extent.width;
-        createInfo.height = swapChainDetails.extent.height;
-        createInfo.layers = 1;
-
-        REPORT_ERROR(vkCreateFramebuffer(device, &createInfo, nullptr, &framebuffers[i]), "Failed to create frame buffer");
+    framebuffers.resize(swapChain.imageCount());
+    for(int i = 0; i < framebuffers.size(); i++){
+        framebuffers[i] = VulkanFramebuffer{device, renderPass, {swapChain.imageViews[i] }
+                                               , static_cast<uint32_t>(width), static_cast<uint32_t>(height) };
     }
 }
 
@@ -784,8 +777,7 @@ void VulkanBaseApp::createRenderPass() {
     createInfo.dependencyCount = 1;
     createInfo.pDependencies = &dependency;
 
-    vkRenderPass = VulkanRenderPass{ device, {attachmentDesc}, {subpassDesc }, {dependency}};
-    renderPass = vkRenderPass.renderPass;
+    renderPass = VulkanRenderPass{device, {attachmentDesc}, {subpassDesc }, {dependency}};
 //    REPORT_ERROR(vkCreateRenderPass(device, &createInfo, nullptr, &renderPass), "Failed to create Render pass");
 }
 

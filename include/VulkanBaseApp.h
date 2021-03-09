@@ -16,6 +16,7 @@
 #include "VulkanSurface.h"
 #include "VulkanSwapChain.h"
 #include "VulkanRenderPass.h"
+#include "VulkanFramebuffer.h"
 
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #define GLM_FORCE_RADIANS
@@ -226,8 +227,7 @@ private:
     VkCommandPool commandPool = VK_NULL_HANDLE;
     std::vector<VkCommandBuffer> commandBuffers;
     VkCommandBuffer pushConstantCmdBuffer;
-    VulkanRenderPass vkRenderPass;
-    VkRenderPass renderPass = VK_NULL_HANDLE;
+    VulkanRenderPass renderPass;
 
     VkPipeline pipeline = VK_NULL_HANDLE;
     VkDescriptorSetLayout descriptorSetLayout;
@@ -235,7 +235,7 @@ private:
     VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
     VkPipelineLayout layout = VK_NULL_HANDLE;
 
-    std::vector<VkFramebuffer> framebuffers;
+    std::vector<VulkanFramebuffer> framebuffers;
     std::vector<VkSemaphore> imageAcquired;
     std::vector<VkSemaphore> renderingFinished;
     std::vector<VkFence> inFlightFences;
