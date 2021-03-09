@@ -12,6 +12,9 @@
 #include "primitives.h"
 #include "vk_mem_alloc.h"
 #include "VulkanDevice.h"
+#include "VulkanResource.h"
+#include "VulkanSurface.h"
+
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #define GLM_FORCE_RADIANS
 #include <glm/glm.hpp>
@@ -122,6 +125,8 @@ private:
 
     void drawFrame();
 
+    void sendPushConstants();
+
     void update(float time);
 
     template<typename Command>
@@ -146,8 +151,6 @@ private:
 
     VkPresentModeKHR choosePresentMode(std::vector<VkPresentModeKHR> &presentModes);
 
-    void getQueueFamily();
-
     void createLogicalDevice();
 
     void mainLoop();
@@ -157,8 +160,6 @@ private:
     float currentTime();
 
     VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo();
-
-    void createMemoryAllocator();
 
     void cleanupSwapChain();
 
@@ -187,8 +188,7 @@ private:
     int height;
     VkInstance instance = VK_NULL_HANDLE;
     VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
-    VkDevice device = VK_NULL_HANDLE;
-    VulkanDevice vulkanDevice;
+    VulkanDevice device;
     GLFWwindow* window = nullptr;
     std::vector<const char*> instanceExtensions;
     std::vector<const char*> validationLayers;
@@ -201,7 +201,7 @@ private:
 
     VmaAllocator memoryAllocator;
 
-    VkSurfaceKHR surface = VK_NULL_HANDLE;
+    VulkanSurface surface;
     SwapChainDetails swapChainDetails;
 
     std::vector<Vertex> vertices = {
@@ -215,13 +215,14 @@ private:
         0, 1, 2, 2, 3, 0
     };
 
-    Buffer vertexBuffer;
-    Buffer indexBuffer;
+    VulkanBuffer vertexBuffer;
+    VulkanBuffer indexBuffer;
     std::vector<Buffer> cameraBuffers;
     Texture texture;
     Camera camera;
     VkCommandPool commandPool = VK_NULL_HANDLE;
     std::vector<VkCommandBuffer> commandBuffers;
+    VkCommandBuffer pushConstantCmdBuffer;
     VkRenderPass renderPass = VK_NULL_HANDLE;
 
     VkPipeline pipeline = VK_NULL_HANDLE;

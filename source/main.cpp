@@ -4,7 +4,6 @@
 
 int main() {
  //   spdlog::set_level(spdlog::level::debug);
-
    try{
         VulkanBaseApp app{"Boot strap"};
         app.run();

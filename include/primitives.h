@@ -28,6 +28,37 @@ struct Vertex{
 using Vertices = std::vector<Vertex>;
 using Indices = std::vector<uint32_t>;
 
+struct PhongMaterial{
+    VkDescriptorSet descriptorSet;
+};
+
+struct PBRMaterial;
+
+template<typename Material>
+struct Primitive{
+    uint32_t firstIndex;
+    uint32_t indexCount;
+    uint32_t firstVertex;
+    uint32_t vertexCount;
+    Material* material;
+
+    struct {
+        glm::vec3 min;
+        glm::vec3 max;
+    } bounds;
+
+    void setBounds(glm::vec3 min, glm::vec3 max){
+        bounds.min = min;
+        bounds.max = max;
+    }
+
+    Primitive(uint32_t firstIndex, uint32_t indexCount, Material* material = nullptr)
+        :firstIndex(firstIndex)
+        , indexCount(indexCount)
+        , material(material)
+        {};
+};
+
 struct Mesh{
     Vertices vertices;
     Indices indices;

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "common.h"
+#include "VulkanResource.h"
 
 struct VulkanDevice{
 
@@ -22,8 +23,9 @@ struct VulkanDevice{
 
     VulkanDevice() = default;
 
-    explicit VulkanDevice(VkPhysicalDevice pDevice)
-    : physicalDevice(pDevice)
+    explicit VulkanDevice(VkInstance instance, VkPhysicalDevice pDevice)
+    : instance(instance)
+    , physicalDevice(pDevice)
     {
     }
 
@@ -40,15 +42,20 @@ struct VulkanDevice{
         logicalDevice = source.logicalDevice;
         queueFamilyIndex = source.queueFamilyIndex;
         queues = source.queues;
+        allocator = source.allocator;
+        instance = source.instance;
 
         source.physicalDevice = VK_NULL_HANDLE;
         source.logicalDevice = VK_NULL_HANDLE;
+        source.allocator = VK_NULL_HANDLE;
+        source.instance = VK_NULL_HANDLE;
 
         return *this;
     }
 
     ~VulkanDevice(){
         if(logicalDevice){
+            vmaDestroyAllocator(allocator);
             vkDestroyDevice(logicalDevice, nullptr);
         }
     }
@@ -109,6 +116,14 @@ struct VulkanDevice{
 
         ASSERT(vkCreateDevice(physicalDevice, &createInfo, nullptr, &logicalDevice));
         initQueues();
+
+        VmaAllocatorCreateInfo allocatorInfo{};
+        allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_2;
+        allocatorInfo.instance = instance;
+        allocatorInfo.physicalDevice = physicalDevice;
+        allocatorInfo.device = logicalDevice;
+
+        ASSERT(vmaCreateAllocator(&allocatorInfo, &allocator));
     }
 
     inline void initQueues(){
@@ -194,38 +209,29 @@ struct VulkanDevice{
         });
     }
 
-//    VulkanBuffer createBuffer(VkBufferUsageFlags usage, VkMemoryPropertyFlags memoryPropertyFlags, VkDeviceSize size, std::set<uint32_t> queueIndices = {}){
-//        VkBufferCreateInfo bufferInfo{};
-//        bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-//        bufferInfo.size = size;
-//        bufferInfo.usage = usage;
-//        if(!queueIndices.empty()){
-//            std::vector<uint32_t> pIndices{queueIndices.begin(), queueIndices.end()};
-//            bufferInfo.sharingMode = VK_SHARING_MODE_CONCURRENT;
-//            bufferInfo.queueFamilyIndexCount = queueIndices.size();
-//            bufferInfo.pQueueFamilyIndices = pIndices.data();
-//        }else{
-//            bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-//        }
-//        VkBuffer buffer;
-//        vkCreateBuffer(logicalDevice, &bufferInfo, nullptr, &buffer);
-//        VkMemoryRequirements memoryRequirements;
-//        vkGetBufferMemoryRequirements(logicalDevice, buffer, &memoryRequirements);
-//
-//        auto memoryTypeIndex = findMemoryType(memoryRequirements.memoryTypeBits, memoryPropertyFlags);
-//
-//        VkMemoryAllocateInfo allocInfo{};
-//        allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-//        allocInfo.allocationSize = memoryRequirements.size;
-//        allocInfo.memoryTypeIndex = memoryTypeIndex;
-//
-//        VkDeviceMemory memory;
-//        vkAllocateMemory(logicalDevice, &allocInfo, nullptr, &memory);
-//
-//        vkBindBufferMemory(logicalDevice, buffer, memory, 0);
-//
-//        return VulkanBuffer{logicalDevice, buffer, memory, size};
-//    }
+    VulkanBuffer createBuffer(VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage, VkDeviceSize size, std::set<uint32_t> queueIndices = {}){
+        VkBufferCreateInfo bufferInfo{};
+        bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+        bufferInfo.size = size;
+        bufferInfo.usage = usage;
+        if(!queueIndices.empty()){
+            std::vector<uint32_t> pIndices{queueIndices.begin(), queueIndices.end()};
+            bufferInfo.sharingMode = VK_SHARING_MODE_CONCURRENT;
+            bufferInfo.queueFamilyIndexCount = queueIndices.size();
+            bufferInfo.pQueueFamilyIndices = pIndices.data();
+        }else{
+            bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        }
+        VkBuffer buffer;
+
+        VmaAllocationCreateInfo allocInfo{};
+        allocInfo.usage = memoryUsage;
+        VmaAllocation allocation;
+
+        ASSERT(vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &buffer, &allocation, nullptr));
+
+        return VulkanBuffer{allocator, buffer, allocation, size};
+    }
 
     operator VkDevice() const {
         return logicalDevice;
@@ -235,6 +241,8 @@ struct VulkanDevice{
         return physicalDevice;
     }
 
+    VkInstance instance = VK_NULL_HANDLE;
     VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
     VkDevice logicalDevice = VK_NULL_HANDLE;
+    VmaAllocator allocator = VK_NULL_HANDLE;
 };

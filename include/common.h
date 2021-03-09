@@ -23,6 +23,7 @@ constexpr bool debugMode = false;
 #include <vulkan/vulkan.h>
 #include <spdlog/spdlog.h>
 #include <chrono>
+#include <vk_mem_alloc.h>
 
 namespace chrono = std::chrono;
 
