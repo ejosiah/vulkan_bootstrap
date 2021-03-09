@@ -46,7 +46,7 @@ struct VulkanSwapChain{
 
         this->extent = extent;
         this->format = surfaceFormat.format;
-        this->device = device;
+        this->device = const_cast<VulkanDevice*>(&device);
         this->images = get<VkImage>([&](uint32_t* count, VkImage* ptr){ vkGetSwapchainImagesKHR(device, swapChain, count, ptr); });
         createImageViews();
 
@@ -75,9 +75,9 @@ struct VulkanSwapChain{
 
     ~VulkanSwapChain(){
         if(swapChain){
-            vkDestroySwapchainKHR(device, swapChain, nullptr);
+            vkDestroySwapchainKHR(*device, swapChain, nullptr);
             for(auto& imageView : imageViews){
-                vkDestroyImageView(device, imageView, nullptr);
+                vkDestroyImageView(*device, imageView, nullptr);
             }
         }
     }
@@ -125,7 +125,7 @@ struct VulkanSwapChain{
             createInfo.subresourceRange.layerCount = 1;
             createInfo.subresourceRange.levelCount = 1;
 
-            ASSERT(vkCreateImageView(device, &createInfo, nullptr, &imageViews[i]));
+            ASSERT(vkCreateImageView(*device, &createInfo, nullptr, &imageViews[i]));
         }
     }
 
@@ -142,10 +142,40 @@ struct VulkanSwapChain{
         return &swapChain;
     }
 
+    uint32_t acquireNextImage(VkSemaphore semaphore, VkFence fence = VK_NULL_HANDLE, uint64_t timeout = UINT64_MAX) const  {
+        uint32_t imageIndex;
+        state = vkAcquireNextImageKHR(*device, swapChain, timeout, semaphore, fence, &imageIndex);
+
+        return imageIndex;
+    }
+
+    void present(uint32_t imageIndex, const std::vector<VkSemaphore>& waitSemaphores) const {
+        VkPresentInfoKHR presentInfo{};
+        presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+        presentInfo.waitSemaphoreCount = COUNT(waitSemaphores);
+        presentInfo.pWaitSemaphores = waitSemaphores.data();
+        presentInfo.swapchainCount = 1;
+        presentInfo.pSwapchains = &swapChain;
+        presentInfo.pImageIndices = &imageIndex;
+
+        state = vkQueuePresentKHR(device->queues.present, &presentInfo);
+    }
+
+    bool isOutOfDate() const {
+        return state == VK_ERROR_OUT_OF_DATE_KHR;
+    }
+
+    bool isSubOptimal() const {
+        return state == VK_SUBOPTIMAL_KHR;
+    }
+
     VkSwapchainKHR swapChain = VK_NULL_HANDLE;
-    VkDevice device = VK_NULL_HANDLE;
+    VulkanDevice* device;
     VkFormat format = VK_FORMAT_UNDEFINED;
     VkExtent2D extent{0, 0};
     std::vector<VkImage> images;
     std::vector<VkImageView> imageViews;
+
+private:
+    mutable VkResult state = VK_SUCCESS;
 };

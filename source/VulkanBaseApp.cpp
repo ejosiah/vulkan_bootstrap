@@ -797,10 +797,8 @@ void VulkanBaseApp::createSyncObjects() {
 
 void VulkanBaseApp::drawFrame() {
     vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
-    uint32_t imageIndex;
-    auto res = vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, imageAcquired[currentFrame], VK_NULL_HANDLE, &imageIndex);
-
-    if(res == VK_ERROR_OUT_OF_DATE_KHR ) {
+    auto imageIndex = swapChain.acquireNextImage(imageAcquired[currentFrame]);
+    if(swapChain.isOutOfDate()) {
         recreateSwapChain();
         return;
     }
@@ -828,16 +826,17 @@ void VulkanBaseApp::drawFrame() {
 
     REPORT_ERROR(vkQueueSubmit(device.queues.graphics, 1, &submitInfo, inFlightFences[currentFrame]), "Failed to submit command");
 
-    VkPresentInfoKHR presentInfo{};
-    presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-    presentInfo.waitSemaphoreCount = 1;
-    presentInfo.pWaitSemaphores = &renderingFinished[currentFrame];
-    presentInfo.swapchainCount = 1;
-    presentInfo.pSwapchains = swapChain;
-    presentInfo.pImageIndices = &imageIndex;
-
-   res =  vkQueuePresentKHR(device.queues.present, &presentInfo);
-    if(res == VK_SUBOPTIMAL_KHR || res == VK_ERROR_OUT_OF_DATE_KHR || resized) {
+//    VkPresentInfoKHR presentInfo{};
+//    presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+//    presentInfo.waitSemaphoreCount = 1;
+//    presentInfo.pWaitSemaphores = &renderingFinished[currentFrame];
+//    presentInfo.swapchainCount = 1;
+//    presentInfo.pSwapchains = swapChain;
+//    presentInfo.pImageIndices = &imageIndex;
+//
+//   res =  vkQueuePresentKHR(device.queues.present, &presentInfo);
+    swapChain.present(imageIndex, { renderingFinished[currentFrame] });
+    if(swapChain.isSubOptimal() || swapChain.isOutOfDate() || resized) {
         resized = false;
         recreateSwapChain();
         return;
