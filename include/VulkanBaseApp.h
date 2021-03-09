@@ -58,14 +58,6 @@ struct SwapChainSupportDetails{
     std::vector<VkPresentModeKHR> presentMode;
 };
 
-struct SwapChainDetails{
-    VkSwapchainKHR swapchain;
-    VkFormat format;
-    VkExtent2D extent;
-    std::vector<VkImage> images;
-    std::vector<VkImageView> imageviews;
-};
-
 struct ShaderModule{
     ShaderModule(const std::string& path, VkDevice device);
     ~ShaderModule();
