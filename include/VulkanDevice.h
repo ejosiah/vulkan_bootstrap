@@ -2,6 +2,9 @@
 
 #include "common.h"
 #include "VulkanResource.h"
+#include "VulkanRAII.h"
+#include "VulkanPipelineLayout.h"
+#include "VulkanDescriptorSet.h"
 
 struct VulkanDevice{
 
@@ -239,6 +242,49 @@ struct VulkanDevice{
 
     operator VkPhysicalDevice() const {
         return physicalDevice;
+    }
+
+    inline VulkanPipeline createGraphicsPipeline(const VkGraphicsPipelineCreateInfo& createInfo, VkPipelineCache pipelineCache = VK_NULL_HANDLE) const {
+        assert(logicalDevice);
+        VkPipeline pipeline;
+        ASSERT(vkCreateGraphicsPipelines(logicalDevice, pipelineCache, 1, &createInfo, nullptr, &pipeline));
+        return VulkanPipeline { logicalDevice, pipeline};
+    }
+
+    inline std::vector<VulkanPipeline> createGraphicsPipelines(const std::vector<VkGraphicsPipelineCreateInfo>& createInfos, VkPipelineCache pipelineCache = VK_NULL_HANDLE) const {
+        assert(logicalDevice);
+        std::vector<VkPipeline> pipelines(createInfos.size());
+        ASSERT(vkCreateGraphicsPipelines(logicalDevice, pipelineCache, COUNT(createInfos), createInfos.data(), nullptr, pipelines.data()));
+
+        std::vector<VulkanPipeline> vkPipelines(createInfos.size());
+        std::transform(begin(pipelines), end(pipelines), begin(vkPipelines), [&](auto pipeline){
+            return VulkanPipeline{ logicalDevice, pipeline };
+        });
+        return vkPipelines;
+    }
+
+    inline VulkanPipelineLayout createPipelineLayout(const std::vector<VkDescriptorSetLayout>& layouts = {}
+            , const std::vector<VkPushConstantRange>& ranges = {}) const {
+        assert(logicalDevice);
+        return VulkanPipelineLayout{ logicalDevice, layouts, ranges };
+    }
+
+    inline VulkanDescriptorPool createDescriptorPool(uint32_t maxSet, const std::vector<VkDescriptorPoolSize>& poolSizes) const {
+        assert(logicalDevice);
+        return VulkanDescriptorPool{ logicalDevice, maxSet, poolSizes };
+    }
+
+    inline VulkanDescriptorSetLayout createDescriptorSetLayout(std::vector<VkDescriptorSetLayoutBinding>& bindings, VkDescriptorSetLayoutCreateFlags flags = 0u) const {
+        assert(logicalDevice);
+        VkDescriptorSetLayoutCreateInfo createInfo{};
+        createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+        createInfo.flags = flags;
+        createInfo.bindingCount = COUNT(bindings);
+        createInfo.pBindings = bindings.data();
+
+        VkDescriptorSetLayout setLayout;
+        ASSERT(vkCreateDescriptorSetLayout(logicalDevice, &createInfo, nullptr, &setLayout));
+        return VulkanDescriptorSetLayout{ logicalDevice, setLayout };
     }
 
     VkInstance instance = VK_NULL_HANDLE;

@@ -264,8 +264,7 @@ void VulkanBaseApp::createVertexBuffer() {
 }
 
 void VulkanBaseApp::createIndexBuffer() {
-//    VkDeviceSize size = sizeof(indices[0]) * indices.size();
-    VkDeviceSize size = sizeof(indices[0]) * mesh.indices.size();
+    VkDeviceSize size = sizeof(mesh.indices[0]) * mesh.indices.size();
 
     VulkanBuffer stagingBuffer = device.createBuffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, size);
     stagingBuffer.copy(mesh.indices.data(), size);
@@ -397,22 +396,6 @@ void VulkanBaseApp::createTextureBuffers() {
 
     auto res = vkCreateSampler(device, &samplerInfo, nullptr, &texture.sampler);
     REPORT_ERROR(res, "Failed to create texture sampler!");
-}
-
-uint32_t VulkanBaseApp::findMemoryTypeIndex(uint32_t memoryTypeBitsReq, VkMemoryPropertyFlags requiredProperties) {
-    VkPhysicalDeviceMemoryProperties memoryProperties;
-    vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memoryProperties);
-    for(uint32_t memoryIndex = 0; memoryIndex < memoryProperties.memoryTypeCount; memoryIndex++){
-        const uint32_t memoryTypeBits = (1u << memoryIndex);
-        const bool isRequiredMemoryType = memoryTypeBits & memoryTypeBitsReq;
-
-        const bool hasRequiredMemoryProperties = memoryProperties.memoryTypes[memoryIndex].propertyFlags & requiredProperties;
-
-        if(isRequiredMemoryType && hasRequiredMemoryProperties){
-            return memoryIndex;
-        }
-    }
-    throw std::runtime_error{"Failed to find Required memory type"};
 }
 
 void VulkanBaseApp::transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout,
@@ -621,13 +604,7 @@ void VulkanBaseApp::createGraphicsPipeline() {
     range.offset = 0;
     range.size = sizeof(Camera);
 
-    VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
-    pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipelineLayoutInfo.setLayoutCount = 1;
-    pipelineLayoutInfo.pSetLayouts = &descriptorSetLayout;
-    pipelineLayoutInfo.pushConstantRangeCount = 1;
-    pipelineLayoutInfo.pPushConstantRanges = &range;
-    REPORT_ERROR(vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &layout), "Failed to create pipeline layout");
+    layout = device.createPipelineLayout({descriptorSetLayout }, {range });
 
     VkGraphicsPipelineCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
@@ -647,8 +624,9 @@ void VulkanBaseApp::createGraphicsPipeline() {
     createInfo.subpass = 0;
     createInfo.basePipelineIndex = -1;
     createInfo.basePipelineHandle = VK_NULL_HANDLE;
-
-    REPORT_ERROR(vkCreateGraphicsPipelines(device, nullptr, 1, &createInfo, nullptr, &pipeline), "Failed to create pipeline");
+    //VkPipeline lPipeline;
+    //REPORT_ERROR(vkCreateGraphicsPipelines(device, nullptr, 1, &createInfo, nullptr, &lPipeline), "Failed to create pipeline");
+    pipeline = device.createGraphicsPipeline(createInfo);
 }
 
 void VulkanBaseApp::createRenderPass() {
@@ -807,7 +785,7 @@ void VulkanBaseApp::createDescriptorSetLayout() {
     createInfo.bindingCount = static_cast<uint32_t>(bindings.size());
     createInfo.pBindings = bindings.data();
 
-    REPORT_ERROR(vkCreateDescriptorSetLayout(device, &createInfo, nullptr, &descriptorSetLayout), "Failed to create descriptor set layout");
+    descriptorSetLayout = device.createDescriptorSetLayout(bindings);
 }
 
 void VulkanBaseApp::createDescriptorPool() {
@@ -826,19 +804,12 @@ void VulkanBaseApp::createDescriptorPool() {
             uniformPoolSize, texturePoolSize
     };
 
-
-    VkDescriptorPoolCreateInfo createPoolInfo{};
-    createPoolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    createPoolInfo.maxSets = swapChain.imageCount();
-    createPoolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
-    createPoolInfo.pPoolSizes = poolSizes.data();
-
-    REPORT_ERROR(vkCreateDescriptorPool(device, &createPoolInfo, nullptr, &descriptorPool), "Failed to create descriptor pool");
+   descriptorPool = device.createDescriptorPool(swapChain.imageCount(), poolSizes);
 }
 
 void VulkanBaseApp::createDescriptorSet() {
-
     const auto swapChainImageCount = static_cast<uint32_t>(swapChain.imageCount());
+    descriptorSets.resize(swapChainImageCount);
 
     std::vector<VkDescriptorSetLayout> layouts(swapChainImageCount, descriptorSetLayout);
     VkDescriptorSetAllocateInfo allocInfo{};
@@ -907,12 +878,10 @@ float VulkanBaseApp::currentTime() {
 
 void VulkanBaseApp::cleanupSwapChain() {
     vkFreeCommandBuffers(device, commandPool, static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
-    vkDestroyPipeline(device, pipeline, nullptr);
-    vkDestroyPipelineLayout(device, layout, nullptr);
-    vkDestroyDescriptorPool(device, descriptorPool, nullptr);
-    vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
-
-
+    dispose(pipeline);
+    dispose(layout);
+    dispose(descriptorPool);
+    dispose(descriptorSetLayout);
     for(auto& framebuffer : framebuffers) dispose(framebuffer);
     dispose(renderPass);
 

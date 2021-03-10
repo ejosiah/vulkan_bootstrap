@@ -17,6 +17,8 @@
 #include "VulkanSwapChain.h"
 #include "VulkanRenderPass.h"
 #include "VulkanFramebuffer.h"
+#include "VulkanRAII.h"
+#include "VulkanDescriptorSet.h"
 
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #define GLM_FORCE_RADIANS
@@ -130,8 +132,6 @@ private:
 
     void createTextureBuffers();
 
-    uint32_t findMemoryTypeIndex(uint32_t memoryTypeBitsReq, VkMemoryPropertyFlags requiredProperties);
-
     void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout,
                                VkImageLayout newLayout);
 
@@ -188,17 +188,6 @@ private:
     VulkanSurface surface;
     VulkanSwapChain swapChain;
 
-    std::vector<Vertex> vertices = {
-            {{-0.5f, -0.5f, 0.0f, 1.0f}, glm::vec3(0), {1.0f, 0.0f, 0.0f}, glm::vec2(0)},
-            {{0.5f, -0.5f, 0.0f, 1.0f}, glm::vec3(0), {0.0f, 1.0f, 0.0f}, glm::vec2(0)},
-            {{0.5f, 0.5f, 0.0f, 1.0f}, glm::vec3(0), {0.0f, 0.0f, 1.0f}, glm::vec2(0)},
-            {{-0.5f, 0.5f, 0.0f, 1.0f}, glm::vec3(0), {1.0f, 1.0f, 1.0f}, glm::vec2(0)}
-    };
-
-    std::vector<uint32_t> indices = {
-        0, 1, 2, 2, 3, 0
-    };
-
     VulkanBuffer vertexBuffer;
     VulkanBuffer indexBuffer;
     std::vector<Buffer> cameraBuffers;
@@ -209,11 +198,11 @@ private:
     VkCommandBuffer pushConstantCmdBuffer;
     VulkanRenderPass renderPass;
 
-    VkPipeline pipeline = VK_NULL_HANDLE;
-    VkDescriptorSetLayout descriptorSetLayout;
+    VulkanPipeline pipeline;
+    VulkanDescriptorSetLayout descriptorSetLayout;
     std::vector<VkDescriptorSet> descriptorSets;
-    VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
-    VkPipelineLayout layout = VK_NULL_HANDLE;
+    VulkanDescriptorPool descriptorPool;
+    VulkanPipelineLayout layout;
 
     std::vector<VulkanFramebuffer> framebuffers;
     std::vector<VkSemaphore> imageAcquired;
