@@ -193,7 +193,7 @@ private:
     std::vector<Buffer> cameraBuffers;
     Texture texture;
     Camera camera;
-    VkCommandPool commandPool = VK_NULL_HANDLE;
+    VulkanCommandPool commandPool;
     std::vector<VkCommandBuffer> commandBuffers;
     VkCommandBuffer pushConstantCmdBuffer;
     VulkanRenderPass renderPass;

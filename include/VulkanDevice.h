@@ -5,6 +5,7 @@
 #include "VulkanRAII.h"
 #include "VulkanPipelineLayout.h"
 #include "VulkanDescriptorSet.h"
+#include "VulkanCommandBuffer.h"
 
 struct VulkanDevice{
 
@@ -285,6 +286,11 @@ struct VulkanDevice{
         VkDescriptorSetLayout setLayout;
         ASSERT(vkCreateDescriptorSetLayout(logicalDevice, &createInfo, nullptr, &setLayout));
         return VulkanDescriptorSetLayout{ logicalDevice, setLayout };
+    }
+
+    inline VulkanCommandPool createCommandPool(uint32_t queueFamilyIndex, VkCommandPoolCreateFlags flags = 0) const {
+        assert(logicalDevice);
+        return VulkanCommandPool{ logicalDevice, queueFamilyIndex, flags };
     }
 
     VkInstance instance = VK_NULL_HANDLE;

@@ -163,7 +163,8 @@ void VulkanBaseApp::createCommandPool() {
     createInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
     createInfo.queueFamilyIndex = device.queueFamilyIndex.graphics.value();
 
-    REPORT_ERROR(vkCreateCommandPool(device, &createInfo, nullptr, &commandPool), "Failed to create command pool!");
+//    REPORT_ERROR(vkCreateCommandPool(device, &createInfo, nullptr, &commandPool), "Failed to create command pool!");
+    commandPool = device.createCommandPool(*device.queueFamilyIndex.graphics);
 }
 
 void VulkanBaseApp::createCommandBuffer() {
@@ -877,7 +878,7 @@ float VulkanBaseApp::currentTime() {
 }
 
 void VulkanBaseApp::cleanupSwapChain() {
-    vkFreeCommandBuffers(device, commandPool, static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
+    commandPool.free(commandBuffers);
     dispose(pipeline);
     dispose(layout);
     dispose(descriptorPool);
