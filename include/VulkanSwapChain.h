@@ -41,8 +41,9 @@ struct VulkanSwapChain{
         createInfo.presentMode = presentMode;
         createInfo.clipped = true;
         createInfo.oldSwapchain = oldSwapChain;
-
-        ASSERT(vkCreateSwapchainKHR(device, &createInfo, nullptr, &swapChain));
+        auto res = vkCreateSwapchainKHR(device, &createInfo, nullptr, &swapChain);
+//        ASSERT(vkCreateSwapchainKHR(device, &createInfo, nullptr, &swapChain));
+        ASSERT(res);
 
         this->extent = extent;
         this->format = surfaceFormat.format;

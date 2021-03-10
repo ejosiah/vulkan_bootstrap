@@ -65,6 +65,11 @@ Func instanceProc(const std::string& procName, VkInstance instance){
     return proc;
 }
 
+template <typename T>
+inline void dispose(T& t){
+    T temp = std::move(t);
+}
+
 #define DISABLE_COPY(TypeName) \
 TypeName(const TypeName&) = delete; \
 TypeName& operator=(const TypeName&) = delete;

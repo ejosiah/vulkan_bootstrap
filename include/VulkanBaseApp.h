@@ -52,11 +52,6 @@ struct Texture{
     VkSampler sampler;
 };
 
-struct SwapChainSupportDetails{
-    VkSurfaceCapabilitiesKHR capabilities;
-    std::vector<VkSurfaceFormatKHR> formats;
-    std::vector<VkPresentModeKHR> presentMode;
-};
 
 struct ShaderModule{
     ShaderModule(const std::string& path, VkDevice device);
@@ -139,12 +134,6 @@ private:
 
     void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout,
                                VkImageLayout newLayout);
-
-    SwapChainSupportDetails querySwapChainSupport();
-
-    VkSurfaceFormatKHR chooseSurfaceFormat(std::vector<VkSurfaceFormatKHR>& formats);
-
-    VkPresentModeKHR choosePresentMode(std::vector<VkPresentModeKHR> &presentModes);
 
     void createLogicalDevice();
 

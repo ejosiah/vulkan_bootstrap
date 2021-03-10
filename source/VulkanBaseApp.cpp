@@ -127,89 +127,8 @@ void VulkanBaseApp::createInstance() {
 }
 
 void VulkanBaseApp::createSwapChain() {
+    glfwGetFramebufferSize(window, &width, &height);
     swapChain = VulkanSwapChain{ device, surface, static_cast<uint32_t>(width), static_cast<uint32_t>(height)};
-//    SwapChainSupportDetails details = querySwapChainSupport();
-//    VkSurfaceFormatKHR format = chooseSurfaceFormat(details.formats);
-//    VkPresentModeKHR mode = choosePresentMode(details.presentMode);
-//    VkSwapchainCreateInfoKHR createInfo{};
-//    createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-//    createInfo.surface = surface;
-//    createInfo.minImageCount = details.capabilities.minImageCount + 1;
-//    createInfo.imageFormat = format.format;
-//    createInfo.imageColorSpace = format.colorSpace;
-//    createInfo.imageExtent = details.capabilities.currentExtent;
-//    createInfo.imageArrayLayers = 1;
-//    createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-//
-//    if(device.queueFamilyIndex.graphics.value() == device.queueFamilyIndex.present.value()){
-//        createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-//        createInfo.queueFamilyIndexCount = 0;
-//        createInfo.pQueueFamilyIndices = nullptr;
-//    }else{
-//        std::vector<uint32_t> indices{device.queueFamilyIndex.graphics.value(), device.queueFamilyIndex.present.value()};
-//        createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
-//        createInfo.queueFamilyIndexCount = 2;
-//        createInfo.pQueueFamilyIndices = indices.data();
-//    }
-//    createInfo.preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
-//    createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-//    createInfo.presentMode = mode;
-//    createInfo.clipped = VK_TRUE;
-//
-//    REPORT_ERROR(vkCreateSwapchainKHR(device, &createInfo, nullptr, &swapChain), "Failed to create Swap chain");
-//    uint32_t size;
-//    vkGetSwapchainImagesKHR(device, swapChain, &size, nullptr);
-//    swapChainDetails.images.resize(size);
-//    vkGetSwapchainImagesKHR(device, swapChain, &size, swapChainDetails.images.data());
-//
-//    swapChain.extent = details.capabilities.currentExtent;
-//    swapChain.format = format.format;
-//    swapChain.imageViews.resize(size);
-//    VkImageViewCreateInfo imageViewCreateInfo{};
-//    VkImageSubresourceRange   range{};
-//    range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-//    range.baseMipLevel = 0;
-//    range.baseArrayLayer = 0;
-//    range.layerCount = 1;
-//    range.levelCount = 1;
-//
-//    for(auto i = 0; i < size; i++){
-//        imageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-//        imageViewCreateInfo.image = swapChainDetails.images[i];
-//        imageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-//        imageViewCreateInfo.format = swapChain.format;
-//        imageViewCreateInfo.subresourceRange = range;
-//        REPORT_ERROR(vkCreateImageView(device, &imageViewCreateInfo, nullptr, &swapChain.imageViews[i]), "Failed to create image view");
-//    }
-
-}
-
-VkSurfaceFormatKHR VulkanBaseApp::chooseSurfaceFormat(std::vector<VkSurfaceFormatKHR>& formats){
-    return ctn::find_if(formats, [](auto format){
-        return format.format == VK_FORMAT_B8G8R8A8_SRGB && format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
-    }).value_or(formats.front());
-}
-
-VkPresentModeKHR VulkanBaseApp::choosePresentMode(std::vector<VkPresentModeKHR> &presentModes) {
-    return ctn::find(presentModes, VK_PRESENT_MODE_MAILBOX_KHR).value_or(VK_PRESENT_MODE_FIFO_KHR);
-}
-
-SwapChainSupportDetails VulkanBaseApp::querySwapChainSupport() {
-    SwapChainSupportDetails details;
-
-    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, surface, &details.capabilities);
-
-    uint32_t size;
-    vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &size, nullptr);
-    details.presentMode.resize(size);
-    vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &size, details.presentMode.data());
-
-    size = 0;
-    vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &size, nullptr);
-    details.formats.resize(size);
-    vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &size, details.formats.data());
-
-    return details;
 }
 
 void VulkanBaseApp::createLogicalDevice() {
@@ -220,7 +139,6 @@ void VulkanBaseApp::createLogicalDevice() {
 
 void VulkanBaseApp::pickPhysicalDevice() {
     surface = VulkanSurface{instance, window};
-//    REPORT_ERROR(glfwCreateWindowSurface(instance, window, nullptr, &surface), "Failed to load surface");
     auto pDevices = enumerate<VkPhysicalDevice>([&](uint32_t* size, VkPhysicalDevice* pDevice){
         return vkEnumeratePhysicalDevices(instance, size, pDevice);
     });
@@ -994,12 +912,11 @@ void VulkanBaseApp::cleanupSwapChain() {
     vkDestroyDescriptorPool(device, descriptorPool, nullptr);
     vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
 
-    for(auto& framebuffer : framebuffers) vkDestroyFramebuffer(device, framebuffer, nullptr);
-    vkDestroyRenderPass(device, renderPass, nullptr);
 
-    for(auto& imageView : swapChain.imageViews) vkDestroyImageView(device, imageView, nullptr);
-    vkDestroySwapchainKHR(device, swapChain, nullptr);
+    for(auto& framebuffer : framebuffers) dispose(framebuffer);
+    dispose(renderPass);
 
+    dispose(swapChain);
     for(auto& cameraBuffer : cameraBuffers){
         vmaDestroyBuffer(memoryAllocator, cameraBuffer, cameraBuffer.allocation);
     }
