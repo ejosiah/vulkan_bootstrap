@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD 17)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 add_definitions(
-        -DVK_USE_PLATFORM_WIN32_KHR
+#        -DVK_USE_PLATFORM_WIN32_KHR
         -DGLFW_INCLUDE_VULKAN
 #        -DGLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 )

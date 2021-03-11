@@ -178,7 +178,6 @@ private:
     std::vector<const char*> validationLayers;
     std::vector<const char*> deviceExtensions{
             VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-            VK_EXT_FULL_SCREEN_EXCLUSIVE_EXTENSION_NAME
     };
     VkDebugUtilsMessengerEXT debugMessenger;
     VulkanExtensions ext;

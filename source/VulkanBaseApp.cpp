@@ -11,7 +11,6 @@
 #include  <stb_image.h>
 #endif
 
-
 namespace chrono = std::chrono;
 
 ShaderModule::ShaderModule(const std::string& path, VkDevice device)
