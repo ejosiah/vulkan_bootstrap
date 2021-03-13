@@ -42,13 +42,17 @@ void Window::onKeyPress(GLFWwindow *window, int key, int scancode, int action, i
 }
 
 void Window::onResize(GLFWwindow *window, int width, int height) {
-    Window* self = reinterpret_cast<Window*>(glfwGetWindowUserPointer(window));
-    self->resized = true;
-    self->width = width;
-    self->height = height;
+    auto& self = getSelf(window);
+    self.resized = true;
+    self.width = width;
+    self.height = height;
+    self.resizeEvent.extent.x = static_cast<uint32_t>(width);
+    self.resizeEvent.extent.y = static_cast<uint32_t>(height);
+    self.fireWindowResize(self.resizeEvent);
 }
 
 void Window::initWindow() {
+    glfwSetErrorCallback(onError);
     if(!glfwInit()){
         throw std::runtime_error{"Failed to initialize GFLW"};
     }
@@ -73,5 +77,49 @@ void Window::initWindow() {
     window = glfwCreateWindow(width, height, title.data(), monitor, nullptr);
     glfwSetWindowUserPointer(window, this);
     glfwSetKeyCallback(window, onKeyPress);
+    glfwSetMouseButtonCallback(window, onMouseClick);
+    glfwSetCursorPosCallback(window, onMouseMove);
     glfwSetFramebufferSizeCallback(window, onResize);
+}
+
+void Window::onMouseClick(GLFWwindow *window, int button, int action, int mods) {
+    auto& self = getSelf(window);
+    auto& mouseEvent = self.mouseEvent;
+    switch(button){
+        case GLFW_MOUSE_BUTTON_LEFT:
+            mouseEvent.button = MouseEvent::Button::LEFT;
+            break;
+        case GLFW_MOUSE_BUTTON_RIGHT:
+            mouseEvent.button = MouseEvent::Button::RIGHT;
+            break;
+        case GLFW_MOUSE_BUTTON_MIDDLE:
+            mouseEvent.button = MouseEvent::Button::MIDDLE;
+            break;
+        default:
+            mouseEvent.button = MouseEvent::Button::NONE;
+    }
+
+    switch(action){
+        case GLFW_PRESS:
+            mouseEvent.state = MouseEvent::State::PRESS;
+            break;
+        case GLFW_RELEASE:
+            mouseEvent.state = MouseEvent::State::RELEASE;
+            break;
+        default:
+            mouseEvent.state = MouseEvent::State::NONE;
+    }
+    // TODO mods
+    self.fireMouseClick(mouseEvent);
+}
+
+void Window::onMouseMove(GLFWwindow *window, double x, double y) {
+    auto& self = getSelf(window);
+    self.mouseEvent.pos.x = static_cast<float>(x);
+    self.mouseEvent.pos.y = static_cast<float>(y);
+    self.fireMouseMove(self.mouseEvent);
+}
+
+void Window::onError(int error, const char* msg) {
+    spdlog::error("GLFW: id: {}, msg: {}", error, msg);
 }

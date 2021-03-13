@@ -66,7 +66,13 @@ protected:
         }
     }
 
+    static void onError(int error, const char* msg);
+
     static void onResize(GLFWwindow* window, int width, int height);
+
+    static void onMouseClick(GLFWwindow* window, int button, int action, int mods);
+
+    static void onMouseMove(GLFWwindow* window, double x, double y);
 
     static void onKeyPress(GLFWwindow* window, int key, int scancode, int action, int mods);
 
