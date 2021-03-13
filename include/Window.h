@@ -87,9 +87,9 @@ protected:
     bool resized = false;
     bool fullscreen;
     GLFWwindow* window = nullptr;
-    MouseEvent mouseEvent;
-    KeyEvent keyEvent;
-    ResizeEvent resizeEvent;
+    MouseEvent mouseEvent{};
+    KeyEvent keyEvent{};
+    ResizeEvent resizeEvent{};
 
 private:
     std::vector<MouseClickListener> mouseClickListeners;
