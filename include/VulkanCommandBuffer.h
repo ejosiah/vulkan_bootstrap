@@ -65,7 +65,7 @@ struct VulkanCommandPool{
     }
 
     template<typename Command>
-    inline void oneTime(VkQueue queue, Command&& command){
+    inline void oneTimeCommand(VkQueue queue, Command&& command) const {
         auto commandBuffer = allocate().front();
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;

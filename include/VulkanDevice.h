@@ -1,11 +1,12 @@
 #pragma once
 
 #include "common.h"
-#include "VulkanResource.h"
+#include "VulkanBuffer.h"
 #include "VulkanRAII.h"
 #include "VulkanPipelineLayout.h"
 #include "VulkanDescriptorSet.h"
 #include "VulkanCommandBuffer.h"
+#include "VulkanImage.h"
 
 struct VulkanDevice{
 
@@ -291,6 +292,23 @@ struct VulkanDevice{
     inline VulkanCommandPool createCommandPool(uint32_t queueFamilyIndex, VkCommandPoolCreateFlags flags = 0) const {
         assert(logicalDevice);
         return VulkanCommandPool{ logicalDevice, queueFamilyIndex, flags };
+    }
+
+    inline VulkanImage createImage(const VkImageCreateInfo& createInfo, VmaMemoryUsage usage) const{
+        VmaAllocationCreateInfo allocInfo{};
+        allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+        VkImage image;
+        VmaAllocation allocation;
+        vmaCreateImage(allocator, &createInfo, &allocInfo, &image, &allocation, nullptr);
+
+        return VulkanImage{ logicalDevice, allocator, image, allocation, createInfo.initialLayout, createInfo.extent };
+
+    }
+
+    inline VulkanSampler createSampler(const VkSamplerCreateInfo& createInfo){
+        VkSampler sampler;
+        ASSERT(vkCreateSampler(logicalDevice, &createInfo, nullptr, &sampler));
+        return VulkanSampler { logicalDevice, sampler};
     }
 
     VkInstance instance = VK_NULL_HANDLE;

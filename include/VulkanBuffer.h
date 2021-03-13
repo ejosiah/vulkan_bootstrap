@@ -1,6 +1,7 @@
 #pragma once
 
-#include "common.h"
+#include <vulkan/vulkan.h>
+#include <vk_mem_alloc.h>
 
 struct VulkanBuffer{
 
@@ -8,34 +9,31 @@ struct VulkanBuffer{
 
     VulkanBuffer() = default;
 
-    VulkanBuffer(VkBuffer buffer, VmaAllocation allocation, VkDeviceSize size, VmaAllocator allocator)
-    : buffer(buffer)
+    inline VulkanBuffer(VmaAllocator allocator, VkBuffer buffer, VmaAllocation allocation, VkDeviceSize size)
+    : allocator(allocator)
+    , buffer(buffer)
     , allocation(allocation)
     , size(size)
-    , allocator(allocator)
     {}
 
     VulkanBuffer(VulkanBuffer&& source) noexcept {
         operator=(static_cast<VulkanBuffer&&>(source));
     }
 
-    VulkanBuffer& operator=(VulkanBuffer&& source) noexcept {
-        if(&source == this) return *this;
-        this->buffer = source.buffer;
-        this->allocation = source.allocation;
-        this->allocator = source.allocator;
-        this->size  = source.size;
+    VulkanBuffer& operator=(VulkanBuffer&& source) noexcept{
+        allocator = source.allocator;
+        buffer = source.buffer;
+        allocation = source.allocation;
 
+        source.allocator = VK_NULL_HANDLE;
         source.buffer = VK_NULL_HANDLE;
         source.allocation = VK_NULL_HANDLE;
-        source.allocator = VK_NULL_HANDLE;
 
-        return * this;
+        return *this;
     }
 
-
-    void copy(void* source, VkDeviceSize size) const{
-        void * dest;
+    void copy(void* source, VkDeviceSize size) const {
+        void* dest;
         vmaMapMemory(allocator, allocation, &dest);
         memcpy(dest, source, size);
         vmaUnmapMemory(allocator, allocation);
@@ -44,12 +42,15 @@ struct VulkanBuffer{
     ~VulkanBuffer(){
         if(buffer){
             vmaDestroyBuffer(allocator, buffer, allocation);
-
         }
     }
 
+    operator VkBuffer() const {
+        return buffer;
+    }
+
+    VmaAllocator allocator = VK_NULL_HANDLE;
     VkBuffer buffer = VK_NULL_HANDLE;
     VmaAllocation allocation = VK_NULL_HANDLE;
     VkDeviceSize  size = 0;
-    VmaAllocator allocator = VK_NULL_HANDLE;
 };

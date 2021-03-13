@@ -12,7 +12,7 @@
 #include "primitives.h"
 #include "vk_mem_alloc.h"
 #include "VulkanDevice.h"
-#include "VulkanResource.h"
+#include "VulkanBuffer.h"
 #include "VulkanSurface.h"
 #include "VulkanSwapChain.h"
 #include "VulkanRenderPass.h"
@@ -35,23 +35,23 @@ constexpr bool enableValidation = true;
 
 constexpr int MAX_IN_FLIGHT_FRAMES = 2;
 
-template<typename Resource>
-struct VulkanResource{
-    Resource resource;
-    VmaAllocation allocation;
-
-    inline operator Resource() const {
-        return resource;
-    }
-};
-
-using Buffer  = VulkanResource<VkBuffer>;
-using Image = VulkanResource<VkImage>;
+//template<typename Resource>
+//struct VulkanResource{
+//    Resource resource;
+//    VmaAllocation allocation;
+//
+//    inline operator Resource() const {
+//        return resource;
+//    }
+//};
+//
+//using Buffer  = VulkanResource<VkBuffer>;
+//using Image = VulkanResource<VkImage>;
 
 struct Texture{
-    Image image;
-    VkImageView imageView;
-    VkSampler sampler;
+    VulkanImage image;
+    VulkanImageView imageView;
+    VulkanSampler sampler;
 };
 
 
@@ -121,9 +121,6 @@ private:
 
     void update(float time);
 
-    template<typename Command>
-    void oneTimeCommand(const VkQueue destination, Command&& command);
-
     void createVertexBuffer();
 
     void createIndexBuffer();
@@ -131,9 +128,6 @@ private:
     void createCameraBuffers();
 
     void createTextureBuffers();
-
-    void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout,
-                               VkImageLayout newLayout);
 
     void createLogicalDevice();
 
@@ -189,7 +183,7 @@ private:
 
     VulkanBuffer vertexBuffer;
     VulkanBuffer indexBuffer;
-    std::vector<Buffer> cameraBuffers;
+    std::vector<VulkanBuffer> cameraBuffers;
     Texture texture;
     Camera camera;
     VulkanCommandPool commandPool;

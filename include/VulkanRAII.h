@@ -67,4 +67,6 @@ using Vulkan##Resource = VulkanHandle<Vk##Resource, Resource##Deleter>;
 
 VULKAN_RAII(Pipeline)
 VULKAN_RAII(DescriptorSetLayout)
+VULKAN_RAII(ImageView)
+VULKAN_RAII(Sampler)
 VULKAN_RAII(Semaphore)
