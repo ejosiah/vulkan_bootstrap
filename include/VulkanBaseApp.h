@@ -123,8 +123,6 @@ private:
 
     void drawFrame();
 
-    void sendPushConstants();
-
     virtual void update(float time);
 
     void createVertexBuffer();
@@ -141,13 +139,11 @@ private:
 
     void createDebugMessenger();
 
-    float currentTime();
-
-//    VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo();
+    static float currentTime();
 
     void cleanupSwapChain();
 
-    void cleanup();
+    virtual void cleanup() {}
 
     static inline void onResize(GLFWwindow* window, int width, int height){
         VulkanBaseApp* self = reinterpret_cast<VulkanBaseApp*>(glfwGetWindowUserPointer(window));
@@ -162,55 +158,49 @@ private:
        }
     }
 
-//    static VkBool32 VKAPI_PTR  debugCallBack(
-//    VkDebugUtilsMessageSeverityFlagBitsEXT           messageSeverity,
-//            VkDebugUtilsMessageTypeFlagsEXT                  messageTypes,
-//    const VkDebugUtilsMessengerCallbackDataEXT*      pCallbackData,
-//    void*                                            pUserData);
-
 private:
     std::string_view name;
     int width;
     int height;
-    VulkanInstance vkInstance;
-    VulkanDebug vulkanDebug;
-    VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
-    VulkanDevice device;
     GLFWwindow* window = nullptr;
-    std::vector<const char*> instanceExtensions;
-    std::vector<const char*> validationLayers;
-    std::vector<const char*> deviceExtensions{
-            VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-    };
-//    VkDebugUtilsMessengerEXT debugMessenger; // TODO
-    VulkanExtensions ext;
+    VulkanInstance vkInstance;
+    VkInstance instance;
+    VulkanDebug vulkanDebug;
+    VulkanSurface surface;
+    VulkanDevice device;
+    VulkanSwapChain swapChain;
+    VulkanRenderPass renderPass;
+    VulkanPipelineLayout layout;
+    VulkanPipeline pipeline;
+    VulkanCommandPool commandPool;
+    VulkanDescriptorPool descriptorPool;
+    VulkanDescriptorSetLayout descriptorSetLayout;
+    std::vector<VulkanFramebuffer> framebuffers;
+    std::vector<VkCommandBuffer> commandBuffers;
+    std::vector<VkDescriptorSet> descriptorSets;
 
     VmaAllocator memoryAllocator;   // TODO remove
-
-    VulkanSurface surface;
-    VulkanSwapChain swapChain;
 
     VulkanBuffer vertexBuffer;
     VulkanBuffer indexBuffer;
     std::vector<VulkanBuffer> cameraBuffers;
     Texture texture;
     Camera camera;
-    VulkanCommandPool commandPool;
-    std::vector<VkCommandBuffer> commandBuffers;
     VkCommandBuffer pushConstantCmdBuffer;
-    VulkanRenderPass renderPass;
 
-    VulkanPipeline pipeline;
-    VulkanDescriptorSetLayout descriptorSetLayout;
-    std::vector<VkDescriptorSet> descriptorSets;
-    VulkanDescriptorPool descriptorPool;
-    VulkanPipelineLayout layout;
 
-    std::vector<VulkanFramebuffer> framebuffers;
     std::vector<VulkanSemaphore> imageAcquired;
     std::vector<VulkanSemaphore> renderingFinished;
     std::vector<VulkanFence> inFlightFences;
     std::vector<VulkanFence*> inFlightImages;
+
+    std::vector<const char*> instanceExtensions;
+    std::vector<const char*> validationLayers;
+    std::vector<const char*> deviceExtensions{
+            VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+    };
+    VulkanExtensions ext;
+
     uint32_t currentImageIndex;
     bool resized = false;
     int currentFrame = 0;

@@ -154,7 +154,6 @@ void VulkanBaseApp::pickPhysicalDevice() {
     });
 
     device = std::move(devices.front());
-    physicalDevice = device.physicalDevice;
     spdlog::info("selected device: {}", device.name());
 }
 
@@ -164,7 +163,6 @@ void VulkanBaseApp::createCommandPool() {
     createInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
     createInfo.queueFamilyIndex = device.queueFamilyIndex.graphics.value();
 
-//    REPORT_ERROR(vkCreateCommandPool(device, &createInfo, nullptr, &commandPool), "Failed to create command pool!");
     commandPool = device.createCommandPool(*device.queueFamilyIndex.graphics);
 }
 
@@ -788,47 +786,4 @@ void VulkanBaseApp::cleanupSwapChain() {
         dispose(cameraBuffer);
     }
 
-}
-void VulkanBaseApp::cleanup() {
-    cleanupSwapChain();
-    vkDestroySurfaceKHR(instance,surface, nullptr);
-    vkDestroyCommandPool(device, commandPool, nullptr);
-
-    vmaDestroyBuffer(memoryAllocator, vertexBuffer, vertexBuffer.allocation);
-    vmaDestroyBuffer(memoryAllocator, indexBuffer, indexBuffer.allocation);
-
-    vmaDestroyImage(memoryAllocator, texture.image, texture.image.allocation);
-    vkDestroyImageView(device, texture.imageView, nullptr);
-    vkDestroySampler(device, texture.sampler, nullptr);
-
-    for(int i = 0; i < MAX_IN_FLIGHT_FRAMES; i++) {
-        vkDestroySemaphore(device, imageAcquired[i], nullptr);
-        vkDestroySemaphore(device, renderingFinished[i], nullptr);
-        vkDestroyFence(device, inFlightFences[i], nullptr);
-    }
-
-    vmaDestroyAllocator(memoryAllocator);
-    vkDestroyDevice(device, nullptr);
-//    ext.destroyDebugUtilsMessenger(instance, debugMessenger, nullptr);
-    vkDestroyInstance(instance, nullptr);
-    glfwDestroyWindow(window);
-    glfwTerminate();
-}
-
-void VulkanBaseApp::sendPushConstants() {
-    unsigned char mvp[192];
-    memcpy(mvp, &camera, sizeof(Camera));
-
-    VkCommandBufferBeginInfo beginInfo{};
-    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    vkBeginCommandBuffer(pushConstantCmdBuffer, &beginInfo);
-    vkCmdPushConstants(pushConstantCmdBuffer, layout, VK_SHADER_STAGE_VERTEX_BIT, 0, 192u, mvp);
-    vkEndCommandBuffer(pushConstantCmdBuffer);
-
-    VkSubmitInfo submitInfo{};
-    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &pushConstantCmdBuffer;
-
-    vkQueueSubmit(device.queues.graphics, 1, &submitInfo, VK_NULL_HANDLE);
 }
