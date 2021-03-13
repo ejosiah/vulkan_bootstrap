@@ -10,6 +10,8 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include  <stb_image.h>
 #endif
+#include "keys.h"
+#include "events.h"
 
 namespace chrono = std::chrono;
 
@@ -29,9 +31,7 @@ ShaderModule::~ShaderModule() {
 }
 
 VulkanBaseApp::VulkanBaseApp(std::string_view name, int width, int height)
-: name(name)
-, width(width)
-, height(height)
+: Window(name, width, height)
 {
 }
 
@@ -42,29 +42,7 @@ void VulkanBaseApp::init() {
 }
 
 void VulkanBaseApp::initWindow() {
-    if(!glfwInit()){
-        throw std::runtime_error{"Failed to initialize GFLW"};
-    }
-    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    GLFWmonitor* monitor = nullptr;
-    if(fullscreen) {
-        auto mainMonitor = glfwGetPrimaryMonitor();
-        int numMonitors;
-        GLFWmonitor **monitors = glfwGetMonitors(&numMonitors);
-        for (int i = 0; i < numMonitors; i++) {
-            if (monitors[i] == mainMonitor) {
-                monitor = monitors[i];
-                break;
-            }
-        }
-        auto vidMode = glfwGetVideoMode(monitor);
-        width = vidMode->width;
-        height = vidMode->height;
-    }
-
-
-    window = glfwCreateWindow(width, height, name.data(), monitor, nullptr);
-    glfwSetWindowUserPointer(window, this);
+    Window::initWindow();
     uint32_t size;
     auto extensions = glfwGetRequiredInstanceExtensions(&size);
     instanceExtensions = std::vector<const char*>(extensions, extensions + size);
@@ -74,8 +52,6 @@ void VulkanBaseApp::initWindow() {
         instanceExtensions.push_back(VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME);
         validationLayers.push_back("VK_LAYER_KHRONOS_validation");
     }
-    glfwSetKeyCallback(window, onKeyPress);
-    glfwSetFramebufferSizeCallback(window, onResize);
 }
 
 void VulkanBaseApp::initVulkan() {
@@ -105,7 +81,7 @@ void VulkanBaseApp::createInstance() {
     VkApplicationInfo appInfo{};
     appInfo.sType  = VK_STRUCTURE_TYPE_APPLICATION_INFO;
     appInfo.applicationVersion = VK_MAKE_VERSION(0, 0, 0);
-    appInfo.pApplicationName = name.data();
+    appInfo.pApplicationName = title.data();
     appInfo.apiVersion = VK_API_VERSION_1_2;
     appInfo.pEngineName = "";
 
@@ -358,40 +334,9 @@ void VulkanBaseApp::mainLoop() {
     vkDeviceWaitIdle(device);
 }
 
-//VkBool32 VulkanBaseApp::debugCallBack(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
-//                                      VkDebugUtilsMessageTypeFlagsEXT messageTypes,
-//                                      const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData, void *pUserData) {
-//
-//    if(messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT){
-//        spdlog::debug(pCallbackData->pMessage);
-//    }
-//    if(messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT){
-//        spdlog::info(pCallbackData->pMessage);
-//    }
-//    if(messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT){
-//        spdlog::warn(pCallbackData->pMessage);
-//    }
-//    if(messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT){
-//        spdlog::error(pCallbackData->pMessage);
-//    }
-//
-//    return VK_FALSE;
-//}
 void VulkanBaseApp::createDebugMessenger() {
-//    auto debugInfo = debugCreateInfo();
-//    REPORT_ERROR(ext.createDebugUtilsMessenger(instance, &debugInfo, nullptr, &debugMessenger), "Failed to create Debug Messenger");
     vulkanDebug = VulkanDebug{ instance };
 }
-
-//VkDebugUtilsMessengerCreateInfoEXT VulkanBaseApp::debugCreateInfo() {
-//    VkDebugUtilsMessengerCreateInfoEXT createInfo{};
-//    createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-//    createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT;
-//    createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-//    createInfo.pfnUserCallback = debugCallBack;
-//
-//    return createInfo;
-//}
 
 std::vector<char> VulkanBaseApp::loadFile(const std::string& path) {
     std::ifstream fin(path.data(), std::ios::binary | std::ios::ate);
@@ -753,14 +698,9 @@ void VulkanBaseApp::update(float time) {
     camera.model = glm::rotate(glm::mat4(1.0f), time * glm::half_pi<float>(), {0.0f, 0.0f, 1.0f});
     camera.view = glm::lookAt({2.0f, 2.0f, 2.0f}, glm::vec3(0.0f), {0.0f, 0.0f, 1.0f});
     camera.proj = glm::perspective(glm::quarter_pi<float>(), swapChain.extent.width/ static_cast<float>(swapChain.extent.height), 0.1f, 10.0f);
-    //camera.proj[1][1] *= 1;
-    //sendPushConstants();
+    camera.proj[1][1] *= 1;
     auto& buffer = cameraBuffers[currentImageIndex];
-
-    void* data;
-    vmaMapMemory(memoryAllocator, buffer.allocation, &data);
-    memcpy(data, &camera, sizeof(camera));
-    vmaUnmapMemory(memoryAllocator, buffer.allocation);
+    buffer.copy(&camera, sizeof(camera));
 }
 
 float VulkanBaseApp::currentTime() {

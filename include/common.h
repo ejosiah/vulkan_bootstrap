@@ -27,6 +27,8 @@ constexpr bool debugMode = false;
 
 namespace chrono = std::chrono;
 
+using Flags = unsigned int;
+
 constexpr uint32_t WIDTH = 800;
 constexpr uint32_t HEIGHT = 600;
 constexpr std::chrono::seconds ONE_SECOND = std::chrono::seconds(1);

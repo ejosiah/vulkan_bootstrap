@@ -26,6 +26,10 @@
 #define GLM_FORCE_RADIANS
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include "keys.h"
+#include "events.h"
+#include "Window.h"
+
 #ifdef NDBUG
 constexpr bool enableValidation = false;
 #else
@@ -37,18 +41,6 @@ constexpr bool enableValidation = true;
 
 constexpr int MAX_IN_FLIGHT_FRAMES = 2;
 
-//template<typename Resource>
-//struct VulkanResource{
-//    Resource resource;
-//    VmaAllocation allocation;
-//
-//    inline operator Resource() const {
-//        return resource;
-//    }
-//};
-//
-//using Buffer  = VulkanResource<VkBuffer>;
-//using Image = VulkanResource<VkImage>;
 
 struct Texture{
     VulkanImage image;
@@ -76,7 +68,7 @@ struct Camera{
     glm::mat4 proj = glm::mat4(1);
 };
 
-class VulkanBaseApp {
+class VulkanBaseApp : Window{
 public:
     explicit VulkanBaseApp(std::string_view name, int width = 1080, int height = 720);
     void init();
@@ -84,10 +76,8 @@ public:
 
     static std::vector<char> loadFile(const std::string& path);
 
-    bool fullscreen = false;
-
-private:
-    void initWindow();
+protected:
+    void initWindow() override;
 
     void initVulkan();
 
@@ -145,24 +135,7 @@ private:
 
     virtual void cleanup() {}
 
-    static inline void onResize(GLFWwindow* window, int width, int height){
-        VulkanBaseApp* self = reinterpret_cast<VulkanBaseApp*>(glfwGetWindowUserPointer(window));
-        self->resized = true;
-        self->width = width;
-        self->height = height;
-    }
-
-    static inline void onKeyPress(GLFWwindow* window, int key, int scancode, int action, int mods){
-       if(key == GLFW_KEY_ESCAPE){
-           glfwSetWindowShouldClose(window, GLFW_TRUE);
-       }
-    }
-
 private:
-    std::string_view name;
-    int width;
-    int height;
-    GLFWwindow* window = nullptr;
     VulkanInstance vkInstance;
     VkInstance instance;
     VulkanDebug vulkanDebug;
@@ -201,8 +174,8 @@ private:
     };
     VulkanExtensions ext;
 
+protected:
     uint32_t currentImageIndex;
-    bool resized = false;
     int currentFrame = 0;
     Mesh mesh;
 };
