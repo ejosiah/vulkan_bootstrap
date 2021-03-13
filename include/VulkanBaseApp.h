@@ -19,6 +19,8 @@
 #include "VulkanFramebuffer.h"
 #include "VulkanRAII.h"
 #include "VulkanDescriptorSet.h"
+#include "VulkanDebug.h"
+#include "VulkanInstance.h"
 
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #define GLM_FORCE_RADIANS
@@ -115,11 +117,15 @@ private:
 
     void recreateSwapChain();
 
+    virtual std::vector<VkCommandBuffer> buildCommandBuffers(uint32_t i) {
+        return {};
+    }
+
     void drawFrame();
 
     void sendPushConstants();
 
-    void update(float time);
+    virtual void update(float time);
 
     void createVertexBuffer();
 
@@ -137,7 +143,7 @@ private:
 
     float currentTime();
 
-    VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo();
+//    VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo();
 
     void cleanupSwapChain();
 
@@ -146,6 +152,8 @@ private:
     static inline void onResize(GLFWwindow* window, int width, int height){
         VulkanBaseApp* self = reinterpret_cast<VulkanBaseApp*>(glfwGetWindowUserPointer(window));
         self->resized = true;
+        self->width = width;
+        self->height = height;
     }
 
     static inline void onKeyPress(GLFWwindow* window, int key, int scancode, int action, int mods){
@@ -154,17 +162,18 @@ private:
        }
     }
 
-    static VkBool32 VKAPI_PTR  debugCallBack(
-    VkDebugUtilsMessageSeverityFlagBitsEXT           messageSeverity,
-            VkDebugUtilsMessageTypeFlagsEXT                  messageTypes,
-    const VkDebugUtilsMessengerCallbackDataEXT*      pCallbackData,
-    void*                                            pUserData);
+//    static VkBool32 VKAPI_PTR  debugCallBack(
+//    VkDebugUtilsMessageSeverityFlagBitsEXT           messageSeverity,
+//            VkDebugUtilsMessageTypeFlagsEXT                  messageTypes,
+//    const VkDebugUtilsMessengerCallbackDataEXT*      pCallbackData,
+//    void*                                            pUserData);
 
 private:
     std::string_view name;
     int width;
     int height;
-    VkInstance instance = VK_NULL_HANDLE;
+    VulkanInstance vkInstance;
+    VulkanDebug vulkanDebug;
     VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
     VulkanDevice device;
     GLFWwindow* window = nullptr;
@@ -173,10 +182,10 @@ private:
     std::vector<const char*> deviceExtensions{
             VK_KHR_SWAPCHAIN_EXTENSION_NAME,
     };
-    VkDebugUtilsMessengerEXT debugMessenger;
+//    VkDebugUtilsMessengerEXT debugMessenger; // TODO
     VulkanExtensions ext;
 
-    VmaAllocator memoryAllocator;
+    VmaAllocator memoryAllocator;   // TODO remove
 
     VulkanSurface surface;
     VulkanSwapChain swapChain;
@@ -198,10 +207,10 @@ private:
     VulkanPipelineLayout layout;
 
     std::vector<VulkanFramebuffer> framebuffers;
-    std::vector<VkSemaphore> imageAcquired;
-    std::vector<VkSemaphore> renderingFinished;
-    std::vector<VkFence> inFlightFences;
-    std::vector<VkFence> inFlightImages;
+    std::vector<VulkanSemaphore> imageAcquired;
+    std::vector<VulkanSemaphore> renderingFinished;
+    std::vector<VulkanFence> inFlightFences;
+    std::vector<VulkanFence*> inFlightImages;
     uint32_t currentImageIndex;
     bool resized = false;
     int currentFrame = 0;

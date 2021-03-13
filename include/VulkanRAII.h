@@ -42,9 +42,9 @@ struct VulkanHandle{
         return handle;
     }
 
-//    operator Handle*() const {
-//        return &handle;
-//    }
+    operator Handle*()  {
+        return &handle;
+    }
 
     VkDevice device = VK_NULL_HANDLE;
     Handle handle = VK_NULL_HANDLE;
@@ -70,3 +70,4 @@ VULKAN_RAII(DescriptorSetLayout)
 VULKAN_RAII(ImageView)
 VULKAN_RAII(Sampler)
 VULKAN_RAII(Semaphore)
+//VULKAN_RAII(Fence)

@@ -7,6 +7,7 @@
 #include "VulkanDescriptorSet.h"
 #include "VulkanCommandBuffer.h"
 #include "VulkanImage.h"
+#include "VulkanFence.h"
 
 struct VulkanDevice{
 
@@ -295,6 +296,7 @@ struct VulkanDevice{
     }
 
     inline VulkanImage createImage(const VkImageCreateInfo& createInfo, VmaMemoryUsage usage) const{
+        assert(logicalDevice);
         VmaAllocationCreateInfo allocInfo{};
         allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
         VkImage image;
@@ -306,9 +308,25 @@ struct VulkanDevice{
     }
 
     inline VulkanSampler createSampler(const VkSamplerCreateInfo& createInfo){
+        assert(logicalDevice);
         VkSampler sampler;
         ASSERT(vkCreateSampler(logicalDevice, &createInfo, nullptr, &sampler));
         return VulkanSampler { logicalDevice, sampler};
+    }
+
+    inline VulkanFence createFence(VkFenceCreateFlags flags = VK_FENCE_CREATE_SIGNALED_BIT) const {
+        assert(logicalDevice);
+        return VulkanFence{ logicalDevice, flags};
+    }
+
+    inline VulkanSemaphore createSemaphore(VkSemaphoreCreateFlags flags = 0) const {
+        VkSemaphoreCreateInfo createInfo{};
+        createInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+        createInfo.flags = flags;
+
+        VkSemaphore semaphore;
+        ASSERT(vkCreateSemaphore(logicalDevice, &createInfo, nullptr, &semaphore));
+        return VulkanSemaphore { logicalDevice, semaphore };
     }
 
     VkInstance instance = VK_NULL_HANDLE;

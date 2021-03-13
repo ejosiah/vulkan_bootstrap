@@ -118,11 +118,13 @@ void VulkanBaseApp::createInstance() {
     if(enableValidation){
         createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
         createInfo.ppEnabledLayerNames = validationLayers.data();
-        auto debugInfo = debugCreateInfo();
+        auto debugInfo = VulkanDebug::debugCreateInfo();
         createInfo.pNext = &debugInfo;
     }
 
-    REPORT_ERROR(vkCreateInstance(&createInfo, nullptr, &instance), "Failed to create Vulkan instance");
+    vkInstance = VulkanInstance{ appInfo, {instanceExtensions, validationLayers}};
+    instance = vkInstance.instance;
+    //REPORT_ERROR(vkCreateInstance(&createInfo, nullptr, &instance), "Failed to create Vulkan instance");
 }
 
 void VulkanBaseApp::createSwapChain() {
@@ -358,39 +360,40 @@ void VulkanBaseApp::mainLoop() {
     vkDeviceWaitIdle(device);
 }
 
-VkBool32 VulkanBaseApp::debugCallBack(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
-                                      VkDebugUtilsMessageTypeFlagsEXT messageTypes,
-                                      const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData, void *pUserData) {
-
-    if(messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT){
-        spdlog::debug(pCallbackData->pMessage);
-    }
-    if(messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT){
-        spdlog::info(pCallbackData->pMessage);
-    }
-    if(messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT){
-        spdlog::warn(pCallbackData->pMessage);
-    }
-    if(messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT){
-        spdlog::error(pCallbackData->pMessage);
-    }
-
-    return VK_FALSE;
-}
+//VkBool32 VulkanBaseApp::debugCallBack(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+//                                      VkDebugUtilsMessageTypeFlagsEXT messageTypes,
+//                                      const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData, void *pUserData) {
+//
+//    if(messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT){
+//        spdlog::debug(pCallbackData->pMessage);
+//    }
+//    if(messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT){
+//        spdlog::info(pCallbackData->pMessage);
+//    }
+//    if(messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT){
+//        spdlog::warn(pCallbackData->pMessage);
+//    }
+//    if(messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT){
+//        spdlog::error(pCallbackData->pMessage);
+//    }
+//
+//    return VK_FALSE;
+//}
 void VulkanBaseApp::createDebugMessenger() {
-    auto debugInfo = debugCreateInfo();
-    REPORT_ERROR(ext.createDebugUtilsMessenger(instance, &debugInfo, nullptr, &debugMessenger), "Failed to create Debug Messenger");
+//    auto debugInfo = debugCreateInfo();
+//    REPORT_ERROR(ext.createDebugUtilsMessenger(instance, &debugInfo, nullptr, &debugMessenger), "Failed to create Debug Messenger");
+    vulkanDebug = VulkanDebug{ instance };
 }
 
-VkDebugUtilsMessengerCreateInfoEXT VulkanBaseApp::debugCreateInfo() {
-    VkDebugUtilsMessengerCreateInfoEXT createInfo{};
-    createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-    createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT;
-    createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-    createInfo.pfnUserCallback = debugCallBack;
-
-    return createInfo;
-}
+//VkDebugUtilsMessengerCreateInfoEXT VulkanBaseApp::debugCreateInfo() {
+//    VkDebugUtilsMessengerCreateInfoEXT createInfo{};
+//    createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+//    createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT;
+//    createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+//    createInfo.pfnUserCallback = debugCallBack;
+//
+//    return createInfo;
+//}
 
 std::vector<char> VulkanBaseApp::loadFile(const std::string& path) {
     std::ifstream fin(path.data(), std::ios::binary | std::ios::ate);
@@ -582,18 +585,14 @@ void VulkanBaseApp::createSyncObjects() {
     VkSemaphoreCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
     for(auto i = 0; i < MAX_IN_FLIGHT_FRAMES; i++){
-        REPORT_ERROR(vkCreateSemaphore(device, &createInfo, nullptr, &renderingFinished[i]), "Failed to create rendering finished semaphore");
-        REPORT_ERROR(vkCreateSemaphore(device, &createInfo, nullptr, &imageAcquired[i]), "Failed to create image acquired semaphore");
-
-        VkFenceCreateInfo fCreateInfo{};
-        fCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-        fCreateInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-        REPORT_ERROR(vkCreateFence(device, &fCreateInfo, nullptr, &inFlightFences[i]), "Failed to create in flight fence");
+        imageAcquired[i] = device.createSemaphore();
+        renderingFinished[i] = device.createSemaphore();
+        inFlightFences[i] = device.createFence();
     }
 }
 
 void VulkanBaseApp::drawFrame() {
-    vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
+    inFlightFences[currentFrame].wait();
     auto imageIndex = swapChain.acquireNextImage(imageAcquired[currentFrame]);
     if(swapChain.isOutOfDate()) {
         recreateSwapChain();
@@ -603,23 +602,28 @@ void VulkanBaseApp::drawFrame() {
     currentImageIndex = imageIndex;
 
     if(inFlightImages[imageIndex]){
-        vkWaitForFences(device, 1, &inFlightImages[imageIndex], VK_TRUE, UINT64_MAX);
+        inFlightImages[imageIndex]->wait();
     }
-    inFlightImages[imageIndex] = inFlightFences[currentFrame];
+    inFlightImages[imageIndex] = &inFlightFences[currentFrame];
     update(currentTime());
     VkPipelineStageFlags flags = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+
+    auto commandBuffers = buildCommandBuffers(imageIndex);
+    if(commandBuffers.empty()){
+        commandBuffers.push_back(this->commandBuffers[imageIndex]);
+    }
 
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submitInfo.waitSemaphoreCount = 1;
-    submitInfo.pWaitSemaphores = &imageAcquired[currentFrame];
+    submitInfo.pWaitSemaphores = &imageAcquired[currentFrame].handle;
     submitInfo.pWaitDstStageMask = &flags;
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &commandBuffers[imageIndex];
+    submitInfo.commandBufferCount = COUNT(commandBuffers);
+    submitInfo.pCommandBuffers = commandBuffers.data();
     submitInfo.signalSemaphoreCount = 1;
-    submitInfo.pSignalSemaphores = &renderingFinished[currentFrame];
+    submitInfo.pSignalSemaphores = &renderingFinished[currentFrame].handle;
 
-    vkResetFences(device, 1, &inFlightFences[currentFrame]);
+    inFlightFences[currentFrame].reset();
 
     REPORT_ERROR(vkQueueSubmit(device.queues.graphics, 1, &submitInfo, inFlightFences[currentFrame]), "Failed to submit command");
 
@@ -805,7 +809,7 @@ void VulkanBaseApp::cleanup() {
 
     vmaDestroyAllocator(memoryAllocator);
     vkDestroyDevice(device, nullptr);
-    ext.destroyDebugUtilsMessenger(instance, debugMessenger, nullptr);
+//    ext.destroyDebugUtilsMessenger(instance, debugMessenger, nullptr);
     vkDestroyInstance(instance, nullptr);
     glfwDestroyWindow(window);
     glfwTerminate();
