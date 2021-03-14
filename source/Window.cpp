@@ -5,12 +5,6 @@ void Window::onKeyPress(GLFWwindow *window, int key, int scancode, int action, i
     auto& self = getSelf(window);
     auto& keyEvent = self.keyEvent;
 
-    // TODO move to input mgr;
-    if(key == GLFW_KEY_ESCAPE){
-        glfwSetWindowShouldClose(window, GLFW_TRUE);
-        return;
-    }
-
     keyEvent.modifierFlags = KeyModifierFlagBits::NONE;
     if(mods & GLFW_MOD_SHIFT){
         keyEvent.modifierFlags |= KeyModifierFlagBits::SHIFT;
@@ -80,6 +74,7 @@ void Window::initWindow() {
     glfwSetMouseButtonCallback(window, onMouseClick);
     glfwSetCursorPosCallback(window, onMouseMove);
     glfwSetFramebufferSizeCallback(window, onResize);
+    glfwSetScrollCallback(window, onMouseWheelMove);
 }
 
 void Window::onMouseClick(GLFWwindow *window, int button, int action, int mods) {
@@ -96,7 +91,7 @@ void Window::onMouseClick(GLFWwindow *window, int button, int action, int mods) 
             mouseEvent.button = MouseEvent::Button::MIDDLE;
             break;
         default:
-            mouseEvent.button = MouseEvent::Button::NONE;
+            mouseEvent.button = static_cast<MouseEvent::Button>(button);
     }
 
     switch(action){
@@ -109,8 +104,16 @@ void Window::onMouseClick(GLFWwindow *window, int button, int action, int mods) 
         default:
             mouseEvent.state = MouseEvent::State::NONE;
     }
+    static MouseEvent::State state = mouseEvent.state;
     // TODO mods
-    self.fireMouseClick(mouseEvent);
+
+
+    if(mouseEvent.state == MouseEvent::State::PRESS){
+        self.fireMousePress(mouseEvent);
+    }else if(mouseEvent.state == MouseEvent::State::RELEASE){
+        self.fireMouseRelease(mouseEvent);
+        self.fireMouseClick(mouseEvent);
+    }
 }
 
 void Window::onMouseMove(GLFWwindow *window, double x, double y) {
@@ -122,4 +125,13 @@ void Window::onMouseMove(GLFWwindow *window, double x, double y) {
 
 void Window::onError(int error, const char* msg) {
     spdlog::error("GLFW: id: {}, msg: {}", error, msg);
+}
+
+void Window::onMouseWheelMove(GLFWwindow *window, double xOffset, double yOffset) {
+
+    auto& self = getSelf(window);
+    auto& mouseEvent = self.mouseEvent;
+    mouseEvent.scrollOffset.x = xOffset;
+    mouseEvent.scrollOffset.y = yOffset;
+    self.fireMouseWheelMove(mouseEvent);
 }

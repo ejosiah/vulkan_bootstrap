@@ -29,6 +29,7 @@
 #include "keys.h"
 #include "events.h"
 #include "Window.h"
+#include "InputManager.h"
 
 #ifdef NDBUG
 constexpr bool enableValidation = false;
@@ -68,9 +69,9 @@ struct Camera{
     glm::mat4 proj = glm::mat4(1);
 };
 
-class VulkanBaseApp : Window{
+class VulkanBaseApp : Window, InputManager{
 public:
-    explicit VulkanBaseApp(std::string_view name, int width = 1080, int height = 720);
+    explicit VulkanBaseApp(std::string_view name, int width = 1080, int height = 720, bool relativeMouseMode = true);
     void init();
     void run();
 
@@ -127,13 +128,20 @@ protected:
 
     void mainLoop();
 
-    void createDebugMessenger();
+    void checkSystemInputs();
 
-    static float currentTime();
+    void createDebugMessenger();
 
     void cleanupSwapChain();
 
+    float getTime();
+
     virtual void cleanup() {}
+
+    virtual void onPause() {}
+
+private:
+    void setPaused(bool flag);
 
 private:
     VulkanInstance vkInstance;
@@ -174,8 +182,12 @@ private:
     };
     VulkanExtensions ext;
 
+    Action* exit = nullptr;
+    Action* pause = nullptr;
+    bool paused = false;
+    float elapsedTime = 0.0f;
 protected:
-    uint32_t currentImageIndex;
+    uint32_t currentImageIndex = 0;
     int currentFrame = 0;
     Mesh mesh;
 };

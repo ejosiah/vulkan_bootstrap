@@ -10,6 +10,7 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include  <stb_image.h>
 #endif
+
 #include "keys.h"
 #include "events.h"
 
@@ -30,14 +31,18 @@ ShaderModule::~ShaderModule() {
     vkDestroyShaderModule(device, shaderModule, nullptr);
 }
 
-VulkanBaseApp::VulkanBaseApp(std::string_view name, int width, int height)
+VulkanBaseApp::VulkanBaseApp(std::string_view name, int width, int height, bool relativeMouseMode)
 : Window(name, width, height)
+, InputManager(relativeMouseMode)
 {
 }
 
 
 void VulkanBaseApp::init() {
     initWindow();
+    initInputMgr(*this);
+    exit = &mapToKey(Key::ESCAPE);
+    pause = &mapToKey(Key::P);
     initVulkan();
 }
 
@@ -327,11 +332,29 @@ void VulkanBaseApp::run() {
 
 void VulkanBaseApp::mainLoop() {
     while(!glfwWindowShouldClose(window)){
+        recenter();
         glfwPollEvents();
-        drawFrame();
+
+        checkSystemInputs();
+
+        if(!paused) {
+            drawFrame();
+        }else{
+            glfwSetTime(elapsedTime);
+            onPause();
+        }
     }
 
     vkDeviceWaitIdle(device);
+}
+
+void VulkanBaseApp::checkSystemInputs() {
+    if(exit->isPressed()){
+        glfwSetWindowShouldClose(window, GLFW_TRUE);
+    }
+    if(pause->isPressed()){
+        setPaused(!paused);
+    }
 }
 
 void VulkanBaseApp::createDebugMessenger() {
@@ -548,7 +571,7 @@ void VulkanBaseApp::drawFrame() {
         inFlightImages[imageIndex]->wait();
     }
     inFlightImages[imageIndex] = &inFlightFences[currentFrame];
-    update(currentTime());
+    update(getTime());
     VkPipelineStageFlags flags = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
     auto commandBuffers = buildCommandBuffers(imageIndex);
@@ -695,19 +718,13 @@ void VulkanBaseApp::createDescriptorSet() {
 }
 
 void VulkanBaseApp::update(float time) {
+    spdlog::info("time: {}", time);
     camera.model = glm::rotate(glm::mat4(1.0f), time * glm::half_pi<float>(), {0.0f, 0.0f, 1.0f});
     camera.view = glm::lookAt({2.0f, 2.0f, 2.0f}, glm::vec3(0.0f), {0.0f, 0.0f, 1.0f});
     camera.proj = glm::perspective(glm::quarter_pi<float>(), swapChain.extent.width/ static_cast<float>(swapChain.extent.height), 0.1f, 10.0f);
     camera.proj[1][1] *= 1;
     auto& buffer = cameraBuffers[currentImageIndex];
     buffer.copy(&camera, sizeof(camera));
-}
-
-float VulkanBaseApp::currentTime() {
-    static chrono::high_resolution_clock::time_point current = chrono::high_resolution_clock::now();
-    auto now = chrono::high_resolution_clock::now();
-    auto diff = now - current;
-    return chrono::duration_cast<chrono::milliseconds>(diff).count()/1000.f;
 }
 
 void VulkanBaseApp::cleanupSwapChain() {
@@ -726,4 +743,16 @@ void VulkanBaseApp::cleanupSwapChain() {
         dispose(cameraBuffer);
     }
 
+}
+
+void VulkanBaseApp::setPaused(bool flag) {
+    if(paused != flag){
+        paused = flag;
+        resetAllActions();
+    }
+}
+
+float VulkanBaseApp::getTime() {
+    elapsedTime = static_cast<float>(glfwGetTime());
+    return elapsedTime;
 }

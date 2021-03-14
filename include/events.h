@@ -33,11 +33,30 @@ struct KeyEvent{
 };
 
 struct MouseEvent{
-    enum class Button{
-        NONE,
-        LEFT,
-        MIDDLE,
-        RIGHT,
+    enum class Button : int {
+        ONE = 0,
+        TWO = 1,
+        THREE = 2,
+        FOUR = 3,
+        FIVE = 4,
+        SIX = 5,
+        SEVEN = 6,
+        EIGHT = 7,
+
+        LEFT = 0,
+        RIGHT = 1,
+        MIDDLE = 2,
+
+        NONE = std::numeric_limits<int>::max(),
+    };
+
+    enum MoveCode : int {
+        LEFT = 8,
+        RIGHT = 9,
+        UP = 10,
+        DOWN = 11,
+        WHEEL_UP = 12,
+        WHEEL_DOWN = 13,
     };
 
     enum class State{
@@ -49,7 +68,7 @@ struct MouseEvent{
     Button button;
     State state;
     glm::vec2 pos;
-    int scrollAmount;
+    glm::vec2 scrollOffset;
 };
 
 struct ResizeEvent{
@@ -62,5 +81,8 @@ using KeyPressListener = std::function<void(const KeyEvent&)>;
 using KeyReleaseListener = KeyPressListener;
 using MouseMoveListener = std::function<void(const MouseEvent&)>;
 using MouseClickListener = MouseMoveListener;
+using MousePressListener = MouseMoveListener;
+using MouseReleaseListener = MouseMoveListener;
+using MouseWheelMovedListener = MouseMoveListener;
 using WindowResizeListener = std::function<void(const ResizeEvent&)>;
 using ShutdownEventListener = std::function<void(const ShutdownEvent&)>;

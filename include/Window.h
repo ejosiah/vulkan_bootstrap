@@ -17,8 +17,19 @@ public:
         mouseClickListeners.push_back(listener);
     }
 
+    inline void addMousePressListener(MousePressListener&& listener){
+        mousePressListeners.push_back(listener);
+    }
+
+    inline void addMouseReleaseListener(MouseReleaseListener&& listener){
+        mouseReleaseListeners.push_back(listener);
+    }
+
     inline void addMouseMoveListener(MouseMoveListener&& listener){
         mouseMoveListeners.push_back(listener);
+    }
+    inline void addMouseWheelMoveListener(MouseWheelMovedListener && listener){
+        mouseWheelMoveListeners.push_back(listener);
     }
 
     inline void addKeyPressListener(KeyPressListener&& listener){
@@ -31,6 +42,10 @@ public:
 
     inline void addWindowResizeListeners(WindowResizeListener&& listener){
         windowResizeListeners.push_back(listener);
+    }
+
+    GLFWwindow* getGlfwWindow() const {
+        return window;
     }
 
 protected:
@@ -47,9 +62,25 @@ protected:
             listener(event);
         }
     }
+    inline void fireMousePress(const MouseEvent& event){
+        for(auto& listener : mousePressListeners){
+            listener(event);
+        }
+    }
+    inline void fireMouseRelease(const MouseEvent& event){
+        for(auto& listener : mouseReleaseListeners){
+            listener(event);
+        }
+    }
 
     inline void fireMouseMove(const MouseEvent& event){
         for(auto& listener : mouseMoveListeners){
+            listener(event);
+        }
+    }
+
+    inline void fireMouseWheelMove(const MouseEvent& event){
+        for(auto& listener : mouseWheelMoveListeners){
             listener(event);
         }
     }
@@ -76,9 +107,12 @@ protected:
 
     static void onKeyPress(GLFWwindow* window, int key, int scancode, int action, int mods);
 
+    static void onMouseWheelMove(GLFWwindow* window, double xOffset, double yOffset);
+
     static Window& getSelf(GLFWwindow* window){
         return *reinterpret_cast<Window*>(glfwGetWindowUserPointer(window));
     }
+
 
 protected:
     std::string title;
@@ -93,7 +127,10 @@ protected:
 
 private:
     std::vector<MouseClickListener> mouseClickListeners;
+    std::vector<MousePressListener> mousePressListeners;
+    std::vector<MouseReleaseListener> mouseReleaseListeners;
     std::vector<MouseMoveListener> mouseMoveListeners;
+    std::vector<MouseWheelMovedListener> mouseWheelMoveListeners;
     std::vector<KeyPressListener> keyPressListeners;
     std::vector<KeyReleaseListener> keyReleaseListeners;
     std::vector<WindowResizeListener> windowResizeListeners;
