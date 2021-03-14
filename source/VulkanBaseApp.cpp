@@ -331,13 +331,15 @@ void VulkanBaseApp::run() {
 }
 
 void VulkanBaseApp::mainLoop() {
-    while(!glfwWindowShouldClose(window)){
+    while(isRunning()){
         recenter();
         glfwPollEvents();
 
         checkSystemInputs();
 
         if(!paused) {
+            checkAppInputs();
+            update(getTime());
             drawFrame();
         }else{
             glfwSetTime(elapsedTime);
@@ -571,7 +573,7 @@ void VulkanBaseApp::drawFrame() {
         inFlightImages[imageIndex]->wait();
     }
     inFlightImages[imageIndex] = &inFlightFences[currentFrame];
-    update(getTime());
+
     VkPipelineStageFlags flags = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
     auto commandBuffers = buildCommandBuffers(imageIndex);
@@ -591,7 +593,7 @@ void VulkanBaseApp::drawFrame() {
 
     inFlightFences[currentFrame].reset();
 
-    REPORT_ERROR(vkQueueSubmit(device.queues.graphics, 1, &submitInfo, inFlightFences[currentFrame]), "Failed to submit command");
+    ASSERT(vkQueueSubmit(device.queues.graphics, 1, &submitInfo, inFlightFences[currentFrame]));
 
     swapChain.present(imageIndex, { renderingFinished[currentFrame] });
     if(swapChain.isSubOptimal() || swapChain.isOutOfDate() || resized) {
@@ -718,7 +720,6 @@ void VulkanBaseApp::createDescriptorSet() {
 }
 
 void VulkanBaseApp::update(float time) {
-    spdlog::info("time: {}", time);
     camera.model = glm::rotate(glm::mat4(1.0f), time * glm::half_pi<float>(), {0.0f, 0.0f, 1.0f});
     camera.view = glm::lookAt({2.0f, 2.0f, 2.0f}, glm::vec3(0.0f), {0.0f, 0.0f, 1.0f});
     camera.proj = glm::perspective(glm::quarter_pi<float>(), swapChain.extent.width/ static_cast<float>(swapChain.extent.height), 0.1f, 10.0f);

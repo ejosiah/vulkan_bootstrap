@@ -112,7 +112,7 @@ protected:
         return {};
     }
 
-    void drawFrame();
+    virtual void drawFrame();
 
     virtual void update(float time);
 
@@ -128,7 +128,9 @@ protected:
 
     void mainLoop();
 
-    void checkSystemInputs();
+    virtual void checkSystemInputs();
+
+    virtual void checkAppInputs() {};
 
     void createDebugMessenger();
 
@@ -139,6 +141,10 @@ protected:
     virtual void cleanup() {}
 
     virtual void onPause() {}
+
+    bool isRunning() const {
+        return !glfwWindowShouldClose(window);
+    }
 
 private:
     void setPaused(bool flag);
