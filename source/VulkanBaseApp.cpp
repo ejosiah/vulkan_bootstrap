@@ -720,7 +720,7 @@ void VulkanBaseApp::createDescriptorSet() {
 }
 
 void VulkanBaseApp::update(float time) {
-    camera.model = glm::rotate(glm::mat4(1.0f), time * glm::half_pi<float>(), {0.0f, 0.0f, 1.0f});
+    camera.model = glm::rotate(glm::mat4(1.0f), elapsedTime * glm::half_pi<float>(), {0.0f, 0.0f, 1.0f});
     camera.view = glm::lookAt({2.0f, 2.0f, 2.0f}, glm::vec3(0.0f), {0.0f, 0.0f, 1.0f});
     camera.proj = glm::perspective(glm::quarter_pi<float>(), swapChain.extent.width/ static_cast<float>(swapChain.extent.height), 0.1f, 10.0f);
     camera.proj[1][1] *= 1;
@@ -754,6 +754,8 @@ void VulkanBaseApp::setPaused(bool flag) {
 }
 
 float VulkanBaseApp::getTime() {
-    elapsedTime = static_cast<float>(glfwGetTime());
-    return elapsedTime;
+    auto now = static_cast<float>(glfwGetTime());
+    auto dt = now - elapsedTime;
+    elapsedTime += dt;
+    return dt;
 }
