@@ -44,6 +44,7 @@ void VulkanBaseApp::init() {
     exit = &mapToKey(Key::ESCAPE);
     pause = &mapToKey(Key::P);
     initVulkan();
+    cameraController = new SphericalCameraController{*this, camera, glm::length(glm::vec3(2))};
 }
 
 void VulkanBaseApp::initWindow() {
@@ -720,8 +721,10 @@ void VulkanBaseApp::createDescriptorSet() {
 }
 
 void VulkanBaseApp::update(float time) {
-    camera.model = glm::rotate(glm::mat4(1.0f), elapsedTime * glm::half_pi<float>(), {0.0f, 0.0f, 1.0f});
-    camera.view = glm::lookAt({2.0f, 2.0f, 2.0f}, glm::vec3(0.0f), {0.0f, 0.0f, 1.0f});
+  //  spdlog::info("time: {}", time);
+//    camera.model = glm::rotate(glm::mat4(1.0f), elapsedTime * glm::half_pi<float>(), {0.0f, 0.0f, 1.0f});
+//    camera.view = glm::lookAt({2.0f, 2.0f, 2.0f}, glm::vec3(0.0f), {0.0f, 0.0f, 1.0f});
+    cameraController->update(time);
     camera.proj = glm::perspective(glm::quarter_pi<float>(), swapChain.extent.width/ static_cast<float>(swapChain.extent.height), 0.1f, 10.0f);
     camera.proj[1][1] *= 1;
     auto& buffer = cameraBuffers[currentImageIndex];

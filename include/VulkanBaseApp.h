@@ -21,6 +21,7 @@
 #include "VulkanDescriptorSet.h"
 #include "VulkanDebug.h"
 #include "VulkanInstance.h"
+#include "Camera.h"
 
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #define GLM_FORCE_RADIANS
@@ -63,11 +64,6 @@ private:
     VkDevice device = VK_NULL_HANDLE;
 };
 
-struct Camera{
-    glm::mat4 model = glm::mat4(1);
-    glm::mat4 view = glm::mat4(1);
-    glm::mat4 proj = glm::mat4(1);
-};
 
 class VulkanBaseApp : Window, InputManager{
 public:
@@ -130,7 +126,9 @@ protected:
 
     virtual void checkSystemInputs();
 
-    virtual void checkAppInputs() {};
+    virtual void checkAppInputs() {
+        cameraController->processInput();
+    };
 
     void createDebugMessenger();
 
@@ -196,4 +194,5 @@ protected:
     uint32_t currentImageIndex = 0;
     int currentFrame = 0;
     Mesh mesh;
+    CameraController* cameraController;
 };

@@ -76,7 +76,7 @@ struct Mouse{
 };
 
 class InputManager{
-protected:
+public:
     InputManager(bool relativeMouseMode = false)
     : relativeMouseMode(relativeMouseMode)
     {}
@@ -215,7 +215,6 @@ protected:
     }
 
     void onMouseWheelMove(const MouseEvent& event){
-        spdlog::info("mouse wheel moved xOffset: {}, yOffset: {}", event.scrollOffset.x, event.scrollOffset.y);
         mouseHelper(MouseEvent::MoveCode::WHEEL_DOWN, MouseEvent::MoveCode::WHEEL_UP, event.scrollOffset.y);
     }
 
@@ -267,4 +266,9 @@ protected:
     Mouse mouse;
 private:
     GLFWwindow* glfwWindow = nullptr;
+
+public:
+    const Mouse& getMouse() const {
+        return mouse;
+    }
 };

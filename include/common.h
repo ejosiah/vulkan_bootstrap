@@ -12,6 +12,11 @@ constexpr bool debugMode = false;
 #include <vector>
 #include <map>
 #include <set>
+#include <atomic>
+#include <queue>
+#include <thread>
+#include <condition_variable>
+#include <mutex>
 #include <limits>
 #include <algorithm>
 #include <optional>
