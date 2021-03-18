@@ -1,7 +1,7 @@
 #include "OrbitingCamera.h"
 
 OrbitingCameraController::OrbitingCameraController(Camera &camera, InputManager& inputManager,  const OrbitingCameraSettings& settings)
-: CameraController(camera, inputManager, settings)
+: BaseCameraController(camera, inputManager, settings)
 , offsetDistance(settings.offsetDistance)
 , orbitRollSpeed(settings.orbitRollSpeed)
 , preferTargetYAxisOrbiting(settings.preferTargetYAxisOrbiting)

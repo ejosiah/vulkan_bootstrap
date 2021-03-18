@@ -194,5 +194,5 @@ protected:
     uint32_t currentImageIndex = 0;
     int currentFrame = 0;
     Mesh mesh;
-    CameraController* cameraController;
+    BaseCameraController* cameraController;
 };

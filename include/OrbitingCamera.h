@@ -8,7 +8,7 @@ static constexpr float DEFAULT_SPEED_ORBIT_ROLL = 100.0f;
 static constexpr float DEFAULT_ORBIT_OFFSET_DISTANCE = DEFAULT_ORBIT_MIN_ZOOM + (DEFAULT_ORBIT_MAX_ZOOM - DEFAULT_ORBIT_MIN_ZOOM) * 0.25f;
 
 
-struct OrbitingCameraSettings : public CameraSettings{
+struct OrbitingCameraSettings : public BaseCameraSettings{
     float offsetDistance = DEFAULT_ORBIT_OFFSET_DISTANCE;
     float orbitRollSpeed = DEFAULT_SPEED_ORBIT_ROLL;
     float orbitMinZoom = DEFAULT_ORBIT_MIN_ZOOM;
@@ -17,7 +17,7 @@ struct OrbitingCameraSettings : public CameraSettings{
     bool preferTargetYAxisOrbiting = true;
 };
 
-class OrbitingCameraController : public CameraController {
+class OrbitingCameraController : public BaseCameraController {
 public:
     OrbitingCameraController(Camera& camera, InputManager& inputManager, const OrbitingCameraSettings& settings = {});
 

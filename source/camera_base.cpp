@@ -2,7 +2,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/matrix_access.hpp>
 
-CameraController::CameraController(Camera &camera, InputManager& inputManager, const CameraSettings& settings)
+BaseCameraController::BaseCameraController(Camera &camera, InputManager& inputManager, const BaseCameraSettings& settings)
     : fovx(settings.fieldOfView)
     , aspectRatio(settings.aspectRatio)
     , znear(settings.zNear)
@@ -37,11 +37,11 @@ CameraController::CameraController(Camera &camera, InputManager& inputManager, c
         perspective(fovx, aspectRatio, znear, zfar);
     }
 
-void CameraController::processInput() {
+void BaseCameraController::processInput() {
     processMovementInput();
 }
 
-void CameraController::processMovementInput() {
+void BaseCameraController::processMovementInput() {
     direction = glm::vec3(0);
     auto vel = currentVelocity;
     if(_move.forward->isPressed()){
@@ -94,7 +94,7 @@ void CameraController::processMovementInput() {
     }
 }
 
-void CameraController::lookAt(const glm::vec3 &eye, const glm::vec3 &target, const glm::vec3 &up) {
+void BaseCameraController::lookAt(const glm::vec3 &eye, const glm::vec3 &target, const glm::vec3 &up) {
 
     this->eyes = eye;
     this->target = target;
@@ -116,7 +116,7 @@ void CameraController::lookAt(const glm::vec3 &eye, const glm::vec3 &target, con
     updateViewMatrix();
 }
 
-void CameraController::perspective(float fovx, float aspect, float znear, float zfar) {
+void BaseCameraController::perspective(float fovx, float aspect, float znear, float zfar) {
     camera.proj = glm::perspective(glm::radians(fovx), aspect, znear, zfar);
     this->fovx = fovx;
     aspectRatio = aspect;
@@ -125,7 +125,7 @@ void CameraController::perspective(float fovx, float aspect, float znear, float 
 
 }
 
-void CameraController::rotateSmoothly(float headingDegrees, float pitchDegrees, float rollDegrees) {
+void BaseCameraController::rotateSmoothly(float headingDegrees, float pitchDegrees, float rollDegrees) {
     headingDegrees *= rotationSpeed;
     pitchDegrees *= rotationSpeed;
     rollDegrees *= rotationSpeed;
@@ -133,16 +133,16 @@ void CameraController::rotateSmoothly(float headingDegrees, float pitchDegrees, 
     rotate(headingDegrees, pitchDegrees, rollDegrees);
 }
 
-void CameraController::undoRoll() {
+void BaseCameraController::undoRoll() {
     lookAt(eyes, eyes + viewDir, WORLD_YAXIS);
 }
 
-void CameraController::zoom(float zoom, float minZoom, float maxZoom) {
+void BaseCameraController::zoom(float zoom, float minZoom, float maxZoom) {
     zoom = std::min(std::max(zoom, minZoom), maxZoom);
     perspective(zoom, aspectRatio, znear, zfar);
 }
 
-void CameraController::move(float dx, float dy, float dz) {
+void BaseCameraController::move(float dx, float dy, float dz) {
     glm::vec3 eyes = this->eyes;
     glm::vec3 forwards = viewDir;
 
@@ -153,7 +153,7 @@ void CameraController::move(float dx, float dy, float dz) {
     position(eyes);
 }
 
-void CameraController::move(const glm::vec3 &direction, const glm::vec3 &amount) {
+void BaseCameraController::move(const glm::vec3 &direction, const glm::vec3 &amount) {
     eyes.x += direction.x * amount.x;
     eyes.y += direction.y * amount.y;
     eyes.z += direction.z * amount.z;
@@ -162,12 +162,12 @@ void CameraController::move(const glm::vec3 &direction, const glm::vec3 &amount)
 }
 
 
-void CameraController::position(const glm::vec3 &pos) {
+void BaseCameraController::position(const glm::vec3 &pos) {
     eyes = pos;
     updateViewMatrix();
 }
 
-void CameraController::updatePosition(const glm::vec3 &direction, float elapsedTimeSec) {
+void BaseCameraController::updatePosition(const glm::vec3 &direction, float elapsedTimeSec) {
     // Moves the Camera using Newton's second law of motion. Unit mass is
     // assumed here to somewhat simplify the calculations. The direction vector
     // is in the range [-1,1].
@@ -208,7 +208,7 @@ void CameraController::updatePosition(const glm::vec3 &direction, float elapsedT
     updateVelocity(direction, elapsedTimeSec);
 }
 
-void CameraController::updateViewMatrix() {
+void BaseCameraController::updateViewMatrix() {
     auto& view = camera.view;
     view = glm::mat4_cast(orientation);
 
@@ -222,7 +222,7 @@ void CameraController::updateViewMatrix() {
     view[3][2] =  -dot(zAxis, eyes);
 }
 
-void CameraController::updateVelocity(const glm::vec3 &direction, float elapsedTimeSec) {
+void BaseCameraController::updateVelocity(const glm::vec3 &direction, float elapsedTimeSec) {
     // Updates the Camera's velocity based on the supplied movement direction
     // and the elapsed time (since this method was last called). The movement
     // direction is in the range [-1,1].

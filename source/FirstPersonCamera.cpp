@@ -1,7 +1,7 @@
 #include "FirstPersonCamera.h"
 
-SpectatorCameraController::SpectatorCameraController(Camera &camera, InputManager &inputManager,  const CameraSettings &settings)
-: CameraController(camera, inputManager, settings)
+SpectatorCameraController::SpectatorCameraController(Camera &camera, InputManager &inputManager,  const BaseCameraSettings &settings)
+: BaseCameraController(camera, inputManager, settings)
 {
 
 }
@@ -52,7 +52,7 @@ void SpectatorCameraController::rotate(float headingDegrees, float pitchDegrees,
 }
 
 
-FirstPersonCameraController::FirstPersonCameraController(Camera &camera, InputManager &inputManager, const CameraSettings &settings)
+FirstPersonCameraController::FirstPersonCameraController(Camera &camera, InputManager &inputManager, const BaseCameraSettings &settings)
 : SpectatorCameraController(camera, inputManager, settings)
 {
 

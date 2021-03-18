@@ -2,9 +2,9 @@
 
 #include "camera_base.h"
 
-class SpectatorCameraController : public CameraController {
+class SpectatorCameraController : public BaseCameraController {
 public:
-    SpectatorCameraController(Camera& camera, InputManager& inputManager, const CameraSettings& settings = {});
+    SpectatorCameraController(Camera& camera, InputManager& inputManager, const BaseCameraSettings& settings = {});
 
     void update(float elapsedTime) override;
 
@@ -13,7 +13,7 @@ public:
 
 class FirstPersonCameraController : public SpectatorCameraController {
 public:
-    FirstPersonCameraController(Camera& camera, InputManager& inputManager, const CameraSettings& settings = {});
+    FirstPersonCameraController(Camera& camera, InputManager& inputManager, const BaseCameraSettings& settings = {});
 
     void move(float dx, float dy, float dz) override;
 

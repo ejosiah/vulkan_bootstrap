@@ -29,7 +29,7 @@ struct Camera{
     glm::mat4 proj = glm::mat4(1);
 };
 
-struct CameraSettings{
+struct BaseCameraSettings{
     glm::vec3 acceleration = DEFAULT_ACCELERATION;
     glm::vec3 velocity = DEFAULT_VELOCITY;
     float rotationSpeed = DEFAULT_ROTATION_SPEED;
@@ -42,11 +42,11 @@ struct CameraSettings{
     float floorOffset = 0.5f;
 };
 
-struct CameraController{
+struct BaseCameraController{
 public:
-    CameraController(Camera& camera, InputManager& inputManager, const CameraSettings& settings = {});
+    BaseCameraController(Camera& camera, InputManager& inputManager, const BaseCameraSettings& settings = {});
 
-    virtual ~CameraController() = default;
+    virtual ~BaseCameraController() = default;
 
     virtual void update(float time) = 0;
 
