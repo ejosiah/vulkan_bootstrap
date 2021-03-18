@@ -39,6 +39,7 @@ struct CameraSettings{
     float zFar = DEFAULT_ZFAR;
     float minZoom = DEFAULT_ZOOM_MIN;
     float maxZoom = DEFAULT_ZOOM_MAX;
+    float floorOffset = 0.5f;
 };
 
 struct CameraController{
@@ -51,13 +52,15 @@ public:
 
     virtual void processInput();
 
+    void processMovementInput();
+
     void lookAt(const glm::vec3 &eye, const glm::vec3 &target, const glm::vec3 &up);
 
     void perspective(float fovx, float aspect, float znear, float zfar);
 
     void rotateSmoothly(float headingDegrees, float pitchDegrees, float rollDegrees);
 
-    virtual void rotate(float headingDegrees, float pitchDegrees, float rollDegrees);
+    virtual void rotate(float headingDegrees, float pitchDegrees, float rollDegrees) = 0;
 
     virtual void move(float dx, float dy, float dz);
 
@@ -100,4 +103,13 @@ protected:
     glm::vec3 direction;
     Camera& camera;
     const Mouse& mouse;
+
+    struct {
+        Action* forward;
+        Action* back;
+        Action* left;
+        Action* right;
+        Action* up;
+        Action* down;
+    } _move;
 };

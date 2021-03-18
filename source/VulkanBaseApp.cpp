@@ -9,6 +9,7 @@
 #ifndef STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_IMPLEMENTATION
 #include  <stb_image.h>
+
 #endif
 
 #include "keys.h"
@@ -52,7 +53,9 @@ void VulkanBaseApp::init() {
     settings.fieldOfView = 45.0f;
     settings.modelHeight = 0;
     settings.aspectRatio = static_cast<float>(swapChain.extent.width)/static_cast<float>(swapChain.extent.height);
-    cameraController = new OrbitingCameraController{ camera, *this, settings};
+  //  cameraController = new OrbitingCameraController{ camera, *this, settings};
+    cameraController = new SpectatorCameraController{ camera, *this, settings};
+    cameraController->lookAt({0, 0, 2}, glm::vec3(0), {0, 1, 0});
 }
 
 void VulkanBaseApp::initWindow() {
@@ -729,7 +732,7 @@ void VulkanBaseApp::createDescriptorSet() {
 }
 
 void VulkanBaseApp::update(float time) {
-  //  spdlog::info("time: {}", time);
+//    spdlog::info("time: {}", time);
 //    camera.model = glm::rotate(glm::mat4(1.0f), elapsedTime * glm::half_pi<float>(), {0.0f, 0.0f, 1.0f});
 //    camera.view = glm::lookAt({2.0f, 2.0f, 2.0f}, glm::vec3(0.0f), {0.0f, 0.0f, 1.0f});
 //    camera.proj = glm::perspective(glm::quarter_pi<float>(), swapChain.extent.width/ static_cast<float>(swapChain.extent.height), 0.1f, 10.0f);
@@ -770,5 +773,8 @@ float VulkanBaseApp::getTime() {
     auto now = static_cast<float>(glfwGetTime());
     auto dt = now - elapsedTime;
     elapsedTime += dt;
+    auto timeFreq = glfwGetTimerFrequency();
+    auto timeValue = glfwGetTimerValue();
+ //   spdlog::info("elapsedTime: {}, time freq: {}, time value: {}", now, timeFreq, timeValue);
     return dt;
 }

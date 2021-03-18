@@ -11,7 +11,7 @@ CameraController::CameraController(Camera &camera, InputManager& inputManager, c
     , maxZoom(settings.maxZoom)
     , rotationSpeed(settings.rotationSpeed)
     , accumPitchDegrees(0.0f)
-    , floorOffset(1.0f)
+    , floorOffset(settings.floorOffset)
     , eyes(0.0f)
     , target(0.0f)
     , targetYAxis(0.0f, 1.0f, 0.0f)
@@ -27,12 +27,71 @@ CameraController::CameraController(Camera &camera, InputManager& inputManager, c
     , camera(camera)
     , mouse(inputManager.getMouse())
     {
+        _move.forward = &inputManager.mapToKey(Key::W, "forward", Action::Behavior::DETECT_INITIAL_PRESS_ONLY);
+        _move.back = &inputManager.mapToKey(Key::S, "backward", Action::Behavior::DETECT_INITIAL_PRESS_ONLY);
+        _move.left = &inputManager.mapToKey(Key::A, "left", Action::Behavior::DETECT_INITIAL_PRESS_ONLY);
+        _move.right = &inputManager.mapToKey(Key::D, "right", Action::Behavior::DETECT_INITIAL_PRESS_ONLY);
+        _move.up = &inputManager.mapToKey(Key::E, "up", Action::Behavior::DETECT_INITIAL_PRESS_ONLY);
+        _move.down = &inputManager.mapToKey(Key::Q, "down", Action::Behavior::DETECT_INITIAL_PRESS_ONLY);
         position({0.0f, floorOffset, 0.0f});    // assuming up is y axis
         perspective(fovx, aspectRatio, znear, zfar);
     }
 
 void CameraController::processInput() {
+    processMovementInput();
+}
 
+void CameraController::processMovementInput() {
+    direction = glm::vec3(0);
+    auto vel = currentVelocity;
+    if(_move.forward->isPressed()){
+        currentVelocity.x = vel.x;
+        currentVelocity.y = vel.y;
+        currentVelocity.z = 0;
+    }else if(_move.forward->isHeld()){
+        direction.z += 1.0f;
+    }
+
+    if(_move.back->isPressed()){
+        currentVelocity.x = vel.x;
+        currentVelocity.y = vel.y;
+        currentVelocity.z = 0;
+    }else if(_move.back->isHeld()){
+        direction.z -= 1.0f;
+    }
+
+    if(_move.right->isPressed()){
+        currentVelocity.x = 0;
+        currentVelocity.y = vel.y;
+        currentVelocity.z = vel.z;
+    }else if(_move.right->isHeld()){
+        direction.x += 1.0f;
+    }
+
+    if(_move.left->isPressed()){
+        currentVelocity.x = 0;
+        currentVelocity.y = vel.y;
+        currentVelocity.z = vel.z;
+    }else if(_move.left->isHeld()){
+        direction.x -= 1.0f;
+    }
+
+
+    if(_move.up->isPressed()){
+        currentVelocity.x = vel.x;
+        currentVelocity.y = 0.0f;
+        currentVelocity.z = vel.z;
+    }else if(_move.up->isHeld()){
+        direction.y += 1.0f;
+    }
+
+    if(_move.down->isPressed()){
+        currentVelocity.x = vel.x;
+        currentVelocity.y = 0.0f;
+        currentVelocity.z = vel.z;
+    }else if(_move.down->isHeld()){
+        direction.y -= 1.0f;
+    }
 }
 
 void CameraController::lookAt(const glm::vec3 &eye, const glm::vec3 &target, const glm::vec3 &up) {
@@ -72,11 +131,6 @@ void CameraController::rotateSmoothly(float headingDegrees, float pitchDegrees, 
     rollDegrees *= rotationSpeed;
 
     rotate(headingDegrees, pitchDegrees, rollDegrees);
-}
-
-
-void CameraController::rotate(float headingDegrees, float pitchDegrees, float rollDegrees) {
-
 }
 
 void CameraController::undoRoll() {
@@ -260,5 +314,6 @@ void CameraController::updateVelocity(const glm::vec3 &direction, float elapsedT
         }
     }
 }
+
 
 

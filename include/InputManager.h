@@ -16,9 +16,9 @@ struct Action{
         HELD
     };
 
-    explicit Action(std::string_view name = "")
+    explicit Action(std::string_view name = "", Behavior behavior = Behavior::NORMAL)
     : name(name)
-    , behavior(Behavior::NORMAL)
+    , behavior(behavior)
     , state(State::RELEASED)
     , amount(0)
     {}
@@ -50,6 +50,10 @@ struct Action{
 
     inline bool isPressed(){
         return getAmount() != 0;
+    }
+
+    inline bool isHeld(){
+        return state == State::HELD;
     }
 
     inline int getAmount(){
@@ -95,21 +99,20 @@ public:
             glfwSetInputMode(glfwWindow, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
             int w, h;
             glfwGetFramebufferSize(glfwWindow, &w, &h);
-            spdlog::info("framebuffer size [{}, {}]", w, h);
             setCenter(w * 0.5f, h * 0.5f);
             recenter();
         }
     }
 
-    Action& mapToKey(Key key){
+    Action& mapToKey(Key key, std::string_view name = "", Action::Behavior behavior = Action::Behavior::NORMAL){
         int index = static_cast<int>(key);
-        keyActions.insert(std::make_pair(index, Action{}));
+        keyActions.insert(std::make_pair(index, Action{name, behavior}));
 
         return keyActions[index];
     }
 
-    Action& mapToMouse(int mouseCode) { // TODO use enum
-        mouseActions.insert(std::make_pair(mouseCode, Action{}));
+    Action& mapToMouse(int mouseCode, std::string_view name = "", Action::Behavior behavior = Action::Behavior::NORMAL) { // TODO use enum
+        mouseActions.insert(std::make_pair(mouseCode, Action{name, behavior}));
 
         return mouseActions[mouseCode];
     }
@@ -157,7 +160,6 @@ public:
         if(itr != end(keyActions)){
             itr->second.press();
         }
-        spdlog::info("key pressed: {}", static_cast<char>(key));
     }
 
     void onKeyRelease(const KeyEvent& event){
@@ -166,7 +168,6 @@ public:
         if(itr != end(keyActions)){
             itr->second.release();
         }
-        spdlog::info("key released: {}", static_cast<char>(key));
     }
 
     void onMousePress(const MouseEvent& event){
@@ -176,12 +177,10 @@ public:
         if(itr != end(mouseActions)){
             itr->second.press();
         }
-//        spdlog::info("mouse button pressed: {}", static_cast<char>(key));
     }
 
     void onMouseRelease(const MouseEvent& event){
         int key = static_cast<int>(event.button);
-        spdlog::info("mouse button released: {}", static_cast<char>(key));
         auto itr = mouseActions.find(key);
         if(itr != end(mouseActions)){
             itr->second.release();
@@ -193,7 +192,6 @@ public:
     }
 
     void setCenter(float x, float y){
-        spdlog::error("set center to [{}, {}]", x, y);
         center.x = x;
         center.y = y;
     }
