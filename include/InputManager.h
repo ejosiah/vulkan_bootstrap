@@ -190,7 +190,6 @@ public:
 
     void onResize(const ResizeEvent& event){
         setCenter(event.extent.x * 0.5f, event.extent.y * 0.5f);
- //       spdlog::info("window resized [{}, {}]", event.extent.x, event.extent.y);
     }
 
     void setCenter(float x, float y){
@@ -205,11 +204,6 @@ public:
         mouse.relativePosition.x += event.pos.x - center.x;
         mouse.relativePosition.y += center.y - event.pos.y;
 
-//        spdlog::info("mouse move pos: [{}, {}], relativePos: [{}, {}]"
-//                     , mouse.position.x
-//                     , mouse.position.y
-//                     , mouse.relativePosition.x
-//                     , mouse.relativePosition.y);
         mouseHelper(MouseEvent::MoveCode::LEFT, MouseEvent::MoveCode::RIGHT, mouse.relativePosition.x);
         mouseHelper(MouseEvent::MoveCode::DOWN, MouseEvent::MoveCode::UP, mouse.relativePosition.y);
     }
@@ -268,6 +262,7 @@ private:
     GLFWwindow* glfwWindow = nullptr;
 
 public:
+    [[nodiscard]]
     const Mouse& getMouse() const {
         return mouse;
     }

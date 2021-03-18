@@ -6,6 +6,7 @@ constexpr bool debugMode = true;
 constexpr bool debugMode = false;
 #endif
 
+// TODO revite this include
 #include <string>
 #include <string_view>
 #include <array>
@@ -26,16 +27,18 @@ constexpr bool debugMode = false;
 #include <memory>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
+#include <glm/gtc/quaternion.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/matrix_access.hpp>
 #include <vulkan/vulkan.h>
 #include <spdlog/spdlog.h>
 #include <chrono>
 #include <vk_mem_alloc.h>
-
 namespace chrono = std::chrono;
 
 using Flags = unsigned int;
 
+constexpr float EPSILON = 0.000001;
 constexpr uint32_t WIDTH = 800;
 constexpr uint32_t HEIGHT = 600;
 constexpr std::chrono::seconds ONE_SECOND = std::chrono::seconds(1);
@@ -44,6 +47,15 @@ constexpr std::chrono::seconds ONE_SECOND = std::chrono::seconds(1);
 #define COUNT(sequence) static_cast<uint32_t>(sequence.size())
 
 using cstring = const char*;
+
+inline bool closeEnough(float x, float y) { return abs(x - y) <= EPSILON * (abs(x) + abs(y) + 1.0f); }
+
+inline glm::quat fromAxisAngle(const glm::vec3& axis, const float angle) {
+    float w = cos(glm::radians(angle) / 2);
+    glm::vec3 xyz = axis * sin(glm::radians(angle) / 2);
+    return glm::quat(w, xyz);
+}
+
 
 template<typename VkObject, typename Provider>
 inline std::vector<VkObject> get(Provider&& provider){

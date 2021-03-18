@@ -44,7 +44,15 @@ void VulkanBaseApp::init() {
     exit = &mapToKey(Key::ESCAPE);
     pause = &mapToKey(Key::P);
     initVulkan();
-    cameraController = new SphericalCameraController{*this, camera, glm::length(glm::vec3(2))};
+    OrbitingCameraSettings settings{};
+    settings.offsetDistance = 2.0f;
+    settings.rotationSpeed = 0.1f;
+    settings.zNear = 0.1f;
+    settings.zFar = 10.0f;
+    settings.fieldOfView = 45.0f;
+    settings.modelHeight = 0;
+    settings.aspectRatio = static_cast<float>(swapChain.extent.width)/static_cast<float>(swapChain.extent.height);
+    cameraController = new OrbitingCameraController{ camera, *this, settings};
 }
 
 void VulkanBaseApp::initWindow() {
@@ -724,9 +732,11 @@ void VulkanBaseApp::update(float time) {
   //  spdlog::info("time: {}", time);
 //    camera.model = glm::rotate(glm::mat4(1.0f), elapsedTime * glm::half_pi<float>(), {0.0f, 0.0f, 1.0f});
 //    camera.view = glm::lookAt({2.0f, 2.0f, 2.0f}, glm::vec3(0.0f), {0.0f, 0.0f, 1.0f});
+//    camera.proj = glm::perspective(glm::quarter_pi<float>(), swapChain.extent.width/ static_cast<float>(swapChain.extent.height), 0.1f, 10.0f);
     cameraController->update(time);
-    camera.proj = glm::perspective(glm::quarter_pi<float>(), swapChain.extent.width/ static_cast<float>(swapChain.extent.height), 0.1f, 10.0f);
-    camera.proj[1][1] *= 1;
+//    camera.proj[1][1] *= 1;
+//    camera.model = glm::mat4(1);
+//    camera.view = glm::lookAt({0, 0, 2}, glm::vec3(0), {0, 1, 0});
     auto& buffer = cameraBuffers[currentImageIndex];
     buffer.copy(&camera, sizeof(camera));
 }

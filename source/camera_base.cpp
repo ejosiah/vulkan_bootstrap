@@ -1,0 +1,264 @@
+#include "camera_base.h"
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/matrix_access.hpp>
+
+CameraController::CameraController(Camera &camera, InputManager& inputManager, const CameraSettings& settings)
+    : fovx(settings.fieldOfView)
+    , aspectRatio(settings.aspectRatio)
+    , znear(settings.zNear)
+    , zfar(settings.zFar)
+    , minZoom(settings.minZoom)
+    , maxZoom(settings.maxZoom)
+    , rotationSpeed(settings.rotationSpeed)
+    , accumPitchDegrees(0.0f)
+    , floorOffset(1.0f)
+    , eyes(0.0f)
+    , target(0.0f)
+    , targetYAxis(0.0f, 1.0f, 0.0f)
+    , xAxis(1.0f, 0.0f, 0.0f)
+    , yAxis(0.0f, 1.0f, 0.0f)
+    , zAxis(0.0f, 0.0f, 1.0f)
+    , viewDir(0.0f, 0.0f, -1.0f)
+    , acceleration(settings.acceleration)
+    , velocity(settings.velocity)
+    , currentVelocity(0)
+    , orientation(1, 0, 0, 0)
+    , direction(0)
+    , camera(camera)
+    , mouse(inputManager.getMouse())
+    {
+        position({0.0f, floorOffset, 0.0f});    // assuming up is y axis
+        perspective(fovx, aspectRatio, znear, zfar);
+    }
+
+void CameraController::processInput() {
+
+}
+
+void CameraController::lookAt(const glm::vec3 &eye, const glm::vec3 &target, const glm::vec3 &up) {
+
+    this->eyes = eye;
+    this->target = target;
+
+    auto& view = camera.view;
+    view = glm::lookAt(eye, target, up);
+    // Extract the pitch angle from the view matrix.
+    accumPitchDegrees = glm::degrees(asinf(view[1][2]));	// TODO change this matrix is colomn matrix
+
+    xAxis = glm::vec3(row(view, 0));
+    yAxis = glm::vec3(row(view, 1));
+    zAxis = glm::vec3(row(view, 2));
+
+    viewDir = -zAxis;
+
+    accumPitchDegrees = glm::degrees(asinf(view[1][2]));
+
+    orientation = glm::quat(view);
+    updateViewMatrix();
+}
+
+void CameraController::perspective(float fovx, float aspect, float znear, float zfar) {
+    camera.proj = glm::perspective(glm::radians(fovx), aspect, znear, zfar);
+    this->fovx = fovx;
+    aspectRatio = aspect;
+    this->znear = znear;
+    this->zfar = zfar;
+
+}
+
+void CameraController::rotateSmoothly(float headingDegrees, float pitchDegrees, float rollDegrees) {
+    headingDegrees *= rotationSpeed;
+    pitchDegrees *= rotationSpeed;
+    rollDegrees *= rotationSpeed;
+
+    rotate(headingDegrees, pitchDegrees, rollDegrees);
+}
+
+
+void CameraController::rotate(float headingDegrees, float pitchDegrees, float rollDegrees) {
+
+}
+
+void CameraController::undoRoll() {
+    lookAt(eyes, eyes + viewDir, WORLD_YAXIS);
+}
+
+void CameraController::zoom(float zoom, float minZoom, float maxZoom) {
+    zoom = std::min(std::max(zoom, minZoom), maxZoom);
+    perspective(zoom, aspectRatio, znear, zfar);
+}
+
+void CameraController::move(float dx, float dy, float dz) {
+    glm::vec3 eyes = this->eyes;
+    glm::vec3 forwards = viewDir;
+
+    eyes += xAxis * dx;
+    eyes += WORLD_YAXIS * dy;
+    eyes += forwards * dz;
+
+    position(eyes);
+}
+
+void CameraController::move(const glm::vec3 &direction, const glm::vec3 &amount) {
+    eyes.x += direction.x * amount.x;
+    eyes.y += direction.y * amount.y;
+    eyes.z += direction.z * amount.z;
+
+    updateViewMatrix();
+}
+
+
+void CameraController::position(const glm::vec3 &pos) {
+    eyes = pos;
+    updateViewMatrix();
+}
+
+void CameraController::updatePosition(const glm::vec3 &direction, float elapsedTimeSec) {
+    // Moves the Camera using Newton's second law of motion. Unit mass is
+    // assumed here to somewhat simplify the calculations. The direction vector
+    // is in the range [-1,1].
+    using namespace glm;
+    if (dot(currentVelocity, currentVelocity) != 0.0f)
+    {
+        // Only move the Camera if the velocity vector is not of zero length.
+        // Doing this guards against the Camera slowly creeping around due to
+        // floating point rounding errors.
+
+        glm::vec3 displacement = (currentVelocity * elapsedTimeSec) +
+                                 (0.5f * acceleration * elapsedTimeSec * elapsedTimeSec);
+
+        // Floating point rounding errors will slowly accumulate and cause the
+        // Camera to move along each axis. To prevent any unintended movement
+        // the displacement vector is clamped to zero for each direction that
+        // the Camera isn't moving in. Note that the updateVelocity() method
+        // will slowly decelerate the Camera's velocity back to a stationary
+        // state when the Camera is no longer moving along that direction. To
+        // account for this the Camera's current velocity is also checked.
+
+        if (direction.x == 0.0f && closeEnough(currentVelocity.x, 0.0f))
+            displacement.x = 0.0f;
+
+        if (direction.y == 0.0f && closeEnough(currentVelocity.y, 0.0f))
+            displacement.y = 0.0f;
+
+        if (direction.z == 0.0f && closeEnough(currentVelocity.z, 0.0f))
+            displacement.z = 0.0f;
+
+        move(displacement.x, displacement.y, displacement.z);
+    }
+
+    // Continuously update the Camera's velocity vector even if the Camera
+    // hasn't moved during this call. When the Camera is no longer being moved
+    // the Camera is decelerating back to its stationary state.
+
+    updateVelocity(direction, elapsedTimeSec);
+}
+
+void CameraController::updateViewMatrix() {
+    auto& view = camera.view;
+    view = glm::mat4_cast(orientation);
+
+    xAxis = glm::vec3(glm::row(view, 0));
+    yAxis = glm::vec3(glm::row(view, 1));
+    zAxis = glm::vec3(glm::row(view, 2));
+    viewDir = -zAxis;
+
+    view[3][0] = -dot(xAxis, eyes);
+    view[3][1] = -dot(yAxis, eyes);
+    view[3][2] =  -dot(zAxis, eyes);
+}
+
+void CameraController::updateVelocity(const glm::vec3 &direction, float elapsedTimeSec) {
+    // Updates the Camera's velocity based on the supplied movement direction
+    // and the elapsed time (since this method was last called). The movement
+    // direction is in the range [-1,1].
+
+    if (direction.x != 0.0f)
+    {
+        // Camera is moving along the x axis.
+        // Linearly accelerate up to the Camera's max speed.
+
+        currentVelocity.x += direction.x * acceleration.x * elapsedTimeSec;
+
+        if (currentVelocity.x > velocity.x)
+            currentVelocity.x = velocity.x;
+        else if (currentVelocity.x < -velocity.x)
+            currentVelocity.x = -velocity.x;
+    }
+    else
+    {
+        // Camera is no longer moving along the x axis.
+        // Linearly decelerate back to stationary state.
+
+        if (currentVelocity.x > 0.0f)
+        {
+            if ((currentVelocity.x -= acceleration.x * elapsedTimeSec) < 0.0f)
+                currentVelocity.x = 0.0f;
+        }
+        else
+        {
+            if ((currentVelocity.x += acceleration.x * elapsedTimeSec) > 0.0f)
+                currentVelocity.x = 0.0f;
+        }
+    }
+
+    if (direction.y != 0.0f)
+    {
+        // Camera is moving along the y axis.
+        // Linearly accelerate up to the Camera's max speed.
+
+        currentVelocity.y += direction.y * acceleration.y * elapsedTimeSec;
+
+        if (currentVelocity.y > velocity.y)
+            currentVelocity.y = velocity.y;
+        else if (currentVelocity.y < -velocity.y)
+            currentVelocity.y = -velocity.y;
+    }
+    else
+    {
+        // Camera is no longer moving along the y axis.
+        // Linearly decelerate back to stationary state.
+
+        if (currentVelocity.y > 0.0f)
+        {
+            if ((currentVelocity.y -= acceleration.y * elapsedTimeSec) < 0.0f)
+                currentVelocity.y = 0.0f;
+        }
+        else
+        {
+            if ((currentVelocity.y += acceleration.y * elapsedTimeSec) > 0.0f)
+                currentVelocity.y = 0.0f;
+        }
+    }
+
+    if (direction.z != 0.0f)
+    {
+        // Camera is moving along the z axis.
+        // Linearly accelerate up to the Camera's max speed.
+
+        currentVelocity.z += direction.z * acceleration.z * elapsedTimeSec;
+
+        if (currentVelocity.z > velocity.z)
+            currentVelocity.z = velocity.z;
+        else if (currentVelocity.z < -velocity.z)
+            currentVelocity.z = -velocity.z;
+    }
+    else
+    {
+        // Camera is no longer moving along the z axis.
+        // Linearly decelerate back to stationary state.
+
+        if (currentVelocity.z > 0.0f)
+        {
+            if ((currentVelocity.z -= acceleration.z * elapsedTimeSec) < 0.0f)
+                currentVelocity.z = 0.0f;
+        }
+        else
+        {
+            if ((currentVelocity.z += acceleration.z * elapsedTimeSec) > 0.0f)
+                currentVelocity.z = 0.0f;
+        }
+    }
+}
+
+
