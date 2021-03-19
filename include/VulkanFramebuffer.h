@@ -1,6 +1,7 @@
 #pragma once
 
 #include "common.h"
+#include "VulkanInitializers.h"
 
 struct VulkanFramebuffer{
 
@@ -11,14 +12,13 @@ struct VulkanFramebuffer{
                       , uint32_t width, uint32_t height, uint32_t layers = 1)
     :device(device)
     {
-        VkFramebufferCreateInfo createInfo{};
-        createInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-        createInfo.renderPass = renderPass;
-        createInfo.attachmentCount = COUNT(attachments);
-        createInfo.pAttachments = attachments.data();
-        createInfo.width = width;
-        createInfo.height = height;
-        createInfo.layers = layers;
+        VkFramebufferCreateInfo createInfo = initializers::framebufferCreateInfo(
+                renderPass,
+                attachments,
+                width,
+                height,
+                layers
+                );
 
         ASSERT(vkCreateFramebuffer(device, &createInfo, nullptr, &frameBuffer));
     }

@@ -502,16 +502,6 @@ void VulkanBaseApp::createRenderPass() {
     dependency.srcAccessMask = 0;
     dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 
-
-    VkRenderPassCreateInfo createInfo{};
-    createInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-    createInfo.attachmentCount = 1;
-    createInfo.pAttachments = &attachmentDesc;
-    createInfo.subpassCount = 1;
-    createInfo.pSubpasses = &subpassDesc;
-    createInfo.dependencyCount = 1;
-    createInfo.pDependencies = &dependency;
-
     renderPass = VulkanRenderPass{device, {attachmentDesc}, {subpassDesc }, {dependency}};
 }
 

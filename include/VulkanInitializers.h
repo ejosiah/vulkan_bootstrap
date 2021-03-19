@@ -146,4 +146,40 @@ namespace initializers{
 
         return createInfo;
     }
+
+    inline VkRenderPassCreateInfo renderPassCreateInfo(
+              const std::vector<VkAttachmentDescription>& attachmentDescriptions
+            , const std::vector<VkSubpassDescription>& subpassDescriptions
+            , const std::vector<VkSubpassDependency>& dependencies = {}){
+
+        VkRenderPassCreateInfo createInfo{};
+        createInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+        createInfo.attachmentCount = COUNT(attachmentDescriptions);
+        createInfo.pAttachments = attachmentDescriptions.data();
+        createInfo.subpassCount = COUNT(subpassDescriptions);
+        createInfo.pSubpasses = subpassDescriptions.data();
+        createInfo.dependencyCount = COUNT(dependencies);
+        createInfo.pDependencies = dependencies.data();
+
+        return createInfo;
+    }
+
+    inline VkFramebufferCreateInfo framebufferCreateInfo(
+            VkRenderPass renderPass
+            , const std::vector<VkImageView>& attachments
+            , uint32_t width
+            , uint32_t height
+            , uint32_t layers = 1){
+
+        VkFramebufferCreateInfo createInfo{};
+        createInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+        createInfo.renderPass = renderPass;
+        createInfo.attachmentCount = COUNT(attachments);
+        createInfo.pAttachments = attachments.data();
+        createInfo.width = width;
+        createInfo.height = height;
+        createInfo.layers = layers;
+
+        return createInfo;
+    }
 }

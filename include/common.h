@@ -34,6 +34,7 @@ constexpr bool debugMode = false;
 #include <spdlog/spdlog.h>
 #include <chrono>
 #include <vk_mem_alloc.h>
+
 namespace chrono = std::chrono;
 
 using Flags = unsigned int;

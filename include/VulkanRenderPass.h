@@ -1,25 +1,21 @@
 #pragma once
 
 #include "common.h"
+#include "VulkanInitializers.h"
 
 struct VulkanRenderPass{
 
     VulkanRenderPass() = default;
 
     VulkanRenderPass(  VkDevice device
-                     , std::vector<VkAttachmentDescription> attachmentDescriptions
-                     , std::vector<VkSubpassDescription> subpassDescriptions
-                     , std::vector<VkSubpassDependency> dependencies = {})
+                     , const std::vector<VkAttachmentDescription>& attachmentDescriptions
+                     , const std::vector<VkSubpassDescription>& subpassDescriptions
+                     , const std::vector<VkSubpassDependency>& dependencies = {})
     :device(device)
     {
-        VkRenderPassCreateInfo createInfo{};
-        createInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-        createInfo.attachmentCount = COUNT(attachmentDescriptions);
-        createInfo.pAttachments = attachmentDescriptions.data();
-        createInfo.subpassCount = COUNT(subpassDescriptions);
-        createInfo.pSubpasses = subpassDescriptions.data();
-        createInfo.dependencyCount = COUNT(dependencies);
-        createInfo.pDependencies = dependencies.data();
+        VkRenderPassCreateInfo createInfo = initializers::renderPassCreateInfo(attachmentDescriptions,
+                                                                               subpassDescriptions,
+                                                                               dependencies);
 
         ASSERT(vkCreateRenderPass(device, &createInfo, nullptr, &renderPass));
     }
