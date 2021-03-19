@@ -394,8 +394,8 @@ void VulkanBaseApp::createFramebuffer() {
     framebuffers.resize(swapChain.imageCount());
     framebuffers.resize(swapChain.imageCount());
     for(int i = 0; i < framebuffers.size(); i++){
-        framebuffers[i] = VulkanFramebuffer{device, renderPass, {swapChain.imageViews[i] }
-                                               , static_cast<uint32_t>(width), static_cast<uint32_t>(height) };
+        framebuffers[i] = device.createFramebuffer(renderPass, {swapChain.imageViews[i] }
+                                               , static_cast<uint32_t>(width), static_cast<uint32_t>(height) );
     }
 }
 
@@ -502,7 +502,7 @@ void VulkanBaseApp::createRenderPass() {
     dependency.srcAccessMask = 0;
     dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 
-    renderPass = VulkanRenderPass{device, {attachmentDesc}, {subpassDesc }, {dependency}};
+    renderPass = device.createRenderPass({attachmentDesc}, {subpassDesc }, {dependency});
 }
 
 void VulkanBaseApp::createSyncObjects() {

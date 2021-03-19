@@ -8,6 +8,8 @@
 #include "VulkanCommandBuffer.h"
 #include "VulkanImage.h"
 #include "VulkanFence.h"
+#include "VulkanRenderPass.h"
+#include "VulkanFramebuffer.h"
 
 struct VulkanDevice{
 
@@ -320,6 +322,7 @@ struct VulkanDevice{
     }
 
     inline VulkanSemaphore createSemaphore(VkSemaphoreCreateFlags flags = 0) const {
+        assert(logicalDevice);
         VkSemaphoreCreateInfo createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
         createInfo.flags = flags;
@@ -327,6 +330,22 @@ struct VulkanDevice{
         VkSemaphore semaphore;
         ASSERT(vkCreateSemaphore(logicalDevice, &createInfo, nullptr, &semaphore));
         return VulkanSemaphore { logicalDevice, semaphore };
+    }
+
+    inline VulkanRenderPass createRenderPass(
+            const std::vector<VkAttachmentDescription>& attachmentDescriptions
+            , const std::vector<VkSubpassDescription>& subpassDescriptions
+            , const std::vector<VkSubpassDependency>& dependencies = {}) const {
+        assert(logicalDevice);
+        return VulkanRenderPass{ logicalDevice,  attachmentDescriptions, subpassDescriptions, dependencies };
+    }
+
+    inline VulkanFramebuffer createFramebuffer(VkRenderPass renderPass
+            , const std::vector<VkImageView>& attachments
+            , uint32_t width, uint32_t height, uint32_t layers = 1) const {
+        assert(logicalDevice);
+
+        return VulkanFramebuffer{ logicalDevice, renderPass, attachments, width, height, layers};
     }
 
     VkInstance instance = VK_NULL_HANDLE;
