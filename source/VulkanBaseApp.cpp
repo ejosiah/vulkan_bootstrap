@@ -116,9 +116,7 @@ void VulkanBaseApp::createInstance() {
         createInfo.pNext = &debugInfo;
     }
 
-    vkInstance = VulkanInstance{ appInfo, {instanceExtensions, validationLayers}};
-    instance = vkInstance.instance;
-    //REPORT_ERROR(vkCreateInstance(&createInfo, nullptr, &instance), "Failed to create Vulkan instance");
+    instance = VulkanInstance{appInfo, {instanceExtensions, validationLayers}};
 }
 
 void VulkanBaseApp::createSwapChain() {

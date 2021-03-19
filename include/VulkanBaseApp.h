@@ -148,8 +148,7 @@ private:
     void setPaused(bool flag);
 
 private:
-    VulkanInstance vkInstance;
-    VkInstance instance;
+    VulkanInstance instance;
     VulkanDebug vulkanDebug;
     VulkanSurface surface;
     VulkanDevice device;
