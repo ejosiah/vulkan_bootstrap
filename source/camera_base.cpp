@@ -12,6 +12,7 @@ BaseCameraController::BaseCameraController(Camera &camera, InputManager& inputMa
     , rotationSpeed(settings.rotationSpeed)
     , accumPitchDegrees(0.0f)
     , floorOffset(settings.floorOffset)
+    , handleZoom(settings.handleZoom)
     , eyes(0.0f)
     , target(0.0f)
     , targetYAxis(0.0f, 1.0f, 0.0f)
@@ -26,6 +27,8 @@ BaseCameraController::BaseCameraController(Camera &camera, InputManager& inputMa
     , direction(0)
     , camera(camera)
     , mouse(inputManager.getMouse())
+    , zoomIn(inputManager.mapToMouse(MouseEvent::MoveCode::WHEEL_UP))
+    , zoomOut(inputManager.mapToMouse(MouseEvent::MoveCode::WHEEL_DOWN))
     {
         _move.forward = &inputManager.mapToKey(Key::W, "forward", Action::Behavior::DETECT_INITIAL_PRESS_ONLY);
         _move.back = &inputManager.mapToKey(Key::S, "backward", Action::Behavior::DETECT_INITIAL_PRESS_ONLY);
@@ -39,6 +42,7 @@ BaseCameraController::BaseCameraController(Camera &camera, InputManager& inputMa
 
 void BaseCameraController::processInput() {
     processMovementInput();
+    processZoomInput();
 }
 
 void BaseCameraController::processMovementInput() {
@@ -93,6 +97,19 @@ void BaseCameraController::processMovementInput() {
         direction.y -= 1.0f;
     }
 }
+
+void BaseCameraController::processZoomInput() {
+    zoomAmount = 0.0f;
+    if(zoomIn.isPressed()){
+        zoomAmount = -0.01;
+    }else if(zoomOut.isPressed()){
+        zoomAmount = 0.01;
+    }
+    if(handleZoom && zoomAmount != 0){
+        zoom(zoomAmount, minZoom, maxZoom);
+    }
+}
+
 
 void BaseCameraController::lookAt(const glm::vec3 &eye, const glm::vec3 &target, const glm::vec3 &up) {
 
@@ -314,6 +331,5 @@ void BaseCameraController::updateVelocity(const glm::vec3 &direction, float elap
         }
     }
 }
-
 
 

@@ -14,6 +14,7 @@
 
 #include "keys.h"
 #include "events.h"
+#include "VulkanInitializers.h"
 
 namespace chrono = std::chrono;
 
@@ -42,8 +43,8 @@ VulkanBaseApp::VulkanBaseApp(std::string_view name, int width, int height, bool 
 void VulkanBaseApp::init() {
     initWindow();
     initInputMgr(*this);
-    exit = &mapToKey(Key::ESCAPE);
-    pause = &mapToKey(Key::P);
+    exit = &mapToKey(Key::ESCAPE, "Exit", Action::detectInitialPressOnly());
+    pause = &mapToKey(Key::P, "Pause", Action::detectInitialPressOnly());
     initVulkan();
     OrbitingCameraSettings settings{};
     settings.offsetDistance = 2.0f;
@@ -53,9 +54,9 @@ void VulkanBaseApp::init() {
     settings.fieldOfView = 45.0f;
     settings.modelHeight = 0;
     settings.aspectRatio = static_cast<float>(swapChain.extent.width)/static_cast<float>(swapChain.extent.height);
-  //  cameraController = new OrbitingCameraController{ camera, *this, settings};
-    cameraController = new SpectatorCameraController{ camera, *this, settings};
-    cameraController->lookAt({0, 0, 2}, glm::vec3(0), {0, 1, 0});
+    cameraController = new OrbitingCameraController{ camera, *this, settings};
+//    cameraController = new FirstPersonCameraController{ camera, *this, settings};
+//    cameraController->lookAt({0, 0, 2}, glm::vec3(0), {0, 1, 0});
 }
 
 void VulkanBaseApp::initWindow() {
@@ -403,53 +404,29 @@ void VulkanBaseApp::createGraphicsPipeline() {
     auto vertexShaderModule = ShaderModule{"../../data/shaders/triangle.vert.spv", device};
     auto fragmentShaderModule = ShaderModule{"../../data/shaders/triangle.frag.spv", device};
 
-    std::vector<VkPipelineShaderStageCreateInfo> stages(2);
-    stages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    stages[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
-    stages[0].module = vertexShaderModule;
-    stages[0].pName= "main";
+    std::vector<VkPipelineShaderStageCreateInfo> stages = initializers::vertexShaderStages(
+            {
+                    {vertexShaderModule,   VK_SHADER_STAGE_VERTEX_BIT},
+                    {fragmentShaderModule, VK_SHADER_STAGE_FRAGMENT_BIT}
+            }
+    );
 
-    stages[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    stages[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-    stages[1].module = fragmentShaderModule;
-    stages[1].pName = "main";
-
-    VkPipelineVertexInputStateCreateInfo vertexInputState{};
-    vertexInputState.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    vertexInputState.vertexBindingDescriptionCount = 1;
-    auto vertexInputBinding = Vertex::bindingDisc();
-    vertexInputState.pVertexBindingDescriptions = &vertexInputBinding;
-    auto attributeDesc = Vertex::attributeDisc();
-    vertexInputState.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDesc.size());
-    vertexInputState.pVertexAttributeDescriptions = attributeDesc.data();
-
-    VkPipelineInputAssemblyStateCreateInfo InputAssemblyState{};
-    InputAssemblyState.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-    InputAssemblyState.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-    InputAssemblyState.primitiveRestartEnable = VK_FALSE;
+    std::vector<VkVertexInputBindingDescription> vertexBindings{Vertex::bindingDisc()};
+    std::vector<VkVertexInputAttributeDescription> vertexAttributes = Vertex::attributeDisc();
+    VkPipelineVertexInputStateCreateInfo vertexInputState = initializers::vertexInputState(vertexBindings, vertexAttributes);
 
 
-    VkViewport viewport{};
-    viewport.width = swapChain.extent.width;
-    viewport.height = swapChain.extent.height;
-    viewport.minDepth = 0;
-    viewport.maxDepth = 1;
-    viewport.x = 0;
-    viewport.y = 0;
+    VkPipelineInputAssemblyStateCreateInfo InputAssemblyState = initializers::inputAssemblyState();
+
+    VkViewport viewport = initializers::viewport(swapChain.extent);
 
     VkRect2D scissor{};
     scissor.extent = swapChain.extent;
     scissor.offset = {0, 0};
 
-    VkPipelineViewportStateCreateInfo viewportState{};
-    viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-    viewportState.viewportCount = 1;
-    viewportState.pViewports = &viewport;
-    viewportState.scissorCount = 1;
-    viewportState.pScissors = &scissor;
+    VkPipelineViewportStateCreateInfo viewportState = initializers::viewportState(viewport, scissor);
 
-    VkPipelineRasterizationStateCreateInfo rasterizationState{};
-    rasterizationState.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+    VkPipelineRasterizationStateCreateInfo rasterizationState = initializers::rasterizationState();
     rasterizationState.rasterizerDiscardEnable = VK_FALSE;
     rasterizationState.polygonMode = VK_POLYGON_MODE_FILL;
     rasterizationState.cullMode = VK_CULL_MODE_BACK_BIT;
@@ -457,31 +434,15 @@ void VulkanBaseApp::createGraphicsPipeline() {
     rasterizationState.depthBiasEnable = VK_FALSE;
     rasterizationState.lineWidth = 1.0f;
 
-    VkPipelineMultisampleStateCreateInfo multisampleState{};
-    multisampleState.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-    multisampleState.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+    VkPipelineMultisampleStateCreateInfo multisampleState = initializers::multisampleState();
 
 
-    VkPipelineDepthStencilStateCreateInfo depthStencilState{};
-    depthStencilState.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-    depthStencilState.depthTestEnable = VK_FALSE;
-    depthStencilState.depthWriteEnable = VK_FALSE;
+    VkPipelineDepthStencilStateCreateInfo depthStencilState = initializers::depthStencilState();
 
-    VkPipelineColorBlendAttachmentState  blendAttachmentState{};
-    blendAttachmentState.blendEnable = VK_FALSE;
-    blendAttachmentState.colorWriteMask = VK_COLOR_COMPONENT_R_BIT |
-                                               VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT |
-                                               VK_COLOR_COMPONENT_A_BIT;
 
-    VkPipelineColorBlendStateCreateInfo blendState{};
-    blendState.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-    blendState.attachmentCount = 1;
-    blendState.pAttachments = &blendAttachmentState;
+    VkPipelineColorBlendStateCreateInfo blendState = initializers::colorBlendState();
 
-    VkPipelineDynamicStateCreateInfo dynamicState{};
-    dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-    dynamicState.dynamicStateCount = 0;
-    dynamicState.pDynamicStates = VK_NULL_HANDLE;
+    VkPipelineDynamicStateCreateInfo dynamicState = initializers::dynamicState();
 
     VkPushConstantRange range;
     range.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
@@ -508,8 +469,7 @@ void VulkanBaseApp::createGraphicsPipeline() {
     createInfo.subpass = 0;
     createInfo.basePipelineIndex = -1;
     createInfo.basePipelineHandle = VK_NULL_HANDLE;
-    //VkPipeline lPipeline;
-    //REPORT_ERROR(vkCreateGraphicsPipelines(device, nullptr, 1, &createInfo, nullptr, &lPipeline), "Failed to create pipeline");
+
     pipeline = device.createGraphicsPipeline(createInfo);
 }
 
@@ -553,7 +513,6 @@ void VulkanBaseApp::createRenderPass() {
     createInfo.pDependencies = &dependency;
 
     renderPass = VulkanRenderPass{device, {attachmentDesc}, {subpassDesc }, {dependency}};
-//    REPORT_ERROR(vkCreateRenderPass(device, &createInfo, nullptr, &renderPass), "Failed to create Render pass");
 }
 
 void VulkanBaseApp::createSyncObjects() {

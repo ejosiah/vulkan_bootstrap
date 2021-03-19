@@ -5,13 +5,12 @@ OrbitingCameraController::OrbitingCameraController(Camera &camera, InputManager&
 , offsetDistance(settings.offsetDistance)
 , orbitRollSpeed(settings.orbitRollSpeed)
 , preferTargetYAxisOrbiting(settings.preferTargetYAxisOrbiting)
-, zoomIn(inputManager.mapToMouse(MouseEvent::MoveCode::WHEEL_UP))
-, zoomOut(inputManager.mapToMouse(MouseEvent::MoveCode::WHEEL_DOWN))
 {
     minZoom = settings.orbitMinZoom;
     maxZoom = settings.orbitMaxZoom;
     offsetDistance = settings.offsetDistance;
     floorOffset = settings.modelHeight * 0.5f;
+    handleZoom = false;
     position({0.0f, floorOffset, 0.0f});
     updateModel();
     auto eyes = this->eyes + zAxis * offsetDistance;
@@ -36,17 +35,6 @@ void OrbitingCameraController::update(float elapsedTime) {
         zoom(zoomAmount, minZoom, maxZoom);
     }
 }
-
-void OrbitingCameraController::processInput() {
-    if(zoomIn.isPressed()){
-        zoomAmount = -0.01;
-    }else if(zoomOut.isPressed()){
-        zoomAmount = 0.01;
-    }else{
-        zoomAmount = 0.0f;
-    }
-}
-
 
 void OrbitingCameraController::move(float dx, float dy, float dz) {
     // Operation Not supported

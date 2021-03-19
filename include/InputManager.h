@@ -72,6 +72,14 @@ struct Action{
     bool operator==(const Action& other) const {
         return other.name == name;
     }
+
+    static inline Behavior detectInitialPressOnly(){
+        return Behavior::DETECT_INITIAL_PRESS_ONLY;
+    }
+
+    static inline Behavior normal(){
+        return Behavior::NORMAL;
+    }
 };
 
 struct Mouse{

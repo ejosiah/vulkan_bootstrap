@@ -40,6 +40,7 @@ struct BaseCameraSettings{
     float minZoom = DEFAULT_ZOOM_MIN;
     float maxZoom = DEFAULT_ZOOM_MAX;
     float floorOffset = 0.5f;
+    bool handleZoom = false;
 };
 
 struct BaseCameraController{
@@ -51,8 +52,6 @@ public:
     virtual void update(float time) = 0;
 
     virtual void processInput();
-
-    void processMovementInput();
 
     void lookAt(const glm::vec3 &eye, const glm::vec3 &target, const glm::vec3 &up);
 
@@ -78,6 +77,10 @@ public:
 protected:
     virtual void updateViewMatrix();
 
+    void processMovementInput();
+
+    void processZoomInput();
+
     void updateVelocity(const glm::vec3 &direction, float elapsedTimeSec);
 
     float fovx;
@@ -89,6 +92,7 @@ protected:
     float rotationSpeed;
     float accumPitchDegrees;
     float floorOffset;
+    bool handleZoom;
     glm::vec3 eyes;
     glm::vec3 target;
     glm::vec3 targetYAxis;
@@ -104,6 +108,8 @@ protected:
     Camera& camera;
     const Mouse& mouse;
 
+    float zoomAmount = 0;
+
     struct {
         Action* forward;
         Action* back;
@@ -112,4 +118,7 @@ protected:
         Action* up;
         Action* down;
     } _move;
+
+    Action& zoomIn;
+    Action& zoomOut;
 };

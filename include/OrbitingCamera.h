@@ -25,8 +25,6 @@ public:
 
     void updateModel();
 
-    void processInput() override;
-
     void move(float dx, float dy, float dz) override;
 
     void move(const glm::vec3 &direction, const glm::vec3 &amount) override;
@@ -43,7 +41,5 @@ private:
     float offsetDistance;
     float orbitRollSpeed;
     bool preferTargetYAxisOrbiting;
-    Action& zoomIn;
-    Action& zoomOut;
-    float zoomAmount = 0;
+
 };
