@@ -36,6 +36,17 @@ protected:
     void createIndexBuffer();
 
 private:
+    VulkanPipelineLayout layout;
+    VulkanPipeline pipeline;
+    VulkanCommandPool commandPool;
+    VulkanDescriptorPool descriptorPool;
+    VulkanDescriptorSetLayout descriptorSetLayout;
 
+    std::vector<VkCommandBuffer> commandBuffers;
+    VkDescriptorSet descriptorSet;
+
+    VulkanBuffer vertexBuffer;
+    VulkanBuffer indexBuffer;
+    Texture texture;
 
 };

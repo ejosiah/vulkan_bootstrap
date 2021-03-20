@@ -86,29 +86,18 @@ protected:
 
     void createSwapChain();
 
-    void createCommandPool();
-
     void createRenderPass();
 
     void createFramebuffer();
 
-    void createCommandBuffer();
-
-    void createGraphicsPipeline();
-
     void createSyncObjects();
 
-    void createDescriptorSetLayout();
-
     void createCameraDescriptorSetLayout();
-
-    void createDescriptorPool();
 
     void createCameraDescriptorPool();
 
     void createCameraDescriptorSet();
 
-    void createDescriptorSet();
 
     void recreateSwapChain();
 
@@ -124,13 +113,8 @@ protected:
 
     virtual void update(float time);
 
-    void createVertexBuffer();
-
-    void createIndexBuffer();
 
     void createCameraBuffers();
-
-    void createTextureBuffers();
 
     void createLogicalDevice();
 
@@ -159,37 +143,25 @@ protected:
 private:
     void setPaused(bool flag);
 
-private:
+protected:
     VulkanInstance instance;
     VulkanDebug vulkanDebug;
     VulkanSurface surface;
     VulkanDevice device;
     VulkanSwapChain swapChain;
     VulkanRenderPass renderPass;
-    VulkanPipelineLayout layout;
-    VulkanPipeline pipeline;
-    VulkanCommandPool commandPool;
-    VulkanDescriptorPool descriptorPool;
-    VulkanDescriptorSetLayout descriptorSetLayout;
     VulkanDescriptorSetLayout cameraDescriptorSetLayout;
     VulkanDescriptorPool cameraDescriptorPool;
 
 
     std::vector<VulkanFramebuffer> framebuffers;
-    std::vector<VkCommandBuffer> commandBuffers;
-    VkDescriptorSet descriptorSet;
     std::vector<VkDescriptorSet> cameraDescriptorSets;
 
 
+    VmaAllocator memoryAllocator;
 
-    VmaAllocator memoryAllocator;   // TODO remove
-
-    VulkanBuffer vertexBuffer;
-    VulkanBuffer indexBuffer;
     std::vector<VulkanBuffer> cameraBuffers;
-    Texture texture;
     Camera camera;
-    VkCommandBuffer pushConstantCmdBuffer;
 
 
     std::vector<VulkanSemaphore> imageAcquired;
@@ -208,7 +180,7 @@ private:
     Action* pause = nullptr;
     bool paused = false;
     float elapsedTime = 0.0f;
-protected:
+
     uint32_t currentImageIndex = 0;
     int currentFrame = 0;
     Mesh mesh;
