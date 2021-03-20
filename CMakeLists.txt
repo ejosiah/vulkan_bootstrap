@@ -11,3 +11,4 @@ include_directories(VulkanBase/include)
 
 add_subdirectory(VulkanBase)
 add_subdirectory(VulkanCube)
+add_subdirectory(VulkanCubeInstanced)

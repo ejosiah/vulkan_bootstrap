@@ -1,4 +1,4 @@
-#include "VulkanCube.h"
+#include "VulkanCubeInstanced.h"
 
 #include  <stb_image.h>
 
@@ -40,7 +40,7 @@ void VulkanCubeInstanced::onSwapChainRecreation() {
 
 void VulkanCubeInstanced::createGraphicsPipeline() {
     assert(renderPass != VK_NULL_HANDLE);
-    auto vertexShaderModule = ShaderModule{"../../data/shaders/triangle.vert.spv", device};
+    auto vertexShaderModule = ShaderModule{"../../data/shaders/cube_instanced.vert.spv", device};
     auto fragmentShaderModule = ShaderModule{"../../data/shaders/triangle.frag.spv", device};
 
     std::vector<VkPipelineShaderStageCreateInfo> stages = initializers::vertexShaderStages(
@@ -50,8 +50,15 @@ void VulkanCubeInstanced::createGraphicsPipeline() {
             }
     );
 
-    std::vector<VkVertexInputBindingDescription> vertexBindings{Vertex::bindingDisc()};
+    std::vector<VkVertexInputBindingDescription> vertexBindings = Vertex::bindingDisc();
+    vertexBindings.push_back({1, sizeof(glm::mat4), VK_VERTEX_INPUT_RATE_INSTANCE});
+
     std::vector<VkVertexInputAttributeDescription> vertexAttributes = Vertex::attributeDisc();
+    vertexAttributes.push_back({4, 1, VK_FORMAT_R32G32B32A32_SFLOAT, 0u});
+    vertexAttributes.push_back({5, 1, VK_FORMAT_R32G32B32A32_SFLOAT, 16u});
+    vertexAttributes.push_back({6, 1, VK_FORMAT_R32G32B32A32_SFLOAT, 32u});
+    vertexAttributes.push_back({7, 1, VK_FORMAT_R32G32B32A32_SFLOAT, 48u});
+
     VkPipelineVertexInputStateCreateInfo vertexInputState = initializers::vertexInputState(vertexBindings, vertexAttributes);
 
 
@@ -160,10 +167,11 @@ void VulkanCubeInstanced::createCommandBuffer() {
 
         vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, COUNT(descriptorSets), descriptorSets.data(), 0, nullptr);
         vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline );
-        VkDeviceSize offset = 0;
+        VkDeviceSize offsets[]{ 0u, 0u};
+        VkBuffer buffers[]{ vertexBuffer, xformBuffer};
         vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-        vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, &vertexBuffer.buffer, &offset);
-        vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(mesh.indices.size()), 1u, 0u, 0u, 0u);
+        vkCmdBindVertexBuffers(commandBuffers[i], 0, 2, buffers, offsets);
+        vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(mesh.indices.size()), numInstances, 0u, 0u, 0u);
 //        vkCmdDraw(commandBuffers[i], 3, 1, 0, 0);
 
         vkCmdEndRenderPass(commandBuffers[i]);
@@ -317,6 +325,32 @@ void VulkanCubeInstanced::createVertexBuffer() {
         copy.srcOffset = 0;
         vkCmdCopyBuffer(cmdBuffer, stagingBuffer, vertexBuffer, 1u, &copy);
     });
+
+    int limit = std::sqrt(numInstances);
+    float cornerOffset = -5;
+    float centerOffset = 1.0;
+    float gap = 0.5;
+
+    std::vector<glm::mat4> xforms;
+    for(int j = 0; j < limit; j++){
+        for(int i = 0; i < limit; i++){
+            float x = cornerOffset + (centerOffset + gap) * i;
+            float z = cornerOffset + (centerOffset + gap) * j;
+            auto xform = glm::translate(glm::mat4{1}, {x, 0, z});
+            xforms.push_back(xform);
+        }
+    }
+
+    dispose(stagingBuffer);
+
+    size = sizeof(glm::mat4) * numInstances;
+    stagingBuffer = device.createBuffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, size);
+    stagingBuffer.copy(xforms.data(), size);
+
+    xformBuffer = device.createBuffer(
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY,
+            size);
 }
 
 void VulkanCubeInstanced::createIndexBuffer() {
@@ -368,3 +402,13 @@ void VulkanCubeInstanced::createDescriptorSetLayout() {
     descriptorSetLayout = device.createDescriptorSetLayout(bindings);
 }
 
+int main() {
+    //   spdlog::set_level(spdlog::level::debug);
+    try{
+        VulkanCubeInstanced app;
+        app.run();
+    }catch(const std::runtime_error& err){
+        spdlog::error(err.what());
+    }
+    return 0;
+}

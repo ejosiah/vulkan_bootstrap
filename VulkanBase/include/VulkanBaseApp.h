@@ -98,7 +98,6 @@ protected:
 
     void createCameraDescriptorSet();
 
-
     void recreateSwapChain();
 
     virtual void onSwapChainDispose();
@@ -110,7 +109,6 @@ protected:
     virtual void drawFrame();
 
     virtual void update(float time);
-
 
     void createCameraBuffers();
 

@@ -2,7 +2,7 @@
 
 #include "VulkanBaseApp.h"
 
-class VulkanCubeInstanced : public VulkanBaseApp{
+class VulkanCubeInstanced : public VulkanBaseApp {
 public:
     VulkanCubeInstanced();
 
@@ -47,6 +47,7 @@ private:
 
     VulkanBuffer vertexBuffer;
     VulkanBuffer indexBuffer;
+    VulkanBuffer xformBuffer;
     Texture texture;
-
+    uint32_t numInstances = 100;
 };

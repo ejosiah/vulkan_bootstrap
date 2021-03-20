@@ -49,9 +49,9 @@ void VulkanBaseApp::init() {
     settings.fieldOfView = 45.0f;
     settings.modelHeight = 0;
     settings.aspectRatio = static_cast<float>(swapChain.extent.width)/static_cast<float>(swapChain.extent.height);
-    cameraController = new OrbitingCameraController{ camera, *this, settings};
- //   cameraController = new FirstPersonCameraController{ camera, *this, settings};
- //   cameraController->lookAt({0, 0, 2}, glm::vec3(0), {0, 1, 0});
+ //   cameraController = new OrbitingCameraController{ camera, *this, settings};
+    cameraController = new FirstPersonCameraController{ camera, *this, settings};
+    cameraController->lookAt({0, 0, 2}, glm::vec3(0), {0, 1, 0});
 }
 
 void VulkanBaseApp::initWindow() {
