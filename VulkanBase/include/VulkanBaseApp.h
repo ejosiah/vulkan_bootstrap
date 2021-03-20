@@ -78,6 +78,8 @@ protected:
 
     void initVulkan();
 
+    virtual void initApp() {};
+
     void createInstance();
 
     void pickPhysicalDevice();
@@ -98,11 +100,21 @@ protected:
 
     void createDescriptorSetLayout();
 
+    void createCameraDescriptorSetLayout();
+
     void createDescriptorPool();
+
+    void createCameraDescriptorPool();
+
+    void createCameraDescriptorSet();
 
     void createDescriptorSet();
 
     void recreateSwapChain();
+
+    virtual void onSwapChainDispose(){};
+
+    virtual void onSwapChainRecreation() {};
 
     virtual std::vector<VkCommandBuffer> buildCommandBuffers(uint32_t i) {
         return {};
@@ -159,9 +171,16 @@ private:
     VulkanCommandPool commandPool;
     VulkanDescriptorPool descriptorPool;
     VulkanDescriptorSetLayout descriptorSetLayout;
+    VulkanDescriptorSetLayout cameraDescriptorSetLayout;
+    VulkanDescriptorPool cameraDescriptorPool;
+
+
     std::vector<VulkanFramebuffer> framebuffers;
     std::vector<VkCommandBuffer> commandBuffers;
-    std::vector<VkDescriptorSet> descriptorSets;
+    VkDescriptorSet descriptorSet;
+    std::vector<VkDescriptorSet> cameraDescriptorSets;
+
+
 
     VmaAllocator memoryAllocator;   // TODO remove
 

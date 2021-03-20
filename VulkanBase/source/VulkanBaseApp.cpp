@@ -46,6 +46,7 @@ void VulkanBaseApp::init() {
     exit = &mapToKey(Key::ESCAPE, "Exit", Action::detectInitialPressOnly());
     pause = &mapToKey(Key::P, "Pause", Action::detectInitialPressOnly());
     initVulkan();
+    initApp();
     OrbitingCameraSettings settings{};
     settings.offsetDistance = 2.0f;
     settings.rotationSpeed = 0.1f;
@@ -87,9 +88,15 @@ void VulkanBaseApp::initVulkan() {
     createRenderPass();
     createFramebuffer();
     createTextureBuffers();
+
+    createCameraDescriptorPool();
+    createCameraDescriptorSetLayout();
+    createCameraDescriptorSet();
+
     createDescriptorSetLayout();
     createDescriptorPool();
     createDescriptorSet();
+
     createGraphicsPipeline();
     createCommandBuffer();
     createSyncObjects();
@@ -192,7 +199,10 @@ void VulkanBaseApp::createCommandBuffer() {
         renderPassBeginInfo.pClearValues = &clear;
         vkCmdBeginRenderPass(commandBuffers[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE );
 
-        vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, 1, &descriptorSets[i], 0, nullptr);
+        std::vector<VkDescriptorSet> descriptorSets{ cameraDescriptorSets[i], descriptorSet };
+     //   std::vector<VkDescriptorSet> descriptorSets{ cameraDescriptorSets[i] };
+
+        vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, COUNT(descriptorSets), descriptorSets.data(), 0, nullptr);
         vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline );
         VkDeviceSize offset = 0;
         vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT32);
@@ -447,7 +457,8 @@ void VulkanBaseApp::createGraphicsPipeline() {
     range.offset = 0;
     range.size = sizeof(Camera);
 
-    layout = device.createPipelineLayout({descriptorSetLayout }, {range });
+ //   layout = device.createPipelineLayout({descriptorSetLayout }, {range });
+    layout = device.createPipelineLayout({cameraDescriptorSetLayout, descriptorSetLayout }, {range });
 
     VkGraphicsPipelineCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
@@ -575,32 +586,33 @@ void VulkanBaseApp::recreateSwapChain() {
 
     createSwapChain();
     createCameraBuffers();
+    onSwapChainRecreation();
+
     createRenderPass();
     createFramebuffer();
+
+    createCameraDescriptorSetLayout();
+    createCameraDescriptorPool();
+    createDescriptorSet();
+
     createDescriptorSetLayout();
     createDescriptorPool();
     createDescriptorSet();
+
     createGraphicsPipeline();
     createCommandBuffer();
 }
 
 void VulkanBaseApp::createDescriptorSetLayout() {
-    VkDescriptorSetLayoutBinding uniformBinding{};
-    uniformBinding.binding = 0;
-    uniformBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    uniformBinding.descriptorCount = 1;
-    uniformBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-
-
     VkDescriptorSetLayoutBinding samplerLayoutBinding{};
-    samplerLayoutBinding.binding = 1;
+    samplerLayoutBinding.binding = 0;
     samplerLayoutBinding.descriptorCount = 1;
     samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     samplerLayoutBinding.pImmutableSamplers = nullptr;
     samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
     std::vector<VkDescriptorSetLayoutBinding> bindings {
-        uniformBinding, samplerLayoutBinding
+        samplerLayoutBinding
     };
 
     VkDescriptorSetLayoutCreateInfo createInfo{};
@@ -611,36 +623,61 @@ void VulkanBaseApp::createDescriptorSetLayout() {
     descriptorSetLayout = device.createDescriptorSetLayout(bindings);
 }
 
-void VulkanBaseApp::createDescriptorPool() {
-    const auto swapChainImageCount = static_cast<uint32_t>(swapChain.imageCount());
-    descriptorSets.resize(swapChainImageCount);
+void VulkanBaseApp::createCameraDescriptorSetLayout() {
+    VkDescriptorSetLayoutBinding uniformBinding{};
+    uniformBinding.binding = 0;
+    uniformBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    uniformBinding.descriptorCount = 1;
+    uniformBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 
-    VkDescriptorPoolSize uniformPoolSize{};
-    uniformPoolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    uniformPoolSize.descriptorCount = swapChainImageCount;
+    std::vector<VkDescriptorSetLayoutBinding> bindings { uniformBinding };
+
+    VkDescriptorSetLayoutCreateInfo createInfo{};
+    createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    createInfo.bindingCount = static_cast<uint32_t>(bindings.size());
+    createInfo.pBindings = bindings.data();
+
+    cameraDescriptorSetLayout = device.createDescriptorSetLayout(bindings);
+}
+
+void VulkanBaseApp::createDescriptorPool() {
+  //  const auto swapChainImageCount = static_cast<uint32_t>(swapChain.imageCount());
+
 
     VkDescriptorPoolSize  texturePoolSize{};
     texturePoolSize.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    texturePoolSize.descriptorCount = swapChainImageCount;
+    texturePoolSize.descriptorCount = 1;
 
     std::vector<VkDescriptorPoolSize> poolSizes{
-            uniformPoolSize, texturePoolSize
+            texturePoolSize
     };
 
    descriptorPool = device.createDescriptorPool(swapChain.imageCount(), poolSizes);
 }
 
-void VulkanBaseApp::createDescriptorSet() {
+void VulkanBaseApp::createCameraDescriptorPool() {
     const auto swapChainImageCount = static_cast<uint32_t>(swapChain.imageCount());
-    descriptorSets.resize(swapChainImageCount);
 
-    std::vector<VkDescriptorSetLayout> layouts(swapChainImageCount, descriptorSetLayout);
+    VkDescriptorPoolSize uniformPoolSize{};
+    uniformPoolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    uniformPoolSize.descriptorCount = swapChainImageCount;
+
+    std::vector<VkDescriptorPoolSize> poolSizes{ uniformPoolSize };
+
+    cameraDescriptorPool = device.createDescriptorPool(swapChain.imageCount(), poolSizes);
+}
+
+void VulkanBaseApp::createCameraDescriptorSet() {
+    const auto swapChainImageCount = static_cast<uint32_t>(swapChain.imageCount());
+    cameraDescriptorSets.resize(swapChainImageCount);
+
+    std::vector<VkDescriptorSetLayout> layouts(swapChainImageCount, cameraDescriptorSetLayout);
     VkDescriptorSetAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    allocInfo.descriptorPool = descriptorPool;
+    allocInfo.descriptorPool = cameraDescriptorPool;
     allocInfo.descriptorSetCount = static_cast<uint32_t>(layouts.size());
     allocInfo.pSetLayouts = layouts.data();
-    vkAllocateDescriptorSets(device, &allocInfo, descriptorSets.data());
+    vkAllocateDescriptorSets(device, &allocInfo, cameraDescriptorSets.data());
 
     for(int i = 0; i < swapChainImageCount; i++) {
         VkDescriptorBufferInfo bufferInfo{};
@@ -650,32 +687,48 @@ void VulkanBaseApp::createDescriptorSet() {
 
         VkWriteDescriptorSet cameraWrites{};
         cameraWrites.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        cameraWrites.dstSet = descriptorSets[i];
+        cameraWrites.dstSet = cameraDescriptorSets[i];
         cameraWrites.dstBinding = 0;
         cameraWrites.descriptorCount = 1;
         cameraWrites.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
         cameraWrites.pBufferInfo = &bufferInfo;
 
-        VkWriteDescriptorSet textureWrites{};
-        textureWrites.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        textureWrites.dstSet = descriptorSets[i];
-        textureWrites.dstBinding = 1;
-        textureWrites.dstArrayElement = 0;
-        textureWrites.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        textureWrites.descriptorCount = 1;
-
-        VkDescriptorImageInfo imageInfo{};
-        imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        imageInfo.imageView = texture.imageView;
-        imageInfo.sampler = texture.sampler;
-        textureWrites.pImageInfo = &imageInfo;
-
-        std::vector<VkWriteDescriptorSet> writes{
-            cameraWrites, textureWrites,
-        };
+        std::vector<VkWriteDescriptorSet> writes{ cameraWrites };
 
         vkUpdateDescriptorSets(device, static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr);
     }
+}
+
+void VulkanBaseApp::createDescriptorSet() {
+    const auto swapChainImageCount = 1;
+
+    std::vector<VkDescriptorSetLayout> layouts(swapChainImageCount, descriptorSetLayout);
+    VkDescriptorSetAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    allocInfo.descriptorPool = descriptorPool;
+    allocInfo.descriptorSetCount = 1;
+    allocInfo.pSetLayouts = &descriptorSetLayout.handle;
+    vkAllocateDescriptorSets(device, &allocInfo, &descriptorSet);
+
+    VkWriteDescriptorSet textureWrites{};
+    textureWrites.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    textureWrites.dstSet = descriptorSet;
+    textureWrites.dstBinding = 0;
+    textureWrites.dstArrayElement = 0;
+    textureWrites.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    textureWrites.descriptorCount = 1;
+
+    VkDescriptorImageInfo imageInfo{};
+    imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    imageInfo.imageView = texture.imageView;
+    imageInfo.sampler = texture.sampler;
+    textureWrites.pImageInfo = &imageInfo;
+
+    std::vector<VkWriteDescriptorSet> writes{
+            textureWrites,
+    };
+
+    vkUpdateDescriptorSets(device, static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr);
 }
 
 void VulkanBaseApp::update(float time) {
@@ -695,12 +748,17 @@ void VulkanBaseApp::cleanupSwapChain() {
     commandPool.free(commandBuffers);
     dispose(pipeline);
     dispose(layout);
+    onSwapChainDispose();
+    dispose(cameraDescriptorPool);
+    dispose(cameraDescriptorSetLayout);
     dispose(descriptorPool);
     dispose(descriptorSetLayout);
+
     for(auto& framebuffer : framebuffers){
         dispose(framebuffer);
     }
     dispose(renderPass);
+
 
     dispose(swapChain);
     for(auto& cameraBuffer : cameraBuffers){
