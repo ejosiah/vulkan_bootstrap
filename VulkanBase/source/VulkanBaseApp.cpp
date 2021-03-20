@@ -282,15 +282,16 @@ void VulkanBaseApp::drawFrame() {
 
     VkPipelineStageFlags flags = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
-    auto commandBuffers = buildCommandBuffers(imageIndex);
+    uint32_t commandBufferCount;
+    auto commandBuffers = buildCommandBuffers(imageIndex, commandBufferCount);
 
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submitInfo.waitSemaphoreCount = 1;
     submitInfo.pWaitSemaphores = &imageAcquired[currentFrame].handle;
     submitInfo.pWaitDstStageMask = &flags;
-    submitInfo.commandBufferCount = COUNT(commandBuffers);
-    submitInfo.pCommandBuffers = commandBuffers.data();
+    submitInfo.commandBufferCount = commandBufferCount;
+    submitInfo.pCommandBuffers = commandBuffers;
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores = &renderingFinished[currentFrame].handle;
 

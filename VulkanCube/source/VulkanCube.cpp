@@ -116,8 +116,9 @@ void VulkanCube::createGraphicsPipeline() {
     pipeline = device.createGraphicsPipeline(createInfo);
 }
 
-std::vector<VkCommandBuffer> VulkanCube::buildCommandBuffers(uint32_t i) {
-    return { commandBuffers[i] };
+VkCommandBuffer* VulkanCube::buildCommandBuffers(uint32_t imageIndex, uint32_t& numCommandBuffers) {
+    numCommandBuffers = 1;
+    return &commandBuffers[imageIndex];
 }
 
 void VulkanCube::update(float time) {

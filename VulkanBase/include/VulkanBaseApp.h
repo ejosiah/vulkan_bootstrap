@@ -105,8 +105,8 @@ protected:
 
     virtual void onSwapChainRecreation() {};
 
-    virtual std::vector<VkCommandBuffer> buildCommandBuffers(uint32_t i) {
-        return {};
+    virtual VkCommandBuffer* buildCommandBuffers(uint32_t imageIndex, uint32_t& numCommandBuffers) {
+        return nullptr;
     }
 
     virtual void drawFrame();

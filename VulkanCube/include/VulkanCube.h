@@ -13,7 +13,7 @@ protected:
 
     void onSwapChainRecreation() override;
 
-    std::vector<VkCommandBuffer> buildCommandBuffers(uint32_t i) override;
+    VkCommandBuffer* buildCommandBuffers(uint32_t imageIndex, uint32_t& numCommandBuffers) override;
 
     void update(float time) override;
 
