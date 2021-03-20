@@ -327,9 +327,9 @@ void VulkanCubeInstanced::createVertexBuffer() {
     });
 
     int limit = std::sqrt(numInstances);
-    float cornerOffset = -5;
-    float centerOffset = 1.0;
-    float gap = 0.5;
+    float cornerOffset = -5.0f;
+    float centerOffset = 1.0f;
+    float gap = 0.5f;
 
     std::vector<glm::mat4> xforms;
     for(int j = 0; j < limit; j++){
@@ -351,6 +351,14 @@ void VulkanCubeInstanced::createVertexBuffer() {
             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
             VMA_MEMORY_USAGE_GPU_ONLY,
             size);
+
+    commandPool.oneTimeCommand(device.queues.graphics, [&](VkCommandBuffer cmdBuffer){
+        VkBufferCopy copy{};
+        copy.size = size;
+        copy.dstOffset = 0;
+        copy.srcOffset = 0;
+        vkCmdCopyBuffer(cmdBuffer, stagingBuffer, xformBuffer, 1u, &copy);
+    });
 }
 
 void VulkanCubeInstanced::createIndexBuffer() {
