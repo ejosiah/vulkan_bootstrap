@@ -101,13 +101,11 @@ protected:
 
     void recreateSwapChain();
 
-    virtual void onSwapChainDispose(){};
+    virtual void onSwapChainDispose();
 
-    virtual void onSwapChainRecreation() {};
+    virtual void onSwapChainRecreation();
 
-    virtual VkCommandBuffer* buildCommandBuffers(uint32_t imageIndex, uint32_t& numCommandBuffers) {
-        return nullptr;
-    }
+    virtual VkCommandBuffer* buildCommandBuffers(uint32_t imageIndex, uint32_t& numCommandBuffers);
 
     virtual void drawFrame();
 
@@ -122,9 +120,7 @@ protected:
 
     virtual void checkSystemInputs();
 
-    virtual void checkAppInputs() {
-        cameraController->processInput();
-    };
+    virtual void checkAppInputs();
 
     void createDebugMessenger();
 
@@ -132,13 +128,11 @@ protected:
 
     float getTime();
 
-    virtual void cleanup() {}
+    virtual void cleanup();
 
-    virtual void onPause() {}
+    virtual void onPause();
 
-    bool isRunning() const {
-        return !glfwWindowShouldClose(window);
-    }
+    bool isRunning() const;
 
 private:
     void setPaused(bool flag);

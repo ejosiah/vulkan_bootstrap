@@ -50,8 +50,8 @@ void VulkanBaseApp::init() {
     settings.modelHeight = 0;
     settings.aspectRatio = static_cast<float>(swapChain.extent.width)/static_cast<float>(swapChain.extent.height);
     cameraController = new OrbitingCameraController{ camera, *this, settings};
-//    cameraController = new FirstPersonCameraController{ camera, *this, settings};
-//    cameraController->lookAt({0, 0, 2}, glm::vec3(0), {0, 1, 0});
+ //   cameraController = new FirstPersonCameraController{ camera, *this, settings};
+ //   cameraController->lookAt({0, 0, 2}, glm::vec3(0), {0, 1, 0});
 }
 
 void VulkanBaseApp::initWindow() {
@@ -440,4 +440,32 @@ float VulkanBaseApp::getTime() {
     auto timeValue = glfwGetTimerValue();
  //   spdlog::info("elapsedTime: {}, time freq: {}, time value: {}", now, timeFreq, timeValue);
     return dt;
+}
+
+VkCommandBuffer *VulkanBaseApp::buildCommandBuffers(uint32_t imageIndex, uint32_t &numCommandBuffers) {
+    return nullptr;
+}
+
+void VulkanBaseApp::onSwapChainRecreation() {
+
+}
+
+void VulkanBaseApp::onSwapChainDispose() {
+
+}
+
+inline void VulkanBaseApp::checkAppInputs() {
+    cameraController->processInput();
+}
+
+inline bool VulkanBaseApp::isRunning() const {
+    return !glfwWindowShouldClose(window);
+}
+
+void VulkanBaseApp::cleanup() {
+
+}
+
+void VulkanBaseApp::onPause() {
+
 }

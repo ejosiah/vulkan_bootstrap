@@ -10,8 +10,10 @@ struct Vertex{
     glm::vec3 color;
     glm::vec2 uv;
 
-    static VkVertexInputBindingDescription bindingDisc(){
-        return {0, sizeof(Vertex), VK_VERTEX_INPUT_RATE_VERTEX};
+    static std::vector<VkVertexInputBindingDescription> bindingDisc(){
+        return {
+            {0, sizeof(Vertex), VK_VERTEX_INPUT_RATE_VERTEX}
+        };
     }
 
     static std::vector<VkVertexInputAttributeDescription> attributeDisc(){
@@ -19,7 +21,7 @@ struct Vertex{
                 {0, 0, VK_FORMAT_R32G32B32A32_SFLOAT, (uint32_t)offsetof(Vertex, position)},
                 {1, 0, VK_FORMAT_R32G32B32_SFLOAT, (uint32_t)offsetof(Vertex, normal)},
                 {2, 0, VK_FORMAT_R32G32B32_SFLOAT, (uint32_t)offsetof(Vertex, color)},
-                {3, 0, VK_FORMAT_R32G32_SFLOAT, (uint32_t)offsetof(Vertex, uv)},
+                {3, 0, VK_FORMAT_R32G32_SFLOAT, (uint32_t)offsetof(Vertex, uv)}
         };
     }
 };

@@ -1,9 +1,6 @@
 #include "VulkanCube.h"
 
-#ifndef STB_IMAGE_IMPLEMENTATION
-#define STB_IMAGE_IMPLEMENTATION
 #include  <stb_image.h>
-#endif
 
 VulkanCube::VulkanCube():VulkanBaseApp("VulkanCube", 1080, 720, true){}
 
