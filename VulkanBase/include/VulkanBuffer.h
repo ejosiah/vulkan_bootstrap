@@ -21,6 +21,10 @@ struct VulkanBuffer{
     }
 
     VulkanBuffer& operator=(VulkanBuffer&& source) noexcept{
+        if(&source == this) return *this;
+
+        this->~VulkanBuffer();
+
         allocator = source.allocator;
         buffer = source.buffer;
         allocation = source.allocation;

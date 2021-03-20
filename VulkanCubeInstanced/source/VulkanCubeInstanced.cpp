@@ -341,8 +341,6 @@ void VulkanCubeInstanced::createVertexBuffer() {
         }
     }
 
-    dispose(stagingBuffer);
-
     size = sizeof(glm::mat4) * numInstances;
     stagingBuffer = device.createBuffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, size);
     stagingBuffer.copy(xforms.data(), size);

@@ -30,6 +30,11 @@ struct VulkanHandle{
 
     VulkanHandle& operator=(VulkanHandle&& source) noexcept {
         if(this == &source) return *this;
+
+        if(handle){
+            Deleter()(device, handle);
+        }
+
         this->device = source.device;
         this->handle = source.handle;
 
