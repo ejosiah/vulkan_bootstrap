@@ -28,8 +28,6 @@ void VulkanCubeInstanced::onSwapChainDispose() {
 }
 
 void VulkanCubeInstanced::onSwapChainRecreation() {
-    createDescriptorSet();
-
     createDescriptorSetLayout();
     createDescriptorPool();
     createDescriptorSet();

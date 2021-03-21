@@ -2,7 +2,9 @@
 
 #include  <stb_image.h>
 
-VulkanCubeInstanced::VulkanCubeInstanced(): VulkanBaseApp("VulkanCubeInstanced", 1080, 720, true){}
+VulkanCubeInstanced::VulkanCubeInstanced(): VulkanBaseApp("VulkanCubeInstanced", 1080, 720, true){
+    depthTestEnabled = true;
+}
 
 void VulkanCubeInstanced::initApp() {
     createCommandPool();
@@ -28,8 +30,6 @@ void VulkanCubeInstanced::onSwapChainDispose() {
 }
 
 void VulkanCubeInstanced::onSwapChainRecreation() {
-    createDescriptorSet();
-
     createDescriptorSetLayout();
     createDescriptorPool();
     createDescriptorSet();
@@ -84,6 +84,9 @@ void VulkanCubeInstanced::createGraphicsPipeline() {
 
 
     VkPipelineDepthStencilStateCreateInfo depthStencilState = initializers::depthStencilState();
+    depthStencilState.depthWriteEnable = VK_TRUE;
+    depthStencilState.depthTestEnable = VK_TRUE;
+    depthStencilState.depthCompareOp = VK_COMPARE_OP_LESS;
 
 
     VkPipelineColorBlendStateCreateInfo blendState = initializers::colorBlendState();
@@ -150,7 +153,9 @@ void VulkanCubeInstanced::createCommandBuffer() {
         beginInfo.flags = 0;
         vkBeginCommandBuffer(commandBuffers[i], &beginInfo);
 
-        VkClearValue clear{0.f, 0.f, 0.f, 1.f};
+        std::array<VkClearValue , 2> clearValues{};
+        clearValues[0].color = {0.0f, 0.0f, 0.0f, 1.0f};
+        clearValues[1].depthStencil = {1.0f, 0};
 
         VkRenderPassBeginInfo renderPassBeginInfo{};
         renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -158,8 +163,8 @@ void VulkanCubeInstanced::createCommandBuffer() {
         renderPassBeginInfo.framebuffer = framebuffers[i];
         renderPassBeginInfo.renderArea.offset = {0, 0};
         renderPassBeginInfo.renderArea.extent = swapChain.extent;
-        renderPassBeginInfo.clearValueCount = 1;
-        renderPassBeginInfo.pClearValues = &clear;
+        renderPassBeginInfo.clearValueCount = COUNT(clearValues);
+        renderPassBeginInfo.pClearValues = clearValues.data();
         vkCmdBeginRenderPass(commandBuffers[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE );
 
         std::vector<VkDescriptorSet> descriptorSets{ cameraDescriptorSets[i], descriptorSet };

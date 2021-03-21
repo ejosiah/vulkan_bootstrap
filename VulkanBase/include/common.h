@@ -80,6 +80,10 @@ inline std::vector<VkObject> enumerate(Provider&& provider){
     return objects;
 }
 
+inline bool hasStencil(VkFormat format) {
+    return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
+}
+
 template<typename Func>
 Func instanceProc(const std::string& procName, VkInstance instance){
     auto proc = reinterpret_cast<Func>(vkGetInstanceProcAddr(instance, procName.c_str()));

@@ -182,4 +182,34 @@ namespace initializers{
 
         return createInfo;
     }
+
+    inline VkImageCreateInfo imageCreateInfo(){
+        VkImageCreateInfo createInfo{};
+        createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+        createInfo.mipLevels = 1;
+        createInfo.arrayLayers = 1;
+        createInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        createInfo.queueFamilyIndexCount = 0;
+        createInfo.pQueueFamilyIndices = nullptr;
+        createInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        return createInfo;
+    }
+
+    inline VkImageViewCreateInfo imageViewCreateInfo(){
+        VkImageViewCreateInfo createInfo{};
+        createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+
+        return createInfo;
+    }
+
+    inline VkImageSubresourceRange imageSubresourceRange(VkImageAspectFlags  aspect = VK_IMAGE_ASPECT_COLOR_BIT){
+        VkImageSubresourceRange subresourceRange;
+        subresourceRange.aspectMask = aspect;
+        subresourceRange.baseMipLevel = 0;
+        subresourceRange.levelCount = 1;
+        subresourceRange.baseArrayLayer = 0;
+        subresourceRange.layerCount = 1;
+
+        return subresourceRange;
+    }
 }

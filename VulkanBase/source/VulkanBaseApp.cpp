@@ -77,6 +77,7 @@ void VulkanBaseApp::initVulkan() {
     createSwapChain();
 
     createCameraBuffers();
+    createDepthBuffer();
     createRenderPass();
     createFramebuffer();
 
@@ -116,6 +117,33 @@ void VulkanBaseApp::createInstance() {
 void VulkanBaseApp::createSwapChain() {
     glfwGetFramebufferSize(window, &width, &height);
     swapChain = VulkanSwapChain{ device, surface, static_cast<uint32_t>(width), static_cast<uint32_t>(height)};
+}
+
+void VulkanBaseApp::createDepthBuffer() {
+    if(depthTestEnabled) {
+        auto format = findDepthFormat();
+        VkImageCreateInfo createInfo = initializers::imageCreateInfo();
+        createInfo.imageType = VK_IMAGE_TYPE_2D;
+        createInfo.format = format;
+        createInfo.extent = {swapChain.extent.width, swapChain.extent.height, 1};
+        createInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+        createInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+        createInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+
+        depthBuffer.image = device.createImage(createInfo, VMA_MEMORY_USAGE_GPU_ONLY);
+
+        VkImageSubresourceRange subresourceRange = initializers::imageSubresourceRange(VK_IMAGE_ASPECT_DEPTH_BIT);
+        depthBuffer.imageView = depthBuffer.image.createView(format, VK_IMAGE_VIEW_TYPE_2D, subresourceRange);
+    }
+}
+
+VkFormat VulkanBaseApp::findDepthFormat() {
+    auto possibleFormat = device.findSupportedFormat(depthFormats.formats, depthFormats.tiling, depthFormats.features);
+    if(!possibleFormat.has_value()){
+        throw std::runtime_error{"Failed to find a suitable depth format"};
+    }
+    spdlog::info("App will be using depth buffer with: format: {}", *possibleFormat);
+    return *possibleFormat;
 }
 
 void VulkanBaseApp::createLogicalDevice() {
@@ -207,12 +235,17 @@ std::vector<char> VulkanBaseApp::loadFile(const std::string& path) {
 }
 
 void VulkanBaseApp::createFramebuffer() {
-    assert(renderPass != VK_NULL_HANDLE);
+    assert(renderPass.renderPass != VK_NULL_HANDLE);
 
     framebuffers.resize(swapChain.imageCount());
     framebuffers.resize(swapChain.imageCount());
     for(int i = 0; i < framebuffers.size(); i++){
-        framebuffers[i] = device.createFramebuffer(renderPass, {swapChain.imageViews[i] }
+        std::vector<VkImageView> attachments{ swapChain.imageViews[i]};
+        if(depthTestEnabled){
+            assert(depthBuffer.imageView.handle != VK_NULL_HANDLE);
+            attachments.push_back(depthBuffer.imageView);
+        }
+        framebuffers[i] = device.createFramebuffer(renderPass, attachments
                                                , static_cast<uint32_t>(width), static_cast<uint32_t>(height) );
     }
 }
@@ -230,14 +263,37 @@ void VulkanBaseApp::createRenderPass() {
     attachmentDesc.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     attachmentDesc.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
+
     VkAttachmentReference ref{};
     ref.attachment = 0;
     ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
 
     VkSubpassDescription subpassDesc{};
     subpassDesc.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
     subpassDesc.colorAttachmentCount = 1;
     subpassDesc.pColorAttachments = &ref;
+
+    std::vector<VkAttachmentDescription> attachments{ attachmentDesc };
+    if(depthTestEnabled){
+        VkAttachmentDescription depthAttachment{};
+        depthAttachment.format = depthBuffer.image.format;
+        depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+        depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        attachments.push_back(depthAttachment);
+
+        VkAttachmentReference depthRef{};
+        depthRef.attachment = 1;
+        depthRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+        subpassDesc.pDepthStencilAttachment = &depthRef;
+    }
+
 
     VkSubpassDependency dependency{};
     dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
@@ -247,7 +303,7 @@ void VulkanBaseApp::createRenderPass() {
     dependency.srcAccessMask = 0;
     dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 
-    renderPass = device.createRenderPass({attachmentDesc}, {subpassDesc }, {dependency});
+    renderPass = device.createRenderPass(attachments, {subpassDesc }, {dependency});
 }
 
 void VulkanBaseApp::createSyncObjects() {
@@ -321,12 +377,15 @@ void VulkanBaseApp::recreateSwapChain() {
     createSwapChain();
     createCameraBuffers();
 
-
+    if(depthTestEnabled){
+        createDepthBuffer();
+    }
     createRenderPass();
     createFramebuffer();
 
     createCameraDescriptorSetLayout();
     createCameraDescriptorPool();
+    createCameraDescriptorSet();
     onSwapChainRecreation();
 }
 
@@ -417,6 +476,10 @@ void VulkanBaseApp::cleanupSwapChain() {
     }
     dispose(renderPass);
 
+    if(depthTestEnabled){
+        dispose(depthBuffer.imageView);
+        dispose(depthBuffer.image);
+    }
 
     dispose(swapChain);
     for(auto& cameraBuffer : cameraBuffers){
@@ -469,3 +532,5 @@ void VulkanBaseApp::cleanup() {
 void VulkanBaseApp::onPause() {
 
 }
+
+

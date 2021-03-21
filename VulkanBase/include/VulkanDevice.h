@@ -305,7 +305,7 @@ struct VulkanDevice{
         VmaAllocation allocation;
         vmaCreateImage(allocator, &createInfo, &allocInfo, &image, &allocation, nullptr);
 
-        return VulkanImage{ logicalDevice, allocator, image, allocation, createInfo.initialLayout, createInfo.extent };
+        return VulkanImage{ logicalDevice, allocator, image, createInfo.format, allocation, createInfo.initialLayout, createInfo.extent };
 
     }
 
@@ -346,6 +346,23 @@ struct VulkanDevice{
         assert(logicalDevice);
 
         return VulkanFramebuffer{ logicalDevice, renderPass, attachments, width, height, layers};
+    }
+
+    inline std::optional<VkFormat> findSupportedFormat(const std::vector<VkFormat>& choices, VkImageTiling tiling, VkFormatFeatureFlags features) const {
+        for(auto format : choices){
+            auto props = getFormatProperties(format);
+            if((tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features)) ||
+                    (tiling == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & features))){
+                return format;
+            }
+        }
+        return {};
+    }
+
+    [[nodiscard]] VkFormatProperties getFormatProperties(VkFormat format) const {
+        VkFormatProperties props;
+        vkGetPhysicalDeviceFormatProperties(physicalDevice, format, &props);
+        return props;
     }
 
     VkInstance instance = VK_NULL_HANDLE;

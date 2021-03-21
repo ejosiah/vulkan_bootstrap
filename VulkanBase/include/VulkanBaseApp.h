@@ -43,11 +43,24 @@ constexpr bool enableValidation = true;
 
 constexpr int MAX_IN_FLIGHT_FRAMES = 2;
 
+struct DepthFormats{
+    std::vector<VkFormat> formats{
+            VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT,
+            VK_FORMAT_D24_UNORM_S8_UINT
+    };
+    VkFormatFeatureFlags  features = VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT;
+    VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL;
+};
 
 struct Texture{
     VulkanImage image;
     VulkanImageView imageView;
     VulkanSampler sampler;
+};
+
+struct DepthBuffer{
+    VulkanImage image;
+    VulkanImageView imageView;
 };
 
 
@@ -85,6 +98,10 @@ protected:
     void pickPhysicalDevice();
 
     void createSwapChain();
+
+    void createDepthBuffer();
+
+    VkFormat findDepthFormat();
 
     void createRenderPass();
 
@@ -177,4 +194,7 @@ protected:
     int currentFrame = 0;
     Mesh mesh;
     BaseCameraController* cameraController;
+    DepthFormats depthFormats;
+    DepthBuffer depthBuffer;
+    bool depthTestEnabled = false;
 };

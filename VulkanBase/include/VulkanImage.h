@@ -11,10 +11,11 @@ struct VulkanImage : public Copyable{
 
     VulkanImage() = default;
 
-    inline VulkanImage(VkDevice device, VmaAllocator allocator, VkImage image, VmaAllocation allocation, VkImageLayout layout, VkExtent3D dimension)
+    inline VulkanImage(VkDevice device, VmaAllocator allocator, VkImage image, VkFormat format, VmaAllocation allocation, VkImageLayout layout, VkExtent3D dimension)
     : device(device)
     , allocator(allocator)
     , image(image)
+    , format(format)
     , allocation(allocation)
     , currentLayout(layout)
     , dimension(dimension)
@@ -33,6 +34,7 @@ struct VulkanImage : public Copyable{
         allocation = source.allocation;
         currentLayout = source.currentLayout;
         dimension = source.dimension;
+        format = source.format;
 
         source.allocator = VK_NULL_HANDLE;
         source.image = VK_NULL_HANDLE;
@@ -78,6 +80,13 @@ struct VulkanImage : public Copyable{
             barrier.subresourceRange.baseArrayLayer = 0;
             barrier.subresourceRange.layerCount = 1;
 
+            if(newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL){
+                barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+                if(hasStencil(format)){
+                    barrier.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+                }
+            }
+
             VkPipelineStageFlags sourceStage;
             VkPipelineStageFlags destinationStage;
 
@@ -94,7 +103,14 @@ struct VulkanImage : public Copyable{
 
                 sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
                 destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-            } else {
+            }else if(currentLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL){
+                barrier.srcAccessMask = 0;
+                barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+                sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+                destinationStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+            }
+            else {
                 throw std::runtime_error{"unsupported layout transition!"};
             }
 
@@ -103,7 +119,7 @@ struct VulkanImage : public Copyable{
         });
     }
 
-    VulkanImageView createView(VkFormat format, VkImageViewType viewType, const VkImageSubresourceRange& subresourceRange, VkImageViewCreateFlags flags = 0) const {
+    [[nodiscard]] VulkanImageView createView(VkFormat format, VkImageViewType viewType, const VkImageSubresourceRange& subresourceRange, VkImageViewCreateFlags flags = 0) const {
         VkImageViewCreateInfo  createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
         createInfo.viewType = viewType;
@@ -121,6 +137,7 @@ struct VulkanImage : public Copyable{
     VkDevice device = VK_NULL_HANDLE;
     VmaAllocator allocator = VK_NULL_HANDLE;
     VkImage image = VK_NULL_HANDLE;
+    VkFormat format = VK_FORMAT_UNDEFINED;
     VmaAllocation allocation = VK_NULL_HANDLE;
     VkImageLayout currentLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     VkExtent3D dimension = { 0u, 0u, 0u };
