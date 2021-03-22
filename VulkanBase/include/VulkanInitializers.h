@@ -183,11 +183,19 @@ namespace initializers{
         return createInfo;
     }
 
-    inline VkImageCreateInfo imageCreateInfo(){
+    inline VkImageCreateInfo imageCreateInfo(VkImageType imageType, VkFormat format, VkImageUsageFlags usage, uint32_t width = 0u, uint32_t height = 0u, uint32_t depth = 1){
         VkImageCreateInfo createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+        createInfo.imageType = imageType;
+        createInfo.format = format;
+        createInfo.extent.width = width;
+        createInfo.extent.height = height;
+        createInfo.extent.depth = depth;
         createInfo.mipLevels = 1;
         createInfo.arrayLayers = 1;
+        createInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+        createInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+        createInfo.usage = usage;
         createInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
         createInfo.queueFamilyIndexCount = 0;
         createInfo.pQueueFamilyIndices = nullptr;
@@ -211,5 +219,35 @@ namespace initializers{
         subresourceRange.layerCount = 1;
 
         return subresourceRange;
+    }
+
+    inline VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo();
+
+    inline VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo(const std::vector<VkDescriptorSetLayoutBinding>& bindings, VkDescriptorSetLayoutCreateFlags flags = 0) {
+        VkDescriptorSetLayoutCreateInfo createInfo{};
+        createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+        createInfo.flags = flags;
+        createInfo.bindingCount = COUNT(bindings);
+        createInfo.pBindings = bindings.data();
+
+        return createInfo;
+    }
+
+    inline VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo();
+
+    inline VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo() {
+        VkPipelineLayoutCreateInfo createInfo{};
+        createInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+
+        return createInfo;
+    }
+
+    inline VkGraphicsPipelineCreateInfo pipelineCreateInfo();
+
+    inline VkGraphicsPipelineCreateInfo pipelineCreateInfo() {
+        VkGraphicsPipelineCreateInfo createInfo{};
+        createInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+
+        return createInfo;
     }
 }

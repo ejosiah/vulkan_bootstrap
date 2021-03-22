@@ -133,6 +133,10 @@ void BaseCameraController::lookAt(const glm::vec3 &eye, const glm::vec3 &target,
     updateViewMatrix();
 }
 
+void BaseCameraController::perspective(float aspect) {
+    perspective(fovx, aspect, znear, zfar);
+}
+
 void BaseCameraController::perspective(float fovx, float aspect, float znear, float zfar) {
     camera.proj = glm::perspective(glm::radians(fovx), aspect, znear, zfar);
     this->fovx = fovx;

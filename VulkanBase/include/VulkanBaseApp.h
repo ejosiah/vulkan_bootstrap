@@ -31,7 +31,8 @@
 #include "events.h"
 #include "Window.h"
 #include "InputManager.h"
-
+#include "Texture.h"
+#include "VulkanShaderModule.h"
 #ifdef NDBUG
 constexpr bool enableValidation = false;
 #else
@@ -52,31 +53,10 @@ struct DepthFormats{
     VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL;
 };
 
-struct Texture{
-    VulkanImage image;
-    VulkanImageView imageView;
-    VulkanSampler sampler;
-};
-
 struct DepthBuffer{
     VulkanImage image;
     VulkanImageView imageView;
 };
-
-
-struct ShaderModule{
-    ShaderModule(const std::string& path, VkDevice device);
-    ~ShaderModule();
-
-    VkShaderModule shaderModule = VK_NULL_HANDLE;
-
-    inline operator VkShaderModule() const {
-        return shaderModule;
-    }
-private:
-    VkDevice device = VK_NULL_HANDLE;
-};
-
 
 class VulkanBaseApp : Window, InputManager{
 public:

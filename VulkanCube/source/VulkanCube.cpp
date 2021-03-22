@@ -366,3 +366,12 @@ void VulkanCubeInstanced::createDescriptorSetLayout() {
     descriptorSetLayout = device.createDescriptorSetLayout(bindings);
 }
 
+int main() {
+    try{
+        VulkanCubeInstanced app;
+        app.run();
+    }catch(const std::runtime_error& err){
+        spdlog::error(err.what());
+    }
+    return 0;
+}

@@ -57,6 +57,9 @@ public:
 
     void perspective(float fovx, float aspect, float znear, float zfar);
 
+
+    void perspective(float aspect);
+
     void rotateSmoothly(float headingDegrees, float pitchDegrees, float rollDegrees);
 
     virtual void rotate(float headingDegrees, float pitchDegrees, float rollDegrees) = 0;

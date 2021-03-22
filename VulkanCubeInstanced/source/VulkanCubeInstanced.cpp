@@ -246,18 +246,25 @@ void VulkanCubeInstanced::createTextureBuffers() {
 
     stbi_image_free(pixels);
 
-    VkImageCreateInfo imageCreateInfo{};
-    imageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    imageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
-    imageCreateInfo.format = VK_FORMAT_R8G8B8A8_SRGB;
-    imageCreateInfo.extent = { static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight), 1u};
-    imageCreateInfo.mipLevels = 1;
-    imageCreateInfo.arrayLayers = 1;
-    imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-    imageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-    imageCreateInfo.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-    imageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+//    VkImageCreateInfo imageCreateInfo{};
+//    imageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+//    imageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
+//    imageCreateInfo.format = VK_FORMAT_R8G8B8A8_SRGB;
+//    imageCreateInfo.extent = { static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight), 1u};
+//    imageCreateInfo.mipLevels = 1;
+//    imageCreateInfo.arrayLayers = 1;
+//    imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+//    imageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+//    imageCreateInfo.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+//    imageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+//    imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
+    VkImageCreateInfo imageCreateInfo = initializers::imageCreateInfo(
+            VK_IMAGE_TYPE_2D,
+            VK_FORMAT_R8G8B8A8_SRGB,
+            VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT
+            ,static_cast<uint32_t>(texWidth)
+            ,static_cast<uint32_t>(texHeight));
 
     texture.image = device.createImage(imageCreateInfo, VMA_MEMORY_USAGE_GPU_ONLY);
     texture.image.transitionLayout(commandPool, device.queues.graphics, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);

@@ -122,13 +122,18 @@ void VulkanBaseApp::createSwapChain() {
 void VulkanBaseApp::createDepthBuffer() {
     if(depthTestEnabled) {
         auto format = findDepthFormat();
-        VkImageCreateInfo createInfo = initializers::imageCreateInfo();
-        createInfo.imageType = VK_IMAGE_TYPE_2D;
-        createInfo.format = format;
-        createInfo.extent = {swapChain.extent.width, swapChain.extent.height, 1};
-        createInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-        createInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-        createInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+        VkImageCreateInfo createInfo = initializers::imageCreateInfo(
+                VK_IMAGE_TYPE_2D,
+                format,
+                VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+                swapChain.extent.width,
+                swapChain.extent.height);
+//        createInfo.imageType = VK_IMAGE_TYPE_2D;
+//        createInfo.format = format;
+//        createInfo.extent = {swapChain.extent.width, swapChain.extent.height, 1};
+//        createInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+//        createInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+//        createInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 
         depthBuffer.image = device.createImage(createInfo, VMA_MEMORY_USAGE_GPU_ONLY);
 
@@ -387,6 +392,7 @@ void VulkanBaseApp::recreateSwapChain() {
     createCameraDescriptorPool();
     createCameraDescriptorSet();
     onSwapChainRecreation();
+    cameraController->perspective(static_cast<float>(swapChain.extent.width)/static_cast<float>(swapChain.extent.height));
 }
 
 void VulkanBaseApp::createCameraDescriptorSetLayout() {
