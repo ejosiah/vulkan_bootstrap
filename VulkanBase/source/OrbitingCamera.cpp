@@ -1,7 +1,7 @@
 #include "OrbitingCamera.h"
 
-OrbitingCameraController::OrbitingCameraController(Camera &camera, InputManager& inputManager,  const OrbitingCameraSettings& settings)
-: BaseCameraController(camera, inputManager, settings)
+OrbitingCameraController::OrbitingCameraController(const VulkanDevice& device, uint32_t swapChainImageCount, const uint32_t& currentImageIndex,  InputManager& inputManager,  const OrbitingCameraSettings& settings)
+: BaseCameraController(device, swapChainImageCount, currentImageIndex, inputManager, settings)
 , offsetDistance(settings.offsetDistance)
 , orbitRollSpeed(settings.orbitRollSpeed)
 , preferTargetYAxisOrbiting(settings.preferTargetYAxisOrbiting)
@@ -34,6 +34,7 @@ void OrbitingCameraController::update(float elapsedTime) {
     if (zoomAmount != 0.0f) {
         zoom(zoomAmount, minZoom, maxZoom);
     }
+    updateCameraBuffer();
 }
 
 void OrbitingCameraController::move(float dx, float dy, float dz) {

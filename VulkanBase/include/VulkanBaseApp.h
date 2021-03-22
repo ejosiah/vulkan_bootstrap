@@ -58,7 +58,7 @@ struct DepthBuffer{
     VulkanImageView imageView;
 };
 
-class VulkanBaseApp : Window, InputManager{
+class VulkanBaseApp : protected Window, protected InputManager{
 public:
     explicit VulkanBaseApp(std::string_view name, int width = 1080, int height = 720, bool relativeMouseMode = true);
     void init();
@@ -89,12 +89,6 @@ protected:
 
     void createSyncObjects();
 
-    void createCameraDescriptorSetLayout();
-
-    void createCameraDescriptorPool();
-
-    void createCameraDescriptorSet();
-
     void recreateSwapChain();
 
     virtual void onSwapChainDispose();
@@ -106,8 +100,6 @@ protected:
     virtual void drawFrame();
 
     virtual void update(float time);
-
-    void createCameraBuffers();
 
     void createLogicalDevice();
 
@@ -139,19 +131,10 @@ protected:
     VulkanDevice device;
     VulkanSwapChain swapChain;
     VulkanRenderPass renderPass;
-    VulkanDescriptorSetLayout cameraDescriptorSetLayout;
-    VulkanDescriptorPool cameraDescriptorPool;
-
 
     std::vector<VulkanFramebuffer> framebuffers;
-    std::vector<VkDescriptorSet> cameraDescriptorSets;
-
 
     VmaAllocator memoryAllocator;
-
-    std::vector<VulkanBuffer> cameraBuffers;
-    Camera camera;
-
 
     std::vector<VulkanSemaphore> imageAcquired;
     std::vector<VulkanSemaphore> renderingFinished;
@@ -173,7 +156,6 @@ protected:
     uint32_t currentImageIndex = 0;
     int currentFrame = 0;
     Mesh mesh;
-    BaseCameraController* cameraController;
     DepthFormats depthFormats;
     DepthBuffer depthBuffer;
     bool depthTestEnabled = false;

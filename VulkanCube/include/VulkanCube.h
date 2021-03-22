@@ -2,9 +2,9 @@
 
 #include "VulkanBaseApp.h"
 
-class VulkanCubeInstanced : public VulkanBaseApp{
+class VulkanCube : public VulkanBaseApp {
 public:
-    VulkanCubeInstanced();
+    VulkanCube();
 
 protected:
     void initApp() override;
@@ -16,6 +16,8 @@ protected:
     VkCommandBuffer* buildCommandBuffers(uint32_t imageIndex, uint32_t& numCommandBuffers) override;
 
     void update(float time) override;
+
+    void checkAppInputs() override;
 
     void createCommandPool();
 
@@ -48,5 +50,5 @@ private:
     VulkanBuffer vertexBuffer;
     VulkanBuffer indexBuffer;
     Texture texture;
-
+    std::unique_ptr<BaseCameraController> cameraController;
 };

@@ -4,7 +4,7 @@
 
 class SpectatorCameraController : public BaseCameraController {
 public:
-    SpectatorCameraController(Camera& camera, InputManager& inputManager, const BaseCameraSettings& settings = {});
+    SpectatorCameraController(const VulkanDevice& device, uint32_t swapChainImageCount, const uint32_t& currentImageIndex, InputManager& inputManager, const BaseCameraSettings& settings = {});
 
     void update(float elapsedTime) override;
 
@@ -13,7 +13,7 @@ public:
 
 class FirstPersonCameraController : public SpectatorCameraController {
 public:
-    FirstPersonCameraController(Camera& camera, InputManager& inputManager, const BaseCameraSettings& settings = {});
+    FirstPersonCameraController(const VulkanDevice& device, uint32_t swapChainImageCount, const uint32_t& currentImageIndex, InputManager& inputManager, const BaseCameraSettings& settings = {});
 
     void move(float dx, float dy, float dz) override;
 

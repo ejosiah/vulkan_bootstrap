@@ -1,8 +1,8 @@
 #include "FlightCamera.h"
 
-FlightCameraController::FlightCameraController(Camera &camera, InputManager &inputManager,
+FlightCameraController::FlightCameraController(const VulkanDevice& device, uint32_t swapChainImageCount, const uint32_t& currentImageIndex,  InputManager &inputManager,
                                                const FlightCameraSettings &settings)
-: BaseCameraController(camera, inputManager, settings)
+: BaseCameraController(device, swapChainImageCount, currentImageIndex, inputManager, settings)
 , YawSpeed(settings.yawSpeed)
 {
 
@@ -20,6 +20,7 @@ void FlightCameraController::update(float elapsedTime) {
 
     direction.x = 0.0f; // ignore yaw motion when updating camera's velocity;
     updatePosition(direction, elapsedTime);
+    updateCameraBuffer();
 }
 
 void FlightCameraController::rotate(float headingDegrees, float pitchDegrees, float rollDegrees) {

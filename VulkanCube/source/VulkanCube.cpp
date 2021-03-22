@@ -2,9 +2,9 @@
 
 #include  <stb_image.h>
 
-VulkanCubeInstanced::VulkanCubeInstanced(): VulkanBaseApp("VulkanCubeInstanced", 1080, 720, true){}
+VulkanCube::VulkanCube(): VulkanBaseApp("VulkanCube", 1080, 720, true){}
 
-void VulkanCubeInstanced::initApp() {
+void VulkanCube::initApp() {
     createCommandPool();
     createVertexBuffer();
     createIndexBuffer();
@@ -14,29 +14,42 @@ void VulkanCubeInstanced::initApp() {
     createDescriptorPool();
     createDescriptorSet();
 
+    OrbitingCameraSettings settings{};
+    settings.offsetDistance = 2.0f;
+    settings.rotationSpeed = 0.1f;
+    settings.zNear = 0.1f;
+    settings.zFar = 10.0f;
+    settings.fieldOfView = 45.0f;
+    settings.modelHeight = 0;
+    settings.aspectRatio = static_cast<float>(swapChain.extent.width)/static_cast<float>(swapChain.extent.height);
+    cameraController = std::unique_ptr<BaseCameraController>{new OrbitingCameraController{ device, swapChain.imageCount(), currentImageIndex, *this, settings}};
+   // cameraController->lookAt({0, 0, 2}, glm::vec3(0), {0, 1, 0});
 
     createGraphicsPipeline();
     createCommandBuffer();
+
 }
 
-void VulkanCubeInstanced::onSwapChainDispose() {
+void VulkanCube::onSwapChainDispose() {
     commandPool.free(commandBuffers);
     dispose(pipeline);
     dispose(layout);
     dispose(descriptorPool);
     dispose(descriptorSetLayout);
+    cameraController->disposeDescriptors();
 }
 
-void VulkanCubeInstanced::onSwapChainRecreation() {
+void VulkanCube::onSwapChainRecreation() {
     createDescriptorSetLayout();
     createDescriptorPool();
     createDescriptorSet();
 
     createGraphicsPipeline();
     createCommandBuffer();
+    cameraController->onResize(width, height);
 }
 
-void VulkanCubeInstanced::createGraphicsPipeline() {
+void VulkanCube::createGraphicsPipeline() {
     assert(renderPass != VK_NULL_HANDLE);
     auto vertexShaderModule = ShaderModule{"../../data/shaders/triangle.vert.spv", device};
     auto fragmentShaderModule = ShaderModule{"../../data/shaders/triangle.frag.spv", device};
@@ -87,7 +100,7 @@ void VulkanCubeInstanced::createGraphicsPipeline() {
     range.size = sizeof(Camera);
 
     //   layout = device.createPipelineLayout({descriptorSetLayout }, {range });
-    layout = device.createPipelineLayout({cameraDescriptorSetLayout, descriptorSetLayout }, {range });
+    layout = device.createPipelineLayout({cameraController->getDescriptorSetLayout(), descriptorSetLayout }, {range });
 
     VkGraphicsPipelineCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
@@ -111,16 +124,20 @@ void VulkanCubeInstanced::createGraphicsPipeline() {
     pipeline = device.createGraphicsPipeline(createInfo);
 }
 
-VkCommandBuffer* VulkanCubeInstanced::buildCommandBuffers(uint32_t imageIndex, uint32_t& numCommandBuffers) {
+VkCommandBuffer* VulkanCube::buildCommandBuffers(uint32_t imageIndex, uint32_t& numCommandBuffers) {
     numCommandBuffers = 1;
     return &commandBuffers[imageIndex];
 }
 
-void VulkanCubeInstanced::update(float time) {
-    VulkanBaseApp::update(time);
+void VulkanCube::update(float time) {
+    cameraController->update(time);
 }
 
-void VulkanCubeInstanced::createCommandBuffer() {
+void VulkanCube::checkAppInputs() {
+    cameraController->processInput();
+}
+
+void VulkanCube::createCommandBuffer() {
     commandBuffers.resize(swapChain.imageCount() + 1);
 
     VkCommandBufferAllocateInfo allocInfo{};
@@ -153,7 +170,7 @@ void VulkanCubeInstanced::createCommandBuffer() {
         renderPassBeginInfo.pClearValues = &clear;
         vkCmdBeginRenderPass(commandBuffers[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE );
 
-        std::vector<VkDescriptorSet> descriptorSets{ cameraDescriptorSets[i], descriptorSet };
+        std::vector<VkDescriptorSet> descriptorSets{ cameraController->descriptorSet(i), descriptorSet };
         //   std::vector<VkDescriptorSet> descriptorSets{ cameraDescriptorSets[i] };
 
         vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, COUNT(descriptorSets), descriptorSets.data(), 0, nullptr);
@@ -170,7 +187,7 @@ void VulkanCubeInstanced::createCommandBuffer() {
     }
 }
 
-void VulkanCubeInstanced::createDescriptorPool() {
+void VulkanCube::createDescriptorPool() {
 
 
     VkDescriptorPoolSize  texturePoolSize{};
@@ -186,7 +203,7 @@ void VulkanCubeInstanced::createDescriptorPool() {
 
 }
 
-void VulkanCubeInstanced::createDescriptorSet() {
+void VulkanCube::createDescriptorSet() {
     const auto swapChainImageCount = 1;
 
     std::vector<VkDescriptorSetLayout> layouts(swapChainImageCount, descriptorSetLayout);
@@ -218,7 +235,7 @@ void VulkanCubeInstanced::createDescriptorSet() {
     vkUpdateDescriptorSets(device, static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr);
 }
 
-void VulkanCubeInstanced::createTextureBuffers() {
+void VulkanCube::createTextureBuffers() {
     int texWidth, texHeight, texChannels;
     stbi_uc* pixels = stbi_load("../../data/media/vulkan.png", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
     VkDeviceSize imageSize = texWidth * texHeight * STBI_rgb_alpha;
@@ -296,7 +313,7 @@ void VulkanCubeInstanced::createTextureBuffers() {
     texture.sampler = device.createSampler(samplerInfo);
 }
 
-void VulkanCubeInstanced::createVertexBuffer() {
+void VulkanCube::createVertexBuffer() {
 
     VkDeviceSize size = sizeof(Vertex) * mesh.vertices.size();
 
@@ -317,7 +334,7 @@ void VulkanCubeInstanced::createVertexBuffer() {
     });
 }
 
-void VulkanCubeInstanced::createIndexBuffer() {
+void VulkanCube::createIndexBuffer() {
     VkDeviceSize size = sizeof(mesh.indices[0]) * mesh.indices.size();
 
     VulkanBuffer stagingBuffer = device.createBuffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, size);
@@ -337,7 +354,7 @@ void VulkanCubeInstanced::createIndexBuffer() {
     });
 }
 
-void VulkanCubeInstanced::createCommandPool() {
+void VulkanCube::createCommandPool() {
     VkCommandPoolCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
     createInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
@@ -346,7 +363,7 @@ void VulkanCubeInstanced::createCommandPool() {
     commandPool = device.createCommandPool(*device.queueFamilyIndex.graphics);
 }
 
-void VulkanCubeInstanced::createDescriptorSetLayout() {
+void VulkanCube::createDescriptorSetLayout() {
     VkDescriptorSetLayoutBinding samplerLayoutBinding{};
     samplerLayoutBinding.binding = 0;
     samplerLayoutBinding.descriptorCount = 1;
@@ -368,7 +385,7 @@ void VulkanCubeInstanced::createDescriptorSetLayout() {
 
 int main() {
     try{
-        VulkanCubeInstanced app;
+        VulkanCube app;
         app.run();
     }catch(const std::runtime_error& err){
         spdlog::error(err.what());

@@ -7,10 +7,17 @@
 #include "Texture.h"
 #include "VulkanDevice.h"
 
+#define COURIER "Courier"
+#define ARIAL "Arial"
+#define ARIAL_BOLD "Arial Bold"
+#define ARIAL_BOLD_ITALIC "Arial Bold Italic"
+#define ARIAL_ITALIC "Arial Italic"
+
 static constexpr int NUM_VERTICES = 4;
 static constexpr int NUM_CHAR = 128;
 static constexpr int MAX_FONTS = 100;
 static constexpr uint32_t MAX_SETS = NUM_CHAR * MAX_FONTS;
+
 
 struct Character{
     char value;

@@ -19,7 +19,7 @@ struct OrbitingCameraSettings : public BaseCameraSettings{
 
 class OrbitingCameraController : public BaseCameraController {
 public:
-    OrbitingCameraController(Camera& camera, InputManager& inputManager, const OrbitingCameraSettings& settings = {});
+    OrbitingCameraController(const VulkanDevice& device, uint32_t swapChainImageCount, const uint32_t& currentImageIndex,  InputManager& inputManager, const OrbitingCameraSettings& settings = {});
 
     void update(float elapsedTime) override;
 

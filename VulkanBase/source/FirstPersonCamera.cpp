@@ -1,7 +1,7 @@
 #include "FirstPersonCamera.h"
 
-SpectatorCameraController::SpectatorCameraController(Camera &camera, InputManager &inputManager,  const BaseCameraSettings &settings)
-: BaseCameraController(camera, inputManager, settings)
+SpectatorCameraController::SpectatorCameraController(const VulkanDevice& device, uint32_t swapChainImageCount, const uint32_t& currentImageIndex, InputManager &inputManager,  const BaseCameraSettings &settings)
+: BaseCameraController(device, swapChainImageCount, currentImageIndex, inputManager, settings)
 {
 
 }
@@ -11,6 +11,7 @@ void SpectatorCameraController::update(float elapsedTime) {
     float dy = -mouse.relativePosition.y;
     rotateSmoothly(dx, dy, 0.0f);
     updatePosition(direction, elapsedTime);
+    updateCameraBuffer();
 }
 
 
@@ -52,8 +53,8 @@ void SpectatorCameraController::rotate(float headingDegrees, float pitchDegrees,
 }
 
 
-FirstPersonCameraController::FirstPersonCameraController(Camera &camera, InputManager &inputManager, const BaseCameraSettings &settings)
-: SpectatorCameraController(camera, inputManager, settings)
+FirstPersonCameraController::FirstPersonCameraController(const VulkanDevice& device, uint32_t swapChainImageCount, const uint32_t& currentImageIndex,  InputManager &inputManager, const BaseCameraSettings &settings)
+: SpectatorCameraController(device, swapChainImageCount, currentImageIndex, inputManager, settings)
 {
 
 }

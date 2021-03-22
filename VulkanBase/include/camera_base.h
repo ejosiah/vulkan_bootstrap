@@ -4,6 +4,7 @@
 #include "InputManager.h"
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
+#include "VulkanDevice.h"
 
 static constexpr float HALF_PI = glm::half_pi<float>();
 static constexpr float PI = glm::pi<float>();
@@ -45,7 +46,7 @@ struct BaseCameraSettings{
 
 struct BaseCameraController{
 public:
-    BaseCameraController(Camera& camera, InputManager& inputManager, const BaseCameraSettings& settings = {});
+    BaseCameraController(const VulkanDevice& device, uint32_t swapChainImageCount, const uint32_t& currentImageIndex, InputManager& inputManager, const BaseCameraSettings& settings = {});
 
     virtual ~BaseCameraController() = default;
 
@@ -56,7 +57,6 @@ public:
     void lookAt(const glm::vec3 &eye, const glm::vec3 &target, const glm::vec3 &up);
 
     void perspective(float fovx, float aspect, float znear, float zfar);
-
 
     void perspective(float aspect);
 
@@ -76,6 +76,17 @@ public:
 
     virtual void zoom(float zoom, float minZoom, float maxZoom);
 
+    void createCameraBuffers();
+
+    void disposeDescriptors();
+
+    void onResize(int width, int height);
+
+    [[nodiscard]]
+    VkDescriptorSet descriptorSet(int index) const;
+
+    [[nodiscard]]
+    VkDescriptorSetLayout getDescriptorSetLayout() const;
 
 protected:
     virtual void updateViewMatrix();
@@ -85,6 +96,14 @@ protected:
     void processZoomInput();
 
     void updateVelocity(const glm::vec3 &direction, float elapsedTimeSec);
+
+    void createCameraDescriptorSetLayout();
+
+    void createCameraDescriptorPool();
+
+    void createCameraDescriptorSet();
+
+    void updateCameraBuffer();
 
     float fovx;
     float aspectRatio;
@@ -108,7 +127,7 @@ protected:
     glm::vec3 velocity;
     glm::quat orientation;
     glm::vec3 direction;
-    Camera& camera;
+    Camera camera;
     const Mouse& mouse;
 
     float zoomAmount = 0;
@@ -120,8 +139,16 @@ protected:
         Action* right;
         Action* up;
         Action* down;
-    } _move;
+    } _move{};
 
     Action& zoomIn;
     Action& zoomOut;
+
+    const VulkanDevice& device;
+    uint32_t swapChainImageCount;
+    VulkanDescriptorSetLayout cameraDescriptorSetLayout;
+    VulkanDescriptorPool cameraDescriptorPool;
+    std::vector<VkDescriptorSet> cameraDescriptorSets;
+    std::vector<VulkanBuffer> cameraBuffers;
+    const uint32_t& currentImageIndex;
 };
