@@ -9,11 +9,12 @@ struct VulkanBuffer{
 
     VulkanBuffer() = default;
 
-    inline VulkanBuffer(VmaAllocator allocator, VkBuffer buffer, VmaAllocation allocation, VkDeviceSize size)
+    inline VulkanBuffer(VmaAllocator allocator, VkBuffer buffer, VmaAllocation allocation, VkDeviceSize size, const std::string name = "")
     : allocator(allocator)
     , buffer(buffer)
     , allocation(allocation)
     , size(size)
+    , name(name)
     {}
 
     VulkanBuffer(VulkanBuffer&& source) noexcept {
@@ -28,10 +29,12 @@ struct VulkanBuffer{
         allocator = source.allocator;
         buffer = source.buffer;
         allocation = source.allocation;
+        name = source.name;
 
         source.allocator = VK_NULL_HANDLE;
         source.buffer = VK_NULL_HANDLE;
         source.allocation = VK_NULL_HANDLE;
+        source.name.clear();
 
         return *this;
     }
@@ -57,4 +60,5 @@ struct VulkanBuffer{
     VkBuffer buffer = VK_NULL_HANDLE;
     VmaAllocation allocation = VK_NULL_HANDLE;
     VkDeviceSize  size = 0;
+    std::string name;
 };

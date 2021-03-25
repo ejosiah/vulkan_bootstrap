@@ -58,9 +58,17 @@ struct DepthBuffer{
     VulkanImageView imageView;
 };
 
+struct Settings{
+    bool fullscreen = false;
+    bool relativeMouseMode = false;
+    bool depthTest = false;
+    bool vSync = false;
+    VkPhysicalDeviceFeatures enabledFeatures;
+};
+
 class VulkanBaseApp : protected Window, protected InputManager{
 public:
-    explicit VulkanBaseApp(std::string_view name, int width = 1080, int height = 720, bool relativeMouseMode = true);
+    explicit VulkanBaseApp(std::string_view name, int width = 1080, int height = 720, const Settings& settings = {});
     void init();
     void run();
 
@@ -98,6 +106,8 @@ protected:
     virtual VkCommandBuffer* buildCommandBuffers(uint32_t imageIndex, uint32_t& numCommandBuffers);
 
     virtual void drawFrame();
+
+    void calculateFPS();
 
     virtual void update(float time);
 
@@ -159,4 +169,8 @@ protected:
     DepthFormats depthFormats;
     DepthBuffer depthBuffer;
     bool depthTestEnabled = false;
+    bool vSync;
+    VkPhysicalDeviceFeatures enabledFeatures{};
+    uint64_t frameCount = 0;
+    uint32_t framePerSecond = 0;
 };

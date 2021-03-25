@@ -250,4 +250,18 @@ namespace initializers{
 
         return createInfo;
     }
+
+
+    inline VkCommandBufferBeginInfo commandBufferBeginInfo() {
+        VkCommandBufferBeginInfo info{};
+        info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+        return info;
+    }
+
+
+    inline VkRenderPassBeginInfo renderPassBeginInfo() {
+        VkRenderPassBeginInfo beginInfo{};
+        beginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+        return beginInfo;
+    }
 }

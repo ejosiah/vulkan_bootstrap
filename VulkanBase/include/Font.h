@@ -15,19 +15,24 @@
 
 static constexpr int NUM_VERTICES = 4;
 static constexpr int NUM_CHAR = 128;
-static constexpr int MAX_FONTS = 100;
+static constexpr int MAX_FONTS = 20;
 static constexpr uint32_t MAX_SETS = NUM_CHAR * MAX_FONTS;
+static constexpr int MAX_TEXT_SIZE = 10000;
+static constexpr float DEFAULT_WORD_SPACE = 0.5f;
 
 
 struct Character{
     char value;
-    VulkanBuffer buffer;
     VkDescriptorSet descriptorSet;
     Texture texture;
     glm::ivec2 size;
     glm::ivec2 bearing;
     uint32_t advance;
-    bool hot = false;
+};
+
+struct CharacterInstance{
+    Character* character;
+    VulkanBuffer buffer;
 };
 
 enum class FontStyle : uint32_t {
@@ -43,7 +48,7 @@ inline uint32_t integral_value(FontStyle style){
 class Font{
 friend class Fonts;
 private:
-    Font(std::string_view name, int size = 10, FontStyle style = FontStyle::NORMAL, const glm::vec3& color = glm::vec3(1));
+    Font(std::string_view name, uint32_t swapChainImageCount, uint32_t* index, int size = 10, FontStyle style = FontStyle::NORMAL, const glm::vec3& color = glm::vec3(1));
 
     void load();
 
@@ -58,9 +63,24 @@ public:
 
     Font(Font&& source) noexcept;
 
+    ~Font(){
+        for(auto& ch : characters){
+            dispose(ch.descriptorSet);
+            dispose(ch.texture.imageView);
+            dispose(ch.texture.sampler);
+            dispose(ch.texture.image);
+        }
+        dispose(colorBuffer);
+        if(face) {
+            FT_Done_Face(face);
+        }
+    }
+
     Font& operator=(Font&& source) noexcept;
 
-    void write(const std::string& text, float x, float y, float d = -1) const;
+    void write(const std::string& text, float x, float y, float d = -1);
+
+    void clear();
 
     void draw(VkCommandBuffer commandBuffer) const;
 
@@ -75,8 +95,9 @@ private:
     glm::vec3 color = glm::vec3(0);    // TODO do we need this?
     FT_Face face = nullptr;
     mutable std::array<Character, NUM_CHAR> characters;
+    mutable std::vector<std::vector<CharacterInstance>> texts;
     VulkanBuffer colorBuffer;
-
+    uint32_t* currentImageIndex = nullptr;
     uint32_t maxHeight = std::numeric_limits<uint32_t>::min();
     uint32_t maxWidth = std::numeric_limits<uint32_t>::min();
 
@@ -85,13 +106,19 @@ private:
 class Fonts{
     friend class Font;
 public:
-    static const Font& getFont(std::string_view name, int size, FontStyle style, const glm::vec3& color);
+    static Font* getFont(std::string_view name, int size, FontStyle style = FontStyle::NORMAL, const glm::vec3& color = glm::vec3(0));
 
-    static void init(VulkanDevice* device, int width, int height);
+    static void init(VulkanDevice* device, VulkanRenderPass* renderPass, uint32_t swapChainImageCount, uint32_t* index, int width, int height);
 
     static void refresh(int width, int height, VulkanRenderPass* newRenderPass);
 
     static void createTexture(FT_Face font, Texture& texture);
+
+    static void subPassIndex(uint32_t index);
+
+    static void setWordSpacing(float spacing);
+
+    static void cleanup();
 
 private:
     static std::string getFontName(std::string_view name, FontStyle style);
@@ -112,11 +139,9 @@ private:
 
     static void createPipeline();
 
-    static void subPassIndex(uint32_t index);
-
 private:
     static glm::mat4 projection;
-    static std::map<std::string, std::string> fontLocation;
+    static std::map<std::string, std::string> location;
     static FT_Library ftLibrary;
     static std::map<std::string, Font> fonts;
 
@@ -133,4 +158,7 @@ private:
     static float screenWidth;
     static float screenHeight;
     static int numFonts;
+    static float worldSpacing;
+    static uint32_t swapChainImageCount;
+    static uint32_t* currentImageIndex;
 };

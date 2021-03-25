@@ -1,16 +1,19 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <VulkanShaderModule.h>
-#include "Font.h"
 #include "VulkanInitializers.h"
+#include "Font.h"
+#include "xforms.h"
 
 
-Font::Font(std::string_view name, int size, FontStyle style, const glm::vec3& color)
+Font::Font(std::string_view name, uint32_t swapChainImageCount, uint32_t* index, int size, FontStyle style, const glm::vec3& color)
 : size(size)
 , style(style)
 , color(color)
+, texts(swapChainImageCount)
+, currentImageIndex(index)
 {
     auto font = Fonts::getFontName(name, style);
-    const char* path = Fonts::fontLocation[font].c_str();
+    const char* path = Fonts::location[font].c_str();
 
     FT_Error error = FT_New_Face(Fonts::ftLibrary, path, 0, &face);
     if(error){
@@ -31,10 +34,10 @@ void Font::load() {
             continue;
         }
         auto glyph = face->glyph;
+        if(glyph->bitmap.width * glyph->bitmap.rows == 0) continue;
         auto& character = characters[chr];
         Fonts::createTexture(face, character.texture);
         character.value = static_cast<char>(chr);
-        character.buffer = Fonts::createVertexBuffer();
         character.size = { glyph->bitmap.width, face->glyph->bitmap.rows };
         character.bearing = { glyph->bitmap_left, face->glyph->bitmap_top };
         character.advance = glyph->advance.x;
@@ -51,13 +54,13 @@ void Font::createColorBuffer() {
     auto& device = *Fonts::device;
     VkDeviceSize size = sizeof(glm::vec3);
 
-    VulkanBuffer stagingBuffer = device.createBuffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, size);
-    stagingBuffer.copy(&color.x, size);
+    VulkanBuffer stagingBuffer = device.createBuffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, size, "Staging buffer");
+    stagingBuffer.copy(&color, size);
 
     colorBuffer = device.createBuffer(
             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
             VMA_MEMORY_USAGE_GPU_ONLY,
-            size);
+            size, "Color Buffer");
 
     Fonts::commandPool.oneTimeCommand(device.queues.graphics, [&](VkCommandBuffer cmdBuffer){
         VkBufferCopy copy{};
@@ -71,9 +74,9 @@ void Font::createColorBuffer() {
 void Font::createDescriptorSets() {
     auto descriptorSets = Fonts::createDescriptorSets();
     for(int i = 0; i < NUM_CHAR; i++){
+        if(i == 32) continue;
         auto& character = characters[i];
-        auto& buffer = character.buffer;
-        auto descriptorSet = descriptorSets[i];
+        character.descriptorSet = descriptorSets[i];
 
 
         std::array<VkDescriptorBufferInfo, 2> bufferInfo{};
@@ -93,25 +96,28 @@ void Font::createDescriptorSets() {
 
         std::array<VkWriteDescriptorSet, 3> writes{};
         writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        writes[0].dstSet = descriptorSet;
+        writes[0].dstSet = character.descriptorSet;
         writes[0].dstBinding = 0;
         writes[0].dstArrayElement = 0;
         writes[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
         writes[0].pBufferInfo = &bufferInfo[0];
+        writes[0].descriptorCount = 1;
 
         writes[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        writes[1].dstSet = descriptorSet;
+        writes[1].dstSet = character.descriptorSet;
         writes[1].dstBinding = 1;
         writes[1].dstArrayElement = 0;
         writes[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         writes[1].pImageInfo = &imageInfo;
+        writes[1].descriptorCount = 1;
 
         writes[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        writes[2].dstSet = descriptorSet;
+        writes[2].dstSet = character.descriptorSet;
         writes[2].dstBinding = 2;
         writes[2].dstArrayElement = 0;
         writes[2].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
         writes[2].pBufferInfo = &bufferInfo[1];
+        writes[2].descriptorCount = 1;
 
 
         vkUpdateDescriptorSets(*Fonts::device, COUNT(writes), writes.data(), 0, VK_NULL_HANDLE);
@@ -130,9 +136,14 @@ Font &Font::operator=(Font &&source) noexcept {
     this->color = source.color;
     this->face = source.face;
     this->characters = std::move(source.characters);
-    this->colorBuffer = std::move(colorBuffer);
+    this->texts = std::move(source.texts);
+    this->colorBuffer = std::move(source.colorBuffer);
+    this->maxWidth = source.maxWidth;
+    this->maxHeight = source.maxHeight;
+    this->currentImageIndex = source.currentImageIndex;
 
     source.face = nullptr;
+    source.currentImageIndex = nullptr;
 
     return *this;
 }
@@ -143,7 +154,7 @@ glm::ivec2 Font::sizeOf(const std::string& text) const {
 }
 
 
-void Font::write(const std::string &text, float x, float y, float d) const {
+void Font::write(const std::string &text, float x, float y, float d) {
     y = Fonts::screenHeight - y;
     float startX = x;
     glm::vec4 box[4];
@@ -155,6 +166,10 @@ void Font::write(const std::string &text, float x, float y, float d) const {
         }
         if(c == '\t'){
             x += maxWidth * 2.0f;
+            continue;
+        }
+        if(c == ' '){
+            x += maxWidth * Fonts::worldSpacing;
             continue;
         }
         auto& ch = characters[c];
@@ -169,24 +184,28 @@ void Font::write(const std::string &text, float x, float y, float d) const {
         box[2] = { x2 + w, y2 + h, 1, 0 };
         box[3] = { x2 + w, y2    , 1, 1 };
 
-        ch.buffer.copy(box, sizeof(glm::vec4) * NUM_VERTICES);
-        ch.hot = true;
         x += (ch.advance >> 6u);
+        CharacterInstance chInst;
+        chInst.character = &ch;
+        chInst.buffer = Fonts::createVertexBuffer();
+        chInst.buffer.copy(box, sizeof(glm::vec4) * NUM_VERTICES);
+        texts[*currentImageIndex].push_back((std::move(chInst)));
     }
+}
+
+void Font::clear() {
+    texts[*currentImageIndex].clear();
 }
 
 void Font::draw(VkCommandBuffer commandBuffer) const {
     VkDeviceSize offset = 0;
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, Fonts::pipeline);
-    for(auto& ch : characters){
-        if(ch.hot){
-            vkCmdBindDescriptorSets(
-                    commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, Fonts::pipelineLayout,
-                    0u, 1u, &ch.descriptorSet, 0, VK_NULL_HANDLE);
-            vkCmdBindVertexBuffers(commandBuffer, 0u, 1u, &ch.buffer.buffer, &offset);
-            vkCmdDraw(commandBuffer, 4u, 1u, 0u, 0u);
-            ch.hot = false;
-        }
+    for(auto& ch : texts[*currentImageIndex]){
+        vkCmdBindDescriptorSets(
+                commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, Fonts::pipelineLayout,
+                0u, 1u, &ch.character->descriptorSet, 0, VK_NULL_HANDLE);
+        vkCmdBindVertexBuffers(commandBuffer, 0u, 1u, &ch.buffer.buffer, &offset);
+        vkCmdDraw(commandBuffer, 4u, 1u, 0u, 0u);
     }
 }
 
@@ -198,18 +217,18 @@ void Font::refresh() {
 
 // ===================================== Fonts =================================
 
-const Font &Fonts::getFont(std::string_view name, int size, FontStyle style, const glm::vec3 &color) {
+Font* Fonts::getFont(std::string_view name, int size, FontStyle style, const glm::vec3 &color) {
     auto colorStr = std::to_string(color.r) + std::to_string(color.g) + std::to_string(color.b);
     auto key = getFontName(name, style) + std::to_string(size) + colorStr;
     auto itr = fonts.find(key);
     if(itr == end(fonts)){
-        auto font = Font{name, size, style, color};
+        auto font = Font{name, swapChainImageCount, currentImageIndex, size, style, color};
         fonts.insert(std::make_pair(key, std::move(font)));
     }
-    return fonts[key];
+    return &fonts[key];
 }
 
-void Fonts::init(VulkanDevice* dev, int width, int height) {
+void Fonts::init(VulkanDevice* dev, VulkanRenderPass* rPass, uint32_t swapChainImgCount, uint32_t* index, int width, int height) {
     FT_Error error;
     if((error = FT_Init_FreeType(&ftLibrary))){
         auto msg = "Error loading FT font, reason:" +  std::string(FT_Error_String(error));
@@ -219,26 +238,29 @@ void Fonts::init(VulkanDevice* dev, int width, int height) {
     screenWidth = static_cast<float>(width);
     screenHeight = static_cast<float>(height);
     device = dev;
+    renderPass = rPass;
+    swapChainImageCount = swapChainImgCount;
+    currentImageIndex = index;
 
 #ifdef _WIN32
-    fontLocation["Courier"] = R"(C:\Windows\Fonts\cour.ttf)";
-    fontLocation["Arial"] = R"(C:\Windows\Fonts\arial.ttf)";
-    fontLocation["Arial Bold"] = R"(C:\Windows\Fonts\arialbd.ttf)";
-    fontLocation["Arial Bold Italic"] = R"(C:\Windows\Fonts\arialbi.ttf)";
-    fontLocation["Arial Italic"] = R"( C:\Windows\Fonts\ariali.ttf)";
+    location["Courier"] = R"(C:\Windows\Fonts\cour.ttf)";
+    location["Arial"] = R"(C:\Windows\Fonts\arial.ttf)";
+    location[ARIAL_BOLD] = R"(C:\Windows\Fonts\arialbd.ttf)";
+    location["Arial Bold Italic"] = R"(C:\Windows\Fonts\arialbi.ttf)";
+    location["Arial Italic"] = R"( C:\Windows\Fonts\ariali.ttf)";
 #elif defined(__APPLE__)
     // TODO find apple font locations
 #elif defined(linux)
     // TODO find linix font locatins
 #endif
 
+    projection = ortho(0.0f, screenWidth, 0.0f, screenHeight);
     createCommandPool();
     createDescriptorPool();
     createPipelineCache();
     createDescriptorSetLayout();
     createPipeline();
-
-    projection = glm::ortho(0.0f, screenWidth, 0.0f, screenHeight);
+    createProjectionBuffer();
 }
 
 void Fonts::createTexture(FT_Face font, Texture &texture) {
@@ -250,7 +272,8 @@ void Fonts::createTexture(FT_Face font, Texture &texture) {
     VkImageCreateInfo imageCreateInfo = initializers::imageCreateInfo(
             VK_IMAGE_TYPE_2D,
             VK_FORMAT_R8_SRGB,
-            VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
+            VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+            glyph->bitmap.width, glyph->bitmap.rows);
 
     texture.image = device->createImage(imageCreateInfo, VMA_MEMORY_USAGE_GPU_ONLY);
     texture.image.transitionLayout(commandPool, device->queues.graphics, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
@@ -336,18 +359,18 @@ void Fonts::createDescriptorSetLayout() {
     bindings[1].descriptorCount = 1;
     bindings[1].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-    bindings[1].binding = 2;
-    bindings[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    bindings[1].descriptorCount = 1;
-    bindings[1].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    bindings[2].binding = 2;
+    bindings[2].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    bindings[2].descriptorCount = 1;
+    bindings[2].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
     descriptorSetLayout = device->createDescriptorSetLayout(bindings);
 }
 
 void Fonts::createDescriptorPool() {
     std::vector<VkDescriptorPoolSize> poolSizes{
-            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2},
-            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1}
+            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2 * MAX_SETS},
+            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_SETS}
     };
     descriptorPool = device->createDescriptorPool(MAX_SETS, poolSizes);
 }
@@ -388,8 +411,8 @@ VulkanBuffer Fonts::createVertexBuffer() {
 
 void Fonts::createPipeline() {
 
-    ShaderModule vertexModule{ R"(data\shaders\font\font.vert.spv)", *device };
-    ShaderModule fragmentModule{ R"(data\shaders\font\font.frag.spv)", *device };
+    ShaderModule vertexModule{ R"(..\..\data\shaders\font\font.vert.spv)", *device };
+    ShaderModule fragmentModule{ R"(..\..\data\shaders\font\font.frag.spv)", *device };
 
     auto shaderStages = initializers::vertexShaderStages(
             {
@@ -398,13 +421,13 @@ void Fonts::createPipeline() {
             }
     );
 
-    VkVertexInputBindingDescription bindingDesc{ 0, sizeof(glm::vec4), VK_VERTEX_INPUT_RATE_VERTEX };
-    VkVertexInputAttributeDescription attributeDesc{ 0u, 0u, VK_FORMAT_R32G32B32A32_SFLOAT, 0u };
+    std::vector<VkVertexInputBindingDescription> bindingDesc{ {0, sizeof(glm::vec4), VK_VERTEX_INPUT_RATE_VERTEX} };
+    std::vector<VkVertexInputAttributeDescription> attributeDesc{ {0u, 0u, VK_FORMAT_R32G32B32A32_SFLOAT, 0u} };
 
     auto vertexInputState = initializers::vertexInputState( { bindingDesc }, { attributeDesc });
 
     auto inputAssemblyState = initializers::inputAssemblyState();
-    inputAssemblyState.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN;
+    inputAssemblyState.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
 
     auto viewport = initializers::viewport(screenWidth, screenHeight);
     auto scissor = initializers::scissor(screenWidth, screenHeight);
@@ -413,9 +436,9 @@ void Fonts::createPipeline() {
 
     auto rasterizationState = initializers::rasterizationState();
     rasterizationState.polygonMode = VK_POLYGON_MODE_FILL;
-    rasterizationState.cullMode = VK_CULL_MODE_BACK_BIT;
-    rasterizationState.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-    rasterizationState.lineWidth = 1.0f;
+    rasterizationState.cullMode = VK_CULL_MODE_NONE;
+    rasterizationState.frontFace = VK_FRONT_FACE_CLOCKWISE;
+    rasterizationState.lineWidth = 5.0f;
 
     auto multisampleState = initializers::multisampleState();
 
@@ -479,19 +502,43 @@ void Fonts::subPassIndex(const uint32_t index) {
     subpass = index;
 }
 
+void Fonts::setWordSpacing(float spacing) {
+    worldSpacing = spacing;
+}
+
+void Fonts::cleanup() {
+    for(auto& [_, font] : fonts){
+        font.~Font();
+    }
+    dispose(projectionBuffer);
+    dispose(descriptorSetLayout);
+    dispose(pipelineLayout);
+    dispose(pipeline);
+    dispose(pipelineCache);
+    dispose(descriptorPool);
+    dispose(commandPool);
+    FT_Done_FreeType(ftLibrary);
+}
+
 glm::mat4 Fonts::projection;
-std::map<std::string, std::string> Fonts::fontLocation{};
+std::map<std::string, std::string> Fonts::location{};
 FT_Library  Fonts::ftLibrary;
-std::map<std::string, Font> fonts{};
+std::map<std::string, Font> Fonts::fonts{};
 
 VulkanDevice* Fonts::device;
 VulkanDescriptorSetLayout Fonts::descriptorSetLayout;
 VulkanPipelineLayout Fonts::pipelineLayout;
+VulkanPipelineCache Fonts::pipelineCache;
 VulkanPipeline Fonts::pipeline;
 VulkanDescriptorPool Fonts::descriptorPool;
 VulkanRenderPass* Fonts::renderPass;
+VulkanCommandPool Fonts::commandPool;
+VulkanBuffer Fonts::projectionBuffer;
 
 uint32_t Fonts::subpass = 0;
-float Fonts::screenWidth;
-float Fonts::screenHeight;
-static int numFonts = MAX_FONTS;
+float Fonts::screenWidth = 0;
+float Fonts::screenHeight = 0;
+int Fonts::numFonts = MAX_FONTS;
+float Fonts::worldSpacing = DEFAULT_WORD_SPACE;
+uint32_t Fonts::swapChainImageCount = 0;
+uint32_t* Fonts::currentImageIndex = nullptr;

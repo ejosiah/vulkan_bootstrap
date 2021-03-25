@@ -27,9 +27,12 @@ ShaderModule::~ShaderModule() {
     vkDestroyShaderModule(device, shaderModule, nullptr);
 }
 
-VulkanBaseApp::VulkanBaseApp(std::string_view name, int width, int height, bool relativeMouseMode)
-: Window(name, width, height)
-, InputManager(relativeMouseMode)
+VulkanBaseApp::VulkanBaseApp(std::string_view name, int width, int height,  const Settings& settings)
+: Window(name, width, height, settings.fullscreen)
+, InputManager(settings.relativeMouseMode)
+, enabledFeatures(settings.enabledFeatures)
+, depthTestEnabled(settings.depthTest)
+, vSync(settings.vSync)
 {
 }
 
@@ -41,17 +44,6 @@ void VulkanBaseApp::init() {
     pause = &mapToKey(Key::P, "Pause", Action::detectInitialPressOnly());
     initVulkan();
     initApp();
-    OrbitingCameraSettings settings{};
-    settings.offsetDistance = 2.0f;
-    settings.rotationSpeed = 0.1f;
-    settings.zNear = 0.1f;
-    settings.zFar = 10.0f;
-    settings.fieldOfView = 45.0f;
-    settings.modelHeight = 0;
-    settings.aspectRatio = static_cast<float>(swapChain.extent.width)/static_cast<float>(swapChain.extent.height);
- //   cameraController = new OrbitingCameraController{ camera, *this, settings};
-//    cameraController = new FirstPersonCameraController{ camera, *this, settings};
-//    cameraController->lookAt({0, 0, 2}, glm::vec3(0), {0, 1, 0});
 }
 
 void VulkanBaseApp::initWindow() {
@@ -79,12 +71,6 @@ void VulkanBaseApp::initVulkan() {
     createDepthBuffer();
     createRenderPass();
     createFramebuffer();
-
-
-//    createCameraDescriptorPool();
-//    createCameraDescriptorSetLayout();
-//    createCameraDescriptorSet();
-
 
     createSyncObjects();
 }
@@ -127,12 +113,6 @@ void VulkanBaseApp::createDepthBuffer() {
                 VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
                 swapChain.extent.width,
                 swapChain.extent.height);
-//        createInfo.imageType = VK_IMAGE_TYPE_2D;
-//        createInfo.format = format;
-//        createInfo.extent = {swapChain.extent.width, swapChain.extent.height, 1};
-//        createInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-//        createInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-//        createInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 
         depthBuffer.image = device.createImage(createInfo, VMA_MEMORY_USAGE_GPU_ONLY);
 
@@ -151,7 +131,6 @@ VkFormat VulkanBaseApp::findDepthFormat() {
 }
 
 void VulkanBaseApp::createLogicalDevice() {
-    VkPhysicalDeviceFeatures enabledFeatures{};
     device.createLogicalDevice(enabledFeatures, deviceExtensions, validationLayers, surface, VK_QUEUE_GRAPHICS_BIT);
     memoryAllocator = device.allocator;
 }
@@ -176,17 +155,6 @@ void VulkanBaseApp::pickPhysicalDevice() {
 }
 
 
-//void VulkanBaseApp::createCameraBuffers() {
-//    cameraBuffers.resize(swapChain.imageCount());
-//    VkDeviceSize size = sizeof(Camera);
-//
-//
-//    for(auto i = 0; i < swapChain.imageCount(); i++){
-//        cameraBuffers[i] = device.createBuffer(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, size);
-//    }
-//}
-
-
 void VulkanBaseApp::run() {
     init();
     mainLoop();
@@ -202,7 +170,6 @@ void VulkanBaseApp::mainLoop() {
 
         if(!paused) {
             checkAppInputs();
-            update(getTime());
             drawFrame();
         }else{
             glfwSetTime(elapsedTime);
@@ -326,6 +293,7 @@ void VulkanBaseApp::createSyncObjects() {
 }
 
 void VulkanBaseApp::drawFrame() {
+    frameCount++;
     inFlightFences[currentFrame].wait();
     auto imageIndex = swapChain.acquireNextImage(imageAcquired[currentFrame]);
     if(swapChain.isOutOfDate()) {
@@ -339,6 +307,9 @@ void VulkanBaseApp::drawFrame() {
         inFlightImages[imageIndex]->wait();
     }
     inFlightImages[imageIndex] = &inFlightFences[currentFrame];
+
+    update(getTime());
+    calculateFPS();
 
     VkPipelineStageFlags flags = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
@@ -368,6 +339,10 @@ void VulkanBaseApp::drawFrame() {
     currentFrame = (currentFrame + 1)%MAX_IN_FLIGHT_FRAMES;
 }
 
+void VulkanBaseApp::calculateFPS() {
+    framePerSecond = frameCount / elapsedTime;
+}
+
 void VulkanBaseApp::recreateSwapChain() {
     int width, height;
     do{
@@ -379,7 +354,6 @@ void VulkanBaseApp::recreateSwapChain() {
     cleanupSwapChain();
 
     createSwapChain();
-  //  createCameraBuffers();
 
     if(depthTestEnabled){
         createDepthBuffer();
@@ -387,94 +361,18 @@ void VulkanBaseApp::recreateSwapChain() {
     createRenderPass();
     createFramebuffer();
 
-//    createCameraDescriptorSetLayout();
-//    createCameraDescriptorPool();
-//    createCameraDescriptorSet();
     onSwapChainRecreation();
-//    cameraController->perspective(static_cast<float>(swapChain.extent.width)/static_cast<float>(swapChain.extent.height));
 }
 
-//void VulkanBaseApp::createCameraDescriptorSetLayout() {
-//    VkDescriptorSetLayoutBinding uniformBinding{};
-//    uniformBinding.binding = 0;
-//    uniformBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-//    uniformBinding.descriptorCount = 1;
-//    uniformBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-//
-//    std::vector<VkDescriptorSetLayoutBinding> bindings { uniformBinding };
-//
-//    VkDescriptorSetLayoutCreateInfo createInfo{};
-//    createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-//    createInfo.bindingCount = static_cast<uint32_t>(bindings.size());
-//    createInfo.pBindings = bindings.data();
-//
-//    cameraDescriptorSetLayout = device.createDescriptorSetLayout(bindings);
-//}
-//
-//void VulkanBaseApp::createCameraDescriptorPool() {
-//    const auto swapChainImageCount = static_cast<uint32_t>(swapChain.imageCount());
-//
-//    VkDescriptorPoolSize uniformPoolSize{};
-//    uniformPoolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-//    uniformPoolSize.descriptorCount = swapChainImageCount;
-//
-//    std::vector<VkDescriptorPoolSize> poolSizes{ uniformPoolSize };
-//
-//    cameraDescriptorPool = device.createDescriptorPool(swapChain.imageCount(), poolSizes);
-//}
-//
-//void VulkanBaseApp::createCameraDescriptorSet() {
-//    const auto swapChainImageCount = static_cast<uint32_t>(swapChain.imageCount());
-//    cameraDescriptorSets.resize(swapChainImageCount);
-//
-//    std::vector<VkDescriptorSetLayout> layouts(swapChainImageCount, cameraDescriptorSetLayout);
-//    VkDescriptorSetAllocateInfo allocInfo{};
-//    allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-//    allocInfo.descriptorPool = cameraDescriptorPool;
-//    allocInfo.descriptorSetCount = static_cast<uint32_t>(layouts.size());
-//    allocInfo.pSetLayouts = layouts.data();
-//    vkAllocateDescriptorSets(device, &allocInfo, cameraDescriptorSets.data());
-//
-//    for(int i = 0; i < swapChainImageCount; i++) {
-//        VkDescriptorBufferInfo bufferInfo{};
-//        bufferInfo.buffer = cameraBuffers[i].buffer;
-//        bufferInfo.offset = 0;
-//        bufferInfo.range = VK_WHOLE_SIZE;
-//
-//        VkWriteDescriptorSet cameraWrites{};
-//        cameraWrites.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-//        cameraWrites.dstSet = cameraDescriptorSets[i];
-//        cameraWrites.dstBinding = 0;
-//        cameraWrites.descriptorCount = 1;
-//        cameraWrites.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-//        cameraWrites.pBufferInfo = &bufferInfo;
-//
-//        std::vector<VkWriteDescriptorSet> writes{ cameraWrites };
-//
-//        vkUpdateDescriptorSets(device, static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr);
-//    }
-//}
 
 
 void VulkanBaseApp::update(float time) {
-//    spdlog::info("time: {}", time);
-//    camera.model = glm::rotate(glm::mat4(1.0f), elapsedTime * glm::half_pi<float>(), {0.0f, 0.0f, 1.0f});
-//    camera.view = glm::lookAt({2.0f, 2.0f, 2.0f}, glm::vec3(0.0f), {0.0f, 0.0f, 1.0f});
-//    camera.proj = glm::perspective(glm::quarter_pi<float>(), swapChain.extent.width/ static_cast<float>(swapChain.extent.height), 0.1f, 10.0f);
-//    cameraController->update(time);
-//    camera.proj[1][1] *= 1;
-//    camera.model = glm::mat4(1);
-//    camera.view = glm::lookAt({0, 0, 2}, glm::vec3(0), {0, 1, 0});
-//    auto& buffer = cameraBuffers[currentImageIndex];
-//    buffer.copy(&camera, sizeof(camera));
+
 }
 
 void VulkanBaseApp::cleanupSwapChain() {
 
     onSwapChainDispose();
-//    dispose(cameraDescriptorPool);
-//    dispose(cameraDescriptorSetLayout);
-
 
     for(auto& framebuffer : framebuffers){
         dispose(framebuffer);
@@ -487,10 +385,6 @@ void VulkanBaseApp::cleanupSwapChain() {
     }
 
     dispose(swapChain);
-//    for(auto& cameraBuffer : cameraBuffers){
-//        dispose(cameraBuffer);
-//    }
-
 }
 
 void VulkanBaseApp::setPaused(bool flag) {
@@ -504,9 +398,6 @@ float VulkanBaseApp::getTime() {
     auto now = static_cast<float>(glfwGetTime());
     auto dt = now - elapsedTime;
     elapsedTime += dt;
-    auto timeFreq = glfwGetTimerFrequency();
-    auto timeValue = glfwGetTimerValue();
- //   spdlog::info("elapsedTime: {}, time freq: {}, time value: {}", now, timeFreq, timeValue);
     return dt;
 }
 
@@ -523,7 +414,6 @@ void VulkanBaseApp::onSwapChainDispose() {
 }
 
 inline void VulkanBaseApp::checkAppInputs() {
-//    cameraController->processInput();
 }
 
 inline bool VulkanBaseApp::isRunning() const {

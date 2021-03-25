@@ -1534,7 +1534,7 @@ Basic usage:
     VmaReplay.exe MyRecording.csv
 
 <b>Documentation of file format</b> can be found in file: "docs/Recording file format.md".
-It's a human-readable, text file in CSV format (Comma Separated Values).
+It's a human-readable, texts file in CSV format (Comma Separated Values).
 
 \section record_and_replay_additional_considerations Additional considerations
 

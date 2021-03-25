@@ -214,7 +214,7 @@ struct VulkanDevice{
     }
 
     [[nodiscard]]
-    VulkanBuffer createBuffer(VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage, VkDeviceSize size, std::set<uint32_t> queueIndices = {}) const{
+    VulkanBuffer createBuffer(VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage, VkDeviceSize size, const std::string name = "", std::set<uint32_t> queueIndices = {}) const{
         VkBufferCreateInfo bufferInfo{};
         bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
         bufferInfo.size = size;
@@ -235,7 +235,7 @@ struct VulkanDevice{
 
         ASSERT(vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &buffer, &allocation, nullptr));
 
-        return VulkanBuffer{allocator, buffer, allocation, size};
+        return VulkanBuffer{allocator, buffer, allocation, size, name};
     }
 
     operator VkDevice() const {

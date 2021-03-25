@@ -27,7 +27,6 @@ void VulkanCube::initApp() {
 
     createGraphicsPipeline();
     createCommandBuffer();
-
 }
 
 void VulkanCube::onSwapChainDispose() {

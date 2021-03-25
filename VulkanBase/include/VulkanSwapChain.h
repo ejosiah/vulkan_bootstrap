@@ -8,14 +8,14 @@ struct VulkanSwapChain{
 
     VulkanSwapChain() = default;
 
-    inline VulkanSwapChain(const VulkanDevice& device, const VulkanSurface& surface, uint32_t width, uint32_t height,  VkSwapchainKHR oldSwapChain = VK_NULL_HANDLE){
+    inline VulkanSwapChain(const VulkanDevice& device, const VulkanSurface& surface, uint32_t width, uint32_t height, bool vSync = true,  VkSwapchainKHR oldSwapChain = VK_NULL_HANDLE){
         auto capabilities = surface.getCapabilities(device);
         auto formats = surface.getFormats(device);
         auto presentModes = surface.getPresentModes(device);
 
       //  extent = capabilities
         VkSurfaceFormatKHR surfaceFormat = choose(formats);
-        auto presentMode = choose(presentModes);
+        auto presentMode = choose(presentModes, vSync);
         auto extent = chooseExtent(capabilities, {width, height});
 
         VkSwapchainCreateInfoKHR createInfo{};
@@ -90,11 +90,12 @@ struct VulkanSwapChain{
         return itr != end(formats) ?  *itr : formats.front();
     }
 
-    inline VkPresentModeKHR choose(const std::vector<VkPresentModeKHR>& presentModes) {
+    inline VkPresentModeKHR choose(const std::vector<VkPresentModeKHR>& presentModes, bool vSync) {
+        if(vSync) return VK_PRESENT_MODE_FIFO_KHR;
         auto itr = std::find_if(begin(presentModes), end(presentModes), [](const auto& presentMode){
-           return presentMode == VK_PRESENT_MODE_MAILBOX_KHR;
+           return presentMode == VK_PRESENT_MODE_MAILBOX_KHR || presentMode == VK_PRESENT_MODE_IMMEDIATE_KHR;
         });
-        return itr != end(presentModes) ? *itr : VK_PRESENT_MODE_FIFO_KHR;
+        return itr != end(presentModes) ? *itr : presentModes.front();
     }
 
     inline VkExtent2D chooseExtent(const VkSurfaceCapabilitiesKHR& capabilities, VkExtent2D actualExtent){
