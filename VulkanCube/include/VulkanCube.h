@@ -1,6 +1,7 @@
 #pragma once
 
 #include "VulkanBaseApp.h"
+#include "Font.h"
 
 class VulkanCube : public VulkanBaseApp {
 public:
@@ -18,6 +19,8 @@ protected:
     void update(float time) override;
 
     void checkAppInputs() override;
+
+    RenderPassInfo  buildRenderPass() override;
 
     void createCommandPool();
 
@@ -37,6 +40,8 @@ protected:
 
     void createIndexBuffer();
 
+    void cleanup() override;
+
 private:
     VulkanPipelineLayout layout;
     VulkanPipeline pipeline;
@@ -51,4 +56,7 @@ private:
     VulkanBuffer indexBuffer;
     Texture texture;
     std::unique_ptr<BaseCameraController> cameraController;
+    Font* font;
+    Vertices mesh;
+    uint32_t numIndices;
 };

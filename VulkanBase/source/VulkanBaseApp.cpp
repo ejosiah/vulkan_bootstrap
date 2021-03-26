@@ -60,7 +60,6 @@ void VulkanBaseApp::initWindow() {
 }
 
 void VulkanBaseApp::initVulkan() {
-    mesh = primitives::cube();
     createInstance();
     ext = VulkanExtensions{instance};
     createDebugMessenger();
@@ -223,7 +222,11 @@ void VulkanBaseApp::createFramebuffer() {
 
 
 void VulkanBaseApp::createRenderPass() {
+    auto [attachments, subpassDesc, dependency] = buildRenderPass();
+    renderPass = device.createRenderPass(attachments, subpassDesc, dependency);
+}
 
+RenderPassInfo VulkanBaseApp::buildRenderPass() {
     VkAttachmentDescription attachmentDesc{};
     attachmentDesc.format = swapChain.format;
     attachmentDesc.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -240,10 +243,9 @@ void VulkanBaseApp::createRenderPass() {
     ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
 
-    VkSubpassDescription subpassDesc{};
+    SubpassDescription subpassDesc{};
     subpassDesc.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-    subpassDesc.colorAttachmentCount = 1;
-    subpassDesc.pColorAttachments = &ref;
+    subpassDesc.colorAttachments.push_back(ref);
 
     std::vector<VkAttachmentDescription> attachments{ attachmentDesc };
     if(depthTestEnabled){
@@ -262,7 +264,7 @@ void VulkanBaseApp::createRenderPass() {
         depthRef.attachment = 1;
         depthRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
-        subpassDesc.pDepthStencilAttachment = &depthRef;
+        subpassDesc.depthStencilAttachments = depthRef;
     }
 
 
@@ -274,7 +276,10 @@ void VulkanBaseApp::createRenderPass() {
     dependency.srcAccessMask = 0;
     dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 
-    renderPass = device.createRenderPass(attachments, {subpassDesc }, {dependency});
+    std::vector<SubpassDescription> subpassDescs{ subpassDesc };
+    std::vector<VkSubpassDependency> dependencies{ dependency };
+
+    return std::make_tuple(attachments, subpassDescs, dependencies);
 }
 
 void VulkanBaseApp::createSyncObjects() {
@@ -399,10 +404,6 @@ float VulkanBaseApp::getTime() {
     auto dt = now - elapsedTime;
     elapsedTime += dt;
     return dt;
-}
-
-VkCommandBuffer *VulkanBaseApp::buildCommandBuffers(uint32_t imageIndex, uint32_t &numCommandBuffers) {
-    return nullptr;
 }
 
 void VulkanBaseApp::onSwapChainRecreation() {

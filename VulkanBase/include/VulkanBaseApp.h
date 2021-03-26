@@ -33,6 +33,8 @@
 #include "InputManager.h"
 #include "Texture.h"
 #include "VulkanShaderModule.h"
+#include "VulkanStructs.h"
+
 #ifdef NDBUG
 constexpr bool enableValidation = false;
 #else
@@ -58,6 +60,10 @@ struct DepthBuffer{
     VulkanImageView imageView;
 };
 
+using RenderPassInfo = std::tuple<std::vector<VkAttachmentDescription>,
+                                  std::vector<SubpassDescription>,
+                                  std::vector<VkSubpassDependency>>;
+
 struct Settings{
     bool fullscreen = false;
     bool relativeMouseMode = false;
@@ -79,7 +85,7 @@ protected:
 
     void initVulkan();
 
-    virtual void initApp() {};
+    virtual void initApp() = 0;
 
     void createInstance();
 
@@ -93,6 +99,8 @@ protected:
 
     void createRenderPass();
 
+    virtual RenderPassInfo buildRenderPass();
+
     void createFramebuffer();
 
     void createSyncObjects();
@@ -103,7 +111,7 @@ protected:
 
     virtual void onSwapChainRecreation();
 
-    virtual VkCommandBuffer* buildCommandBuffers(uint32_t imageIndex, uint32_t& numCommandBuffers);
+    virtual VkCommandBuffer* buildCommandBuffers(uint32_t imageIndex, uint32_t& numCommandBuffers) = 0;
 
     virtual void drawFrame();
 
@@ -165,7 +173,6 @@ protected:
 
     uint32_t currentImageIndex = 0;
     int currentFrame = 0;
-    Mesh mesh;
     DepthFormats depthFormats;
     DepthBuffer depthBuffer;
     bool depthTestEnabled = false;

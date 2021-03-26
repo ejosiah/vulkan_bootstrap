@@ -102,6 +102,7 @@ namespace initializers{
     inline VkPipelineRasterizationStateCreateInfo rasterizationState(){
         VkPipelineRasterizationStateCreateInfo createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+        createInfo.lineWidth = 1.0f;
 
         return createInfo;
     }

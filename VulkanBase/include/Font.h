@@ -73,9 +73,6 @@ public:
             dispose(ch.texture.image);
         }
         dispose(colorBuffer);
-        if(face) {
-            FT_Done_Face(face);
-        }
     }
 
     Font& operator=(Font&& source) noexcept;
@@ -110,7 +107,7 @@ class Fonts{
 public:
     static Font* getFont(std::string_view name, int size, FontStyle style = FontStyle::NORMAL, const glm::vec3& color = glm::vec3(0));
 
-    static void init(VulkanDevice* device, VulkanRenderPass* renderPass, uint32_t swapChainImageCount, uint32_t* index, int width, int height);
+    static void init(VulkanDevice* device, VulkanRenderPass* rPass, uint32_t rSubpass, uint32_t swapChainImageCount, uint32_t* index, int width, int height);
 
     static void refresh(int width, int height, VulkanRenderPass* newRenderPass);
 

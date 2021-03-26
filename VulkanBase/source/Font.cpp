@@ -229,7 +229,7 @@ Font* Fonts::getFont(std::string_view name, int size, FontStyle style, const glm
     return &fonts[key];
 }
 
-void Fonts::init(VulkanDevice* dev, VulkanRenderPass* rPass, uint32_t swapChainImgCount, uint32_t* index, int width, int height) {
+void Fonts::init(VulkanDevice* dev, VulkanRenderPass* rPass, uint32_t rSubpass, uint32_t swapChainImgCount, uint32_t* index, int width, int height) {
     FT_Error error;
     if((error = FT_Init_FreeType(&ftLibrary))){
         auto msg = "Error loading FT font, reason:" +  std::string(FT_Error_String(error));
@@ -240,6 +240,7 @@ void Fonts::init(VulkanDevice* dev, VulkanRenderPass* rPass, uint32_t swapChainI
     screenHeight = static_cast<float>(height);
     device = dev;
     renderPass = rPass;
+    subpass = rSubpass;
     swapChainImageCount = swapChainImgCount;
     currentImageIndex = index;
 
@@ -440,9 +441,8 @@ void Fonts::createPipeline() {
     rasterizationState.polygonMode = VK_POLYGON_MODE_FILL;
     rasterizationState.cullMode = VK_CULL_MODE_NONE;
     rasterizationState.frontFace = VK_FRONT_FACE_CLOCKWISE;
-    rasterizationState.lineWidth = 5.0f;
 
-    auto multisampleState = initializers::multisampleState();
+    auto multisampleState = initializers::multisampleState();   // TODO enable;
 
     auto depthStencilState = initializers::depthStencilState();
     depthStencilState.depthTestEnable = true;

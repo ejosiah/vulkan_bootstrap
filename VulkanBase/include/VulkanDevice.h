@@ -331,7 +331,7 @@ struct VulkanDevice{
 
     [[nodiscard]] inline VulkanRenderPass createRenderPass(
             const std::vector<VkAttachmentDescription>& attachmentDescriptions
-            , const std::vector<VkSubpassDescription>& subpassDescriptions
+            , const std::vector<SubpassDescription>& subpassDescriptions
             , const std::vector<VkSubpassDependency>& dependencies = {}) const {
         assert(logicalDevice);
         return VulkanRenderPass{ logicalDevice,  attachmentDescriptions, subpassDescriptions, dependencies };

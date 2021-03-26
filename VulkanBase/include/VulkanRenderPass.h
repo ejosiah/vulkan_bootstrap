@@ -2,6 +2,7 @@
 
 #include "common.h"
 #include "VulkanInitializers.h"
+#include "VulkanStructs.h"
 
 struct VulkanRenderPass{
 
@@ -9,12 +10,16 @@ struct VulkanRenderPass{
 
     VulkanRenderPass(  VkDevice device
                      , const std::vector<VkAttachmentDescription>& attachmentDescriptions
-                     , const std::vector<VkSubpassDescription>& subpassDescriptions
+                     , const std::vector<SubpassDescription>& subpassDescriptions
                      , const std::vector<VkSubpassDependency>& dependencies = {})
     :device(device)
     {
+        std::vector<VkSubpassDescription> vkSubpassDescriptions;
+        for(auto& subpassDescription : subpassDescriptions){
+            vkSubpassDescriptions.push_back(subpassDescription);
+        }
         VkRenderPassCreateInfo createInfo = initializers::renderPassCreateInfo(attachmentDescriptions,
-                                                                               subpassDescriptions,
+                                                                               vkSubpassDescriptions,
                                                                                dependencies);
 
         ASSERT(vkCreateRenderPass(device, &createInfo, nullptr, &renderPass));

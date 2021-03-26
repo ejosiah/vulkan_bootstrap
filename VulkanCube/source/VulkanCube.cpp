@@ -6,6 +6,8 @@ VulkanCube::VulkanCube(const Settings& settings): VulkanBaseApp("VulkanCube", 10
 
 void VulkanCube::initApp() {
     createCommandPool();
+
+    mesh = primitives::cube();
     createVertexBuffer();
     createIndexBuffer();
     createTextureBuffers();
@@ -27,6 +29,9 @@ void VulkanCube::initApp() {
 
     createGraphicsPipeline();
     createCommandBuffer();
+
+    Fonts::init(&device, &renderPass, 0, swapChain.imageCount(), &currentImageIndex, width, height);
+    font = Fonts::getFont(JET_BRAINS_MONO, 15, FontStyle::NORMAL, {1, 1, 0});
 }
 
 void VulkanCube::onSwapChainDispose() {
@@ -125,11 +130,50 @@ void VulkanCube::createGraphicsPipeline() {
 
 VkCommandBuffer* VulkanCube::buildCommandBuffers(uint32_t imageIndex, uint32_t& numCommandBuffers) {
     numCommandBuffers = 1;
+    uint32_t i = imageIndex;
+    VkCommandBufferBeginInfo beginInfo{};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.flags = 0;
+    vkBeginCommandBuffer(commandBuffers[i], &beginInfo);
+
+    VkClearValue clearValues[2];
+    clearValues[0].color = {0.0f, 0.0f, 0.0f, 1.0f};
+    clearValues[1].depthStencil = {1.0, 0u};
+
+    VkRenderPassBeginInfo renderPassBeginInfo{};
+    renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    renderPassBeginInfo.renderPass = renderPass;
+    renderPassBeginInfo.framebuffer = framebuffers[i];
+    renderPassBeginInfo.renderArea.offset = {0, 0};
+    renderPassBeginInfo.renderArea.extent = swapChain.extent;
+    renderPassBeginInfo.clearValueCount = 2;
+    renderPassBeginInfo.pClearValues = clearValues;
+    vkCmdBeginRenderPass(commandBuffers[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE );
+
+    std::vector<VkDescriptorSet> descriptorSets{ cameraController->descriptorSet(i), descriptorSet };
+    //   std::vector<VkDescriptorSet> descriptorSets{ cameraDescriptorSets[i] };
+
+    vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, COUNT(descriptorSets), descriptorSets.data(), 0, nullptr);
+    vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline );
+    VkDeviceSize offset = 0;
+    vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+    vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, &vertexBuffer.buffer, &offset);
+    vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(mesh.indices.size()), 1u, 0u, 0u, 0u);
+//        vkCmdDraw(commandBuffers[i], 3, 1, 0, 0);
+
+//    vkCmdNextSubpass(commandBuffers[i], VK_SUBPASS_CONTENTS_INLINE);
+    font->draw(commandBuffers[i]);
+
+    vkCmdEndRenderPass(commandBuffers[i]);
+
+    vkEndCommandBuffer(commandBuffers[i]);
     return &commandBuffers[imageIndex];
 }
 
 void VulkanCube::update(float time) {
     cameraController->update(time);
+    font->clear();
+    font->write(fmt::format("Frames: {}\nFPS: {}", frameCount, framePerSecond), 20, 50);
 }
 
 void VulkanCube::checkAppInputs() {
@@ -151,39 +195,39 @@ void VulkanCube::createCommandBuffer() {
     std::advance(last, commandBuffers.size() - 1);
     commandBuffers.erase(last);
 
-    for(auto i = 0; i < commandBuffers.size(); i++){
-        VkCommandBufferBeginInfo beginInfo{};
-        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-        beginInfo.flags = 0;
-        vkBeginCommandBuffer(commandBuffers[i], &beginInfo);
-
-        VkClearValue clear{0.f, 0.f, 0.f, 1.f};
-
-        VkRenderPassBeginInfo renderPassBeginInfo{};
-        renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-        renderPassBeginInfo.renderPass = renderPass;
-        renderPassBeginInfo.framebuffer = framebuffers[i];
-        renderPassBeginInfo.renderArea.offset = {0, 0};
-        renderPassBeginInfo.renderArea.extent = swapChain.extent;
-        renderPassBeginInfo.clearValueCount = 1;
-        renderPassBeginInfo.pClearValues = &clear;
-        vkCmdBeginRenderPass(commandBuffers[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE );
-
-        std::vector<VkDescriptorSet> descriptorSets{ cameraController->descriptorSet(i), descriptorSet };
-        //   std::vector<VkDescriptorSet> descriptorSets{ cameraDescriptorSets[i] };
-
-        vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, COUNT(descriptorSets), descriptorSets.data(), 0, nullptr);
-        vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline );
-        VkDeviceSize offset = 0;
-        vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-        vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, &vertexBuffer.buffer, &offset);
-        vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(mesh.indices.size()), 1u, 0u, 0u, 0u);
-//        vkCmdDraw(commandBuffers[i], 3, 1, 0, 0);
-
-        vkCmdEndRenderPass(commandBuffers[i]);
-
-        vkEndCommandBuffer(commandBuffers[i]);
-    }
+//    for(auto i = 0; i < commandBuffers.size(); i++){
+//        VkCommandBufferBeginInfo beginInfo{};
+//        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+//        beginInfo.flags = 0;
+//        vkBeginCommandBuffer(commandBuffers[i], &beginInfo);
+//
+//        VkClearValue clear{0.f, 0.f, 0.f, 1.f};
+//
+//        VkRenderPassBeginInfo renderPassBeginInfo{};
+//        renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+//        renderPassBeginInfo.renderPass = renderPass;
+//        renderPassBeginInfo.framebuffer = framebuffers[i];
+//        renderPassBeginInfo.renderArea.offset = {0, 0};
+//        renderPassBeginInfo.renderArea.extent = swapChain.extent;
+//        renderPassBeginInfo.clearValueCount = 1;
+//        renderPassBeginInfo.pClearValues = &clear;
+//        vkCmdBeginRenderPass(commandBuffers[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE );
+//
+//        std::vector<VkDescriptorSet> descriptorSets{ cameraController->descriptorSet(i), descriptorSet };
+//        //   std::vector<VkDescriptorSet> descriptorSets{ cameraDescriptorSets[i] };
+//
+//        vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, COUNT(descriptorSets), descriptorSets.data(), 0, nullptr);
+//        vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline );
+//        VkDeviceSize offset = 0;
+//        vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+//        vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, &vertexBuffer.buffer, &offset);
+//        vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(mesh.indices.size()), 1u, 0u, 0u, 0u);
+////        vkCmdDraw(commandBuffers[i], 3, 1, 0, 0);
+//
+//        vkCmdEndRenderPass(commandBuffers[i]);
+//
+//        vkEndCommandBuffer(commandBuffers[i]);
+//    }
 }
 
 void VulkanCube::createDescriptorPool() {
@@ -354,12 +398,7 @@ void VulkanCube::createIndexBuffer() {
 }
 
 void VulkanCube::createCommandPool() {
-    VkCommandPoolCreateInfo createInfo{};
-    createInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-    createInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-    createInfo.queueFamilyIndex = device.queueFamilyIndex.graphics.value();
-
-    commandPool = device.createCommandPool(*device.queueFamilyIndex.graphics);
+    commandPool = device.createCommandPool(*device.queueFamilyIndex.graphics, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
 }
 
 void VulkanCube::createDescriptorSetLayout() {
@@ -382,9 +421,22 @@ void VulkanCube::createDescriptorSetLayout() {
     descriptorSetLayout = device.createDescriptorSetLayout(bindings);
 }
 
+void VulkanCube::cleanup() {
+    Fonts::cleanup();
+    VulkanBaseApp::cleanup();
+}
+
+RenderPassInfo VulkanCube::buildRenderPass() {
+    auto info =  VulkanBaseApp::buildRenderPass();
+
+    return info;
+}
+
 int main() {
     try{
         Settings settings;
+        settings.vSync = true;
+        settings.depthTest = true;
         settings.relativeMouseMode = true;
         VulkanCube app{settings};
         app.run();

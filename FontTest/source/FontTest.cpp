@@ -2,12 +2,11 @@
 #include "glm_format.h"
 
 FontTest::FontTest() :VulkanBaseApp("Font Test", 2048, 702) {
-    enabledFeatures.fillModeNonSolid = VK_TRUE;
-    enabledFeatures.wideLines = VK_TRUE;
+
 }
 
 void FontTest::initApp() {
-    Fonts::init(&device, &renderPass, swapChain.imageCount(), &currentImageIndex, width, height);
+    Fonts::init(&device, &renderPass, 0, swapChain.imageCount(), &currentImageIndex, width, height);
     font = Fonts::getFont(ARIAL, 20, FontStyle::NORMAL, {1, 1, 0});
     commandPool = device.createCommandPool(*device.queueFamilyIndex.graphics, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
     commandBuffers = commandPool.allocate(swapChain.imageCount());

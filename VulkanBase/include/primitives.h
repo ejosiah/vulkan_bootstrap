@@ -26,10 +26,6 @@ struct Vertex{
     }
 };
 
-
-using Vertices = std::vector<Vertex>;
-using Indices = std::vector<uint32_t>;
-
 struct PhongMaterial{
     VkDescriptorSet descriptorSet;
 };
@@ -61,15 +57,15 @@ struct Primitive{
         {};
 };
 
-struct Mesh{
-    Vertices vertices;
-    Indices indices;
+struct Vertices{
+    std::vector<Vertex> vertices;
+    std::vector<uint32_t> indices;
 };
 
 namespace primitives{
 
-    inline Mesh cube(const glm::vec3& color = {1, 0, 0}){
-        Mesh mesh;
+    inline Vertices cube(const glm::vec3& color = {1, 0, 0}){
+        Vertices mesh;
         mesh.vertices = {
                 {{-0.5f, -0.5f, 0.5f, 1.0f},{0.0f, 0.0f, 1.0f}, color, {0.0f, 0.0f}},
                 {{0.5f, -0.5f, 0.5f, 1.0f}, {0.0f, 0.0f, 1.0f}, color, {1.0f, 0.0f}},
