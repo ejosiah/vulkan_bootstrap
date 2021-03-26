@@ -101,7 +101,7 @@ void VulkanBaseApp::createInstance() {
 
 void VulkanBaseApp::createSwapChain() {
     glfwGetFramebufferSize(window, &width, &height);
-    swapChain = VulkanSwapChain{ device, surface, static_cast<uint32_t>(width), static_cast<uint32_t>(height)};
+    swapChain = VulkanSwapChain{ device, surface, static_cast<uint32_t>(width), static_cast<uint32_t>(height), vSync};
 }
 
 void VulkanBaseApp::createDepthBuffer() {

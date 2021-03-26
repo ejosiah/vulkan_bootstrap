@@ -41,6 +41,7 @@ void Font::load() {
         character.size = { glyph->bitmap.width, face->glyph->bitmap.rows };
         character.bearing = { glyph->bitmap_left, face->glyph->bitmap_top };
         character.advance = glyph->advance.x;
+        character.loaded = true;
 
         maxWidth = std::max(maxWidth, glyph->bitmap.width);
         maxHeight = std::max(maxHeight, glyph->bitmap.rows);
@@ -74,8 +75,8 @@ void Font::createColorBuffer() {
 void Font::createDescriptorSets() {
     auto descriptorSets = Fonts::createDescriptorSets();
     for(int i = 0; i < NUM_CHAR; i++){
-        if(i == 32) continue;
         auto& character = characters[i];
+        if(!character.loaded) continue;
         character.descriptorSet = descriptorSets[i];
 
 
@@ -243,11 +244,12 @@ void Fonts::init(VulkanDevice* dev, VulkanRenderPass* rPass, uint32_t swapChainI
     currentImageIndex = index;
 
 #ifdef _WIN32
-    location["Courier"] = R"(C:\Windows\Fonts\cour.ttf)";
-    location["Arial"] = R"(C:\Windows\Fonts\arial.ttf)";
+    location[COURIER] = R"(C:\Windows\Fonts\cour.ttf)";
+    location[ARIAL] = R"(C:\Windows\Fonts\arial.ttf)";
     location[ARIAL_BOLD] = R"(C:\Windows\Fonts\arialbd.ttf)";
-    location["Arial Bold Italic"] = R"(C:\Windows\Fonts\arialbi.ttf)";
-    location["Arial Italic"] = R"( C:\Windows\Fonts\ariali.ttf)";
+    location[ARIAL_BOLD_ITALIC] = R"(C:\Windows\Fonts\arialbi.ttf)";
+    location[ARIAL_ITALIC] = R"(C:\Windows\Fonts\ariali.ttf)";
+    location[JET_BRAINS_MONO] = R"(C:\Users\Josiah\Downloads\JetBrainsMono-2.225\fonts\ttf\JetBrainsMono-Regular.ttf)";
 #elif defined(__APPLE__)
     // TODO find apple font locations
 #elif defined(linux)

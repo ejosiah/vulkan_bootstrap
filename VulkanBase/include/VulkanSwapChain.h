@@ -8,7 +8,7 @@ struct VulkanSwapChain{
 
     VulkanSwapChain() = default;
 
-    inline VulkanSwapChain(const VulkanDevice& device, const VulkanSurface& surface, uint32_t width, uint32_t height, bool vSync = true,  VkSwapchainKHR oldSwapChain = VK_NULL_HANDLE){
+    inline VulkanSwapChain(const VulkanDevice& device, const VulkanSurface& surface, uint32_t width, uint32_t height, bool vSync,  VkSwapchainKHR oldSwapChain = VK_NULL_HANDLE){
         auto capabilities = surface.getCapabilities(device);
         auto formats = surface.getFormats(device);
         auto presentModes = surface.getPresentModes(device);

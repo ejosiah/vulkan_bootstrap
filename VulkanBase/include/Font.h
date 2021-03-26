@@ -12,6 +12,7 @@
 #define ARIAL_BOLD "Arial Bold"
 #define ARIAL_BOLD_ITALIC "Arial Bold Italic"
 #define ARIAL_ITALIC "Arial Italic"
+#define JET_BRAINS_MONO "JetBrains Mono Regular"
 
 static constexpr int NUM_VERTICES = 4;
 static constexpr int NUM_CHAR = 128;
@@ -28,6 +29,7 @@ struct Character{
     glm::ivec2 size;
     glm::ivec2 bearing;
     uint32_t advance;
+    bool loaded = false;
 };
 
 struct CharacterInstance{

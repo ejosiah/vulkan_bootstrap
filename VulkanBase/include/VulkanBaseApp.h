@@ -63,7 +63,7 @@ struct Settings{
     bool relativeMouseMode = false;
     bool depthTest = false;
     bool vSync = false;
-    VkPhysicalDeviceFeatures enabledFeatures;
+    VkPhysicalDeviceFeatures enabledFeatures{};
 };
 
 class VulkanBaseApp : protected Window, protected InputManager{

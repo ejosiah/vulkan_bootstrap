@@ -4,7 +4,7 @@
 
 class VulkanCube : public VulkanBaseApp {
 public:
-    VulkanCube();
+    explicit VulkanCube(const Settings& settings);
 
 protected:
     void initApp() override;
@@ -45,7 +45,7 @@ private:
     VulkanDescriptorSetLayout descriptorSetLayout;
 
     std::vector<VkCommandBuffer> commandBuffers;
-    VkDescriptorSet descriptorSet;
+    VkDescriptorSet descriptorSet{};
 
     VulkanBuffer vertexBuffer;
     VulkanBuffer indexBuffer;

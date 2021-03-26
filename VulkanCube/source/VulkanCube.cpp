@@ -2,7 +2,7 @@
 
 #include  <stb_image.h>
 
-VulkanCube::VulkanCube(): VulkanBaseApp("VulkanCube", 1080, 720, true){}
+VulkanCube::VulkanCube(const Settings& settings): VulkanBaseApp("VulkanCube", 1080, 720, settings){}
 
 void VulkanCube::initApp() {
     createCommandPool();
@@ -384,7 +384,9 @@ void VulkanCube::createDescriptorSetLayout() {
 
 int main() {
     try{
-        VulkanCube app;
+        Settings settings;
+        settings.relativeMouseMode = true;
+        VulkanCube app{settings};
         app.run();
     }catch(const std::runtime_error& err){
         spdlog::error(err.what());
