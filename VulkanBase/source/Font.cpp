@@ -414,8 +414,8 @@ VulkanBuffer Fonts::createVertexBuffer() {
 
 void Fonts::createPipeline() {
 
-    ShaderModule vertexModule{ R"(..\..\data\shaders\font\font.vert.spv)", *device };
-    ShaderModule fragmentModule{ R"(..\..\data\shaders\font\font.frag.spv)", *device };
+    ShaderModule vertexModule{ "../../data/shaders/font/font.vert.spv", *device };
+    ShaderModule fragmentModule{ "../../data/shaders/font/font.frag.spv", *device };
 
     auto shaderStages = initializers::vertexShaderStages(
             {
