@@ -34,6 +34,7 @@ constexpr bool debugMode = false;
 #include <spdlog/spdlog.h>
 #include <chrono>
 #include <vk_mem_alloc.h>
+#include "xforms.h"
 
 namespace chrono = std::chrono;
 

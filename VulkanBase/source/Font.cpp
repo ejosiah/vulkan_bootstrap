@@ -257,13 +257,13 @@ void Fonts::init(VulkanDevice* dev, VulkanRenderPass* rPass, uint32_t rSubpass, 
     // TODO find linix font locatins
 #endif
 
-    projection = ortho(0.0f, screenWidth, 0.0f, screenHeight);
     createCommandPool();
     createDescriptorPool();
     createPipelineCache();
     createDescriptorSetLayout();
     createPipeline();
     createProjectionBuffer();
+    updateProjection();
 }
 
 void Fonts::createTexture(FT_Face font, Texture &texture) {
@@ -401,6 +401,11 @@ void Fonts::createProjectionBuffer() {
             VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
             VMA_MEMORY_USAGE_CPU_TO_GPU,
             size);
+}
+
+void Fonts::updateProjection(){
+    VkDeviceSize size = sizeof(glm::mat4);
+    projection = vkn::ortho(0, screenWidth, 0, screenHeight);
     projectionBuffer.copy(glm::value_ptr(projection), size);
 }
 
@@ -497,7 +502,7 @@ void Fonts::refresh(int width, int height, VulkanRenderPass* newRenderPass) {
     }
     screenWidth = static_cast<float>(width);
     screenHeight = static_cast<float>(height);
-    projection = glm::ortho(0.0f, screenWidth, 0.0f, screenHeight);
+    updateProjection();
 }
 
 void Fonts::subPassIndex(const uint32_t index) {

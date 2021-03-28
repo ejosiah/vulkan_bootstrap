@@ -43,11 +43,6 @@ BaseCameraController::BaseCameraController(const VulkanDevice& device, uint32_t 
         _move.down = &inputManager.mapToKey(Key::Q, "down", Action::Behavior::DETECT_INITIAL_PRESS_ONLY);
         position({0.0f, floorOffset, 0.0f});    // assuming up is y axis
         perspective(fovx, aspectRatio, znear, zfar);
-
-        createCameraBuffers();
-        createCameraDescriptorSetLayout();
-        createCameraDescriptorPool();
-        createCameraDescriptorSet();
     }
 
 void BaseCameraController::processInput() {
@@ -148,7 +143,7 @@ void BaseCameraController::perspective(float aspect) {
 }
 
 void BaseCameraController::perspective(float fovx, float aspect, float znear, float zfar) {
-    camera.proj = glm::perspective(glm::radians(fovx), aspect, znear, zfar);
+    camera.proj = vkn::perspective(glm::radians(fovx), aspect, znear, zfar);
     this->fovx = fovx;
     aspectRatio = aspect;
     this->znear = znear;
@@ -346,100 +341,15 @@ void BaseCameraController::updateVelocity(const glm::vec3 &direction, float elap
     }
 }
 
-void BaseCameraController::createCameraDescriptorSetLayout() {
-    VkDescriptorSetLayoutBinding uniformBinding{};
-    uniformBinding.binding = 0;
-    uniformBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    uniformBinding.descriptorCount = 1;
-    uniformBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-
-    std::vector<VkDescriptorSetLayoutBinding> bindings { uniformBinding };
-
-    VkDescriptorSetLayoutCreateInfo createInfo{};
-    createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    createInfo.bindingCount = static_cast<uint32_t>(bindings.size());
-    createInfo.pBindings = bindings.data();
-
-    cameraDescriptorSetLayout = device.createDescriptorSetLayout(bindings);
-}
-
-void BaseCameraController::createCameraDescriptorPool() {
-
-    VkDescriptorPoolSize uniformPoolSize{};
-    uniformPoolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    uniformPoolSize.descriptorCount = swapChainImageCount;
-
-    std::vector<VkDescriptorPoolSize> poolSizes{ uniformPoolSize };
-
-    cameraDescriptorPool = device.createDescriptorPool(swapChainImageCount, poolSizes);
-}
-
-void BaseCameraController::createCameraDescriptorSet() {
-    cameraDescriptorSets.resize(swapChainImageCount);
-
-    std::vector<VkDescriptorSetLayout> layouts(swapChainImageCount, cameraDescriptorSetLayout);
-    VkDescriptorSetAllocateInfo allocInfo{};
-    allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    allocInfo.descriptorPool = cameraDescriptorPool;
-    allocInfo.descriptorSetCount = static_cast<uint32_t>(layouts.size());
-    allocInfo.pSetLayouts = layouts.data();
-    vkAllocateDescriptorSets(device, &allocInfo, cameraDescriptorSets.data());
-
-    for(int i = 0; i < swapChainImageCount; i++) {
-        VkDescriptorBufferInfo bufferInfo{};
-        bufferInfo.buffer = cameraBuffers[i].buffer;
-        bufferInfo.offset = 0;
-        bufferInfo.range = VK_WHOLE_SIZE;
-
-        VkWriteDescriptorSet cameraWrites{};
-        cameraWrites.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        cameraWrites.dstSet = cameraDescriptorSets[i];
-        cameraWrites.dstBinding = 0;
-        cameraWrites.descriptorCount = 1;
-        cameraWrites.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        cameraWrites.pBufferInfo = &bufferInfo;
-
-        std::vector<VkWriteDescriptorSet> writes{ cameraWrites };
-
-        vkUpdateDescriptorSets(device, static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr);
-    }
-}
-
-void BaseCameraController::createCameraBuffers() {
-    cameraBuffers.resize(swapChainImageCount);
-    VkDeviceSize size = sizeof(Camera);
-
-    for(auto i = 0; i < swapChainImageCount; i++){
-        cameraBuffers[i] = device.createBuffer(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, size);
-    }
-}
-
-void BaseCameraController::disposeDescriptors() {
-    dispose(cameraDescriptorPool);
-    dispose(cameraDescriptorSetLayout);
-    for(auto& cameraBuffer : cameraBuffers){
-        dispose(cameraBuffer);
-    }
-}
 
 void BaseCameraController::onResize(int width, int height) {
-    createCameraBuffers();
-    createCameraDescriptorSetLayout();
-    createCameraDescriptorPool();
-    createCameraDescriptorSet();
-
     perspective(static_cast<float>(width)/static_cast<float>(height));
 }
 
-VkDescriptorSet BaseCameraController::descriptorSet(int index) const {
-    assert(index < cameraDescriptorSets.size());
-    return cameraDescriptorSets[index];
+void BaseCameraController::setModel(const glm::mat4& model) {
+    camera.model = model;
 }
 
-void BaseCameraController::updateCameraBuffer() {
-    cameraBuffers[currentImageIndex].copy(&camera, sizeof(camera));
-}
-
-VkDescriptorSetLayout BaseCameraController::getDescriptorSetLayout() const {
-    return cameraDescriptorSetLayout;
+void BaseCameraController::push(VkCommandBuffer commandBuffer, VkPipelineLayout layout) const {
+    vkCmdPushConstants(commandBuffer, layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Camera), &camera);
 }

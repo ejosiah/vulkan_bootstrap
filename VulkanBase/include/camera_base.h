@@ -28,6 +28,11 @@ struct Camera{
     glm::mat4 model = glm::mat4(1);
     glm::mat4 view = glm::mat4(1);
     glm::mat4 proj = glm::mat4(1);
+
+    static constexpr VkPushConstantRange pushConstant() {
+        return {VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Camera)};
+    }
+
 };
 
 struct BaseCameraSettings{
@@ -76,17 +81,11 @@ public:
 
     virtual void zoom(float zoom, float minZoom, float maxZoom);
 
-    void createCameraBuffers();
-
-    void disposeDescriptors();
-
     void onResize(int width, int height);
 
-    [[nodiscard]]
-    VkDescriptorSet descriptorSet(int index) const;
+    void setModel(const glm::mat4& model);
 
-    [[nodiscard]]
-    VkDescriptorSetLayout getDescriptorSetLayout() const;
+    void push(VkCommandBuffer commandBuffer, VkPipelineLayout layout) const;
 
 protected:
     virtual void updateViewMatrix();
@@ -97,13 +96,6 @@ protected:
 
     void updateVelocity(const glm::vec3 &direction, float elapsedTimeSec);
 
-    void createCameraDescriptorSetLayout();
-
-    void createCameraDescriptorPool();
-
-    void createCameraDescriptorSet();
-
-    void updateCameraBuffer();
 
     float fovx;
     float aspectRatio;
@@ -146,9 +138,5 @@ protected:
 
     const VulkanDevice& device;
     uint32_t swapChainImageCount;
-    VulkanDescriptorSetLayout cameraDescriptorSetLayout;
-    VulkanDescriptorPool cameraDescriptorPool;
-    std::vector<VkDescriptorSet> cameraDescriptorSets;
-    std::vector<VulkanBuffer> cameraBuffers;
     const uint32_t& currentImageIndex;
 };

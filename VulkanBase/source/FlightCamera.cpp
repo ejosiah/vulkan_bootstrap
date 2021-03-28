@@ -20,7 +20,6 @@ void FlightCameraController::update(float elapsedTime) {
 
     direction.x = 0.0f; // ignore yaw motion when updating camera's velocity;
     updatePosition(direction, elapsedTime);
-    updateCameraBuffer();
 }
 
 void FlightCameraController::rotate(float headingDegrees, float pitchDegrees, float rollDegrees) {

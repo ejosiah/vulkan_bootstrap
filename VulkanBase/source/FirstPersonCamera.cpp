@@ -11,7 +11,6 @@ void SpectatorCameraController::update(float elapsedTime) {
     float dy = -mouse.relativePosition.y;
     rotateSmoothly(dx, dy, 0.0f);
     updatePosition(direction, elapsedTime);
-    updateCameraBuffer();
 }
 
 

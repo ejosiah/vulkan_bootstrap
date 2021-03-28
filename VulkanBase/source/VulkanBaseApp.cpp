@@ -349,7 +349,6 @@ void VulkanBaseApp::calculateFPS() {
 }
 
 void VulkanBaseApp::recreateSwapChain() {
-    int width, height;
     do{
         glfwGetFramebufferSize(window, &width, &height);
         glfwWaitEvents();

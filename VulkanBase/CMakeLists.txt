@@ -1,6 +1,6 @@
 find_package("Vulkan")
 add_definitions(
-        #        -DVK_USE_PLATFORM_WIN32_KHR
+        -DGLM_FORCE_RADIANS
         -DGLFW_INCLUDE_VULKAN
         -DGLM_FORCE_SWIZZLE
 )

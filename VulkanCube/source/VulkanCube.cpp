@@ -40,7 +40,6 @@ void VulkanCube::onSwapChainDispose() {
     dispose(layout);
     dispose(descriptorPool);
     dispose(descriptorSetLayout);
-    cameraController->disposeDescriptors();
 }
 
 void VulkanCube::onSwapChainRecreation() {
@@ -48,12 +47,14 @@ void VulkanCube::onSwapChainRecreation() {
     createDescriptorPool();
     createDescriptorSet();
 
+    cameraController->onResize(width, height);
     createGraphicsPipeline();
     createCommandBuffer();
-    cameraController->onResize(width, height);
+    Fonts::refresh(width, height, &renderPass);
 }
 
-void VulkanCube::createGraphicsPipeline() {
+void VulkanCube::
+createGraphicsPipeline() {
     assert(renderPass != VK_NULL_HANDLE);
     auto vertexShaderModule = ShaderModule{"../../data/shaders/triangle.vert.spv", device};
     auto fragmentShaderModule = ShaderModule{"../../data/shaders/triangle.frag.spv", device};
@@ -84,7 +85,7 @@ void VulkanCube::createGraphicsPipeline() {
     rasterizationState.rasterizerDiscardEnable = VK_FALSE;
     rasterizationState.polygonMode = VK_POLYGON_MODE_FILL;
     rasterizationState.cullMode = VK_CULL_MODE_BACK_BIT;
-    rasterizationState.frontFace = VK_FRONT_FACE_CLOCKWISE;
+    rasterizationState.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     rasterizationState.depthBiasEnable = VK_FALSE;
     rasterizationState.lineWidth = 1.0f;
 
@@ -98,13 +99,8 @@ void VulkanCube::createGraphicsPipeline() {
 
     VkPipelineDynamicStateCreateInfo dynamicState = initializers::dynamicState();
 
-    VkPushConstantRange range;
-    range.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-    range.offset = 0;
-    range.size = sizeof(Camera);
 
-    //   layout = device.createPipelineLayout({descriptorSetLayout }, {range });
-    layout = device.createPipelineLayout({cameraController->getDescriptorSetLayout(), descriptorSetLayout }, {range });
+    layout = device.createPipelineLayout({descriptorSetLayout }, { Camera::pushConstant() });
 
     VkGraphicsPipelineCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
@@ -150,11 +146,12 @@ VkCommandBuffer* VulkanCube::buildCommandBuffers(uint32_t imageIndex, uint32_t& 
     renderPassBeginInfo.pClearValues = clearValues;
     vkCmdBeginRenderPass(commandBuffers[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE );
 
-    std::vector<VkDescriptorSet> descriptorSets{ cameraController->descriptorSet(i), descriptorSet };
-    //   std::vector<VkDescriptorSet> descriptorSets{ cameraDescriptorSets[i] };
+    std::vector<VkDescriptorSet> descriptorSets{ descriptorSet };
+ //   std::vector<VkDescriptorSet> descriptorSets{ cameraController->descriptorSet(i), descriptorSet };
 
     vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, COUNT(descriptorSets), descriptorSets.data(), 0, nullptr);
     vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline );
+    cameraController->push(commandBuffers[i], layout);
     VkDeviceSize offset = 0;
     vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT32);
     vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, &vertexBuffer.buffer, &offset);

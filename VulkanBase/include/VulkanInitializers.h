@@ -265,4 +265,11 @@ namespace initializers{
         beginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
         return beginInfo;
     }
+
+    inline VkWriteDescriptorSet writeDescriptorSet(VkDescriptorSet descriptorSet = VK_NULL_HANDLE) {
+        VkWriteDescriptorSet write{};
+        write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        write.dstSet = descriptorSet;
+        return write;
+    }
 }

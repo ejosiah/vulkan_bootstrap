@@ -34,7 +34,6 @@ void OrbitingCameraController::update(float elapsedTime) {
     if (zoomAmount != 0.0f) {
         zoom(zoomAmount, minZoom, maxZoom);
     }
-    updateCameraBuffer();
 }
 
 void OrbitingCameraController::move(float dx, float dy, float dz) {

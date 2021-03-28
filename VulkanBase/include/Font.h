@@ -134,6 +134,8 @@ private:
 
     static void createProjectionBuffer();
 
+    static void updateProjection();
+
     static VulkanBuffer createVertexBuffer();
 
     static void createPipeline();
