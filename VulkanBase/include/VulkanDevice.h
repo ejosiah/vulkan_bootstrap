@@ -63,6 +63,9 @@ struct VulkanDevice{
 
     ~VulkanDevice(){
         if(logicalDevice){
+            for(auto& [_, commandPool] : commandPools){
+                dispose(commandPool);
+            }
             vmaDestroyAllocator(allocator);
             vkDestroyDevice(logicalDevice, nullptr);
         }
@@ -132,6 +135,16 @@ struct VulkanDevice{
         allocatorInfo.device = logicalDevice;
 
         ASSERT(vmaCreateAllocator(&allocatorInfo, &allocator));
+
+        auto commandPool = createCommandPool(*queueFamilyIndex.graphics, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
+        commandPools.emplace(std::make_pair(*queueFamilyIndex.graphics, std::move(commandPool)));
+
+        commandPool = createCommandPool(*queueFamilyIndex.compute, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
+        commandPools.emplace(std::make_pair(*queueFamilyIndex.compute, std::move(commandPool)));
+
+        commandPool = createCommandPool(*queueFamilyIndex.transfer, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
+        commandPools.emplace(std::make_pair(*queueFamilyIndex.transfer, std::move(commandPool)));
+
     }
 
     inline void initQueues(){
@@ -306,7 +319,7 @@ struct VulkanDevice{
 
     }
 
-    inline VulkanSampler createSampler(const VkSamplerCreateInfo& createInfo){
+    inline VulkanSampler createSampler(const VkSamplerCreateInfo& createInfo) const {
         assert(logicalDevice);
         VkSampler sampler;
         ASSERT(vkCreateSampler(logicalDevice, &createInfo, nullptr, &sampler));
@@ -376,8 +389,14 @@ struct VulkanDevice{
         return VulkanPipelineCache{ logicalDevice, cache };
     }
 
+    [[nodiscard]]
+    inline const VulkanCommandPool& commandPoolFor(uint32_t queueFamilyIndex) const {
+        return commandPools[queueFamilyIndex];
+    }
+
     VkInstance instance = VK_NULL_HANDLE;
     VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
     VkDevice logicalDevice = VK_NULL_HANDLE;
     VmaAllocator allocator = VK_NULL_HANDLE;
+    mutable std::map<uint32_t ,VulkanCommandPool> commandPools;
 };

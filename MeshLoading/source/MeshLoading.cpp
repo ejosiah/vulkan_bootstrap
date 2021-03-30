@@ -1,21 +1,23 @@
-#include "CoordinateSystems.h"
+#define GLM_FORCE_SWIZZLE
+#include "MeshLoading.h"
+#include "glm_format.h"
 
-CoordinateSystems::CoordinateSystems() : VulkanBaseApp("Coordinate Systems"){}
+MeshLoading::MeshLoading() : VulkanBaseApp("Coordinate Systems"){}
 
-void CoordinateSystems::initApp() {
+void MeshLoading::initApp() {
     commandPool = device.createCommandPool(*device.queueFamilyIndex.graphics, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
     commandBuffers = commandPool.allocate(swapChain.imageCount());
 }
 
-void CoordinateSystems::onSwapChainDispose() {
+void MeshLoading::onSwapChainDispose() {
     dispose(commandPool);
 }
 
-void CoordinateSystems::onSwapChainRecreation() {
+void MeshLoading::onSwapChainRecreation() {
     VulkanBaseApp::onSwapChainRecreation();
 }
 
-VkCommandBuffer *CoordinateSystems::buildCommandBuffers(uint32_t imageIndex, uint32_t &numCommandBuffers) {
+VkCommandBuffer *MeshLoading::buildCommandBuffers(uint32_t imageIndex, uint32_t &numCommandBuffers) {
     auto& commandBuffer = commandBuffers[imageIndex];
 
     VkCommandBufferBeginInfo beginInfo = initializers::commandBufferBeginInfo();
@@ -41,20 +43,17 @@ VkCommandBuffer *CoordinateSystems::buildCommandBuffers(uint32_t imageIndex, uin
 
 }
 
-void CoordinateSystems::update(float time) {
+void MeshLoading::update(float time) {
     VulkanBaseApp::update(time);
 }
 
-void CoordinateSystems::checkAppInputs() {
+void MeshLoading::checkAppInputs() {
     VulkanBaseApp::checkAppInputs();
 }
 
+
 int main(){
-    try{
-        auto app = CoordinateSystems{};
-        app.run();
-    } catch (std::runtime_error& err) {
-        spdlog::error(err.what());
-    }
+    std::vector<mesh::Mesh> meshes;
+    mesh::load(meshes, R"(C:\Users\Josiah\OneDrive\media\models\ChineseDragon.obj)");
     return 0;
 }

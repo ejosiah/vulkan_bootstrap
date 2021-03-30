@@ -353,3 +353,8 @@ void BaseCameraController::setModel(const glm::mat4& model) {
 void BaseCameraController::push(VkCommandBuffer commandBuffer, VkPipelineLayout layout) const {
     vkCmdPushConstants(commandBuffer, layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Camera), &camera);
 }
+
+void BaseCameraController::push(VkCommandBuffer commandBuffer, VkPipelineLayout layout, const glm::mat4& model) {
+    camera.model = model;
+    vkCmdPushConstants(commandBuffer, layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Camera), &camera);
+}

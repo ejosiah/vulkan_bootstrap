@@ -1,8 +1,9 @@
 #include "VulkanBaseApp.h"
+#include "Mesh.h"
 
-class CoordinateSystems : public VulkanBaseApp{
+class MeshLoading : public VulkanBaseApp{
 public:
-    CoordinateSystems();
+    MeshLoading();
 
 protected:
     void initApp() override;

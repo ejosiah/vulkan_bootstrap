@@ -20,6 +20,7 @@ constexpr bool debugMode = false;
 #include <mutex>
 #include <limits>
 #include <algorithm>
+#include <numeric>
 #include <optional>
 #include <stdexcept>
 #include <thread>
@@ -31,10 +32,13 @@ constexpr bool debugMode = false;
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/matrix_access.hpp>
 #include <vulkan/vulkan.h>
+#include <fmt/chrono.h>
+#include <fmt/ranges.h>
 #include <spdlog/spdlog.h>
 #include <chrono>
 #include <vk_mem_alloc.h>
 #include "xforms.h"
+#include "glm_format.h"
 
 namespace chrono = std::chrono;
 

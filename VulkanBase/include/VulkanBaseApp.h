@@ -31,6 +31,7 @@
 #include "Texture.h"
 #include "VulkanShaderModule.h"
 #include "VulkanStructs.h"
+#include "glm_format.h"
 
 #ifdef NDBUG
 constexpr bool enableValidation = false;

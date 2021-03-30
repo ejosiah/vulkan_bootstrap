@@ -1,40 +1,11 @@
 #pragma once
 
-#include <vector>
-#include <vulkan/vulkan.h>
-#include <glm/glm.hpp>
+#include "Vertex.h"
 
-struct Vertex{
-    glm::vec4 position;
-    glm::vec3 normal;
-    glm::vec3 color;
-    glm::vec2 uv;
-
-    static std::vector<VkVertexInputBindingDescription> bindingDisc(){
-        return {
-            {0, sizeof(Vertex), VK_VERTEX_INPUT_RATE_VERTEX}
-        };
-    }
-
-    static std::vector<VkVertexInputAttributeDescription> attributeDisc(){
-        return {
-                {0, 0, VK_FORMAT_R32G32B32A32_SFLOAT, (uint32_t)offsetof(Vertex, position)},
-                {1, 0, VK_FORMAT_R32G32B32_SFLOAT, (uint32_t)offsetof(Vertex, normal)},
-                {2, 0, VK_FORMAT_R32G32B32_SFLOAT, (uint32_t)offsetof(Vertex, color)},
-                {3, 0, VK_FORMAT_R32G32_SFLOAT, (uint32_t)offsetof(Vertex, uv)}
-        };
-    }
-};
-
-
-struct Vertices{
-    std::vector<Vertex> vertices;
-    std::vector<uint32_t> indices;
-};
 
 namespace primitives{
 
-    inline Vertices cube(const glm::vec3& color = {1, 0, 0}){
+    inline Vertices cube(const glm::vec4& color = {1, 0, 0, 1}){
         Vertices mesh;
         mesh.vertices = {
                 {{-0.5f, -0.5f, 0.5f, 1.0f},{0.0f, 0.0f, 1.0f}, color, {0.0f, 0.0f}},

@@ -87,6 +87,9 @@ public:
 
     void push(VkCommandBuffer commandBuffer, VkPipelineLayout layout) const;
 
+    void push(VkCommandBuffer commandBuffer, VkPipelineLayout layout, const glm::mat4& model);
+
+
 protected:
     virtual void updateViewMatrix();
 
