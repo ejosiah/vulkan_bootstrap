@@ -18,6 +18,7 @@ constexpr bool debugMode = false;
 #include <thread>
 #include <condition_variable>
 #include <mutex>
+#include <future>
 #include <limits>
 #include <algorithm>
 #include <numeric>
@@ -25,6 +26,9 @@ constexpr bool debugMode = false;
 #include <stdexcept>
 #include <thread>
 #include <chrono>
+#include <random>
+#include <functional>
+#include <type_traits>
 #include <memory>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
@@ -36,7 +40,7 @@ constexpr bool debugMode = false;
 #include <fmt/ranges.h>
 #include <spdlog/spdlog.h>
 #include <chrono>
-#include <vk_mem_alloc.h>
+#include "vk_mem_alloc.h"
 #include "xforms.h"
 #include "glm_format.h"
 

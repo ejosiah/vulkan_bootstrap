@@ -43,6 +43,7 @@ struct VulkanCommandPool{
         return *this;
     }
 
+    [[nodiscard]]
     inline std::vector<VkCommandBuffer> allocate(uint32_t count = 1, VkCommandBufferLevel level = VK_COMMAND_BUFFER_LEVEL_PRIMARY) const {
         std::vector<VkCommandBuffer> buffers(count);
         VkCommandBufferAllocateInfo allocateInfo{};

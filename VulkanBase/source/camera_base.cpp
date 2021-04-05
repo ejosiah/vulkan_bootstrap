@@ -106,9 +106,9 @@ void BaseCameraController::processMovementInput() {
 void BaseCameraController::processZoomInput() {
     zoomAmount = 0.0f;
     if(zoomIn.isPressed()){
-        zoomAmount = -0.01;
+        zoomAmount = -0.1;
     }else if(zoomOut.isPressed()){
-        zoomAmount = 0.01;
+        zoomAmount = 0.1;
     }
     if(handleZoom && zoomAmount != 0){
         zoom(zoomAmount, minZoom, maxZoom);

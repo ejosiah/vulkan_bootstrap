@@ -106,3 +106,5 @@ conan.lock
 cmake-build-debug
 build
 .idea
+
+doc

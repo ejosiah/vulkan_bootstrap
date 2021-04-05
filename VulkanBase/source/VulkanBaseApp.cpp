@@ -27,7 +27,7 @@ ShaderModule::~ShaderModule() {
     vkDestroyShaderModule(device, shaderModule, nullptr);
 }
 
-VulkanBaseApp::VulkanBaseApp(std::string_view name, int width, int height,  const Settings& settings)
+VulkanBaseApp::VulkanBaseApp(std::string_view name, const Settings& settings, int width, int height)
 : Window(name, width, height, settings.fullscreen)
 , InputManager(settings.relativeMouseMode)
 , enabledFeatures(settings.enabledFeatures)
@@ -101,6 +101,7 @@ void VulkanBaseApp::createInstance() {
 void VulkanBaseApp::createSwapChain() {
     glfwGetFramebufferSize(window, &width, &height);
     swapChain = VulkanSwapChain{ device, surface, static_cast<uint32_t>(width), static_cast<uint32_t>(height), vSync};
+    swapChainImageCount = swapChain.imageCount();
 }
 
 void VulkanBaseApp::createDepthBuffer() {

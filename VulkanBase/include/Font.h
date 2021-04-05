@@ -117,6 +117,8 @@ public:
 
     static void setWordSpacing(float spacing);
 
+    static void updateProjection();
+
     static void cleanup();
 
 private:
@@ -133,8 +135,6 @@ private:
     static std::vector<VkDescriptorSet> createDescriptorSets();
 
     static void createProjectionBuffer();
-
-    static void updateProjection();
 
     static VulkanBuffer createVertexBuffer();
 

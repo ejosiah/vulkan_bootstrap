@@ -1,7 +1,7 @@
 #pragma once
 
 #include <vulkan/vulkan.h>
-#include <vk_mem_alloc.h>
+#include "../../3rdParty/include/vk_mem_alloc.h"
 
 struct VulkanBuffer{
 
@@ -54,6 +54,10 @@ struct VulkanBuffer{
 
     operator VkBuffer() const {
         return buffer;
+    }
+
+    operator VkBuffer*() {
+        return &buffer;
     }
 
     VmaAllocator allocator = VK_NULL_HANDLE;

@@ -1,6 +1,38 @@
 #include "Texture.h"
 #include  <stb_image.h>
 
+uint32_t nunChannels(VkFormat format) {
+    switch (format) {
+        case VK_FORMAT_R8_SRGB:
+            return 1;
+        case VK_FORMAT_R8G8_SRGB:
+            return 2;
+        case VK_FORMAT_R8G8B8_SRGB:
+        case VK_FORMAT_B8G8R8_SRGB:
+            return 3;
+        case VK_FORMAT_R8G8B8A8_SRGB:
+        case VK_FORMAT_B8G8R8A8_SRGB:
+            return 4;
+        default:
+            return 0;
+    }
+}
+
+constexpr VkFormat getFormat(uint32_t numChannels){
+    switch(numChannels){
+        case 1:
+            return VK_FORMAT_R8_SRGB;
+        case 2:
+            return VK_FORMAT_R8G8_SRGB;
+        case 3:
+            return VK_FORMAT_R8G8B8_SRGB;
+        case 4:
+            return VK_FORMAT_R8G8B8A8_SRGB;
+        default:
+            return VK_FORMAT_UNDEFINED;
+    }
+}
+
 void textures::fromFile(const VulkanDevice &device, Texture &texture, std::string_view path) {
     int texWidth, texHeight, texChannels;
     stbi_set_flip_vertically_on_load(1);
@@ -13,7 +45,7 @@ void textures::fromFile(const VulkanDevice &device, Texture &texture, std::strin
 }
 
 void textures::create(const VulkanDevice &device, Texture &texture, VkImageType imageType, VkFormat format, void *data,
-                      Dimension<uint32_t> dimensions, VkSamplerAddressMode addressMode) {
+                      Dimension3D<uint32_t> dimensions, VkSamplerAddressMode addressMode) {
     VkDeviceSize imageSize = dimensions.x * dimensions.y * dimensions.z * nunChannels(format);
 
     VulkanBuffer stagingBuffer = device.createBuffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, imageSize);
@@ -21,8 +53,8 @@ void textures::create(const VulkanDevice &device, Texture &texture, VkImageType 
 
     VkImageCreateInfo imageCreateInfo{};
     imageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    imageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
-    imageCreateInfo.format = VK_FORMAT_R8G8B8A8_SRGB;
+    imageCreateInfo.imageType = imageType;
+    imageCreateInfo.format = format;
     imageCreateInfo.extent = { static_cast<uint32_t>(dimensions.x), static_cast<uint32_t>(dimensions.y), dimensions.z};
     imageCreateInfo.mipLevels = 1;
     imageCreateInfo.arrayLayers = 1;
@@ -63,7 +95,7 @@ void textures::create(const VulkanDevice &device, Texture &texture, VkImageType 
     subresourceRange.baseArrayLayer = 0;
     subresourceRange.layerCount = 1;
 
-    texture.imageView = texture.image.createView(VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_VIEW_TYPE_2D, subresourceRange);
+    texture.imageView = texture.image.createView(format, VK_IMAGE_VIEW_TYPE_2D, subresourceRange);  // FIXME derive image view type
 
     VkSamplerCreateInfo samplerInfo{};
     samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
@@ -99,22 +131,27 @@ void textures::checkerboard(const VulkanDevice &device, Texture &texture, const 
         }
     }
     create(device, texture, VK_IMAGE_TYPE_2D, VK_FORMAT_R8G8B8A8_SRGB, data, {256, 256, 1}, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
+    delete[] data;
 }
 
-uint32_t textures::nunChannels(VkFormat format) {
-    switch (format) {
-        case VK_FORMAT_R8_SRGB:
-            return 1;
-        case VK_FORMAT_R8G8_SRGB:
-            return 2;
-        case VK_FORMAT_R8G8B8_SRGB:
-        case VK_FORMAT_B8G8R8_SRGB:
-            return 3;
-        case VK_FORMAT_R8G8B8A8_SRGB:
-        case VK_FORMAT_B8G8R8A8_SRGB:
-            return 4;
-        default:
-            return 0;
+void textures::normalMap(const VulkanDevice &device, Texture &texture, const Dimension2D<uint32_t>& dimensions) {
+    color(device, texture, glm::vec3{0.5, 0.5, 1}, dimensions);
+}
+
+
+
+void textures::color(const VulkanDevice &device, Texture &texture, const glm::vec3 &color, const Dimension2D<uint32_t>& dimensions) {
+    auto data = new unsigned char[dimensions.x * dimensions.y * 4];
+    for(auto i = 0; i < dimensions.y; i++){
+        for(auto j = 0; j < dimensions.x; j++){
+            auto idx = (i * dimensions.x + j) * 4;
+            data[idx + 0]  = static_cast<unsigned char>(color.r * 255);
+            data[idx + 1]  = static_cast<unsigned char>(color.g * 255);
+            data[idx + 2]  = static_cast<unsigned char>(color.b * 255);
+            data[idx + 3] = 255;
+        }
     }
+    create(device, texture, VK_IMAGE_TYPE_2D, VK_FORMAT_R8G8B8A8_SRGB, data, Dimension3D<uint32_t>{dimensions, 1u}, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
+    delete[] data;
 }
 

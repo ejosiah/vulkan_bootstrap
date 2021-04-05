@@ -1,6 +1,6 @@
 #version 460 core
 
-layout(location = 0) in vec3 position;
+layout(location = 0) in vec4 position;
 layout(location = 1) in vec3 normal;
 layout(location = 2) in vec3 tanget;
 layout(location = 3) in vec3 bitangent;
@@ -16,8 +16,10 @@ layout(push_constant) uniform UniformBufferObject{
 layout(location = 0) out vec3 vColor;
 layout(location = 1) out vec2 vUv;
 
+
 void main(){
-    gl_Position = proj * view * model * vec4(position, 1.0);
-    vColor = vec3(1);
+    vColor = color;
     vUv = uv;
+    gl_PointSize = 2.0;
+    gl_Position = proj * view * model * position;
 }

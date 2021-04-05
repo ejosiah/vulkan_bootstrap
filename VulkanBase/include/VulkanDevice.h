@@ -226,8 +226,29 @@ struct VulkanDevice{
         });
     }
 
+    inline VulkanBuffer createDeviceLocalBuffer(void* data, VkDeviceSize size, VkBufferUsageFlags usage, std::set<uint32_t> queueIndices = {}) const {
+        // TODO use transfer queue and then transfer ownership
+        VulkanBuffer stagingBuffer = createBuffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, size, "", queueIndices);
+        stagingBuffer.copy(data, size);
+
+        usage |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+
+        VulkanBuffer buffer = createBuffer(usage, VMA_MEMORY_USAGE_GPU_ONLY, size, "", queueIndices);
+
+        commandPoolFor(*this->queueFamilyIndex.graphics).oneTimeCommand(queues.graphics, [&](auto cmdBuffer){
+            VkBufferCopy copy{};
+            copy.size = size;
+            copy.dstOffset = 0;
+            copy.srcOffset = 0;
+            vkCmdCopyBuffer(cmdBuffer, stagingBuffer, buffer, 1u, &copy);
+        });
+
+        return buffer;
+
+    }
+
     [[nodiscard]]
-    VulkanBuffer createBuffer(VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage, VkDeviceSize size, const std::string name = "", std::set<uint32_t> queueIndices = {}) const{
+    inline VulkanBuffer createBuffer(VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage, VkDeviceSize size, const std::string name = "", std::set<uint32_t> queueIndices = {}) const{
         VkBufferCreateInfo bufferInfo{};
         bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
         bufferInfo.size = size;

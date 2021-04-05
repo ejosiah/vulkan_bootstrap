@@ -1,7 +1,7 @@
 #include "FontTest.h"
 #include "glm_format.h"
 
-FontTest::FontTest() :VulkanBaseApp("Font Test", 2048, 702) {
+FontTest::FontTest() :VulkanBaseApp("Font Test", {}, 2048, 702) {
 
 }
 
@@ -10,11 +10,11 @@ void FontTest::initApp() {
     font = Fonts::getFont(ARIAL, 20, FontStyle::NORMAL, {1, 1, 0});
     commandPool = device.createCommandPool(*device.queueFamilyIndex.graphics, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
     commandBuffers = commandPool.allocate(swapChain.imageCount());
-
 }
 
 
 void FontTest::update(float time) {
+    Fonts::updateProjection();
     font->clear();
     font->write(fmt::format("Frames: {}\nFPS: {}", frameCount, framePerSecond), 20, 50);
     font->write("Hello World, And well come to the world of Vulkan!", 20, 100);
@@ -26,7 +26,7 @@ void FontTest::onSwapChainDispose() {
 }
 
 void FontTest::onSwapChainRecreation() {
-    Fonts::refresh(width, height, &renderPass);
+    Fonts::refresh(swapChain.extent.width, swapChain.extent.height, &renderPass);
 }
 
 VkCommandBuffer *FontTest::buildCommandBuffers(uint32_t imageIndex, uint32_t &numCommandBuffers) {

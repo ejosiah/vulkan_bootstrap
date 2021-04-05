@@ -2,12 +2,13 @@
 
 #include  <stb_image.h>
 
-VulkanCube::VulkanCube(const Settings& settings): VulkanBaseApp("VulkanCube", 1080, 720, settings){}
+VulkanCube::VulkanCube(const Settings& settings): VulkanBaseApp("VulkanCube", settings, 1080, 720){}
 
 void VulkanCube::initApp() {
     createCommandPool();
 
     mesh = primitives::cube();
+//    mesh = primitives::sphere(50, 50, 0.5f);
     createVertexBuffer();
     createIndexBuffer();
     createTextureBuffers();
@@ -47,10 +48,10 @@ void VulkanCube::onSwapChainRecreation() {
     createDescriptorPool();
     createDescriptorSet();
 
-    cameraController->onResize(width, height);
+    cameraController->onResize(swapChain.extent.width, swapChain.extent.height);
     createGraphicsPipeline();
     createCommandBuffer();
-    Fonts::refresh(width, height, &renderPass);
+    Fonts::refresh(swapChain.extent.width, swapChain.extent.height, &renderPass);
 }
 
 void VulkanCube::
@@ -191,40 +192,6 @@ void VulkanCube::createCommandBuffer() {
     auto last = commandBuffers.begin();
     std::advance(last, commandBuffers.size() - 1);
     commandBuffers.erase(last);
-
-//    for(auto i = 0; i < commandBuffers.size(); i++){
-//        VkCommandBufferBeginInfo beginInfo{};
-//        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-//        beginInfo.flags = 0;
-//        vkBeginCommandBuffer(commandBuffers[i], &beginInfo);
-//
-//        VkClearValue clear{0.f, 0.f, 0.f, 1.f};
-//
-//        VkRenderPassBeginInfo renderPassBeginInfo{};
-//        renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-//        renderPassBeginInfo.renderPass = renderPass;
-//        renderPassBeginInfo.framebuffer = framebuffers[i];
-//        renderPassBeginInfo.renderArea.offset = {0, 0};
-//        renderPassBeginInfo.renderArea.extent = swapChain.extent;
-//        renderPassBeginInfo.clearValueCount = 1;
-//        renderPassBeginInfo.pClearValues = &clear;
-//        vkCmdBeginRenderPass(commandBuffers[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE );
-//
-//        std::vector<VkDescriptorSet> descriptorSets{ cameraController->descriptorSet(i), descriptorSet };
-//        //   std::vector<VkDescriptorSet> descriptorSets{ cameraDescriptorSets[i] };
-//
-//        vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, COUNT(descriptorSets), descriptorSets.data(), 0, nullptr);
-//        vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline );
-//        VkDeviceSize offset = 0;
-//        vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-//        vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, &vertexBuffer.buffer, &offset);
-//        vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(mesh.indices.size()), 1u, 0u, 0u, 0u);
-////        vkCmdDraw(commandBuffers[i], 3, 1, 0, 0);
-//
-//        vkCmdEndRenderPass(commandBuffers[i]);
-//
-//        vkEndCommandBuffer(commandBuffers[i]);
-//    }
 }
 
 void VulkanCube::createDescriptorPool() {
@@ -282,42 +249,12 @@ void VulkanCube::createTextureBuffers() {
 void VulkanCube::createVertexBuffer() {
 
     VkDeviceSize size = sizeof(Vertex) * mesh.vertices.size();
-
-    VulkanBuffer stagingBuffer = device.createBuffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, size);
-    stagingBuffer.copy(mesh.vertices.data(), size);
-
-    vertexBuffer = device.createBuffer(
-            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-            VMA_MEMORY_USAGE_GPU_ONLY,
-            size);
-
-    commandPool.oneTimeCommand(device.queues.graphics, [&](VkCommandBuffer cmdBuffer){
-        VkBufferCopy copy{};
-        copy.size = size;
-        copy.dstOffset = 0;
-        copy.srcOffset = 0;
-        vkCmdCopyBuffer(cmdBuffer, stagingBuffer, vertexBuffer, 1u, &copy);
-    });
+    vertexBuffer = device.createDeviceLocalBuffer(mesh.vertices.data(), size, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
 }
 
 void VulkanCube::createIndexBuffer() {
     VkDeviceSize size = sizeof(mesh.indices[0]) * mesh.indices.size();
-
-    VulkanBuffer stagingBuffer = device.createBuffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, size);
-    stagingBuffer.copy(mesh.indices.data(), size);
-
-    indexBuffer = device.createBuffer(
-            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-            VMA_MEMORY_USAGE_GPU_ONLY,
-            size);
-
-    commandPool.oneTimeCommand(device.queues.graphics, [&](VkCommandBuffer cmdBuffer){
-        VkBufferCopy copy{};
-        copy.size = size;
-        copy.dstOffset = 0;
-        copy.srcOffset = 0;
-        vkCmdCopyBuffer(cmdBuffer, stagingBuffer, indexBuffer, 1u, &copy);
-    });
+    indexBuffer = device.createDeviceLocalBuffer(mesh.indices.data(), size, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
 }
 
 void VulkanCube::createCommandPool() {

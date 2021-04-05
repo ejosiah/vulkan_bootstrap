@@ -1,4 +1,3 @@
-#define GLM_FORCE_SWIZZLE
 #include "MeshLoading.h"
 #include "glm_format.h"
 
@@ -54,6 +53,24 @@ void MeshLoading::checkAppInputs() {
 
 int main(){
     std::vector<mesh::Mesh> meshes;
-    mesh::load(meshes, R"(C:\Users\Josiah\OneDrive\media\models\ChineseDragon.obj)");
+    std::string path = R"(C:\Users\Josiah\OneDrive\media\models\bs_ears.obj)";
+    auto start = chrono::high_resolution_clock::now();
+
+    int numVertices = mesh::load(meshes, path);
+
+    auto end = chrono::high_resolution_clock::now();
+    auto duration = chrono::duration_cast<chrono::seconds>(end - start).count();
+    spdlog::info("loaded {} vertices in {} seconds from {}\nnum meshes {}", numVertices, duration, path, meshes.size());
+
+    auto& mesh = meshes.front();
+
+    for(int i = 0; i < 10; i++){
+        glm::mat3 m(mesh.vertices[i].tangent, mesh.vertices[i].bitangent, mesh.vertices[i].normal);
+        auto normal = transpose(m) * mesh.vertices[i].normal;
+        fmt::print("{}\n{}\n{}", mesh.vertices[i].normal, mesh.vertices[i].tangent, mesh.vertices[i].bitangent);
+        fmt::print("\nnormal: {}\n\n", normal);
+
+    }
+
     return 0;
 }

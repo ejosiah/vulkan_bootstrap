@@ -272,4 +272,12 @@ namespace initializers{
         write.dstSet = descriptorSet;
         return write;
     }
+
+
+    constexpr VkGraphicsPipelineCreateInfo graphicsPipelineCreateInfo() {
+        VkGraphicsPipelineCreateInfo createInfo{};
+        createInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+
+        return createInfo;
+    }
 }

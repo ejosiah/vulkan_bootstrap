@@ -6,11 +6,13 @@ set(CMAKE_CXX_STANDARD 17)
 include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
 conan_basic_setup()
 
-
+include_directories(3rdParty/include)
 include_directories(VulkanBase/include)
 
+add_subdirectory(3rdParty)
 add_subdirectory(VulkanBase)
 add_subdirectory(VulkanCube)
 #add_subdirectory(VulkanCubeInstanced)
 add_subdirectory(FontTest)
 add_subdirectory(MeshLoading)
+add_subdirectory(Primitives)

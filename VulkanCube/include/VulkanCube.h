@@ -2,6 +2,8 @@
 
 #include "VulkanBaseApp.h"
 #include "Font.h"
+#include "CappedSink.h"
+#include <spdlog/details/null_mutex.h>
 
 class VulkanCube : public VulkanBaseApp {
 public:
@@ -59,4 +61,5 @@ private:
     Font* font;
     Vertices mesh;
     uint32_t numIndices;
+    CappedSink<spdlog::details::null_mutex, 20> cappedSink;
 };

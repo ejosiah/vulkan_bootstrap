@@ -13,16 +13,21 @@ struct Texture{
 };
 
 template<typename T>
-using Dimension = glm::vec<3, T, glm::defaultp>;
+using Dimension3D = glm::vec<3, T, glm::defaultp>;
+
+template<typename T>
+using Dimension2D = glm::vec<2, T, glm::defaultp>;
 
 namespace textures{
 
 
-    void create(const VulkanDevice& device, Texture& texture, VkImageType imageType, VkFormat format, void* data, Dimension<uint32_t> dimensions, VkSamplerAddressMode addressMode = VK_SAMPLER_ADDRESS_MODE_REPEAT);
+    void create(const VulkanDevice& device, Texture& texture, VkImageType imageType, VkFormat format, void* data, Dimension3D<uint32_t> dimensions, VkSamplerAddressMode addressMode = VK_SAMPLER_ADDRESS_MODE_REPEAT);
 
     void fromFile(const VulkanDevice& device, Texture& texture, std::string_view path);
 
     void checkerboard(const VulkanDevice& device, Texture& texture, const glm::vec3& colorA = glm::vec3(1), const glm::vec3& colorB = glm::vec3(0));
 
-    uint32_t nunChannels(VkFormat format);
+    void normalMap(const VulkanDevice& device, Texture& texture, const Dimension2D<uint32_t>& dimensions);
+
+    void color(const VulkanDevice& device, Texture& texture, const glm::vec3& color, const Dimension2D<uint32_t>& dimensions);
 }
