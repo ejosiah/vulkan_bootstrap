@@ -108,7 +108,7 @@ mesh::Mesh loadMesh(std::string_view parent, const aiNode* node, const aiScene* 
 
     ret = aiMaterial->GetTexture(aiTextureType_DIFFUSE, 0, &aiString);
     if(ret == aiReturn_SUCCESS){
-        material.diffuseMap = aiString.C_Str();
+        material.diffuseMap = aiString.C_Str(); // FIXME prepend parent path
     }
 
     ret = aiMaterial->GetTexture(aiTextureType_AMBIENT, 0, &aiString);

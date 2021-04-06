@@ -235,7 +235,7 @@ void VulkanCubeInstanced::createDescriptorSet() {
 
 void VulkanCubeInstanced::createTextureBuffers() {
     int texWidth, texHeight, texChannels;
-    stbi_uc* pixels = stbi_load("../../data/media/vulkan.png", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+    stbi_uc* pixels = stbi_load("../../data/textures/vulkan.png", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
     VkDeviceSize imageSize = texWidth * texHeight * STBI_rgb_alpha;
 
     if(!pixels){

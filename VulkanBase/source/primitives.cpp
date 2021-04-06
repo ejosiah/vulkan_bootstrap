@@ -68,7 +68,6 @@ Vertices primitives::sphere(int rows, int columns, float radius, const glm::vec4
        return std::make_tuple(glm::vec3(x, y, z), glm::vec3(nx, ny, nz));
     };
 
-
     return surface(p, q, f, color);
 }
 
@@ -92,17 +91,17 @@ Vertices primitives::hemisphere(int rows, int columns, float radius, const glm::
         return std::make_tuple(glm::vec3(x, y, z), glm::vec3(nx, ny, nz));
     };
 
-
     return surface(p, q, f, color);
 }
 
 Vertices primitives::cone(int rows, int columns, float radius, float height, const glm::vec4 &color) {
-    auto p = columns;
-    auto q = rows;
+    const auto p = columns;
+    const auto q = rows;
+    const auto h = height;
 
     auto f = [&](float i, float j) {
         float u = 2 * i / p * PI;
-        float v =  j/q;
+        float v =  j/q * h;
 
         float nx = std::cos(u);
         float x = radius * v * std::cos(u);
@@ -111,37 +110,35 @@ Vertices primitives::cone(int rows, int columns, float radius, float height, con
         float y = radius  * v * std::sin(u);
 
         float nz = 0;
-        float z = height * v;
+        float z =  v - h * 0.5f;
 
         return std::make_tuple(glm::vec3(x, y, z), glm::vec3(nx, ny, nz));
     };
-
 
     return surface(p, q, f, color);
 }
 
 Vertices primitives::cylinder(int rows, int columns, float radius, float height, const glm::vec4 &color) {
-    auto p = columns;
-    auto q = rows;
+    const auto p = columns;
+    const auto q = rows;
+    const auto h = height;
 
     auto f = [&](float i, float j) {
-       // float u = 2 * PI * i / p - PI;
         float u = (-1.f + 2.f * i/p) * PI;
-        float v =   j/q;
+        float v =   j/q * h;
 
         float nx = std::cos(u);
         float x = radius * height * std::cos(u);
 
-        float ny = std::sin(u);
-        float y = radius *  height * std::sin(u);
+        float ny = 0;
+        float y = v - h * 0.5f;
 
-        float nz = 0;
-        float z = v;
+        float nz = std::sin(u);
+        float z = radius *  height * std::sin(u);
 
 
-        return std::make_tuple(glm::vec3(x, y, z), glm::vec3(nx, ny, nz));
+        return std::make_tuple(glm::vec3(x, y, z), -glm::vec3(nx, ny, nz));
     };
-
 
     return surface(p, q, f, color);
 }
@@ -157,14 +154,13 @@ Vertices primitives::torus(int rows, int columns, float innerRadius, float outer
         float v =  (-1.f + 2.f * j/q) * PI;
 
         float x = (R + r * std::cos(v)) * std::cos(u);
-        float nx = std::cos(v) * std::cos(u);
+        float nx = -std::cos(v) * std::cos(u);
 
-        float y = (R + r * std::cos(v)) * std::sin(u);
-        float ny = std::cos(v) * sin(u);
+        float y = r * std::sin(v);
+        float ny =  -std::sin(v);
 
-        float z = r * std::sin(v);
-        float nz =  std::sin(v);
-
+        float z = (R + r * std::cos(v)) * std::sin(u);
+        float nz = -std::cos(v) * sin(u);
 
         return std::make_tuple(glm::vec3(x, y, z), glm::vec3(nx, ny, nz));
     };
