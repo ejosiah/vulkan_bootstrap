@@ -50,6 +50,9 @@ void Window::initWindow() {
     if(!glfwInit()){
         throw std::runtime_error{"Failed to initialize GFLW"};
     }
+    if(!glfwVulkanSupported()){
+        throw std::runtime_error("Vulkan Not supported");
+    }
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     GLFWmonitor* monitor = nullptr;
     if(fullscreen) {
@@ -67,8 +70,8 @@ void Window::initWindow() {
         height = vidMode->height;
     }
 
-
     window = glfwCreateWindow(width, height, title.data(), monitor, nullptr);
+
     glfwSetWindowUserPointer(window, this);
     glfwSetKeyCallback(window, onKeyPress);
     glfwSetMouseButtonCallback(window, onMouseClick);

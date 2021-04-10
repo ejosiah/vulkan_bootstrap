@@ -6,6 +6,7 @@ fmt/6.1.0
 stb/20200203
 spdlog/1.8.2
 freetype/2.10.4
+imgui/1.82
 
 [generators]
 cmake

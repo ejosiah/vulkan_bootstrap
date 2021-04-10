@@ -179,6 +179,8 @@ public:
     }
 
     void onMousePress(const MouseEvent& event){
+        prevPos.x = event.pos.x;
+        prevPos.y = event.pos.y;
 
         int key = static_cast<int>(event.button);
         auto itr = mouseActions.find(key);
@@ -188,6 +190,10 @@ public:
     }
 
     void onMouseRelease(const MouseEvent& event){
+        prevPos.x = prevPos.y = 0;
+        mouse.relativePosition.x = 0;
+        mouse.relativePosition.y = 0;
+
         int key = static_cast<int>(event.button);
         auto itr = mouseActions.find(key);
         if(itr != end(mouseActions)){
@@ -207,8 +213,16 @@ public:
     void onMouseMove(const MouseEvent& event){
         mouse.position.x = event.pos.x;
         mouse.position.y = event.pos.y;
-        mouse.relativePosition.x += event.pos.x - center.x;
-        mouse.relativePosition.y += center.y - event.pos.y;
+
+        if(relativeMouseMode) {
+            mouse.relativePosition.x += event.pos.x - center.x;
+            mouse.relativePosition.y += center.y - event.pos.y;
+        }else if(event.leftButtonPressed()) {
+            mouse.relativePosition.x = prevPos.x - event.pos.x;
+            mouse.relativePosition.y = prevPos.y - event.pos.y;
+            prevPos.x = event.pos.x;
+            prevPos.y = event.pos.y;
+        }
 
         mouseHelper(MouseEvent::MoveCode::LEFT, MouseEvent::MoveCode::RIGHT, mouse.relativePosition.x);
         mouseHelper(MouseEvent::MoveCode::DOWN, MouseEvent::MoveCode::UP, mouse.relativePosition.y);
@@ -262,6 +276,7 @@ public:
     std::map<int, Action> keyActions;
     std::map<int, Action> mouseActions;
     glm::vec2 center{0};
+    glm::vec2 prevPos{0};
     bool relativeMouseMode;
     Mouse mouse;
 private:

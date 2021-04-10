@@ -65,10 +65,25 @@ struct MouseEvent{
         NONE
     };
 
-    Button button;
-    State state;
+    Button button = Button::NONE;
+    State state = State::NONE;
     glm::vec2 pos;
     glm::vec2 scrollOffset;
+
+    void reset(){
+        button = Button::NONE;
+        state = State::NONE;
+    }
+
+    [[nodiscard]]
+    bool leftButtonPressed() const {
+        return button == Button::LEFT && state == State::PRESS;
+    }
+
+    [[nodiscard]]
+    bool rightButtonPressed() const {
+        return button == Button::RIGHT && state == State::PRESS;
+    }
 };
 
 struct ResizeEvent{

@@ -18,29 +18,29 @@ void FontTest::initApp() {
             << "Press 2 to switch to spectator behavior\n"
             << "Press 3 to switch to flight behavior\n"
             << "Press 4 to switch to orbit behavior\n\n"
-//            << "First Person and Spectator behaviors\n"
-//            << "\tPress W and S to move forwards and backwards\n"
-//            << "\tPress A and D to strafe left and right\n"
-//            << "\tPress E and Q to move up and down\n"
-//            << "\tMove mouse to free look\n\n"
-//            << "Flight behavior\n"
-//            << "\tPress W and S to move forwards and backwards\n"
-//            << "\tPress A and D to yaw left and right\n"
-//            << "\tPress E and Q to move up and down\n"
-//            << "\tMove mouse up and down to change pitch\n"
-//            << "\tMove mouse left and right to change roll\n\n"
-//            << "Orbit behavior\n"
-//            << "\tPress SPACE to enable/disable target Y axis orbiting\n"
-//            << "\tMove mouse to orbit the model\n"
-//            << "\tMouse wheel to zoom in and out\n\n"
-//            << "Press M to enable/disable mouse smoothing\n"
-//            << "Press V to enable/disable vertical sync\n"
-//            << "Press + and - to change camera rotation speed\n"
-//            << "Press , and . to change mouse sensitivity\n"
-//            << "Press BACKSPACE or middle mouse button to level camera\n"
-//            << "Press ALT and ENTER to toggle full screen\n"
-//            << "Press ESC to exit\n\n"
-//            << "Press H to hide help";
+            << "First Person and Spectator behaviors\n"
+            << "\tPress W and S to move forwards and backwards\n"
+            << "\tPress A and D to strafe left and right\n"
+            << "\tPress E and Q to move up and down\n"
+            << "\tMove mouse to free look\n\n"
+            << "Flight behavior\n"
+            << "\tPress W and S to move forwards and backwards\n"
+            << "\tPress A and D to yaw left and right\n"
+            << "\tPress E and Q to move up and down\n"
+            << "\tMove mouse up and down to change pitch\n"
+            << "\tMove mouse left and right to change roll\n\n"
+            << "Orbit behavior\n"
+            << "\tPress SPACE to enable/disable target Y axis orbiting\n"
+            << "\tMove mouse to orbit the model\n"
+            << "\tMouse wheel to zoom in and out\n\n"
+            << "Press M to enable/disable mouse smoothing\n"
+            << "Press V to enable/disable vertical sync\n"
+            << "Press + and - to change camera rotation speed\n"
+            << "Press , and . to change mouse sensitivity\n"
+            << "Press BACKSPACE or middle mouse button to level camera\n"
+            << "Press ALT and ENTER to toggle full screen\n"
+            << "Press ESC to exit\n\n"
+            << "Press H to hide help";
 ;
 
     msg = ss.str();
@@ -52,7 +52,7 @@ void FontTest::update(float time) {
     font->clear();
     font->write(fmt::format("Frames: {}\nFPS: {}", frameCount, framePerSecond), 20, 50);
     //font->write("Hello World, And well come to the world of Vulkan!", 20, 100);
-   // font->write(msg, 20, 100);
+    font->write(msg, 20, 100);
 }
 
 

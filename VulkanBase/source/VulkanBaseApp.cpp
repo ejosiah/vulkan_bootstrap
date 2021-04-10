@@ -159,6 +159,7 @@ void VulkanBaseApp::run() {
     init();
     mainLoop();
     cleanup();
+    spdlog::info("fps: {}", framePerSecond);
 }
 
 void VulkanBaseApp::mainLoop() {

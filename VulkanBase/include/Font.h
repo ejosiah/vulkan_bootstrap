@@ -20,6 +20,7 @@ static constexpr int MAX_FONTS = 20;
 static constexpr uint32_t MAX_SETS = NUM_CHAR * MAX_FONTS;
 static constexpr int MAX_TEXT_SIZE = 10000;
 static constexpr float DEFAULT_WORD_SPACE = 0.5f;
+static const uint32_t HARDWARE_CONCURRENCY = std::thread::hardware_concurrency();
 
 
 struct Character{
@@ -83,6 +84,8 @@ public:
 
     void draw(VkCommandBuffer commandBuffer) const;
 
+    std::vector<VkCommandBuffer> draw(VkCommandBufferInheritanceInfo inheritanceInfo) const;
+
     [[nodiscard]]
     glm::ivec2 sizeOf(const std::string& text) const;
 
@@ -137,7 +140,7 @@ private:
 
     static void createProjectionBuffer();
 
-    static VulkanBuffer createVertexBuffer();
+    static VulkanBuffer createVertexBuffer(void* data);
 
     static void createPipeline();
 
@@ -155,6 +158,7 @@ private:
     static VulkanDescriptorPool descriptorPool;
     static VulkanRenderPass* renderPass;
     static VulkanCommandPool commandPool;
+    static std::vector<VulkanCommandPool> commandPools;
     static VulkanBuffer projectionBuffer;
     static uint32_t subpass;
     static float screenWidth;

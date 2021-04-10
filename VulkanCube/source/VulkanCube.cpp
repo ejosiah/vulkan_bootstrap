@@ -297,7 +297,7 @@ int main() {
         Settings settings;
         settings.vSync = false;
         settings.depthTest = true;
-        settings.relativeMouseMode = true;
+        settings.relativeMouseMode = false;
         VulkanCube app{settings};
         app.run();
     }catch(const std::runtime_error& err){

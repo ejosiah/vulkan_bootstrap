@@ -200,8 +200,7 @@ void Font::write(const std::string &text, float x, float y, float d) {
         x += (ch.advance >> 6u);
         CharacterInstance chInst;
         chInst.character = &ch;
-        chInst.buffer = Fonts::createVertexBuffer();
-        chInst.buffer.copy(box.data(), sizeof(glm::vec4) * NUM_VERTICES);
+        chInst.buffer = Fonts::createVertexBuffer(&box);
         instanceCache[cacheKey] = std::move(chInst);
         texts[*currentImageIndex].push_back(&instanceCache[cacheKey]);
     }
@@ -223,9 +222,15 @@ void Font::draw(VkCommandBuffer commandBuffer) const {
     }
 }
 
+std::vector<VkCommandBuffer> Font::draw(VkCommandBufferInheritanceInfo inheritanceInfo) const {
+    return std::vector<VkCommandBuffer>();
+}
+
 void Font::refresh() {
     createDescriptorSets();
 }
+
+
 
 
 
@@ -422,12 +427,10 @@ void Fonts::updateProjection(){
     projectionBuffer.copy(glm::value_ptr(projection), size);
 }
 
-VulkanBuffer Fonts::createVertexBuffer() {
+VulkanBuffer Fonts::createVertexBuffer(void* data) {
     VkDeviceSize size = sizeof(glm::vec4) * NUM_VERTICES;
 
-    return device->createBuffer( VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-            VMA_MEMORY_USAGE_CPU_TO_GPU,
-            size);
+    return device->createDeviceLocalBuffer(data, size, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
 }
 
 void Fonts::createPipeline() {
@@ -553,6 +556,7 @@ VulkanPipeline Fonts::pipeline;
 VulkanDescriptorPool Fonts::descriptorPool;
 VulkanRenderPass* Fonts::renderPass;
 VulkanCommandPool Fonts::commandPool;
+std::vector<VulkanCommandPool> Fonts::commandPools{};
 VulkanBuffer Fonts::projectionBuffer;
 
 uint32_t Fonts::subpass = 0;
