@@ -1,9 +1,12 @@
 #version 460 core
 
-const vec3 globalAmbient = vec3(0.2);
+const vec3 globalAmbient = vec3(0);
 const vec3 Light = vec3(1);
 
+layout(constant_id = 0) const uint materialOffset = 192;
+
 layout(push_constant) uniform MATERIAL {
+    layout(offset = 192)
     vec3 ambient;
     vec3 diffuse;
     vec3 specular;
@@ -17,8 +20,8 @@ layout(location = 3) in vec3 lightPos;
 
 layout(location = 0) out vec4 fragColor;
 
-vec3 saturate(float x){
-    return clamp(0, 1, x);
+float saturate(float x){
+    return max(0, x);
 }
 
 void main(){
@@ -26,7 +29,8 @@ void main(){
     vec3 L = normalize(lightPos - vPos);
     vec3 E = normalize(eyes - vPos);
     vec3 H = normalize(E + L);
+    vec3 R = reflect(-L, N);
 
-    vec3 color = globalAmbient * ambient + Light * (saturate(dot(L, N)) + saturate(pow(dot(H, N), shininess)));
+    vec3 color = Light * (saturate(dot(L, N)) * diffuse + saturate(pow(dot(H, N), shininess)) * specular);
     fragColor = vec4(color, 1);
 }

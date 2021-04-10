@@ -3,6 +3,7 @@
 #include "Vertex.h"
 #include <glm/glm.hpp>
 #include <glm/gtc/constants.hpp>
+#include <glm/gtc/matrix_inverse.hpp>
 #include "random.h"
 
 /** @file primitives.h
@@ -52,7 +53,7 @@ namespace primitives{
     Vertices cone(int rows, int columns, float radius = 1.0f, float height = 1.0f, const glm::vec4& color = randomColor());
 
     /**
-     * Generates Vertices for a cylinder
+     * @brief Generates Vertices for a cylinder
      * @param rows number of rows on the cylinder
      * @param columns number of columns on the cylinder
      * @param radius radius of the cylinder
@@ -62,10 +63,10 @@ namespace primitives{
      */
     Vertices cylinder(int rows, int columns, float radius = 1.0f, float height = 1.0f,  const glm::vec4& color = randomColor());
 
-    Vertices plane(int rows, int columns, float width, float height, const glm::vec4& color = randomColor());
+    Vertices plane(int rows, int columns, float width, float height, const glm::mat4& xform = glm::mat4(1), const glm::vec4& color = randomColor());
 
     /**
-     * Generates Vertices for a torus
+     * @brief Generates Vertices for a torus
      * @param rows number or rows on the torus
      * @param columns number of columns on the torus
      * @param innerRadius inner radius of the torus
@@ -85,6 +86,98 @@ namespace primitives{
      * @return  returns a surface defined by the parametric function f
      */
     template<typename SurfaceFunction>
-    Vertices surface(int p, int q, SurfaceFunction&& f, const glm::vec4& color);
+    Vertices surface(int p, int q, SurfaceFunction&& f, const glm::vec4& color, const glm::mat4& xform = glm::mat4(1));
 
+
+    Vertices triangleStripToTriangleList(const Vertices& vertices);
+
+    /**
+     * @brief normalizes a mesh to a unit version of itself and scales it based on th scaling factor
+     * @tparam Mesh Mesh type to normalize, if Mesh is not of type Vertex then it must have a vertices member property
+     * of type std::vector<Vertex>
+     * @param meshes a vector of meshes to normalize
+     * @param scale scaling factor after normalization
+     */
+    template<typename Mesh>
+    inline void normalize(std::vector<Mesh> &meshes, float scale) {
+        float radius = 0;
+        glm::vec3 center{0};
+
+        auto updateBounds = [&](glm::vec3 position){
+            center += position;
+            float dSqrd = glm::dot(position, position);
+            if(dSqrd > radius){
+                radius = dSqrd;
+            }
+        };
+
+        auto calculateBounds = [&]{
+            int numVertices = 0;
+
+            if constexpr (std::is_same_v<Mesh, Vertex>){
+                numVertices += meshes.size();
+                for (auto &vertex : meshes) {
+                    updateBounds(vertex.position.xyz);
+                }
+            }else {
+                for (auto &mesh : meshes) {
+                    std::vector<Vertex> &vertices = mesh.vertices;
+                    numVertices += vertices.size();
+                    for (auto &vertex : vertices) {
+                        updateBounds(vertex.position.xyz);
+                    }
+                }
+            }
+            radius = std::sqrt(radius);
+            center *= (1.0f/float(numVertices));
+        };
+
+
+        auto _scale = [&](float scalingFactor, glm::vec3 offset){
+            if constexpr (std::is_same_v<Mesh, Vertex>){
+                for (auto &vertex : meshes) {
+                    vertex.position.xyz = (vertex.position.xyz + offset) * scalingFactor;
+                }
+            }else {
+                for (auto &mesh : meshes) {
+                    std::vector<Vertex> &vertices = mesh.vertices;
+                    for (auto &vertex : vertices) {
+                        vertex.position.xyz = (vertex.position.xyz + offset) * scalingFactor;
+                    }
+                }
+            }
+        };
+
+        calculateBounds();
+        _scale(scale/radius, -center);
+    }
+
+    /**
+     * Generates the AABB bounding box of the giving meshes
+     * @tparam Mesh Mesh type to generate bounding box for, if Mesh is not of type Vertex then it must have a vertices member property
+     * @param meshes Mesh to generate bounding box for
+     * @return a tuple of the minimum and maximum vertices of bounding box for the given meshes
+     */
+    template<typename Mesh>
+    inline std::tuple<glm::vec3, glm::vec3> bounds(const std::vector<Mesh>& meshes){
+        glm::vec3 min{ std::numeric_limits<float>::max() };
+        glm::vec3 max( std::numeric_limits<float>::min() );
+
+        if constexpr (std::is_same_v<Mesh, Vertex>) {
+            for (const auto &vertex : meshes) {
+                min = glm::min(min, glm::vec3(vertex.position));
+                max = glm::max(max, glm::vec3(vertex.position));
+            }
+        }else{
+           for(const auto& mesh : meshes){
+               const std::vector<Vertices>& vertices = mesh.vertices;
+               for (const auto &vertex : vertices) {
+                   min = glm::min(min, glm::vec3(vertex.position));
+                   max = glm::max(max, glm::vec3(vertex.position));
+               }
+           }
+        }
+
+        return std::make_tuple(min, max);
+    }
 }

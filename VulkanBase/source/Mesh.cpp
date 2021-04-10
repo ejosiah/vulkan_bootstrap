@@ -11,7 +11,7 @@ VkPrimitiveTopology toVulkan(uint32_t MeshType){
     }
 }
 
-mesh::Mesh loadMesh(std::string_view parent, const aiNode* node, const aiScene* scene, uint32_t* numVertices, uint32_t meshId){
+mesh::Mesh loadMesh(const std::string& parent, const aiNode* node, const aiScene* scene, uint32_t* numVertices, uint32_t meshId){
     auto aiMesh = scene->mMeshes[node->mMeshes[meshId]];
     mesh::Mesh mesh;
     mesh.name = aiMesh->mName.C_Str();
@@ -108,34 +108,34 @@ mesh::Mesh loadMesh(std::string_view parent, const aiNode* node, const aiScene* 
 
     ret = aiMaterial->GetTexture(aiTextureType_DIFFUSE, 0, &aiString);
     if(ret == aiReturn_SUCCESS){
-        material.diffuseMap = aiString.C_Str(); // FIXME prepend parent path
+        material.diffuseMap = parent + aiString.C_Str();
     }
 
     ret = aiMaterial->GetTexture(aiTextureType_AMBIENT, 0, &aiString);
     if(ret == aiReturn_SUCCESS){
-        material.ambientMap = aiString.C_Str();
+        material.ambientMap =  parent + aiString.C_Str();
     }
 
     ret = aiMaterial->GetTexture(aiTextureType_SPECULAR, 0, &aiString);
     if(ret == aiReturn_SUCCESS){
-        material.specularMap = aiString.C_Str();
+        material.specularMap =  parent + aiString.C_Str();
     }
 
     ret = aiMaterial->GetTexture(aiTextureType_NORMALS, 0, &aiString);
     if(ret == aiReturn_SUCCESS){
-        material.normalMap = aiString.C_Str();
+        material.normalMap =  parent + aiString.C_Str();
     }
 
     ret = aiMaterial->GetTexture(aiTextureType_AMBIENT_OCCLUSION, 0, &aiString);
     if(ret == aiReturn_SUCCESS){
-        material.ambientOcclusionMap = aiString.C_Str();
+        material.ambientOcclusionMap =  parent + aiString.C_Str();
     }
     mesh.material = material;
 
     return mesh;
 }
 
-int load(std::vector<mesh::Mesh>& meshes, std::string_view parent, const aiNode* node, const aiScene* scene){
+int load(std::vector<mesh::Mesh>& meshes, const std::string& parent, const aiNode* node, const aiScene* scene){
     uint32_t numVertices = 0;
  //   std::vector<std::future<mesh::Mesh>> futures;
     for(auto i = 0; i < node->mNumMeshes; i++){
@@ -148,7 +148,7 @@ int load(std::vector<mesh::Mesh>& meshes, std::string_view parent, const aiNode*
     return numVertices;
 }
 
-int mesh::load(std::vector<Mesh> &meshes, std::string_view path, uint32_t flags) {
+int mesh::load(std::vector<Mesh> &meshes, const std::string& path, uint32_t flags) {
 
     Assimp::Importer importer;
     const aiScene* scene = importer.ReadFile(path.data(), flags);

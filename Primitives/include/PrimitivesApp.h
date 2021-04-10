@@ -1,5 +1,6 @@
 #pragma once
 
+#define GLM_FORCE_SWIZZLE
 #include "VulkanBaseApp.h"
 #include "VulkanModel.h"
 

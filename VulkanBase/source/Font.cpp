@@ -158,7 +158,8 @@ glm::ivec2 Font::sizeOf(const std::string& text) const {
 void Font::write(const std::string &text, float x, float y, float d) {
     y = Fonts::screenHeight - y;
     float startX = x;
-    glm::vec4 box[4];
+    static std::array<glm::vec4, 4> box{};
+    static std::stringstream ss;
     for(auto c : text){
         if(c == '\n'){
             y += (maxHeight + 2.0f) * d;
@@ -179,6 +180,17 @@ void Font::write(const std::string &text, float x, float y, float d) {
         float y2 = y - (static_cast<float>(ch.size.y) - ch.bearing.y);
         float w = ch.size.x;
         float h = ch.size.y;
+        ss.str("");
+        ss.clear();
+        ss << c << x2 << y2+h << x2 << y2 << x2+w << y2+h << x2+w << y2;
+       // auto cacheKey = fmt::format("{}:{}{}{}{}{}{}{}{}", c, x2, y2+h, x2, y2, x2+w, y2+h,x2+w,y2);
+        auto cacheKey = ss.str();
+        if(instanceCache.find(cacheKey) != end(instanceCache)){
+            auto instance = &instanceCache[cacheKey];
+            texts[*currentImageIndex].push_back(instance);
+            x += (ch.advance >> 6u);
+            continue;
+        }
 
         box[0] = { x2, y2 + h    , 0, 0 };
         box[1] = { x2, y2, 0, 1 };
@@ -189,8 +201,9 @@ void Font::write(const std::string &text, float x, float y, float d) {
         CharacterInstance chInst;
         chInst.character = &ch;
         chInst.buffer = Fonts::createVertexBuffer();
-        chInst.buffer.copy(box, sizeof(glm::vec4) * NUM_VERTICES);
-        texts[*currentImageIndex].push_back((std::move(chInst)));
+        chInst.buffer.copy(box.data(), sizeof(glm::vec4) * NUM_VERTICES);
+        instanceCache[cacheKey] = std::move(chInst);
+        texts[*currentImageIndex].push_back(&instanceCache[cacheKey]);
     }
 }
 
@@ -204,8 +217,8 @@ void Font::draw(VkCommandBuffer commandBuffer) const {
     for(auto& ch : texts[*currentImageIndex]){
         vkCmdBindDescriptorSets(
                 commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, Fonts::pipelineLayout,
-                0u, 1u, &ch.character->descriptorSet, 0, VK_NULL_HANDLE);
-        vkCmdBindVertexBuffers(commandBuffer, 0u, 1u, &ch.buffer.buffer, &offset);
+                0u, 1u, &ch->character->descriptorSet, 0, VK_NULL_HANDLE);
+        vkCmdBindVertexBuffers(commandBuffer, 0u, 1u, &ch->buffer.buffer, &offset);
         vkCmdDraw(commandBuffer, 4u, 1u, 0u, 0u);
     }
 }

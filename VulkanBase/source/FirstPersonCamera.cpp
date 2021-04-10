@@ -1,6 +1,6 @@
 #include "FirstPersonCamera.h"
 
-SpectatorCameraController::SpectatorCameraController(const VulkanDevice& device, uint32_t swapChainImageCount, const uint32_t& currentImageIndex, InputManager &inputManager,  const BaseCameraSettings &settings)
+SpectatorCameraController::SpectatorCameraController(const VulkanDevice& device, uint32_t swapChainImageCount, const uint32_t& currentImageIndex, InputManager &inputManager,  const FirstPersonSpectatorCameraSettings &settings)
 : BaseCameraController(device, swapChainImageCount, currentImageIndex, inputManager, settings)
 {
 
@@ -52,11 +52,9 @@ void SpectatorCameraController::rotate(float headingDegrees, float pitchDegrees,
 }
 
 
-FirstPersonCameraController::FirstPersonCameraController(const VulkanDevice& device, uint32_t swapChainImageCount, const uint32_t& currentImageIndex,  InputManager &inputManager, const BaseCameraSettings &settings)
+FirstPersonCameraController::FirstPersonCameraController(const VulkanDevice& device, uint32_t swapChainImageCount, const uint32_t& currentImageIndex,  InputManager &inputManager, const FirstPersonSpectatorCameraSettings &settings)
 : SpectatorCameraController(device, swapChainImageCount, currentImageIndex, inputManager, settings)
-{
-
-}
+{}
 
 void FirstPersonCameraController::move(float dx, float dy, float dz) {
     glm::vec3 eyes = this->eyes;

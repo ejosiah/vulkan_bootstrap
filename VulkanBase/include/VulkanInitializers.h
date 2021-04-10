@@ -74,7 +74,14 @@ namespace initializers{
         rect.offset.y = offsetY;
 
         return rect;
+    }
 
+    inline VkRect2D scissor(VkExtent2D extent, VkOffset2D offset = {0u, 0u}){
+        VkRect2D rect;
+        rect.offset = offset;
+        rect.extent = extent;
+
+        return rect;
     }
 
     inline VkPipelineViewportStateCreateInfo viewportState(const std::vector<VkViewport>& viewports, const std::vector<VkRect2D>& scissors){
@@ -222,8 +229,6 @@ namespace initializers{
         return subresourceRange;
     }
 
-    inline VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo();
-
     inline VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo(const std::vector<VkDescriptorSetLayoutBinding>& bindings, VkDescriptorSetLayoutCreateFlags flags = 0) {
         VkDescriptorSetLayoutCreateInfo createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -234,16 +239,12 @@ namespace initializers{
         return createInfo;
     }
 
-    inline VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo();
-
     inline VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo() {
         VkPipelineLayoutCreateInfo createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 
         return createInfo;
     }
-
-    inline VkGraphicsPipelineCreateInfo pipelineCreateInfo();
 
     inline VkGraphicsPipelineCreateInfo pipelineCreateInfo() {
         VkGraphicsPipelineCreateInfo createInfo{};
@@ -258,7 +259,6 @@ namespace initializers{
         info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
         return info;
     }
-
 
     inline VkRenderPassBeginInfo renderPassBeginInfo() {
         VkRenderPassBeginInfo beginInfo{};

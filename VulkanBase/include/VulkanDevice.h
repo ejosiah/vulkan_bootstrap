@@ -247,6 +247,27 @@ struct VulkanDevice{
 
     }
 
+    inline VulkanBuffer createDeviceLocalBuffer(const VulkanBuffer& source, VkBufferUsageFlags usage, std::set<uint32_t> queueIndices = {}) const {
+        usage |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+
+        auto size = source.size;
+        VulkanBuffer buffer = createBuffer(usage, VMA_MEMORY_USAGE_GPU_ONLY, size, "", queueIndices);
+
+        commandPoolFor(*this->queueFamilyIndex.graphics).oneTimeCommand(queues.graphics, [&](auto cmdBuffer){
+            VkBufferCopy copy{};
+            copy.size = size;
+            copy.dstOffset = 0;
+            copy.srcOffset = 0;
+            vkCmdCopyBuffer(cmdBuffer, source, buffer, 1u, &copy);
+        });
+
+        return buffer;
+    }
+
+    inline VulkanBuffer createStagingBuffer(VkDeviceSize size, std::set<uint32_t> queueIndices = {}) const {
+        return createBuffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, size, "StagingBuffer", queueIndices);
+    }
+
     [[nodiscard]]
     inline VulkanBuffer createBuffer(VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage, VkDeviceSize size, const std::string name = "", std::set<uint32_t> queueIndices = {}) const{
         VkBufferCreateInfo bufferInfo{};

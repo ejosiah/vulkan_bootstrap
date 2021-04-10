@@ -22,4 +22,5 @@ private:
     std::vector<VkCommandBuffer> commandBuffers;
     VulkanCommandPool commandPool;
     Font* font = nullptr;
+    std::string msg;
 };

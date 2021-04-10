@@ -3,6 +3,7 @@
 #include <assimp/scene.h>
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
+#include "primitives.h"
 
 namespace mesh {
 
@@ -32,12 +33,14 @@ namespace mesh {
         VkPrimitiveTopology primitiveTopology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 
         struct {
-            glm::vec3 min = glm::vec3(std::numeric_limits<float>::max());
-            glm::vec3 max = glm::vec3(std::numeric_limits<float>::min());
+            glm::vec3 min = glm::vec3(MAX_FLOAT);
+            glm::vec3 max = glm::vec3(MIN_FLOAT);
         } bounds;
     };
 
-    int load(std::vector<Mesh>& meshes, std::string_view path, uint32_t flags = DEFAULT_PROCESS_FLAGS);
+    int load(std::vector<Mesh>& meshes, const std::string& path, uint32_t flags = DEFAULT_PROCESS_FLAGS);
 
-    void normalize(std::vector<Mesh>& meshes, float scale = 1.0f);
+    inline void normalize(std::vector<Mesh>& meshes, float scale = 1.0f){
+        primitives::normalize(meshes, scale);
+    }
 }

@@ -94,7 +94,8 @@ private:
     glm::vec3 color = glm::vec3(0);    // TODO do we need this?
     FT_Face face = nullptr;
     mutable std::array<Character, NUM_CHAR> characters;
-    mutable std::vector<std::vector<CharacterInstance>> texts;
+    mutable std::vector<std::vector<CharacterInstance*>> texts;
+    mutable std::map<std::string, CharacterInstance> instanceCache;
     VulkanBuffer colorBuffer;
     uint32_t* currentImageIndex = nullptr;
     uint32_t maxHeight = std::numeric_limits<uint32_t>::min();

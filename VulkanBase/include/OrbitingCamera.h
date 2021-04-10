@@ -2,8 +2,8 @@
 
 #include "camera_base.h"
 
-static constexpr float DEFAULT_ORBIT_MIN_ZOOM = DEFAULT_ZNEAR;
-static constexpr float DEFAULT_ORBIT_MAX_ZOOM = DEFAULT_ZFAR;
+static constexpr float DEFAULT_ORBIT_MIN_ZOOM = DEFAULT_ZOOM_MIN;
+static constexpr float DEFAULT_ORBIT_MAX_ZOOM = DEFAULT_ZOOM_MAX;
 static constexpr float DEFAULT_SPEED_ORBIT_ROLL = 100.0f;
 static constexpr float DEFAULT_ORBIT_OFFSET_DISTANCE = DEFAULT_ORBIT_MIN_ZOOM + (DEFAULT_ORBIT_MAX_ZOOM - DEFAULT_ORBIT_MIN_ZOOM) * 0.25f;
 
@@ -37,9 +37,16 @@ public:
 
     void updateViewMatrix() override;
 
+    void onPositionChanged() final;
+
 private:
     float offsetDistance;
     float orbitRollSpeed;
     bool preferTargetYAxisOrbiting;
+
+    struct {
+        glm::vec3 position;
+        glm::quat orientation;
+    } model;
 
 };

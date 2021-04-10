@@ -77,14 +77,19 @@ void PrimitivesApp::checkAppInputs() {
     cameraController->processInput();
 }
 
+struct Mesh{
+    std::vector<Vertex> vertices;
+};
+
 void PrimitivesApp::createPrimitives() {
+    glm::vec4 v{0};
     auto cube = primitives::cube();
-    auto sphere = primitives::sphere(50, 50, 0.5);
+    auto sphere = primitives::sphere(50, 50, 1.0);
     auto hemisphere = primitives::hemisphere(50, 50, 0.5);
     auto cone = primitives::cone(50, 50, 0.5, 1.0);
     auto cylinder = primitives::cylinder(50, 50, 0.5, 1.0);
-    auto torus = primitives::torus(20, 20, 1, 0.3);
-    auto plane = primitives::plane(5, 5, 2, 2);
+    auto torus = primitives::torus(100, 100, 1, 0.3);
+    auto plane = primitives::plane(5, 5, 2, 2 );
 
     Object object;
     object.vertices = device.createDeviceLocalBuffer(cube.vertices.data(), sizeof(Vertex) * cube.vertices.size(), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
@@ -138,8 +143,8 @@ void PrimitivesApp::createPrimitives() {
 }
 
 void PrimitivesApp::createPipeline() {
-    auto vertexShaderModule = ShaderModule{"../../data/shaders/phong/phong1.vert.spv", device};
-    auto fragmentShaderModule = ShaderModule{"../../data/shaders/phong/phong1.frag.spv", device};
+    auto vertexShaderModule = ShaderModule{"../../data/shaders/flat.vert.spv", device};
+    auto fragmentShaderModule = ShaderModule{"../../data/shaders/flat.frag.spv", device};
 
 //    auto vertexShaderModule = ShaderModule{"../../data/shaders/flat.vert.spv", device};
 //    auto fragmentShaderModule = ShaderModule{"../../data/shaders/flat.frag.spv", device};
@@ -170,7 +175,7 @@ void PrimitivesApp::createPipeline() {
     VkPipelineRasterizationStateCreateInfo rasterizationState = initializers::rasterizationState();
     rasterizationState.rasterizerDiscardEnable = VK_FALSE;
     rasterizationState.polygonMode = VK_POLYGON_MODE_FILL;
-    rasterizationState.cullMode = VK_CULL_MODE_NONE;
+    rasterizationState.cullMode = VK_CULL_MODE_BACK_BIT;
     rasterizationState.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     rasterizationState.depthBiasEnable = VK_FALSE;
     rasterizationState.lineWidth = 1.0f;

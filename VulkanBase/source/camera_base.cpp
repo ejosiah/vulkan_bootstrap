@@ -3,9 +3,9 @@
 #include <glm/gtc/matrix_access.hpp>
 
 BaseCameraController::BaseCameraController(const VulkanDevice& device, uint32_t swapChainImageCount
-                                           , const uint32_t& currentImageInde, InputManager& inputManager
+                                           , const uint32_t& currentImageIndex, InputManager& inputManager
                                            , const BaseCameraSettings& settings)
-    : fovx(settings.fieldOfView)
+    : fov(settings.fieldOfView)
     , aspectRatio(settings.aspectRatio)
     , znear(settings.zNear)
     , zfar(settings.zFar)
@@ -15,6 +15,7 @@ BaseCameraController::BaseCameraController(const VulkanDevice& device, uint32_t 
     , accumPitchDegrees(0.0f)
     , floorOffset(settings.floorOffset)
     , handleZoom(settings.handleZoom)
+    , horizontalFov(settings.horizontalFov)
     , eyes(0.0f)
     , target(0.0f)
     , targetYAxis(0.0f, 1.0f, 0.0f)
@@ -22,8 +23,8 @@ BaseCameraController::BaseCameraController(const VulkanDevice& device, uint32_t 
     , yAxis(0.0f, 1.0f, 0.0f)
     , zAxis(0.0f, 0.0f, 1.0f)
     , viewDir(0.0f, 0.0f, -1.0f)
-    , acceleration(settings.acceleration)
-    , velocity(settings.velocity)
+    , _acceleration(settings.acceleration)
+    , _velocity(settings.velocity)
     , currentVelocity(0)
     , orientation(1, 0, 0, 0)
     , direction(0)
@@ -33,7 +34,7 @@ BaseCameraController::BaseCameraController(const VulkanDevice& device, uint32_t 
     , zoomOut(inputManager.mapToMouse(MouseEvent::MoveCode::WHEEL_DOWN))
     , device(device)
     , swapChainImageCount(swapChainImageCount)
-    , currentImageIndex(currentImageInde)
+    , currentImageIndex(currentImageIndex)
     {
         _move.forward = &inputManager.mapToKey(Key::W, "forward", Action::Behavior::DETECT_INITIAL_PRESS_ONLY);
         _move.back = &inputManager.mapToKey(Key::S, "backward", Action::Behavior::DETECT_INITIAL_PRESS_ONLY);
@@ -41,8 +42,8 @@ BaseCameraController::BaseCameraController(const VulkanDevice& device, uint32_t 
         _move.right = &inputManager.mapToKey(Key::D, "right", Action::Behavior::DETECT_INITIAL_PRESS_ONLY);
         _move.up = &inputManager.mapToKey(Key::E, "up", Action::Behavior::DETECT_INITIAL_PRESS_ONLY);
         _move.down = &inputManager.mapToKey(Key::Q, "down", Action::Behavior::DETECT_INITIAL_PRESS_ONLY);
-        position({0.0f, floorOffset, 0.0f});    // assuming up is y axis
-        perspective(fovx, aspectRatio, znear, zfar);
+        position({0.0f, floorOffset, 0.0f});
+        perspective(fov, aspectRatio, znear, zfar);
     }
 
 void BaseCameraController::processInput() {
@@ -139,12 +140,12 @@ void BaseCameraController::lookAt(const glm::vec3 &eye, const glm::vec3 &target,
 }
 
 void BaseCameraController::perspective(float aspect) {
-    perspective(fovx, aspect, znear, zfar);
+    perspective(fov, aspect, znear, zfar);
 }
 
-void BaseCameraController::perspective(float fovx, float aspect, float znear, float zfar) {
-    camera.proj = vkn::perspective(glm::radians(fovx), aspect, znear, zfar);
-    this->fovx = fovx;
+void BaseCameraController::perspective(float fov, float aspect, float znear, float zfar) {
+    camera.proj = vkn::perspective(glm::radians(fov), aspect, znear, zfar, horizontalFov);
+    this->fov = fov;
     aspectRatio = aspect;
     this->znear = znear;
     this->zfar = zfar;
@@ -190,7 +191,20 @@ void BaseCameraController::move(const glm::vec3 &direction, const glm::vec3 &amo
 
 void BaseCameraController::position(const glm::vec3 &pos) {
     eyes = pos;
+    onPositionChanged();
     updateViewMatrix();
+}
+
+const glm::vec3& BaseCameraController::position() const {
+    return eyes;
+}
+
+const glm::vec3& BaseCameraController::velocity() const {
+    return currentVelocity;
+}
+
+const glm::vec3& BaseCameraController::acceleration() const {
+    return _acceleration;
 }
 
 void BaseCameraController::updatePosition(const glm::vec3 &direction, float elapsedTimeSec) {
@@ -200,20 +214,20 @@ void BaseCameraController::updatePosition(const glm::vec3 &direction, float elap
     using namespace glm;
     if (dot(currentVelocity, currentVelocity) != 0.0f)
     {
-        // Only move the Camera if the velocity vector is not of zero length.
+        // Only move the Camera if the _velocity vector is not of zero length.
         // Doing this guards against the Camera slowly creeping around due to
         // floating point rounding errors.
 
         glm::vec3 displacement = (currentVelocity * elapsedTimeSec) +
-                                 (0.5f * acceleration * elapsedTimeSec * elapsedTimeSec);
+                                 (0.5f * _acceleration * elapsedTimeSec * elapsedTimeSec);
 
         // Floating point rounding errors will slowly accumulate and cause the
         // Camera to move along each axis. To prevent any unintended movement
         // the displacement vector is clamped to zero for each direction that
         // the Camera isn't moving in. Note that the updateVelocity() method
-        // will slowly decelerate the Camera's velocity back to a stationary
+        // will slowly decelerate the Camera's _velocity back to a stationary
         // state when the Camera is no longer moving along that direction. To
-        // account for this the Camera's current velocity is also checked.
+        // account for this the Camera's current _velocity is also checked.
 
         if (direction.x == 0.0f && closeEnough(currentVelocity.x, 0.0f))
             displacement.x = 0.0f;
@@ -227,7 +241,7 @@ void BaseCameraController::updatePosition(const glm::vec3 &direction, float elap
         move(displacement.x, displacement.y, displacement.z);
     }
 
-    // Continuously update the Camera's velocity vector even if the Camera
+    // Continuously update the Camera's _velocity vector even if the Camera
     // hasn't moved during this call. When the Camera is no longer being moved
     // the Camera is decelerating back to its stationary state.
 
@@ -249,7 +263,7 @@ void BaseCameraController::updateViewMatrix() {
 }
 
 void BaseCameraController::updateVelocity(const glm::vec3 &direction, float elapsedTimeSec) {
-    // Updates the Camera's velocity based on the supplied movement direction
+    // Updates the Camera's _velocity based on the supplied movement direction
     // and the elapsed time (since this method was last called). The movement
     // direction is in the range [-1,1].
 
@@ -258,12 +272,12 @@ void BaseCameraController::updateVelocity(const glm::vec3 &direction, float elap
         // Camera is moving along the x axis.
         // Linearly accelerate up to the Camera's max speed.
 
-        currentVelocity.x += direction.x * acceleration.x * elapsedTimeSec;
+        currentVelocity.x += direction.x * _acceleration.x * elapsedTimeSec;
 
-        if (currentVelocity.x > velocity.x)
-            currentVelocity.x = velocity.x;
-        else if (currentVelocity.x < -velocity.x)
-            currentVelocity.x = -velocity.x;
+        if (currentVelocity.x > _velocity.x)
+            currentVelocity.x = _velocity.x;
+        else if (currentVelocity.x < -_velocity.x)
+            currentVelocity.x = -_velocity.x;
     }
     else
     {
@@ -272,12 +286,12 @@ void BaseCameraController::updateVelocity(const glm::vec3 &direction, float elap
 
         if (currentVelocity.x > 0.0f)
         {
-            if ((currentVelocity.x -= acceleration.x * elapsedTimeSec) < 0.0f)
+            if ((currentVelocity.x -= _acceleration.x * elapsedTimeSec) < 0.0f)
                 currentVelocity.x = 0.0f;
         }
         else
         {
-            if ((currentVelocity.x += acceleration.x * elapsedTimeSec) > 0.0f)
+            if ((currentVelocity.x += _acceleration.x * elapsedTimeSec) > 0.0f)
                 currentVelocity.x = 0.0f;
         }
     }
@@ -287,12 +301,12 @@ void BaseCameraController::updateVelocity(const glm::vec3 &direction, float elap
         // Camera is moving along the y axis.
         // Linearly accelerate up to the Camera's max speed.
 
-        currentVelocity.y += direction.y * acceleration.y * elapsedTimeSec;
+        currentVelocity.y += direction.y * _acceleration.y * elapsedTimeSec;
 
-        if (currentVelocity.y > velocity.y)
-            currentVelocity.y = velocity.y;
-        else if (currentVelocity.y < -velocity.y)
-            currentVelocity.y = -velocity.y;
+        if (currentVelocity.y > _velocity.y)
+            currentVelocity.y = _velocity.y;
+        else if (currentVelocity.y < -_velocity.y)
+            currentVelocity.y = -_velocity.y;
     }
     else
     {
@@ -301,12 +315,12 @@ void BaseCameraController::updateVelocity(const glm::vec3 &direction, float elap
 
         if (currentVelocity.y > 0.0f)
         {
-            if ((currentVelocity.y -= acceleration.y * elapsedTimeSec) < 0.0f)
+            if ((currentVelocity.y -= _acceleration.y * elapsedTimeSec) < 0.0f)
                 currentVelocity.y = 0.0f;
         }
         else
         {
-            if ((currentVelocity.y += acceleration.y * elapsedTimeSec) > 0.0f)
+            if ((currentVelocity.y += _acceleration.y * elapsedTimeSec) > 0.0f)
                 currentVelocity.y = 0.0f;
         }
     }
@@ -316,12 +330,12 @@ void BaseCameraController::updateVelocity(const glm::vec3 &direction, float elap
         // Camera is moving along the z axis.
         // Linearly accelerate up to the Camera's max speed.
 
-        currentVelocity.z += direction.z * acceleration.z * elapsedTimeSec;
+        currentVelocity.z += direction.z * _acceleration.z * elapsedTimeSec;
 
-        if (currentVelocity.z > velocity.z)
-            currentVelocity.z = velocity.z;
-        else if (currentVelocity.z < -velocity.z)
-            currentVelocity.z = -velocity.z;
+        if (currentVelocity.z > _velocity.z)
+            currentVelocity.z = _velocity.z;
+        else if (currentVelocity.z < -_velocity.z)
+            currentVelocity.z = -_velocity.z;
     }
     else
     {
@@ -330,12 +344,12 @@ void BaseCameraController::updateVelocity(const glm::vec3 &direction, float elap
 
         if (currentVelocity.z > 0.0f)
         {
-            if ((currentVelocity.z -= acceleration.z * elapsedTimeSec) < 0.0f)
+            if ((currentVelocity.z -= _acceleration.z * elapsedTimeSec) < 0.0f)
                 currentVelocity.z = 0.0f;
         }
         else
         {
-            if ((currentVelocity.z += acceleration.z * elapsedTimeSec) > 0.0f)
+            if ((currentVelocity.z += _acceleration.z * elapsedTimeSec) > 0.0f)
                 currentVelocity.z = 0.0f;
         }
     }
@@ -358,3 +372,12 @@ void BaseCameraController::push(VkCommandBuffer commandBuffer, VkPipelineLayout 
     camera.model = model;
     vkCmdPushConstants(commandBuffer, layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Camera), &camera);
 }
+
+const Camera &BaseCameraController::cam() const {
+    return camera;
+}
+
+void BaseCameraController::onPositionChanged() {
+
+}
+

@@ -1,40 +1,91 @@
 #pragma once
 
+#define GLM_FORCE_SWIZZLE
 #include "VulkanBaseApp.h"
 #include "VulkanModel.h"
+#include "Font.h"
+
+constexpr float     FLOOR_WIDTH = 8.0f;
+constexpr float     FLOOR_HEIGHT = 8.0f;
+constexpr float     FLOOR_TILE_S = 8.0f;
+constexpr float     FLOOR_TILE_T = 8.0f;
+
+constexpr float     CAMERA_FOVX = 90;
+constexpr float     CAMERA_ZFAR = 100.0f;
+constexpr float     CAMERA_ZNEAR = 0.1f;
+//constexpr float     CAMERA_ZOOM_MAX = 2.0f;
+//constexpr float     CAMERA_ZOOM_MIN = 1.0f;
+constexpr float     CAMERA_ZOOM_MAX = 5.0f;
+constexpr float     CAMERA_ZOOM_MIN = 1.5f;
+
+constexpr float     CAMERA_SPEED_FLIGHT_YAW = 100.0f;
+constexpr float     CAMERA_SPEED_ORBIT_ROLL = 100.0f;
+
+constexpr glm::vec3   CAMERA_ACCELERATION(4.0f, 4.0f, 4.0f);
+constexpr glm::vec3   CAMERA_VELOCITY(1.0f, 1.0f, 1.0f);
 
 struct Material{
-    glm::vec3 ambient;
-    glm::vec3 diffuse;
-    glm::vec3 specular;
+    alignas(16) glm::vec3 ambient;
+    alignas(16) glm::vec3 diffuse;
+    alignas(16) glm::vec3 specular;
     float shininess;
 };
 
 struct SpaceShip{
-    VulkanBuffer vertices;
-    VulkanBuffer indices;
+    std::vector<VulkanBuffer> vertices;
+    std::vector<VulkanBuffer> indices;
+    std::vector<VkDeviceSize> offsets;
     std::vector<vkn::Primitive> primitives;
     std::vector<Material> materials;
+    struct {
+        glm::vec3 min{MAX_FLOAT};
+        glm::vec3 max{MIN_FLOAT};
+    } bounds;
+
+    [[nodiscard]]
+    float height() const {
+        auto diagonal = bounds.max - bounds.min;
+        return std::abs(diagonal.y);
+    }
 
     static constexpr VkPushConstantRange pushConstantRange(){
-        return { VK_SHADER_STAGE_FRAGMENT_BIT, 0u, sizeof(Material) };
+        return { VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(Camera), sizeof(Material) };
     }
 };
 
 struct Floor{
+    struct {
+        float width = 8.0f;
+        float height = 8.0f;
+    } dimensions{};
+
     VulkanBuffer vertices;
     VulkanBuffer indices;
+    uint32_t indexCount;
+    Texture texture;
+    Texture lightMap;
     VulkanDescriptorSetLayout descriptorSetLayout;
     VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
 };
 
 class Demo : public VulkanBaseApp{
+public:
+    explicit Demo(const Settings& settings);
+
 protected:
     void initApp() override;
+
+    void initCamera();
+
+    void createDescriptorPool();
 
     void loadSpaceShip();
 
     void loadFloor();
+
+    void createFloorDescriptors();
+
+    void createPipelines();
 
     void onSwapChainDispose() override;
 
@@ -48,13 +99,29 @@ protected:
 
     void cleanup() override;
 
+    std::string menu() const;
+
 private:
+    VulkanCommandPool commandPool;
+    std::vector<VkCommandBuffer> commandBuffers;
+    VulkanDescriptorPool descriptorPool;
+
     SpaceShip spaceShip;
     Floor floor;
-    std::unique_ptr<BaseCameraController> cameraController;
+    std::unique_ptr<OrbitingCameraController> cameraController;
     struct {
         VulkanPipeline spaceShip;
         VulkanPipeline floor;
     } pipelines;
+
+    struct{
+        VulkanPipelineLayout spaceShipLayout;
+        VulkanPipelineLayout floorLayout;
+    } layouts;
     bool displayHelp = false;
+    Action& help;
+    int msaaSamples = 1;
+    int maxAnisotrophy = 1;
+    Font* font = nullptr;
+    std::string stuff;
 };

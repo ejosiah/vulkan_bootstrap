@@ -5,6 +5,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include "VulkanDevice.h"
+#include "AbstractCamera.hpp"
 
 static constexpr float HALF_PI = glm::half_pi<float>();
 static constexpr float PI = glm::pi<float>();
@@ -24,16 +25,6 @@ constexpr glm::vec3 WORLD_XAXIS(1.0f, 0.0f, 0.0f);
 constexpr glm::vec3 WORLD_YAXIS(0.0f, 1.0f, 0.0f);
 constexpr glm::vec3 WORLD_ZAXIS(0.0f, 0.0f, 1.0f);
 
-struct Camera{
-    glm::mat4 model = glm::mat4(1);
-    glm::mat4 view = glm::mat4(1);
-    glm::mat4 proj = glm::mat4(1);
-
-    static constexpr VkPushConstantRange pushConstant() {
-        return {VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Camera)};
-    }
-
-};
 
 struct BaseCameraSettings{
     glm::vec3 acceleration = DEFAULT_ACCELERATION;
@@ -47,60 +38,70 @@ struct BaseCameraSettings{
     float maxZoom = DEFAULT_ZOOM_MAX;
     float floorOffset = 0.5f;
     bool handleZoom = false;
+    bool horizontalFov = false;
 };
 
-struct BaseCameraController{
+struct BaseCameraController : public AbstractCamera{
 public:
     BaseCameraController(const VulkanDevice& device, uint32_t swapChainImageCount, const uint32_t& currentImageIndex, InputManager& inputManager, const BaseCameraSettings& settings = {});
 
-    virtual ~BaseCameraController() = default;
+    ~BaseCameraController() override = default;
 
-    virtual void update(float time) = 0;
+    void processInput() override;
 
-    virtual void processInput();
+    void lookAt(const glm::vec3 &eye, const glm::vec3 &target, const glm::vec3 &up) final;
 
-    void lookAt(const glm::vec3 &eye, const glm::vec3 &target, const glm::vec3 &up);
+    void perspective(float fovx, float aspect, float znear, float zfar) final;
 
-    void perspective(float fovx, float aspect, float znear, float zfar);
+    void perspective(float aspect) final;
 
-    void perspective(float aspect);
+    void rotateSmoothly(float headingDegrees, float pitchDegrees, float rollDegrees) override;
 
-    void rotateSmoothly(float headingDegrees, float pitchDegrees, float rollDegrees);
+    void move(float dx, float dy, float dz) override;
 
-    virtual void rotate(float headingDegrees, float pitchDegrees, float rollDegrees) = 0;
+    void move(const glm::vec3 &direction, const glm::vec3 &amount) override;
 
-    virtual void move(float dx, float dy, float dz);
+    void position(const glm::vec3& pos) final;
 
-    virtual void move(const glm::vec3 &direction, const glm::vec3 &amount);
+    [[nodiscard]]
+    const glm::vec3& position() const final;
 
-    void position(const glm::vec3& pos);
+    virtual void onPositionChanged();
 
-    void updatePosition(const glm::vec3 &direction, float elapsedTimeSec);
+    [[nodiscard]]
+    const glm::vec3& velocity() const final;
 
-    virtual void undoRoll();
+    [[nodiscard]]
+    const glm::vec3& acceleration() const final;
 
-    virtual void zoom(float zoom, float minZoom, float maxZoom);
+    void updatePosition(const glm::vec3 &direction, float elapsedTimeSec) override;
 
-    void onResize(int width, int height);
+    void undoRoll() override;
 
-    void setModel(const glm::mat4& model);
+    void zoom(float zoom, float minZoom, float maxZoom) override;
 
-    void push(VkCommandBuffer commandBuffer, VkPipelineLayout layout) const;
+    void onResize(int width, int height) override;
 
-    void push(VkCommandBuffer commandBuffer, VkPipelineLayout layout, const glm::mat4& model);
+    void setModel(const glm::mat4& model) override;
 
+    void push(VkCommandBuffer commandBuffer, VkPipelineLayout layout) const final;
+
+    void push(VkCommandBuffer commandBuffer, VkPipelineLayout layout, const glm::mat4& model) final;
+
+    [[nodiscard]]
+    const Camera& cam() const final;
 
 protected:
     virtual void updateViewMatrix();
 
-    void processMovementInput();
+    virtual void processMovementInput();
 
-    void processZoomInput();
+    virtual void processZoomInput();
 
-    void updateVelocity(const glm::vec3 &direction, float elapsedTimeSec);
+    virtual void updateVelocity(const glm::vec3 &direction, float elapsedTimeSec);
 
 
-    float fovx;
+    float fov;
     float aspectRatio;
     float znear;
     float zfar;
@@ -110,6 +111,7 @@ protected:
     float accumPitchDegrees;
     float floorOffset;
     bool handleZoom;
+    bool horizontalFov;
     glm::vec3 eyes;
     glm::vec3 target;
     glm::vec3 targetYAxis;
@@ -117,9 +119,9 @@ protected:
     glm::vec3 yAxis;
     glm::vec3 zAxis;
     glm::vec3 viewDir;
-    glm::vec3 acceleration;
+    glm::vec3 _acceleration;
     glm::vec3 currentVelocity;
-    glm::vec3 velocity;
+    glm::vec3 _velocity;
     glm::quat orientation;
     glm::vec3 direction;
     Camera camera;

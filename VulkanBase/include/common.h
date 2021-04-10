@@ -49,8 +49,8 @@ namespace chrono = std::chrono;
 using Flags = unsigned int;
 
 constexpr float EPSILON = 0.000001;
-constexpr uint32_t WIDTH = 800;
-constexpr uint32_t HEIGHT = 600;
+constexpr float MAX_FLOAT = std::numeric_limits<float>::max();
+constexpr float MIN_FLOAT = std::numeric_limits<float>::min();
 constexpr std::chrono::seconds ONE_SECOND = std::chrono::seconds(1);
 
 #define ASSERT(result) assert(result == VK_SUCCESS)

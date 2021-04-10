@@ -11,10 +11,11 @@ OrbitingCameraController::OrbitingCameraController(const VulkanDevice& device, u
     offsetDistance = settings.offsetDistance;
     floorOffset = settings.modelHeight * 0.5f;
     handleZoom = false;
-    position({0.0f, floorOffset, 0.0f});
-    updateModel();
-    auto eyes = this->eyes + zAxis * offsetDistance;
-    auto target = this->eyes;
+    model.position = {0.0f, floorOffset, 0.0f};
+    model.orientation = glm::inverse(orientation);
+
+    auto eyes = model.position + zAxis * offsetDistance;
+    auto target = model.position;
     lookAt(eyes, target, targetYAxis);
 }
 
@@ -109,8 +110,8 @@ void OrbitingCameraController::rotate(float headingDegrees, float pitchDegrees, 
 }
 
 void OrbitingCameraController::updateModel() {
-    camera.model = glm::mat4_cast(glm::inverse(orientation));
-    camera.model = glm::translate(camera.model, eyes);
+    camera.model = glm::mat4_cast(glm::inverse(model.orientation));
+    camera.model = glm::translate(camera.model, model.position);
 }
 
 void OrbitingCameraController::updateViewMatrix() {
@@ -127,4 +128,13 @@ void OrbitingCameraController::updateViewMatrix() {
     view[3][0] = -dot(xAxis, eyes);
     view[3][1] = -dot(yAxis, eyes);
     view[3][2] =  -dot(zAxis, eyes);
+}
+
+void OrbitingCameraController::onPositionChanged() {
+    auto newEyes = eyes + zAxis * offsetDistance;
+    auto newTarget = eyes;
+    lookAt(newEyes, newTarget, targetYAxis);
+    updateModel();
+    model.position = eyes;
+    model.orientation = inverse(orientation);
 }

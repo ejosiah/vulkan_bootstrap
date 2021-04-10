@@ -30,6 +30,7 @@ struct VulkanBuffer{
         buffer = source.buffer;
         allocation = source.allocation;
         name = source.name;
+        size = source.size;
 
         source.allocator = VK_NULL_HANDLE;
         source.buffer = VK_NULL_HANDLE;
@@ -39,9 +40,11 @@ struct VulkanBuffer{
         return *this;
     }
 
-    void copy(void* source, VkDeviceSize size) const {
+    void copy(void* source, VkDeviceSize size, int offset = 0) const {
+        assert(size + offset <= this->size);
         void* dest;
         vmaMapMemory(allocator, allocation, &dest);
+        dest = static_cast<char*>(dest) + offset;
         memcpy(dest, source, size);
         vmaUnmapMemory(allocator, allocation);
     }
