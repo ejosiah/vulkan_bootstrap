@@ -5,10 +5,13 @@
 #include <set>
 #include <chrono>
 #include <fstream>
+#include <VulkanShaderModule.h>
+
 #include "VulkanBaseApp.h"
 #include "keys.h"
 #include "events.h"
 #include "VulkanInitializers.h"
+#include "Plugin.hpp"
 
 namespace chrono = std::chrono;
 
@@ -23,16 +26,28 @@ ShaderModule::ShaderModule(const std::string& path, VkDevice device)
     REPORT_ERROR(vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule), "Failed to create shader module: " + path);
 }
 
+ShaderModule::ShaderModule(const std::vector<uint32_t>& data, VkDevice device) : device(device) {
+    VkShaderModuleCreateInfo createInfo{};
+    createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+    createInfo.codeSize = data.size() * sizeof(uint32_t);
+    createInfo.pCode = data.data();
+
+    REPORT_ERROR(vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule), "Failed to create shader module");
+}
+
+
 ShaderModule::~ShaderModule() {
     vkDestroyShaderModule(device, shaderModule, nullptr);
 }
 
-VulkanBaseApp::VulkanBaseApp(std::string_view name, const Settings& settings, int width, int height)
+
+VulkanBaseApp::VulkanBaseApp(std::string_view name, const Settings& settings, std::vector<std::unique_ptr<Plugin>> plugins, int width, int height)
 : Window(name, width, height, settings.fullscreen)
 , InputManager(settings.relativeMouseMode)
 , enabledFeatures(settings.enabledFeatures)
 , depthTestEnabled(settings.depthTest)
 , vSync(settings.vSync)
+, plugins(std::move(plugins))
 {
 }
 
@@ -43,6 +58,7 @@ void VulkanBaseApp::init() {
     exit = &mapToKey(Key::ESCAPE, "Exit", Action::detectInitialPressOnly());
     pause = &mapToKey(Key::P, "Pause", Action::detectInitialPressOnly());
     initVulkan();
+    initPlugins();
     initApp();
 }
 
@@ -72,6 +88,15 @@ void VulkanBaseApp::initVulkan() {
     createFramebuffer();
 
     createSyncObjects();
+}
+
+void VulkanBaseApp::initPlugins() {
+
+    for(auto& plugin : plugins){
+        spdlog::info("initializing plugin: {}", plugin->name());
+        plugin->set({ &instance, &device, &renderPass, &swapChain, window, &currentImageIndex});
+        plugin->init();
+    }
 }
 
 void VulkanBaseApp::createInstance() {
@@ -158,6 +183,7 @@ void VulkanBaseApp::pickPhysicalDevice() {
 void VulkanBaseApp::run() {
     init();
     mainLoop();
+    cleanupPlugins();
     cleanup();
     spdlog::info("fps: {}", framePerSecond);
 }
@@ -171,10 +197,18 @@ void VulkanBaseApp::mainLoop() {
 
         if(!paused) {
             checkAppInputs();
+            notifyPluginsOfNewFrameStart();
+            newFrame();
             drawFrame();
+            presentFrame();
+            nextFrame();
         }else{
             glfwSetTime(elapsedTime);
             onPause();
+        }
+        if(swapChainInvalidated){
+            swapChainInvalidated = false;
+            recreateSwapChain();
         }
     }
 
@@ -300,11 +334,13 @@ void VulkanBaseApp::createSyncObjects() {
 }
 
 void VulkanBaseApp::drawFrame() {
+
     frameCount++;
     inFlightFences[currentFrame].wait();
     auto imageIndex = swapChain.acquireNextImage(imageAcquired[currentFrame]);
     if(swapChain.isOutOfDate()) {
-        recreateSwapChain();
+        swapChainInvalidated = true;
+    //    recreateSwapChain();
         return;
     }
 
@@ -323,6 +359,10 @@ void VulkanBaseApp::drawFrame() {
     uint32_t commandBufferCount;
     auto commandBuffers = buildCommandBuffers(imageIndex, commandBufferCount);
 
+//    for(auto& plugin : plugins){
+//        plugin->onDraw(*commandBuffers);
+//    }
+
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submitInfo.waitSemaphoreCount = 1;
@@ -337,12 +377,27 @@ void VulkanBaseApp::drawFrame() {
 
     ASSERT(vkQueueSubmit(device.queues.graphics, 1, &submitInfo, inFlightFences[currentFrame]));
 
-    swapChain.present(imageIndex, { renderingFinished[currentFrame] });
+//    swapChain.present(imageIndex, { renderingFinished[currentFrame] });
+//    if(swapChain.isSubOptimal() || swapChain.isOutOfDate() || resized) {
+//        resized = false;
+//        recreateSwapChain();
+//        return;
+//    }
+//    currentFrame = (currentFrame + 1)%MAX_IN_FLIGHT_FRAMES;
+}
+
+void VulkanBaseApp::presentFrame() {
+    if(swapChainInvalidated) return;
+
+    swapChain.present(currentImageIndex, { renderingFinished[currentFrame] });
     if(swapChain.isSubOptimal() || swapChain.isOutOfDate() || resized) {
         resized = false;
-        recreateSwapChain();
+        swapChainInvalidated = true;
         return;
     }
+}
+
+void VulkanBaseApp::nextFrame() {
     currentFrame = (currentFrame + 1)%MAX_IN_FLIGHT_FRAMES;
 }
 
@@ -367,6 +422,7 @@ void VulkanBaseApp::recreateSwapChain() {
     createRenderPass();
     createFramebuffer();
 
+    notifyPluginsOfSwapChainRecreation();
     onSwapChainRecreation();
 }
 
@@ -377,7 +433,7 @@ void VulkanBaseApp::update(float time) {
 }
 
 void VulkanBaseApp::cleanupSwapChain() {
-
+    notifyPluginsOfSwapChainDisposal();
     onSwapChainDispose();
 
     for(auto& framebuffer : framebuffers){
@@ -430,4 +486,44 @@ void VulkanBaseApp::onPause() {
 
 }
 
+void VulkanBaseApp::newFrame() {
+
+}
+
+void VulkanBaseApp::notifyPluginsOfNewFrameStart() {
+    for(auto& plugin : plugins){
+        plugin->newFrame();
+    }
+}
+
+void VulkanBaseApp::notifyPluginsOfSwapChainDisposal() {
+    for(auto& plugin : plugins){
+        plugin->onSwapChainDispose();
+    }
+}
+
+void VulkanBaseApp::notifyPluginsOfSwapChainRecreation() {
+    for(auto& plugin : plugins){
+        plugin->onSwapChainRecreation();
+    }
+}
+
+void VulkanBaseApp::cleanupPlugins() {
+    for(auto& plugin : plugins){
+        plugin->cleanup();
+    }
+}
+
+void VulkanBaseApp::registerPluginEventListeners() {
+    for(auto & plugin : plugins){
+        addWindowResizeListeners(plugin->windowResizeListener());
+        addMousePressListener(plugin->mousePressListener());
+        addMouseReleaseListener(plugin->mouseReleaseListener());
+        addMouseClickListener(plugin->mouseClickListener());
+        addMouseMoveListener(plugin->mouseMoveListener());
+        addMouseWheelMoveListener(plugin->mouseWheelMoveListener());
+        addKeyPressListener(plugin->keyPressListener());
+        addKeyReleaseListener(plugin->keyReleaseListener());
+    }
+}
 

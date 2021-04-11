@@ -43,8 +43,10 @@ constexpr bool debugMode = false;
 #include "vk_mem_alloc.h"
 #include "xforms.h"
 #include "glm_format.h"
+#include <filesystem>
 
 namespace chrono = std::chrono;
+namespace fs = std::filesystem;
 
 using Flags = unsigned int;
 
@@ -52,6 +54,7 @@ constexpr float EPSILON = 0.000001;
 constexpr float MAX_FLOAT = std::numeric_limits<float>::max();
 constexpr float MIN_FLOAT = std::numeric_limits<float>::min();
 constexpr std::chrono::seconds ONE_SECOND = std::chrono::seconds(1);
+
 
 #define ASSERT(result) assert(result == VK_SUCCESS)
 #define COUNT(sequence) static_cast<uint32_t>(sequence.size())

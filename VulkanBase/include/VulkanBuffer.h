@@ -49,6 +49,14 @@ struct VulkanBuffer{
         vmaUnmapMemory(allocator, allocation);
     }
 
+    template<typename T>
+    void map(std::function<void(T*)> use){
+        void* data;
+        vmaMapMemory(allocator, allocation, &data);
+        use(reinterpret_cast<T*>(data));
+        vmaUnmapMemory(allocator, allocation);
+    }
+
     ~VulkanBuffer(){
         if(buffer){
             vmaDestroyBuffer(allocator, buffer, allocation);

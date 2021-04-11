@@ -472,15 +472,15 @@ void Fonts::createPipeline() {
     depthStencilState.minDepthBounds = 0.0f;
     depthStencilState.maxDepthBounds = 1.0f;
 
-    VkPipelineColorBlendAttachmentState colorBlendAttachmentState{};
-    colorBlendAttachmentState.blendEnable = VK_TRUE;
-    colorBlendAttachmentState.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-    colorBlendAttachmentState.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-    colorBlendAttachmentState.srcAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-    colorBlendAttachmentState.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-    colorBlendAttachmentState.colorBlendOp = VK_BLEND_OP_ADD;
-    colorBlendAttachmentState.alphaBlendOp = VK_BLEND_OP_ADD;
-    colorBlendAttachmentState.colorWriteMask =
+    std::vector<VkPipelineColorBlendAttachmentState> colorBlendAttachmentState(1);
+    colorBlendAttachmentState[0].blendEnable = VK_TRUE;
+    colorBlendAttachmentState[0].srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+    colorBlendAttachmentState[0].dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+    colorBlendAttachmentState[0].srcAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+    colorBlendAttachmentState[0].dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+    colorBlendAttachmentState[0].colorBlendOp = VK_BLEND_OP_ADD;
+    colorBlendAttachmentState[0].alphaBlendOp = VK_BLEND_OP_ADD;
+    colorBlendAttachmentState[0].colorWriteMask =
             VK_COLOR_COMPONENT_R_BIT
             | VK_COLOR_COMPONENT_G_BIT
             | VK_COLOR_COMPONENT_B_BIT

@@ -47,6 +47,7 @@ protected:
 private:
     VulkanPipelineLayout layout;
     VulkanPipeline pipeline;
+    VulkanPipelineCache pipelineCache;
     VulkanCommandPool commandPool;
     VulkanDescriptorPool descriptorPool;
     VulkanDescriptorSetLayout descriptorSetLayout;

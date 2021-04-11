@@ -32,6 +32,7 @@
 #include "VulkanShaderModule.h"
 #include "VulkanStructs.h"
 #include "glm_format.h"
+#include "Plugin.hpp"
 
 #ifdef NDBUG
 constexpr bool enableValidation = false;
@@ -88,6 +89,9 @@ struct Settings{
      */
     bool vSync = false;
 
+    int width = 1080;
+    int height = 720;
+
     /**
      * sets Vulkan features to enable
      */
@@ -99,8 +103,9 @@ struct Settings{
  * @breif Basic interface for interfacing with Vulkan, creates a vulkan swapchain, framebuffer and connects it with a ui window
  */
 class VulkanBaseApp : protected Window, protected InputManager{
+    friend class Plugin;
 public:
-    explicit VulkanBaseApp(std::string_view name, const Settings& settings = {}, int width = 1080, int height = 720); // TODO move width/height to settings
+    explicit VulkanBaseApp(std::string_view name, const Settings& settings = {}, std::vector<std::unique_ptr<Plugin>> plugins = {}, int width = 1280, int height = 720); // TODO move width/height to settings
 
     /**
      *  initializes the window, input managers Vulkan
@@ -123,6 +128,8 @@ protected:
     void initWindow() override;
 
     void initVulkan();
+
+    void initPlugins();
 
     /**
      * app specific initialization, this should be overridden by subclasses
@@ -168,11 +175,27 @@ protected:
      */
     virtual VkCommandBuffer* buildCommandBuffers(uint32_t imageIndex, uint32_t& numCommandBuffers) = 0;
 
+    void  notifyPluginsOfNewFrameStart();
+
+    void notifyPluginsOfSwapChainDisposal();
+
+    void notifyPluginsOfSwapChainRecreation();
+
+    void registerPluginEventListeners();
+
+    void cleanupPlugins();
+
+    virtual void newFrame();
+
     /**
      * Renders the current image on the swap chain and then sends it for presentation
      * subclasses can override this for custom drawing routines
      */
     virtual void drawFrame();
+
+    void presentFrame();
+
+    void nextFrame();
 
     void calculateFPS();
 
@@ -217,6 +240,16 @@ protected:
 
     bool isRunning() const;
 
+    Plugin& getPlugin(const std::string& name) {
+        for(auto& plugin : plugins){
+            if(plugin->name() == name){
+                return *plugin;
+            }
+        }
+        throw std::runtime_error{"Requested plugin not found"};
+    }
+
+
 private:
     void setPaused(bool flag);
 
@@ -255,8 +288,10 @@ protected:
     DepthBuffer depthBuffer;
     bool depthTestEnabled = false;
     bool vSync;
+    bool swapChainInvalidated = false;
     VkPhysicalDeviceFeatures enabledFeatures{};
     uint64_t frameCount = 0;
     uint32_t framePerSecond = 0;
     uint32_t swapChainImageCount = 0;
+    std::vector<std::unique_ptr<Plugin>> plugins;
 };

@@ -218,8 +218,8 @@ public:
             mouse.relativePosition.x += event.pos.x - center.x;
             mouse.relativePosition.y += center.y - event.pos.y;
         }else if(event.leftButtonPressed()) {
-            mouse.relativePosition.x = prevPos.x - event.pos.x;
-            mouse.relativePosition.y = prevPos.y - event.pos.y;
+            mouse.relativePosition.x += prevPos.x - event.pos.x;
+            mouse.relativePosition.y += prevPos.y - event.pos.y;
             prevPos.x = event.pos.x;
             prevPos.y = event.pos.y;
         }
@@ -249,9 +249,9 @@ public:
             glfwSetCursorPos(glfwWindow, center.x, center.y);
             mouse.position.x = center.x;
             mouse.position.y = center.y;
-            mouse.relativePosition.x = 0;
-            mouse.relativePosition.y = 0;
         }
+        mouse.relativePosition.x = 0;
+        mouse.relativePosition.y = 0;
     }
 
     void mouseHelper(int codeNeg, int codePos, int amount){

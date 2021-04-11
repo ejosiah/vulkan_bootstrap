@@ -6,6 +6,7 @@
 
 class Window {
 public:
+    friend class Plugin;
     Window(std::string_view title, int width, int height, bool fullscreen = false)
     : title(title)
     , width(width)
@@ -44,6 +45,7 @@ public:
         windowResizeListeners.push_back(listener);
     }
 
+    [[nodiscard]]
     GLFWwindow* getGlfwWindow() const {
         return window;
     }
@@ -108,6 +110,8 @@ protected:
     static void onKeyPress(GLFWwindow* window, int key, int scancode, int action, int mods);
 
     static void onMouseWheelMove(GLFWwindow* window, double xOffset, double yOffset);
+
+    static void onCursorEntered(GLFWwindow* window, int entered);
 
     static Window& getSelf(GLFWwindow* window){
         return *reinterpret_cast<Window*>(glfwGetWindowUserPointer(window));

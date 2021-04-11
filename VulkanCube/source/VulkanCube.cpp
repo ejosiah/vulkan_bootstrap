@@ -2,7 +2,7 @@
 
 #include  <stb_image.h>
 
-VulkanCube::VulkanCube(const Settings& settings): VulkanBaseApp("VulkanCube", settings, 1080, 720){}
+VulkanCube::VulkanCube(const Settings& settings): VulkanBaseApp("VulkanCube", settings, {}, 1080, 720){}
 
 void VulkanCube::initApp() {
     createCommandPool();
@@ -27,7 +27,7 @@ void VulkanCube::initApp() {
     settings.aspectRatio = static_cast<float>(swapChain.extent.width)/static_cast<float>(swapChain.extent.height);
     cameraController = std::unique_ptr<BaseCameraController>{new OrbitingCameraController{ device, swapChain.imageCount(), currentImageIndex, *this, settings}};
    // cameraController->lookAt({0, 0, 2}, glm::vec3(0), {0, 1, 0});
-
+    pipelineCache = device.createPipelineCache();
     createGraphicsPipeline();
     createCommandBuffer();
 
@@ -95,8 +95,14 @@ createGraphicsPipeline() {
 
     VkPipelineDepthStencilStateCreateInfo depthStencilState = initializers::depthStencilState();
 
-
-    VkPipelineColorBlendStateCreateInfo blendState = initializers::colorBlendState();
+    std::vector<VkPipelineColorBlendAttachmentState> blendAttachment(1);
+    blendAttachment[0].blendEnable = VK_FALSE;
+    blendAttachment[0].colorWriteMask =
+            VK_COLOR_COMPONENT_R_BIT
+            | VK_COLOR_COMPONENT_G_BIT
+            | VK_COLOR_COMPONENT_B_BIT
+            | VK_COLOR_COMPONENT_A_BIT;
+    VkPipelineColorBlendStateCreateInfo blendState = initializers::colorBlendState(blendAttachment);
 
     VkPipelineDynamicStateCreateInfo dynamicState = initializers::dynamicState();
 
@@ -122,7 +128,7 @@ createGraphicsPipeline() {
     createInfo.basePipelineIndex = -1;
     createInfo.basePipelineHandle = VK_NULL_HANDLE;
 
-    pipeline = device.createGraphicsPipeline(createInfo);
+    pipeline = device.createGraphicsPipeline(createInfo, pipelineCache);
 }
 
 VkCommandBuffer* VulkanCube::buildCommandBuffers(uint32_t imageIndex, uint32_t& numCommandBuffers) {

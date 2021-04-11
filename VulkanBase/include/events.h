@@ -9,12 +9,12 @@ using KeyModiferFlags = Flags;
 
 enum KeyModifierFlagBits : unsigned int{
     NONE = 0,
-    SHIFT = 0x0001,
-    CONTROL = 0x0002,
-    ALT = 0x0004,
-    SUPER = 0x0008,
-    CAPS_LOCK = 0x0016,
-    NUM_LOCK = 0x0032
+    SHIFT = GLFW_MOD_SHIFT,
+    CONTROL = GLFW_MOD_CONTROL,
+    ALT = GLFW_MOD_ALT,
+    SUPER = GLFW_MOD_SUPER,
+    CAPS_LOCK = GLFW_MOD_CAPS_LOCK,
+    NUM_LOCK = GLFW_MOD_NUM_LOCK
 };
 
 struct KeyEvent{

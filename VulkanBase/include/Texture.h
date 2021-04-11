@@ -21,7 +21,9 @@ using Dimension2D = glm::vec<2, T, glm::defaultp>;
 namespace textures{
 
 
-    void create(const VulkanDevice& device, Texture& texture, VkImageType imageType, VkFormat format, void* data, Dimension3D<uint32_t> dimensions, VkSamplerAddressMode addressMode = VK_SAMPLER_ADDRESS_MODE_REPEAT);
+    void create(const VulkanDevice& device, Texture& texture, VkImageType imageType, VkFormat format, void* data
+                , Dimension3D<uint32_t> dimensions, VkSamplerAddressMode addressMode = VK_SAMPLER_ADDRESS_MODE_REPEAT
+                , uint32_t sizeMultiplier = 1);
 
     void fromFile(const VulkanDevice& device, Texture& texture, std::string_view path);
 

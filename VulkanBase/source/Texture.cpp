@@ -9,12 +9,14 @@ uint32_t nunChannels(VkFormat format) {
             return 2;
         case VK_FORMAT_R8G8B8_SRGB:
         case VK_FORMAT_B8G8R8_SRGB:
+        case VK_FORMAT_R8G8B8_UNORM:
             return 3;
         case VK_FORMAT_R8G8B8A8_SRGB:
         case VK_FORMAT_B8G8R8A8_SRGB:
+        case VK_FORMAT_R8G8B8A8_UNORM:
             return 4;
         default:
-            return 0;
+            throw std::runtime_error{fmt::format("format: {}, not implemented", format)};
     }
 }
 
@@ -45,8 +47,8 @@ void textures::fromFile(const VulkanDevice &device, Texture &texture, std::strin
 }
 
 void textures::create(const VulkanDevice &device, Texture &texture, VkImageType imageType, VkFormat format, void *data,
-                      Dimension3D<uint32_t> dimensions, VkSamplerAddressMode addressMode) {
-    VkDeviceSize imageSize = dimensions.x * dimensions.y * dimensions.z * nunChannels(format);
+                      Dimension3D<uint32_t> dimensions, VkSamplerAddressMode addressMode, uint32_t sizeMultiplier) {
+    VkDeviceSize imageSize = dimensions.x * dimensions.y * dimensions.z * nunChannels(format) * sizeMultiplier;
 
     VulkanBuffer stagingBuffer = device.createBuffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, imageSize);
     stagingBuffer.copy(data, imageSize);
@@ -97,25 +99,19 @@ void textures::create(const VulkanDevice &device, Texture &texture, VkImageType 
 
     texture.imageView = texture.image.createView(format, VK_IMAGE_VIEW_TYPE_2D, subresourceRange);  // FIXME derive image view type
 
-    VkSamplerCreateInfo samplerInfo{};
-    samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-    samplerInfo.magFilter = VK_FILTER_LINEAR;
-    samplerInfo.minFilter = VK_FILTER_LINEAR;
-    samplerInfo.addressModeU = addressMode;
-    samplerInfo.addressModeV = addressMode;
-    samplerInfo.addressModeW = addressMode;
-    samplerInfo.anisotropyEnable = VK_FALSE;
-    samplerInfo.maxAnisotropy = 16;
-    samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
-    samplerInfo.unnormalizedCoordinates = VK_FALSE;
-    samplerInfo.compareEnable = VK_FALSE;
-    samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
-    samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-    samplerInfo.mipLodBias = 0.0f;
-    samplerInfo.minLod = 0.0f;
-    samplerInfo.maxLod = 0.0f;
+    if(!texture.sampler.handle) {
+        VkSamplerCreateInfo samplerInfo{};
+        samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+        samplerInfo.magFilter = VK_FILTER_LINEAR;
+        samplerInfo.minFilter = VK_FILTER_LINEAR;
+        samplerInfo.addressModeU = addressMode;
+        samplerInfo.addressModeV = addressMode;
+        samplerInfo.addressModeW = addressMode;
+        samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+        samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
 
-    texture.sampler = device.createSampler(samplerInfo);
+        texture.sampler = device.createSampler(samplerInfo);
+    }
 }
 
 void textures::checkerboard(const VulkanDevice &device, Texture &texture, const glm::vec3 &colorA, const glm::vec3 &colorB) {

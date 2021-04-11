@@ -1,5 +1,6 @@
 #pragma once
 #include "common.h"
+#include "VulkanDebug.h"
 
 struct ExtensionsAndValidationLayers{
     std::vector<const char*> extensions;

@@ -84,7 +84,7 @@ namespace initializers{
         return rect;
     }
 
-    inline VkPipelineViewportStateCreateInfo viewportState(const std::vector<VkViewport>& viewports, const std::vector<VkRect2D>& scissors){
+    inline VkPipelineViewportStateCreateInfo viewportState(const std::vector<VkViewport>& viewports = {}, const std::vector<VkRect2D>& scissors = {}){
         VkPipelineViewportStateCreateInfo viewportState{};
         viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
         viewportState.viewportCount = COUNT(viewports);
@@ -130,23 +130,17 @@ namespace initializers{
         return createInfo;
     }
 
-    static inline VkPipelineColorBlendStateCreateInfo colorBlendState(VkPipelineColorBlendAttachmentState blendAttachmentState = {}){
-        if(blendAttachmentState.colorWriteMask == 0){
-            blendAttachmentState.colorWriteMask =
-                    VK_COLOR_COMPONENT_R_BIT
-                    | VK_COLOR_COMPONENT_G_BIT
-                    | VK_COLOR_COMPONENT_B_BIT
-                    | VK_COLOR_COMPONENT_A_BIT;
-        }
+    static inline VkPipelineColorBlendStateCreateInfo colorBlendState(const std::vector<VkPipelineColorBlendAttachmentState>& blendAttachmentState = {}){
         VkPipelineColorBlendStateCreateInfo createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-        createInfo.attachmentCount = 1;
-        createInfo.pAttachments = &blendAttachmentState;
+        createInfo.attachmentCount = COUNT(blendAttachmentState);
+        createInfo.pAttachments = blendAttachmentState.data();
 
         return createInfo;
     }
 
-    inline VkPipelineDynamicStateCreateInfo dynamicState(std::vector<VkDynamicState> dynamicStates  = {}) {
+
+    inline VkPipelineDynamicStateCreateInfo dynamicState(const std::vector<VkDynamicState>& dynamicStates  = {}) {
         VkPipelineDynamicStateCreateInfo createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
         createInfo.dynamicStateCount = COUNT(dynamicStates);
@@ -218,6 +212,13 @@ namespace initializers{
         return createInfo;
     }
 
+    inline VkSamplerCreateInfo samplerCreateInfo(){
+        VkSamplerCreateInfo createInfo{};
+        createInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+
+        return createInfo;
+    }
+
     inline VkImageSubresourceRange imageSubresourceRange(VkImageAspectFlags  aspect = VK_IMAGE_ASPECT_COLOR_BIT){
         VkImageSubresourceRange subresourceRange;
         subresourceRange.aspectMask = aspect;
@@ -277,6 +278,17 @@ namespace initializers{
     constexpr VkGraphicsPipelineCreateInfo graphicsPipelineCreateInfo() {
         VkGraphicsPipelineCreateInfo createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+
+        return createInfo;
+    }
+
+    inline VkDescriptorPoolCreateInfo descriptorPoolCreateInfo(const std::vector<VkDescriptorPoolSize>& poolSizes, uint32_t maxSets, VkDescriptorPoolCreateFlags flags = 0){
+        VkDescriptorPoolCreateInfo createInfo{};
+        createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+        createInfo.flags = flags;
+        createInfo.poolSizeCount = COUNT(poolSizes);
+        createInfo.pPoolSizes = poolSizes.data();
+        createInfo.maxSets = maxSets;
 
         return createInfo;
     }

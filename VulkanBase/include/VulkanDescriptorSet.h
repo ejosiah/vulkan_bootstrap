@@ -8,11 +8,12 @@ struct VulkanDescriptorPool{
 
     VulkanDescriptorPool() = default;
 
-    VulkanDescriptorPool(VkDevice device, uint32_t maxSet, const std::vector<VkDescriptorPoolSize>& poolSizes)
+    VulkanDescriptorPool(VkDevice device, uint32_t maxSet, const std::vector<VkDescriptorPoolSize>& poolSizes, VkDescriptorPoolCreateFlags flags = 0)
             :device(device)
     {
         VkDescriptorPoolCreateInfo createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+        createInfo.flags = 0;
         createInfo.maxSets = maxSet;
         createInfo.poolSizeCount = COUNT(poolSizes);
         createInfo.pPoolSizes = poolSizes.data();

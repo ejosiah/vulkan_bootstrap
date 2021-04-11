@@ -78,11 +78,15 @@ void Window::initWindow() {
     glfwSetCursorPosCallback(window, onMouseMove);
     glfwSetFramebufferSizeCallback(window, onResize);
     glfwSetScrollCallback(window, onMouseWheelMove);
+    glfwSetCursorEnterCallback(window, onCursorEntered);
 }
 
 void Window::onMouseClick(GLFWwindow *window, int button, int action, int mods) {
     auto& self = getSelf(window);
     auto& mouseEvent = self.mouseEvent;
+
+
+
     switch(button){
         case GLFW_MOUSE_BUTTON_LEFT:
             mouseEvent.button = MouseEvent::Button::LEFT;
@@ -107,9 +111,6 @@ void Window::onMouseClick(GLFWwindow *window, int button, int action, int mods) 
         default:
             mouseEvent.state = MouseEvent::State::NONE;
     }
-    static MouseEvent::State state = mouseEvent.state;
-    // TODO mods
-
 
     if(mouseEvent.state == MouseEvent::State::PRESS){
         self.fireMousePress(mouseEvent);
@@ -137,4 +138,8 @@ void Window::onMouseWheelMove(GLFWwindow *window, double xOffset, double yOffset
     mouseEvent.scrollOffset.x = xOffset;
     mouseEvent.scrollOffset.y = yOffset;
     self.fireMouseWheelMove(mouseEvent);
+}
+
+void Window::onCursorEntered(GLFWwindow *window, int entered) {
+
 }
