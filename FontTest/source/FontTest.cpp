@@ -1,7 +1,7 @@
 #include "FontTest.h"
 #include "glm_format.h"
 
-FontTest::FontTest() :VulkanBaseApp("Font Test", {}, 2048, 702) {
+FontTest::FontTest() :VulkanBaseApp("Font Test", {}, {}, 2048, 702) {
 
 }
 

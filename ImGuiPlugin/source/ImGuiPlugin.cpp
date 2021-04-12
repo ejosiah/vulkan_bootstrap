@@ -1,6 +1,6 @@
 #include "ImGuiPlugin.hpp"
 #include "ImGuiShaders.hpp"
-#include "VulkanShaderModule.h"
+#include <VulkanShaderModule.h>
 
 ImGuiPlugin::ImGuiPlugin(std::vector<FontInfo> fonts, uint32_t subpass)
 : fonts(std::move(fonts))

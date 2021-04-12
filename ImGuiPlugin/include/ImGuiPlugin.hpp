@@ -1,14 +1,14 @@
 #pragma once
 
-#include <imgui.h>
-#include "common.h"
+#include <common.h>
 //#ifdef _WIN32
 //#undef APIENTRY
 //#define GLFW_EXPOSE_NATIVE_WIN32
 //#include <GLFW/glfw3native.h>   // for glfwGetWin32Window
 //#endif
-#include "Plugin.hpp"
-#include "Texture.h"
+#include <Plugin.hpp>
+#include <Texture.h>
+#include <imgui.h>
 
 #define IM_GUI_PLUGIN "Dear ImGui Plugin"
 

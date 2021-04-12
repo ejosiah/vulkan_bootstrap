@@ -8,9 +8,11 @@ conan_basic_setup()
 
 include_directories(3rdParty/include)
 include_directories(VulkanBase/include)
+include_directories(ImGuiPlugin/include)
 
 add_subdirectory(3rdParty)
 add_subdirectory(VulkanBase)
+add_subdirectory(ImGuiPlugin)
 add_subdirectory(VulkanCube)
 #add_subdirectory(VulkanCubeInstanced)
 add_subdirectory(FontTest)

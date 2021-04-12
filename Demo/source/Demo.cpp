@@ -2,7 +2,7 @@
 #include "Mesh.h"
 
 Demo::Demo(const Settings &settings)
-    : VulkanBaseApp("Demo", settings, 2560, 1080)
+    : VulkanBaseApp("Demo", settings,  {}, 2560, 1080)
     , help(mapToKey(Key::H, "Help menu", Action::detectInitialPressOnly()))
 {}
 
