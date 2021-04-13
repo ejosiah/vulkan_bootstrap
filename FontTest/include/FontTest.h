@@ -1,5 +1,4 @@
 #include "VulkanBaseApp.h"
-#include "Font.h"
 
 class FontTest : public VulkanBaseApp {
 public:
@@ -21,6 +20,5 @@ protected:
 private:
     std::vector<VkCommandBuffer> commandBuffers;
     VulkanCommandPool commandPool;
-    Font* font = nullptr;
     std::string msg;
 };

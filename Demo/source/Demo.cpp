@@ -1,10 +1,14 @@
+#include "ImGuiPlugin.hpp"
 #include "Demo.h"
 #include "Mesh.h"
+#include "ImGuiPlugin.hpp"
 
 Demo::Demo(const Settings &settings)
-    : VulkanBaseApp("Demo", settings,  {}, 2560, 1080)
-    , help(mapToKey(Key::H, "Help menu", Action::detectInitialPressOnly()))
-{}
+    : VulkanBaseApp("Demo", settings,  {})
+{
+    actions.help = &mapToKey(Key::H, "Help menu", Action::detectInitialPressOnly());
+    actions.toggleVSync = &mapToKey(Key::V, "Toggle VSync", Action::detectInitialPressOnly());
+}
 
 void Demo::initApp() {
     commandPool = device.createCommandPool(*device.queueFamilyIndex.graphics, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
@@ -14,8 +18,6 @@ void Demo::initApp() {
     loadSpaceShip();
     createPipelines();
     initCamera();
-    Fonts::init(&device, &renderPass, 0, swapChainImageCount, &currentImageIndex, swapChain.extent.width, swapChain.extent.height);
-    font = Fonts::getFont(ARIAL, 20, FontStyle::NORMAL, {1, 1, 0});
     stuff = menu();
 }
 
@@ -68,12 +70,6 @@ void Demo::loadSpaceShip() {
     spdlog::info("height: {}", spaceShip.height());
     spdlog::info("min: {}, max: {}, center: {}", spaceShip.bounds.min, spaceShip.bounds.max, (spaceShip.bounds.min + spaceShip.bounds.max) * 0.5f);
 
-//    auto xform = glm::translate(glm::mat4(1), {0, -spaceShip.bounds.min.y, 0});
-//    for(auto& mesh : meshes){
-//        for(auto& vertex : mesh.vertices){
-//            vertex.position = xform * vertex.position;
-//        }
-//    }
 
     VkDeviceSize vertexBufferSize = numVertices * sizeof(Vertex);
     auto vertexStagingBuffer = device.createStagingBuffer(vertexBufferSize);
@@ -196,7 +192,13 @@ void Demo::createPipelines() {
     depthStencilState.minDepthBounds = 0;
     depthStencilState.maxDepthBounds = 1;
 
-    auto blendState = initializers::colorBlendState();
+    std::vector<VkPipelineColorBlendAttachmentState> blendAttachmentState(1);
+    blendAttachmentState[0].colorWriteMask =
+            VK_COLOR_COMPONENT_R_BIT |
+            VK_COLOR_COMPONENT_G_BIT |
+            VK_COLOR_COMPONENT_B_BIT |
+            VK_COLOR_COMPONENT_A_BIT;
+    auto blendState = initializers::colorBlendState(blendAttachmentState);
     auto dynamicState = initializers::dynamicState();
 
     layouts.floorLayout = device.createPipelineLayout({ floor.descriptorSetLayout }, { Camera::pushConstant() });
@@ -297,7 +299,7 @@ VkCommandBuffer *Demo::buildCommandBuffers(uint32_t imageIndex, uint32_t &numCom
         vkCmdDrawIndexed(commandBuffer, primitive.indexCount, 1, primitive.firstIndex, 0, 0);
     }
 
-    font->draw(commandBuffer);
+    displayMenu(commandBuffer);
 
     vkCmdEndRenderPass(commandBuffer);
     vkEndCommandBuffer(commandBuffer);
@@ -306,21 +308,37 @@ VkCommandBuffer *Demo::buildCommandBuffers(uint32_t imageIndex, uint32_t &numCom
 }
 
 void Demo::update(float time) {
-    font->clear();
-    font->write(fmt::format("FPS: {}", framePerSecond), 10, 20);
-    font->write(stuff, 10, 50);
+//    font->clear();
+//    font->write(fmt::format("FPS: {}", framePerSecond), 10, 20);
+//    font->write(stuff, 10, 50);
     cameraController->update(time);
 }
 
 void Demo::checkAppInputs() {
-    if(help.isPressed()){
+    if(actions.help->isPressed()){
         displayHelp = !displayHelp;
+    }
+    if(actions.toggleVSync->isPressed()){
+        settings.vSync = !settings.vSync;
+        swapChainInvalidated = true;
     }
     cameraController->processInput();
 }
 
 void Demo::cleanup() {
-    Fonts::cleanup();
+
+}
+
+void Demo::displayMenu(VkCommandBuffer commandBuffer) {
+    auto& imgui = plugin<ImGuiPlugin>(IM_GUI_PLUGIN);
+    auto font = imgui.font("Arial", 15);
+    ImGui::Begin("Menu", nullptr, IMGUI_NO_WINDOW);
+    ImGui::SetWindowSize({ 500, float(height)});
+    ImGui::PushFont(font);
+    ImGui::TextColored({1, 1, 0, 1}, menu().c_str());
+    ImGui::PopFont();
+    ImGui::End();
+    imgui.draw(commandBuffer);
 }
 
 std::string Demo::menu() const {
@@ -362,7 +380,7 @@ std::string Demo::menu() const {
         auto currentMode = "";
         auto orbitStyle = "";
         auto rotationSpeed = "";
-        auto verticalSync = vSync ? "enabled" : "disabled";
+        auto verticalSync = settings.vSync ? "enabled" : "disabled";
         auto mouseSmoothing = "disabled";
         auto mouseSensivitiy = 0;
         auto position = cameraController->position();
@@ -396,7 +414,19 @@ int main(){
         settings.depthTest = true;
         settings.relativeMouseMode = true;
         settings.vSync = false;
+        settings.surfaceFormat.format = VK_FORMAT_B8G8R8A8_SRGB;
+        settings.width = 2560;
+        settings.height = 1080;
+
+        std::vector<FontInfo> fonts {
+                {"JetBrainsMono", R"(C:\Users\Josiah\Downloads\JetBrainsMono-2.225\fonts\ttf\JetBrainsMono-Regular.ttf)", 20},
+                {"Arial", R"(C:\Windows\Fonts\arial.ttf)", 20},
+                {"Arial", R"(C:\Windows\Fonts\arial.ttf)", 15}
+        };
+        std::unique_ptr<Plugin> imGui = std::make_unique<ImGuiPlugin>(fonts);
+
         auto app = Demo{ settings };
+        app.addPlugin(imGui);
         app.run();
     }catch(std::runtime_error& err){
         spdlog::error(err.what());

@@ -1,6 +1,6 @@
 #include "ImGuiDemo.hpp"
 
-ImGuiDemo::ImGuiDemo(std::vector<std::unique_ptr<Plugin>> plugins) :VulkanBaseApp("ImGui Demo", {}, std::move(plugins)) {}
+ImGuiDemo::ImGuiDemo() :VulkanBaseApp("ImGui Demo", {}) {}
 
 void ImGuiDemo::initApp() {
     commandPool = device.createCommandPool(*device.queueFamilyIndex.graphics, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
@@ -47,7 +47,7 @@ VkCommandBuffer *ImGuiDemo::buildCommandBuffers(uint32_t imageIndex, uint32_t &n
 
     ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
 
-    ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
+    ImGui::Text("This is some useful text.\nanother useful text");               // Display some text (you can use a format strings too)
     ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our window open/close state
     ImGui::Checkbox("Another Window", &show_another_window);
 
@@ -71,8 +71,8 @@ VkCommandBuffer *ImGuiDemo::buildCommandBuffers(uint32_t imageIndex, uint32_t &n
         ImGui::End();
     }
 
-    auto& imGui = getPlugin(IM_GUI_PLUGIN);
-    imGui.onDraw(commandBuffer);
+    auto& imGui = plugin(IM_GUI_PLUGIN);
+    imGui.draw(commandBuffer);
 
     vkCmdEndRenderPass(commandBuffer);
     vkEndCommandBuffer(commandBuffer);
@@ -85,10 +85,11 @@ VkCommandBuffer *ImGuiDemo::buildCommandBuffers(uint32_t imageIndex, uint32_t &n
 int main(){
     try{
         std::unique_ptr<Plugin> plugin = std::make_unique<ImGuiPlugin>();
-        std::vector<std::unique_ptr<Plugin>> plugins;
-        plugins.push_back(std::move(plugin));
+//        std::vector<std::unique_ptr<Plugin>> plugins;
+//        plugins.push_back(std::move(plugin));
 
-        auto app = ImGuiDemo{std::move(plugins)};
+        auto app = ImGuiDemo{};
+        app.addPlugin(plugin);
         app.run();
     }catch(std::runtime_error& err){
         spdlog::info(err.what());

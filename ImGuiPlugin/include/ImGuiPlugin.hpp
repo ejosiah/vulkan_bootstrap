@@ -11,8 +11,10 @@
 #include <imgui.h>
 
 #define IM_GUI_PLUGIN "Dear ImGui Plugin"
+#define IMGUI_NO_WINDOW ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMouseInputs | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoBackground
 
 struct FontInfo{
+    std::string name;
     fs::path path;
     float pixelSize;
 };
@@ -20,6 +22,17 @@ struct FontInfo{
 struct FrameRenderBuffers{
     VulkanBuffer vertices;
     VulkanBuffer indices;
+};
+
+struct FontInfoComp{
+    std::less<std::string> less = std::less<std::string>{};
+
+    bool operator()(const FontInfo& a, const FontInfo& b) const{
+        auto str_a = a.name + std::to_string(a.pixelSize);
+        auto str_b = b.name + std::to_string(b.pixelSize);
+
+        return less(str_a, str_b);
+    };
 };
 
 class ImGuiPlugin final : public Plugin{
@@ -53,6 +66,8 @@ public:
 
     void loadFonts();
 
+    ImFont* font(const std::string& name, float pixelSize);
+
     void newFrame() final;
 
     void updateMouse();
@@ -65,7 +80,7 @@ public:
 
     void onSwapChainRecreation() final;
 
-    void onDraw(VkCommandBuffer commandBuffer) final;
+    void draw(VkCommandBuffer commandBuffer) final;
 
     void setupRenderState(FrameRenderBuffers* rb, ImDrawData* draw_data, VkCommandBuffer command_buffer, int fb_width, int fb_height);
 
@@ -90,6 +105,8 @@ public:
     // FIXME replace with listener
     static void charCallBack(GLFWwindow* window, uint32_t c);
 
+    static std::map<FontInfo, ImFont*, FontInfoComp>  setFonts(const std::vector<FontInfo>& fontInfos);
+
 protected:
     VulkanDescriptorPool descriptorPool;
     VulkanDescriptorSetLayout descriptorSetLayout;
@@ -97,7 +114,7 @@ protected:
     VulkanPipelineLayout pipelineLayout;
     VulkanPipeline pipeline;
     VulkanPipelineCache pipelineCache;
-    std::vector<FontInfo> fonts;
+    std::map<FontInfo, ImFont*, FontInfoComp> fonts;
     Texture fontTexture;
 
     struct {
@@ -115,4 +132,6 @@ protected:
 
     double time = 0.0;
     uint32_t subpass;
+    bool drawRequested = true;
+
 };

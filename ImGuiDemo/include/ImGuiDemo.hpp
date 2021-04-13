@@ -5,7 +5,7 @@
 
 class ImGuiDemo : public VulkanBaseApp{
 public:
-    ImGuiDemo(std::vector<std::unique_ptr<Plugin>> plugins);
+    ImGuiDemo();
 
 protected:
     void initApp() override;

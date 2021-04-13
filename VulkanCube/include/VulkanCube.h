@@ -1,7 +1,6 @@
 #pragma once
 
 #include "VulkanBaseApp.h"
-#include "Font.h"
 #include "CappedSink.h"
 #include <spdlog/details/null_mutex.h>
 
@@ -59,7 +58,6 @@ private:
     VulkanBuffer indexBuffer;
     Texture texture;
     std::unique_ptr<BaseCameraController> cameraController;
-    Font* font;
     Vertices mesh;
     uint32_t numIndices;
     CappedSink<spdlog::details::null_mutex, 20> cappedSink;

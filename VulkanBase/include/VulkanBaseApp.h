@@ -33,6 +33,7 @@
 #include "VulkanStructs.h"
 #include "glm_format.h"
 #include "Plugin.hpp"
+#include "Settings.hpp"
 
 #ifdef NDBUG
 constexpr bool enableValidation = false;
@@ -63,40 +64,6 @@ using RenderPassInfo = std::tuple<std::vector<VkAttachmentDescription>,
                                   std::vector<SubpassDescription>,
                                   std::vector<VkSubpassDependency>>;
 
-/**
- * @file VulkanBaseApp.h
- * @breif Contains application startup settings
- */
-struct Settings{
-    /**
-     * sets if application should run in fullscreen or windowed mode
-     */
-    bool fullscreen = false;
-
-    /**
-     * mouse will be recentered if set
-     */
-    bool relativeMouseMode = false;
-
-    /**
-     * enables/disabbles depth testing
-     */
-    bool depthTest = false;
-
-    /**
-     * sets if draw calls should be synchronized with minotrs
-     * refresh rate
-     */
-    bool vSync = false;
-
-    int width = 1080;
-    int height = 720;
-
-    /**
-     * sets Vulkan features to enable
-     */
-    VkPhysicalDeviceFeatures enabledFeatures{};
-};
 
 /**
  * @file VulkanBaseApp.h
@@ -105,17 +72,22 @@ struct Settings{
 class VulkanBaseApp : protected Window, protected InputManager{
     friend class Plugin;
 public:
-    explicit VulkanBaseApp(std::string_view name, const Settings& settings = {}, std::vector<std::unique_ptr<Plugin>> plugins = {}, int width = 1280, int height = 720); // TODO move width/height to settings
+    explicit VulkanBaseApp(std::string_view name, const Settings& settings = {}, std::vector<std::unique_ptr<Plugin>> plugins = {});
 
+    virtual ~VulkanBaseApp();
     /**
      *  initializes the window, input managers Vulkan
      */
     void init();
 
+
+    void addPlugin(std::unique_ptr<Plugin>& plugin);
+
     /**
      * runs the application loop
      */
     void run();
+
 
     /**
      * loads a files from the file system
@@ -183,6 +155,8 @@ protected:
 
     void registerPluginEventListeners();
 
+    void updatePlugins(float dt);
+
     void cleanupPlugins();
 
     virtual void newFrame();
@@ -197,7 +171,7 @@ protected:
 
     void nextFrame();
 
-    void calculateFPS();
+    void calculateFPS(float dt);
 
     /**
      * subclasses should override this to update their scenes just before rendering
@@ -240,10 +214,12 @@ protected:
 
     bool isRunning() const;
 
-    Plugin& getPlugin(const std::string& name) {
-        for(auto& plugin : plugins){
+    template<typename PluginType = Plugin>
+    static PluginType& plugin(const std::string &name) {
+        assert(appInstance != nullptr && appInstance->ready);
+        for(auto& plugin : appInstance->plugins){
             if(plugin->name() == name){
-                return *plugin;
+                return reinterpret_cast<PluginType&>(*plugin);
             }
         }
         throw std::runtime_error{"Requested plugin not found"};
@@ -263,7 +239,7 @@ protected:
 
     std::vector<VulkanFramebuffer> framebuffers;
 
-    VmaAllocator memoryAllocator;
+    VmaAllocator memoryAllocator = VK_NULL_HANDLE;
 
     std::vector<VulkanSemaphore> imageAcquired;
     std::vector<VulkanSemaphore> renderingFinished;
@@ -275,7 +251,7 @@ protected:
     std::vector<const char*> deviceExtensions{
             VK_KHR_SWAPCHAIN_EXTENSION_NAME,
     };
-    VulkanExtensions ext;
+    VulkanExtensions ext{};
 
     Action* exit = nullptr;
     Action* pause = nullptr;
@@ -287,11 +263,16 @@ protected:
     DepthFormats depthFormats;
     DepthBuffer depthBuffer;
     bool depthTestEnabled = false;
-    bool vSync;
     bool swapChainInvalidated = false;
     VkPhysicalDeviceFeatures enabledFeatures{};
-    uint64_t frameCount = 0;
+    uint64_t totalFrames = 0;
     uint32_t framePerSecond = 0;
+    uint32_t frameCount = 0;
     uint32_t swapChainImageCount = 0;
     std::vector<std::unique_ptr<Plugin>> plugins;
+    Settings settings;
+    bool ready = false;
+
+private:
+    static VulkanBaseApp* appInstance;
 };

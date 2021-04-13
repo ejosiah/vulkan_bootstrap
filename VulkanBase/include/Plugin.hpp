@@ -63,11 +63,13 @@ public:
         return {};
     };
 
-    virtual void onDraw(VkCommandBuffer commandBuffer){}
+    virtual void draw(VkCommandBuffer commandBuffer){}
 
-    virtual std::vector<VkCommandBuffer> secondaryCommandBuffers(VkCommandBufferInheritanceInfo inheritanceInfo){
+    virtual std::vector<VkCommandBuffer> draw(VkCommandBufferInheritanceInfo inheritanceInfo){
         return {};
     };
+
+    virtual void update(float time) {}
 
     virtual void newFrame() {};
 

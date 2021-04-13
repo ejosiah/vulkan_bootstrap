@@ -1,13 +1,12 @@
+#include <ImGuiPlugin.hpp>
 #include "FontTest.h"
 #include "glm_format.h"
 
-FontTest::FontTest() :VulkanBaseApp("Font Test", {}, {}, 2048, 702) {
+FontTest::FontTest() :VulkanBaseApp("Font Test") {
 
 }
 
 void FontTest::initApp() {
-    Fonts::init(&device, &renderPass, 0, swapChain.imageCount(), &currentImageIndex, width, height);
-    font = Fonts::getFont(ARIAL, 10, FontStyle::NORMAL, {1, 1, 0});
     commandPool = device.createCommandPool(*device.queueFamilyIndex.graphics, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
     commandBuffers = commandPool.allocate(swapChain.imageCount());
     std::stringstream ss;
@@ -48,11 +47,7 @@ void FontTest::initApp() {
 
 
 void FontTest::update(float time) {
-  //  Fonts::updateProjection();
-    font->clear();
-    font->write(fmt::format("Frames: {}\nFPS: {}", frameCount, framePerSecond), 20, 50);
-    //font->write("Hello World, And well come to the world of Vulkan!", 20, 100);
-    font->write(msg, 20, 100);
+
 }
 
 
@@ -61,7 +56,7 @@ void FontTest::onSwapChainDispose() {
 }
 
 void FontTest::onSwapChainRecreation() {
-    Fonts::refresh(swapChain.extent.width, swapChain.extent.height, &renderPass);
+
 }
 
 VkCommandBuffer *FontTest::buildCommandBuffers(uint32_t imageIndex, uint32_t &numCommandBuffers) {
@@ -80,7 +75,21 @@ VkCommandBuffer *FontTest::buildCommandBuffers(uint32_t imageIndex, uint32_t &nu
     renderPassBeginInfo.clearValueCount = 1u;
     renderPassBeginInfo.pClearValues = &clear;
     vkCmdBeginRenderPass(commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-    font->draw(commandBuffer);
+
+
+    auto& imGuiPlugin = plugin<ImGuiPlugin>(IM_GUI_PLUGIN);
+    auto font = imGuiPlugin.font("Arial", 20);
+    ImGui::PushFont(font);
+    ImGuiWindowFlags flags = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMouseInputs | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoBackground;
+    ImGui::Begin("Font test", nullptr, flags);
+    ImGui::SetWindowSize({float(width), float(height)});
+    ImGui::TextColored({1, 1, 0, 1}, "Frames: %llu\nFPS: %d", frameCount, framePerSecond);
+    ImGui::TextColored({1, 1, 0, 1}, "Hello World, And well come to the world of Vulkan!");
+    ImGui::End();
+    ImGui::PopFont();
+
+
+    imGuiPlugin.draw(commandBuffer);
 
     vkCmdEndRenderPass(commandBuffer);
     vkEndCommandBuffer(commandBuffer);
@@ -89,13 +98,18 @@ VkCommandBuffer *FontTest::buildCommandBuffers(uint32_t imageIndex, uint32_t &nu
 }
 
 void FontTest::cleanup() {
-    Fonts::cleanup();
     VulkanBaseApp::cleanup();
 }
 
 int main(){
     try{
+        std::vector<FontInfo> fonts {
+                {"JetBrainsMono", R"(C:\Users\Josiah\Downloads\JetBrainsMono-2.225\fonts\ttf\JetBrainsMono-Regular.ttf)", 20},
+                {"Arial", R"(C:\Windows\Fonts\arial.ttf)", 20}
+        };
+        std::unique_ptr<Plugin> imGui = std::make_unique<ImGuiPlugin>(fonts);
         auto app = FontTest();
+        app.addPlugin(imGui);
         app.run();
     }catch(const std::runtime_error& err){
         spdlog::error(err.what());

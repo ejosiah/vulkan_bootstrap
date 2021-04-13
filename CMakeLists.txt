@@ -6,6 +6,12 @@ set(CMAKE_CXX_STANDARD 17)
 include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
 conan_basic_setup()
 
+add_definitions(
+        -DGLM_FORCE_RADIANS
+        -DGLFW_INCLUDE_VULKAN
+        -DGLM_FORCE_SWIZZLE
+)
+
 include_directories(3rdParty/include)
 include_directories(VulkanBase/include)
 include_directories(ImGuiPlugin/include)

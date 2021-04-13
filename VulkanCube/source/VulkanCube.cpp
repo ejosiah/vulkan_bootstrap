@@ -2,7 +2,7 @@
 
 #include  <stb_image.h>
 
-VulkanCube::VulkanCube(const Settings& settings): VulkanBaseApp("VulkanCube", settings, {}, 1080, 720){}
+VulkanCube::VulkanCube(const Settings& settings): VulkanBaseApp("VulkanCube", settings, {}){}
 
 void VulkanCube::initApp() {
     createCommandPool();
@@ -31,8 +31,6 @@ void VulkanCube::initApp() {
     createGraphicsPipeline();
     createCommandBuffer();
 
-    Fonts::init(&device, &renderPass, 0, swapChain.imageCount(), &currentImageIndex, width, height);
-    font = Fonts::getFont(JET_BRAINS_MONO, 15, FontStyle::NORMAL, {1, 1, 0});
 }
 
 void VulkanCube::onSwapChainDispose() {
@@ -51,7 +49,6 @@ void VulkanCube::onSwapChainRecreation() {
     cameraController->onResize(swapChain.extent.width, swapChain.extent.height);
     createGraphicsPipeline();
     createCommandBuffer();
-    Fonts::refresh(swapChain.extent.width, swapChain.extent.height, &renderPass);
 }
 
 void VulkanCube::
@@ -166,7 +163,6 @@ VkCommandBuffer* VulkanCube::buildCommandBuffers(uint32_t imageIndex, uint32_t& 
 //        vkCmdDraw(commandBuffers[i], 3, 1, 0, 0);
 
 //    vkCmdNextSubpass(commandBuffers[i], VK_SUBPASS_CONTENTS_INLINE);
-    font->draw(commandBuffers[i]);
 
     vkCmdEndRenderPass(commandBuffers[i]);
 
@@ -176,8 +172,8 @@ VkCommandBuffer* VulkanCube::buildCommandBuffers(uint32_t imageIndex, uint32_t& 
 
 void VulkanCube::update(float time) {
     cameraController->update(time);
-    font->clear();
-    font->write(fmt::format("Frames: {}\nFPS: {}", frameCount, framePerSecond), 20, 50);
+//    font->clear();
+//    font->write(fmt::format("Frames: {}\nFPS: {}", frameCount, framePerSecond), 20, 50);
 }
 
 void VulkanCube::checkAppInputs() {
@@ -288,7 +284,7 @@ void VulkanCube::createDescriptorSetLayout() {
 }
 
 void VulkanCube::cleanup() {
-    Fonts::cleanup();
+ //   Fonts::cleanup();
     VulkanBaseApp::cleanup();
 }
 
@@ -304,6 +300,8 @@ int main() {
         settings.vSync = false;
         settings.depthTest = true;
         settings.relativeMouseMode = false;
+        settings.width = 1080;
+        settings.height = 720;
         VulkanCube app{settings};
         app.run();
     }catch(const std::runtime_error& err){

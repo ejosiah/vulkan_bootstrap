@@ -41,16 +41,21 @@ ShaderModule::~ShaderModule() {
 }
 
 
-VulkanBaseApp::VulkanBaseApp(std::string_view name, const Settings& settings, std::vector<std::unique_ptr<Plugin>> plugins, int width, int height)
-: Window(name, width, height, settings.fullscreen)
+VulkanBaseApp::VulkanBaseApp(std::string_view name, const Settings& settings, std::vector<std::unique_ptr<Plugin>> plugins)
+: Window(name, settings.width, settings.height, settings.fullscreen)
 , InputManager(settings.relativeMouseMode)
 , enabledFeatures(settings.enabledFeatures)
 , depthTestEnabled(settings.depthTest)
-, vSync(settings.vSync)
+, settings(settings)
 , plugins(std::move(plugins))
 {
+    appInstance = this;
 }
 
+VulkanBaseApp::~VulkanBaseApp(){
+    ready = false;
+    appInstance = nullptr;
+}
 
 void VulkanBaseApp::init() {
     initWindow();
@@ -60,6 +65,7 @@ void VulkanBaseApp::init() {
     initVulkan();
     initPlugins();
     initApp();
+    ready = true;
 }
 
 void VulkanBaseApp::initWindow() {
@@ -124,8 +130,10 @@ void VulkanBaseApp::createInstance() {
 }
 
 void VulkanBaseApp::createSwapChain() {
-    glfwGetFramebufferSize(window, &width, &height);
-    swapChain = VulkanSwapChain{ device, surface, static_cast<uint32_t>(width), static_cast<uint32_t>(height), vSync};
+    glfwGetFramebufferSize(window, &width, &height);    // TODO use settings and remove width/height
+    settings.width = width;
+    settings.height = height;
+    swapChain = VulkanSwapChain{ device, surface, settings};
     swapChainImageCount = swapChain.imageCount();
 }
 
@@ -179,6 +187,9 @@ void VulkanBaseApp::pickPhysicalDevice() {
     spdlog::info("selected device: {}", device.name());
 }
 
+void VulkanBaseApp::addPlugin(std::unique_ptr<Plugin>& plugin) {
+    plugins.push_back(std::move(plugin));
+}
 
 void VulkanBaseApp::run() {
     init();
@@ -193,6 +204,11 @@ void VulkanBaseApp::mainLoop() {
         recenter();
         glfwPollEvents();
 
+        if(swapChainInvalidated){
+            swapChainInvalidated = false;
+            recreateSwapChain();
+        }
+
         checkSystemInputs();
 
         if(!paused) {
@@ -205,10 +221,6 @@ void VulkanBaseApp::mainLoop() {
         }else{
             glfwSetTime(elapsedTime);
             onPause();
-        }
-        if(swapChainInvalidated){
-            swapChainInvalidated = false;
-            recreateSwapChain();
         }
     }
 
@@ -334,7 +346,7 @@ void VulkanBaseApp::createSyncObjects() {
 }
 
 void VulkanBaseApp::drawFrame() {
-
+    if(swapChainInvalidated) return;
     frameCount++;
     inFlightFences[currentFrame].wait();
     auto imageIndex = swapChain.acquireNextImage(imageAcquired[currentFrame]);
@@ -351,17 +363,16 @@ void VulkanBaseApp::drawFrame() {
     }
     inFlightImages[imageIndex] = &inFlightFences[currentFrame];
 
-    update(getTime());
-    calculateFPS();
+    auto time = getTime();
+    updatePlugins(time);
+    update(time);
+    calculateFPS(time);
 
     VkPipelineStageFlags flags = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
     uint32_t commandBufferCount;
     auto commandBuffers = buildCommandBuffers(imageIndex, commandBufferCount);
 
-//    for(auto& plugin : plugins){
-//        plugin->onDraw(*commandBuffers);
-//    }
 
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -376,14 +387,6 @@ void VulkanBaseApp::drawFrame() {
     inFlightFences[currentFrame].reset();
 
     ASSERT(vkQueueSubmit(device.queues.graphics, 1, &submitInfo, inFlightFences[currentFrame]));
-
-//    swapChain.present(imageIndex, { renderingFinished[currentFrame] });
-//    if(swapChain.isSubOptimal() || swapChain.isOutOfDate() || resized) {
-//        resized = false;
-//        recreateSwapChain();
-//        return;
-//    }
-//    currentFrame = (currentFrame + 1)%MAX_IN_FLIGHT_FRAMES;
 }
 
 void VulkanBaseApp::presentFrame() {
@@ -401,8 +404,18 @@ void VulkanBaseApp::nextFrame() {
     currentFrame = (currentFrame + 1)%MAX_IN_FLIGHT_FRAMES;
 }
 
-void VulkanBaseApp::calculateFPS() {
-    framePerSecond = frameCount / elapsedTime;
+void VulkanBaseApp::calculateFPS(float dt) {
+    static float oneSecond = 0.f;
+
+    oneSecond += dt;
+
+    if(oneSecond > 1.0f){
+        framePerSecond = frameCount;
+        totalFrames += frameCount;
+        frameCount = 0;
+        oneSecond = 0.f;
+    }
+  //  framePerSecond = frameCount / elapsedTime;
 }
 
 void VulkanBaseApp::recreateSwapChain() {
@@ -527,3 +540,10 @@ void VulkanBaseApp::registerPluginEventListeners() {
     }
 }
 
+void VulkanBaseApp::updatePlugins(float dt){
+    for(auto& plugin : plugins){
+        plugin->update(dt);
+    }
+}
+
+VulkanBaseApp* VulkanBaseApp::appInstance = nullptr;

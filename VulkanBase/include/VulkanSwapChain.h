@@ -3,20 +3,23 @@
 #include "common.h"
 #include "VulkanDevice.h"
 #include "VulkanSurface.h"
+#include "Settings.hpp"
 
 struct VulkanSwapChain{
 
     VulkanSwapChain() = default;
 
-    inline VulkanSwapChain(const VulkanDevice& device, const VulkanSurface& surface, uint32_t width, uint32_t height, bool vSync,  VkSwapchainKHR oldSwapChain = VK_NULL_HANDLE){
+    inline VulkanSwapChain(const VulkanDevice& device, const VulkanSurface& surface, const Settings& settings,  VkSwapchainKHR oldSwapChain = VK_NULL_HANDLE)
+    : preferredSurfaceFormat(settings.surfaceFormat)
+    {
         auto capabilities = surface.getCapabilities(device);
         auto formats = surface.getFormats(device);
         auto presentModes = surface.getPresentModes(device);
 
       //  extent = capabilities
         VkSurfaceFormatKHR surfaceFormat = choose(formats);
-        auto presentMode = choose(presentModes, vSync);
-        auto extent = chooseExtent(capabilities, {width, height});
+        auto presentMode = choose(presentModes, settings.vSync);
+        auto extent = chooseExtent(capabilities, {settings.width, settings.height});
 
         VkSwapchainCreateInfoKHR createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
@@ -84,8 +87,8 @@ struct VulkanSwapChain{
     }
 
     inline VkSurfaceFormatKHR choose(const std::vector<VkSurfaceFormatKHR>& formats) {
-        auto itr = std::find_if(begin(formats), end(formats), [](const auto& fmt){
-           return fmt.format == VK_FORMAT_B8G8R8A8_SRGB && fmt.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
+        auto itr = std::find_if(begin(formats), end(formats), [&](const auto& fmt){
+           return fmt.format == preferredSurfaceFormat.format && fmt.colorSpace == preferredSurfaceFormat.colorSpace;
         });
         return itr != end(formats) ?  *itr : formats.front();
     }
@@ -172,7 +175,8 @@ struct VulkanSwapChain{
     }
 
     VkSwapchainKHR swapChain = VK_NULL_HANDLE;
-    VulkanDevice* device;
+    VulkanDevice* device = nullptr;
+    VkSurfaceFormatKHR preferredSurfaceFormat{};
     VkFormat format = VK_FORMAT_UNDEFINED;
     VkExtent2D extent{0, 0};
     std::vector<VkImage> images;

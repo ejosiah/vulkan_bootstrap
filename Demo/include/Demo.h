@@ -1,9 +1,7 @@
 #pragma once
 
-#define GLM_FORCE_SWIZZLE
 #include "VulkanBaseApp.h"
 #include "VulkanModel.h"
-#include "Font.h"
 
 constexpr float     FLOOR_WIDTH = 8.0f;
 constexpr float     FLOOR_HEIGHT = 8.0f;
@@ -101,6 +99,8 @@ protected:
 
     std::string menu() const;
 
+    void displayMenu(VkCommandBuffer commandBuffer);
+
 private:
     VulkanCommandPool commandPool;
     std::vector<VkCommandBuffer> commandBuffers;
@@ -119,9 +119,13 @@ private:
         VulkanPipelineLayout floorLayout;
     } layouts;
     bool displayHelp = false;
-    Action& help;
+
+    struct {
+        Action* help;
+        Action* toggleVSync;
+    } actions;
+
     int msaaSamples = 1;
     int maxAnisotrophy = 1;
-    Font* font = nullptr;
     std::string stuff;
 };

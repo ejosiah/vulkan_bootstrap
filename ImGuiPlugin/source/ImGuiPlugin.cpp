@@ -1,9 +1,10 @@
 #include "ImGuiPlugin.hpp"
 #include "ImGuiShaders.hpp"
 #include <VulkanShaderModule.h>
+#include <fmt/format.h>
 
-ImGuiPlugin::ImGuiPlugin(std::vector<FontInfo> fonts, uint32_t subpass)
-: fonts(std::move(fonts))
+ImGuiPlugin::ImGuiPlugin(std::vector<FontInfo> fontInfos, uint32_t subpass)
+: fonts(setFonts(fontInfos))
 , subpass(subpass)
 {
 
@@ -72,24 +73,8 @@ void ImGuiPlugin::createDescriptorSetLayout() {
 }
 
 void ImGuiPlugin::createDescriptorPool() {
-    std::vector<VkDescriptorPoolSize> pool_sizes =  // TODO we probably don't need this many
-            {
-                    {VK_DESCRIPTOR_TYPE_SAMPLER,                1000},
-                    {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000},
-                    {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,          1000},
-                    {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,          1000},
-                    {VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER,   1000},
-                    {VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER,   1000},
-                    {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         1000},
-                    {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,         1000},
-                    {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000},
-                    {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000},
-                    {VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,       1000}
-            };
-    VkDescriptorPoolCreateInfo pool_info = initializers::descriptorPoolCreateInfo(pool_sizes, COUNT(pool_sizes) * 1000,
-                                                                                  VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT);
-
-    descriptorPool = data.device->createDescriptorPool(COUNT(pool_sizes) * 1000, pool_sizes, VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT);
+    std::vector<VkDescriptorPoolSize> pool_sizes =   {{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1}};
+    descriptorPool = data.device->createDescriptorPool(COUNT(pool_sizes), pool_sizes, VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT);
 }
 
 
@@ -259,6 +244,7 @@ void ImGuiPlugin::mapInputs() {
 }
 
 void ImGuiPlugin::newFrame() {
+    if(!drawRequested) return;
     auto& io = ImGui::GetIO();
 
     IM_ASSERT(io.Fonts->IsBuilt() && "Font atlas not built! It is generally built by the renderer backend. Missing call to renderer _NewFrame() function? e.g. ImGui_ImplOpenGL3_NewFrame().");
@@ -280,6 +266,7 @@ void ImGuiPlugin::newFrame() {
     updateMouse();
     updateMouseCursor();
     ImGui::NewFrame();
+    drawRequested = false;
 }
 
 void ImGuiPlugin::updateMouse() {
@@ -344,8 +331,9 @@ void ImGuiPlugin::onSwapChainRecreation() {
 
 void ImGuiPlugin::loadFonts() {
     auto io = ImGui::GetIO();
-    for(const FontInfo& fontInfo : fonts){
-        io.Fonts->AddFontFromFileTTF(fontInfo.path.string().c_str(), fontInfo.pixelSize);
+    io.Fonts->AddFontDefault();
+    for(auto [fontInfo, _] : fonts){
+        fonts[fontInfo] = io.Fonts->AddFontFromFileTTF(fontInfo.path.string().c_str(), fontInfo.pixelSize);
     }
 
     unsigned char* pixels;
@@ -432,7 +420,8 @@ void ImGuiPlugin::checkKeyMods(ImGuiIO& io, const KeyEvent &event) {
 #endif
 }
 
-void ImGuiPlugin::onDraw(VkCommandBuffer command_buffer) {
+void ImGuiPlugin::draw(VkCommandBuffer command_buffer) {
+    drawRequested = true;
     ImGui::Render();
     auto draw_data = ImGui::GetDrawData();
     // Avoid rendering when minimized, scale coordinates for retina displays (screen coordinates != framebuffer coordinates)
@@ -577,5 +566,23 @@ void ImGuiPlugin::setupRenderState(FrameRenderBuffers* rb, ImDrawData* draw_data
         vkCmdPushConstants(command_buffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, sizeof(float) * 0, sizeof(float) * 2, scale);
         vkCmdPushConstants(command_buffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, sizeof(float) * 2, sizeof(float) * 2, translate);
     }
+}
+
+std::map<FontInfo, ImFont *, FontInfoComp> ImGuiPlugin::setFonts(const std::vector<FontInfo> &fontInfos) {
+    std::map<FontInfo, ImFont *, FontInfoComp> fonts;
+    for(const auto& info : fontInfos){
+        fonts.insert(std::make_pair(info, nullptr));
+    }
+    return fonts;
+}
+
+ImFont *ImGuiPlugin::font(const std::string& name, float pixelSize) {
+    auto key = name + std::to_string(pixelSize);
+    for(auto& [fontInfo, font] : fonts){
+        if(fontInfo.name == name  && fontInfo.pixelSize == pixelSize){
+            return font;
+        }
+    }
+    throw std::runtime_error{fmt::format("requested font: {}, size: {}, was not previously loaded", name, pixelSize)};
 }
 
