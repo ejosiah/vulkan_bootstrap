@@ -70,6 +70,21 @@ void Window::initWindow() {
         height = vidMode->height;
     }
 
+    if(!monitor){
+        int count;
+        auto* modes = glfwGetVideoModes(glfwGetPrimaryMonitor(), &count);
+        int maxHeight = std::numeric_limits<int>::min();
+        int maxWidth = std::numeric_limits<int>::min();
+
+        for(auto i = 0; i < count; i++){
+            auto& mode = modes[i];
+            maxWidth = std::max(maxWidth, mode.width);
+            maxHeight = std::max(maxHeight, mode.height);
+        }
+        if(width > maxWidth) width = maxWidth;
+        if(height > maxHeight) height = maxHeight;
+    }
+
     window = glfwCreateWindow(width, height, title.data(), monitor, nullptr);
 
     glfwSetWindowUserPointer(window, this);
