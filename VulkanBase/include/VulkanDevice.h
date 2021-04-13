@@ -207,6 +207,10 @@ struct VulkanDevice{
         return memoryProperties;
     }
 
+    VkPhysicalDeviceLimits getLimits() const {
+        return getProperties().limits;
+    }
+
     [[nodiscard]]
     bool supportsMemoryType(VkMemoryPropertyFlags flags) const {
         auto memoryProps = getMemoryProperties();

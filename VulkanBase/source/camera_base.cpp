@@ -381,3 +381,7 @@ void BaseCameraController::onPositionChanged() {
 
 }
 
+const glm::quat &BaseCameraController::getOrientation() const {
+    return orientation;
+}
+

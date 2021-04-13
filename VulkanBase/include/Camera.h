@@ -9,15 +9,19 @@ enum class CameraMode{
     FIRST_PERSON,
     SPECTATOR,
     FLIGHT,
-    ORBIT
+    ORBIT,
+    NONE
 };
 
-struct CameraSettings : public FirstPersonSpectatorCameraSettings, public FlightCameraSettings, public OrbitingCameraSettings{
-    CameraMode mode = CameraMode::SPECTATOR;
+struct CameraSettings : BaseCameraSettings{
+    FirstPersonSpectatorCameraSettings firstPerson;
+    FlightCameraSettings flight;
+    OrbitingCameraSettings orbit;
+    CameraMode mode = CameraMode::NONE;
 };
 
-class CameraController : public AbstractCamera {
-protected:
+class CameraController final : public AbstractCamera {
+public:
     CameraController(const VulkanDevice& device, uint32_t swapChainImageCount
             , const uint32_t& currentImageInde, InputManager& inputManager
             , const CameraSettings& settings);
@@ -27,6 +31,8 @@ protected:
     void update(float time) final;
 
     void processInput() final;
+
+    void setMode(CameraMode mode);
 
     void lookAt(const glm::vec3 &eye, const glm::vec3 &target, const glm::vec3 &up) final;
 
@@ -58,10 +64,26 @@ protected:
 
     void push(VkCommandBuffer commandBuffer, VkPipelineLayout layout, const glm::mat4& model) final;
 
+    const glm::vec3 &position() const final;
+
+    const glm::vec3 &velocity() const final;
+
+    const glm::vec3 &acceleration() const final;
+
     std::string mode() const;
 
     [[nodiscard]]
     const Camera& cam() const final;
+
+    bool isInFirstPersonMode() const;
+
+    bool isInSpectatorMode() const;
+
+    bool isInFlightMode() const;
+
+    bool isInObitMode() const;
+
+    const glm::quat &getOrientation() const final;
 
 private:
     CameraMode currentMode;

@@ -1,5 +1,7 @@
 #include "ImGuiPlugin.hpp"
 #include "Demo.h"
+
+#include <memory>
 #include "Mesh.h"
 #include "ImGuiPlugin.hpp"
 
@@ -8,6 +10,10 @@ Demo::Demo(const Settings &settings)
 {
     actions.help = &mapToKey(Key::H, "Help menu", Action::detectInitialPressOnly());
     actions.toggleVSync = &mapToKey(Key::V, "Toggle VSync", Action::detectInitialPressOnly());
+    cameraModes.flight = &mapToKey(Key::_1, "First person camera", Action::detectInitialPressOnly());
+    cameraModes.spectator = &mapToKey(Key::_2, "Spectator camera", Action::detectInitialPressOnly());
+    cameraModes.flight = &mapToKey(Key::_3, "Flight Camera", Action::detectInitialPressOnly());
+    cameraModes.orbit = &mapToKey(Key::_4, "Orbit Camera",Action::detectInitialPressOnly());
 }
 
 void Demo::initApp() {
@@ -18,7 +24,8 @@ void Demo::initApp() {
     loadSpaceShip();
     createPipelines();
     initCamera();
-    stuff = menu();
+    msaaSamples = settings.msaaSamples;
+    maxAnisotrophy = device.getLimits().maxSamplerAnisotropy;
 }
 
 void Demo::createDescriptorPool() {
@@ -30,20 +37,24 @@ void Demo::createDescriptorPool() {
 }
 
 void Demo::initCamera() {
-    OrbitingCameraSettings settings{};
+    CameraSettings settings{};
     settings.aspectRatio = static_cast<float>(swapChain.extent.width)/static_cast<float>(swapChain.extent.height);
-    settings.orbitMinZoom = CAMERA_ZOOM_MIN;
-    settings.orbitMaxZoom = CAMERA_ZOOM_MAX;
+    settings.orbit.orbitMinZoom = CAMERA_ZOOM_MIN;
+    settings.orbit.orbitMaxZoom = CAMERA_ZOOM_MAX;
     settings.acceleration = CAMERA_ACCELERATION;
     settings.velocity = CAMERA_VELOCITY;
-    settings.offsetDistance = CAMERA_ZOOM_MIN + (CAMERA_ZOOM_MAX - CAMERA_ZOOM_MIN) * 0.3F;
+    settings.orbit.offsetDistance = CAMERA_ZOOM_MIN + (CAMERA_ZOOM_MAX - CAMERA_ZOOM_MIN) * 0.3F;
     settings.rotationSpeed = 0.1f;
     settings.fieldOfView = CAMERA_FOVX;
     settings.zNear = CAMERA_ZNEAR;
     settings.zFar = CAMERA_ZFAR;
     settings.horizontalFov = true;
-    settings.modelHeight = spaceShip.height();
-    cameraController = std::make_unique<OrbitingCameraController>(device, swapChain.imageCount(), currentImageIndex, dynamic_cast<InputManager&>(*this), settings);
+    settings.orbit.modelHeight = spaceShip.height();
+//    CameraController(const VulkanDevice& device, uint32_t swapChainImageCount
+//            , const uint32_t& currentImageInde, InputManager& inputManager
+//            , const CameraSettings& settings);
+    cameraController = std::make_unique<CameraController>(device, swapChain.imageCount(), currentImageIndex, dynamic_cast<InputManager&>(*this), settings);
+    cameraController->setMode(CameraMode::ORBIT);
 }
 
 void Demo::loadSpaceShip() {
@@ -287,16 +298,19 @@ VkCommandBuffer *Demo::buildCommandBuffers(uint32_t imageIndex, uint32_t &numCom
 
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.spaceShip);
 
-    cameraController->updateModel();
-    cameraController->push(commandBuffer, layouts.spaceShipLayout);
-    int numPrims = spaceShip.primitives.size();
-    for(auto i = 0; i < numPrims; i++){
-        auto& primitive = spaceShip.primitives[i];
-       // vkCmdPushConstants(commandBuffer, layouts.spaceShipLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0U, sizeof(Camera) + sizeof(Material), pushConstants);
-       vkCmdPushConstants(commandBuffer, layouts.spaceShipLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(Camera), sizeof(Material), &spaceShip.materials[i]);
-        vkCmdBindVertexBuffers(commandBuffer, 0, 1, spaceShip.vertices[i], &offset);
-        vkCmdBindIndexBuffer(commandBuffer, spaceShip.indices[i], 0, VK_INDEX_TYPE_UINT32);
-        vkCmdDrawIndexed(commandBuffer, primitive.indexCount, 1, primitive.firstIndex, 0, 0);
+
+    if(cameraController->isInObitMode()) {
+        cameraController->push(commandBuffer, layouts.spaceShipLayout);
+        int numPrims = spaceShip.primitives.size();
+        for (auto i = 0; i < numPrims; i++) {
+            auto &primitive = spaceShip.primitives[i];
+            // vkCmdPushConstants(commandBuffer, layouts.spaceShipLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0U, sizeof(Camera) + sizeof(Material), pushConstants);
+            vkCmdPushConstants(commandBuffer, layouts.spaceShipLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(Camera),
+                               sizeof(Material), &spaceShip.materials[i]);
+            vkCmdBindVertexBuffers(commandBuffer, 0, 1, spaceShip.vertices[i], &offset);
+            vkCmdBindIndexBuffer(commandBuffer, spaceShip.indices[i], 0, VK_INDEX_TYPE_UINT32);
+            vkCmdDrawIndexed(commandBuffer, primitive.indexCount, 1, primitive.firstIndex, 0, 0);
+        }
     }
 
     displayMenu(commandBuffer);
@@ -308,9 +322,6 @@ VkCommandBuffer *Demo::buildCommandBuffers(uint32_t imageIndex, uint32_t &numCom
 }
 
 void Demo::update(float time) {
-//    font->clear();
-//    font->write(fmt::format("FPS: {}", framePerSecond), 10, 20);
-//    font->write(stuff, 10, 50);
     cameraController->update(time);
 }
 
@@ -322,6 +333,7 @@ void Demo::checkAppInputs() {
         settings.vSync = !settings.vSync;
         swapChainInvalidated = true;
     }
+
     cameraController->processInput();
 }
 
@@ -377,7 +389,7 @@ std::string Demo::menu() const {
 
         return ss.str();
     }else{
-        auto currentMode = "";
+        auto currentMode = cameraController->mode();
         auto orbitStyle = "";
         auto rotationSpeed = "";
         auto verticalSync = settings.vSync ? "enabled" : "disabled";
@@ -416,7 +428,7 @@ int main(){
         settings.vSync = false;
         settings.surfaceFormat.format = VK_FORMAT_B8G8R8A8_SRGB;
         settings.width = 2560;
-        settings.height = 1080;
+        settings.height = 720;
 
         std::vector<FontInfo> fonts {
                 {"JetBrainsMono", R"(C:\Users\Josiah\Downloads\JetBrainsMono-2.225\fonts\ttf\JetBrainsMono-Regular.ttf)", 20},

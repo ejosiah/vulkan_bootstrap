@@ -108,7 +108,7 @@ private:
 
     SpaceShip spaceShip;
     Floor floor;
-    std::unique_ptr<OrbitingCameraController> cameraController;
+    std::unique_ptr<CameraController> cameraController;
     struct {
         VulkanPipeline spaceShip;
         VulkanPipeline floor;
@@ -124,6 +124,13 @@ private:
         Action* help;
         Action* toggleVSync;
     } actions;
+
+    struct {
+        Action* firstPerson;
+        Action* spectator;
+        Action* flight;
+        Action* orbit;
+    } cameraModes;
 
     int msaaSamples = 1;
     int maxAnisotrophy = 1;

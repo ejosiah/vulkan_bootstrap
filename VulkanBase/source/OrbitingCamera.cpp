@@ -109,9 +109,9 @@ void OrbitingCameraController::rotate(float headingDegrees, float pitchDegrees, 
     updateViewMatrix();
 }
 
-void OrbitingCameraController::updateModel() {
-    camera.model = glm::mat4_cast(glm::inverse(model.orientation));
-    camera.model = glm::translate(camera.model, model.position);
+void OrbitingCameraController::updateModel(const glm::vec3& position, const glm::quat& orientation) {
+    model.orientation = glm::inverse(orientation);
+    model.position = position;
 }
 
 void OrbitingCameraController::updateViewMatrix() {
@@ -134,7 +134,13 @@ void OrbitingCameraController::onPositionChanged() {
     auto newEyes = eyes + zAxis * offsetDistance;
     auto newTarget = eyes;
     lookAt(newEyes, newTarget, targetYAxis);
-    updateModel();
-    model.position = eyes;
-    model.orientation = inverse(orientation);
+}
+
+void OrbitingCameraController::push(VkCommandBuffer commandBuffer, VkPipelineLayout layout) const {
+    camera.model = glm::mat4_cast(glm::inverse(model.orientation)) * translate(glm::mat4(1), model.position);
+    BaseCameraController::push(commandBuffer, layout);
+}
+
+void OrbitingCameraController::push(VkCommandBuffer commandBuffer, VkPipelineLayout layout, const glm::mat4 &model) {
+    BaseCameraController::push(commandBuffer, layout, model);
 }

@@ -61,5 +61,8 @@ public:
     virtual void push(VkCommandBuffer commandBuffer, VkPipelineLayout layout, const glm::mat4& model) = 0;
 
     [[nodiscard]]
+    virtual const glm::quat& getOrientation() const = 0;
+
+    [[nodiscard]]
     virtual const Camera& cam() const = 0;
 };

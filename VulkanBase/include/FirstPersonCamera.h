@@ -2,7 +2,7 @@
 
 #include "camera_base.h"
 
-struct FirstPersonSpectatorCameraSettings : BaseCameraSettings{
+struct FirstPersonSpectatorCameraSettings : public BaseCameraSettings{
 };
 
 class SpectatorCameraController : public BaseCameraController {

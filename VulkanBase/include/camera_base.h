@@ -84,12 +84,15 @@ public:
 
     void setModel(const glm::mat4& model) override;
 
-    void push(VkCommandBuffer commandBuffer, VkPipelineLayout layout) const final;
+    void push(VkCommandBuffer commandBuffer, VkPipelineLayout layout) const override;
 
-    void push(VkCommandBuffer commandBuffer, VkPipelineLayout layout, const glm::mat4& model) final;
+    void push(VkCommandBuffer commandBuffer, VkPipelineLayout layout, const glm::mat4& model) override;
 
     [[nodiscard]]
     const Camera& cam() const final;
+
+    [[nodiscard]]
+    const glm::quat &getOrientation() const final;
 
 protected:
     virtual void updateViewMatrix();
@@ -124,7 +127,7 @@ protected:
     glm::vec3 _velocity;
     glm::quat orientation;
     glm::vec3 direction;
-    Camera camera;
+    mutable Camera camera;
     const Mouse& mouse;
 
     float zoomAmount = 0;

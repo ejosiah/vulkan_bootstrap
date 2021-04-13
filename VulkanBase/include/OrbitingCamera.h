@@ -23,7 +23,7 @@ public:
 
     void update(float elapsedTime) override;
 
-    void updateModel();
+    void updateModel(const glm::vec3& position, const glm::quat& orientation);
 
     void move(float dx, float dy, float dz) override;
 
@@ -39,12 +39,16 @@ public:
 
     void onPositionChanged() final;
 
+    void push(VkCommandBuffer commandBuffer, VkPipelineLayout layout) const override;
+
+    void push(VkCommandBuffer commandBuffer, VkPipelineLayout layout, const glm::mat4 &model) override;
+
 private:
     float offsetDistance;
     float orbitRollSpeed;
     bool preferTargetYAxisOrbiting;
 
-    struct {
+    mutable struct {
         glm::vec3 position;
         glm::quat orientation;
     } model;
