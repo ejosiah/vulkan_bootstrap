@@ -6,7 +6,7 @@
 # Object files
 *.o
 *.ko
-*.obj
+*/bin/*.obj
 *.elf
 
 # Linker output
@@ -61,7 +61,7 @@ dkms.conf
 *.slo
 *.lo
 *.o
-*.obj
+*/bin/*.obj
 
 # Precompiled Headers
 *.gch
