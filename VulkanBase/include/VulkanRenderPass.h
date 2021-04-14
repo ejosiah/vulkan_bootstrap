@@ -15,6 +15,7 @@ struct VulkanRenderPass{
     :device(device)
     {
         std::vector<VkSubpassDescription> vkSubpassDescriptions;
+        vkSubpassDescriptions.reserve(subpassDescriptions.size());
         for(auto& subpassDescription : subpassDescriptions){
             vkSubpassDescriptions.push_back(subpassDescription);
         }

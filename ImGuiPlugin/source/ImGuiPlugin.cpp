@@ -130,7 +130,7 @@ void ImGuiPlugin::createPipeline() {
     raster_info.lineWidth = 1.0f;
 
     auto ms_info = initializers::multisampleState();
-    ms_info.rasterizationSamples = (data.msaaSamples != 0) ? data.msaaSamples : VK_SAMPLE_COUNT_1_BIT;
+    ms_info.rasterizationSamples =  data.msaaSamples;
 
     std::vector<VkPipelineColorBlendAttachmentState> color_attachment(1);
     color_attachment[0].blendEnable = VK_TRUE;

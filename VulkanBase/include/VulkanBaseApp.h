@@ -46,6 +46,12 @@ constexpr bool enableValidation = true;
 
 constexpr int MAX_IN_FLIGHT_FRAMES = 2;
 
+struct FramebufferAttachment{
+    VulkanImage image;
+    VulkanImageView imageView;
+};
+
+
 struct DepthFormats{
     std::vector<VkFormat> formats{
             VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT,
@@ -55,10 +61,8 @@ struct DepthFormats{
     VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL;
 };
 
-struct DepthBuffer{
-    VulkanImage image;
-    VulkanImageView imageView;
-};
+using DepthBuffer = FramebufferAttachment;
+using ColorBuffer = FramebufferAttachment;
 
 using RenderPassInfo = std::tuple<std::vector<VkAttachmentDescription>,
                                   std::vector<SubpassDescription>,
@@ -115,6 +119,8 @@ protected:
     void createSwapChain();
 
     void createDepthBuffer();
+
+    void createColorBuffer();
 
     VkFormat findDepthFormat();
 
@@ -262,7 +268,7 @@ protected:
     int currentFrame = 0;
     DepthFormats depthFormats;
     DepthBuffer depthBuffer;
-    bool depthTestEnabled = false;
+    ColorBuffer colorBuffer;
     bool swapChainInvalidated = false;
     VkPhysicalDeviceFeatures enabledFeatures{};
     uint64_t totalFrames = 0;

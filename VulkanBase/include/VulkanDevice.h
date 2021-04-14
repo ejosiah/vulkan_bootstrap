@@ -1,6 +1,7 @@
 #pragma once
 
 #include "common.h"
+#include "Settings.hpp"
 #include "VulkanBuffer.h"
 #include "VulkanRAII.h"
 #include "VulkanPipelineLayout.h"
@@ -31,9 +32,10 @@ struct VulkanDevice{
 
     VulkanDevice() = default;
 
-    explicit VulkanDevice(VkInstance instance, VkPhysicalDevice pDevice)
+    explicit VulkanDevice(VkInstance instance, VkPhysicalDevice pDevice, const Settings& settings)
     : instance(instance)
     , physicalDevice(pDevice)
+    , settings(settings)
     {
     }
 
@@ -207,8 +209,31 @@ struct VulkanDevice{
         return memoryProperties;
     }
 
-    VkPhysicalDeviceLimits getLimits() const {
+    inline VkPhysicalDeviceLimits getLimits() const {
         return getProperties().limits;
+    }
+
+    inline VkSampleCountFlagBits getMaxUsableSampleCount() const {
+        auto counts = getLimits().framebufferColorSampleCounts
+                        | (settings.depthTest ? getLimits().framebufferDepthSampleCounts : 0);
+
+        if(counts & VK_SAMPLE_COUNT_64_BIT){
+            return VK_SAMPLE_COUNT_64_BIT;
+        }
+        if(counts & VK_SAMPLE_COUNT_16_BIT){
+            return VK_SAMPLE_COUNT_16_BIT;
+        }
+        if(counts & VK_SAMPLE_COUNT_8_BIT){
+            return VK_SAMPLE_COUNT_8_BIT;
+        }
+        if(counts & VK_SAMPLE_COUNT_4_BIT){
+            return VK_SAMPLE_COUNT_4_BIT;
+        }
+        if(counts & VK_SAMPLE_COUNT_2_BIT){
+            return VK_SAMPLE_COUNT_2_BIT;
+        }
+
+        return VK_SAMPLE_COUNT_1_BIT;
     }
 
     [[nodiscard]]
@@ -444,5 +469,6 @@ struct VulkanDevice{
     VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
     VkDevice logicalDevice = VK_NULL_HANDLE;
     VmaAllocator allocator = VK_NULL_HANDLE;
+    Settings settings{};
     mutable std::map<uint32_t ,VulkanCommandPool> commandPools;
 };

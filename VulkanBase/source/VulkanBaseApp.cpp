@@ -45,7 +45,6 @@ VulkanBaseApp::VulkanBaseApp(std::string_view name, const Settings& settings, st
 : Window(name, settings.width, settings.height, settings.fullscreen)
 , InputManager(settings.relativeMouseMode)
 , enabledFeatures(settings.enabledFeatures)
-, depthTestEnabled(settings.depthTest)
 , settings(settings)
 , plugins(std::move(plugins))
 {
@@ -89,6 +88,7 @@ void VulkanBaseApp::initVulkan() {
     createLogicalDevice();
     createSwapChain();
 
+    createColorBuffer();
     createDepthBuffer();
     createRenderPass();
     createFramebuffer();
@@ -100,7 +100,7 @@ void VulkanBaseApp::initPlugins() {
 
     for(auto& plugin : plugins){
         spdlog::info("initializing plugin: {}", plugin->name());
-        plugin->set({ &instance, &device, &renderPass, &swapChain, window, &currentImageIndex});
+        plugin->set({ &instance, &device, &renderPass, &swapChain, window, &currentImageIndex, settings.msaaSamples});
         plugin->init();
     }
 }
@@ -138,20 +138,37 @@ void VulkanBaseApp::createSwapChain() {
 }
 
 void VulkanBaseApp::createDepthBuffer() {
-    if(depthTestEnabled) {
-        auto format = findDepthFormat();
-        VkImageCreateInfo createInfo = initializers::imageCreateInfo(
-                VK_IMAGE_TYPE_2D,
-                format,
-                VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-                swapChain.extent.width,
-                swapChain.extent.height);
+    if(!settings.depthTest) return;
 
-        depthBuffer.image = device.createImage(createInfo, VMA_MEMORY_USAGE_GPU_ONLY);
+    auto format = findDepthFormat();
+    VkImageCreateInfo createInfo = initializers::imageCreateInfo(
+            VK_IMAGE_TYPE_2D,
+            format,
+            VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+            swapChain.extent.width,
+            swapChain.extent.height);
+    createInfo.samples = settings.msaaSamples;
 
-        VkImageSubresourceRange subresourceRange = initializers::imageSubresourceRange(VK_IMAGE_ASPECT_DEPTH_BIT);
-        depthBuffer.imageView = depthBuffer.image.createView(format, VK_IMAGE_VIEW_TYPE_2D, subresourceRange);
-    }
+    depthBuffer.image = device.createImage(createInfo, VMA_MEMORY_USAGE_GPU_ONLY);
+
+    VkImageSubresourceRange subresourceRange = initializers::imageSubresourceRange(VK_IMAGE_ASPECT_DEPTH_BIT);
+    depthBuffer.imageView = depthBuffer.image.createView(format, VK_IMAGE_VIEW_TYPE_2D, subresourceRange);
+}
+
+void VulkanBaseApp::createColorBuffer(){
+    if(settings.msaaSamples == VK_SAMPLE_COUNT_1_BIT) return;
+
+    VkImageCreateInfo createInfo = initializers::imageCreateInfo(
+            VK_IMAGE_TYPE_2D,
+            swapChain.format,
+            VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+            swapChain.extent.width,
+            swapChain.extent.height);
+    createInfo.samples = settings.msaaSamples;
+
+    colorBuffer.image = device.createImage(createInfo, VMA_MEMORY_USAGE_GPU_ONLY);
+    VkImageSubresourceRange subresourceRange = initializers::imageSubresourceRange(VK_IMAGE_ASPECT_COLOR_BIT);
+    colorBuffer.imageView = colorBuffer.image.createView(swapChain.format, VK_IMAGE_VIEW_TYPE_2D, subresourceRange);
 }
 
 VkFormat VulkanBaseApp::findDepthFormat() {
@@ -176,7 +193,7 @@ void VulkanBaseApp::pickPhysicalDevice() {
 
     std::vector<VulkanDevice> devices(pDevices.size());
     std::transform(begin(pDevices), end(pDevices), begin(devices),[&](auto pDevice){
-        return VulkanDevice{instance, pDevice};
+        return VulkanDevice{instance, pDevice, settings};
     });
 
     std::sort(begin(devices), end(devices), [](auto& a, auto& b){
@@ -184,6 +201,7 @@ void VulkanBaseApp::pickPhysicalDevice() {
     });
 
     device = std::move(devices.front());
+    settings.msaaSamples = std::min(settings.msaaSamples, device.getMaxUsableSampleCount());
     spdlog::info("selected device: {}", device.name());
 }
 
@@ -259,9 +277,13 @@ void VulkanBaseApp::createFramebuffer() {
     framebuffers.resize(swapChain.imageCount());
     for(int i = 0; i < framebuffers.size(); i++){
         std::vector<VkImageView> attachments{ swapChain.imageViews[i]};
-        if(depthTestEnabled){
+        if(settings.depthTest){
             assert(depthBuffer.imageView.handle != VK_NULL_HANDLE);
             attachments.push_back(depthBuffer.imageView);
+        }
+        if(settings.msaaSamples != VK_SAMPLE_COUNT_1_BIT){
+            attachments.push_back(colorBuffer.imageView);
+            std::swap(attachments[0], attachments[attachments.size() - 1]);
         }
         framebuffers[i] = device.createFramebuffer(renderPass, attachments
                                                , static_cast<uint32_t>(width), static_cast<uint32_t>(height) );
@@ -275,15 +297,16 @@ void VulkanBaseApp::createRenderPass() {
 }
 
 RenderPassInfo VulkanBaseApp::buildRenderPass() {
+    bool msaaEnabled = settings.msaaSamples != VK_SAMPLE_COUNT_1_BIT;
     VkAttachmentDescription attachmentDesc{};
     attachmentDesc.format = swapChain.format;
-    attachmentDesc.samples = VK_SAMPLE_COUNT_1_BIT;
+    attachmentDesc.samples = settings.msaaSamples;
     attachmentDesc.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     attachmentDesc.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
     attachmentDesc.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
     attachmentDesc.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     attachmentDesc.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    attachmentDesc.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    attachmentDesc.finalLayout = msaaEnabled ? VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
 
     VkAttachmentReference ref{};
@@ -296,10 +319,10 @@ RenderPassInfo VulkanBaseApp::buildRenderPass() {
     subpassDesc.colorAttachments.push_back(ref);
 
     std::vector<VkAttachmentDescription> attachments{ attachmentDesc };
-    if(depthTestEnabled){
+    if(settings.depthTest){
         VkAttachmentDescription depthAttachment{};
         depthAttachment.format = depthBuffer.image.format;
-        depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+        depthAttachment.samples = settings.msaaSamples;
         depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
         depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
         depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
@@ -309,10 +332,28 @@ RenderPassInfo VulkanBaseApp::buildRenderPass() {
         attachments.push_back(depthAttachment);
 
         VkAttachmentReference depthRef{};
-        depthRef.attachment = 1;
+        depthRef.attachment = attachments.size() - 1;
         depthRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
         subpassDesc.depthStencilAttachments = depthRef;
+    }
+
+    if(msaaEnabled){
+        VkAttachmentDescription colorAttachmentResolve{};
+        colorAttachmentResolve.format = swapChain.format;
+        colorAttachmentResolve.samples = VK_SAMPLE_COUNT_1_BIT;
+        colorAttachmentResolve.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        colorAttachmentResolve.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        colorAttachmentResolve.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        colorAttachmentResolve.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        colorAttachmentResolve.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        colorAttachmentResolve.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+        attachments.push_back(colorAttachmentResolve);
+
+        VkAttachmentReference resolveRef{};
+        resolveRef.attachment = attachments.size() - 1;
+        resolveRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        subpassDesc.resolveAttachments.push_back(resolveRef);
     }
 
 
@@ -429,8 +470,11 @@ void VulkanBaseApp::recreateSwapChain() {
 
     createSwapChain();
 
-    if(depthTestEnabled){
+    if(settings.depthTest){
         createDepthBuffer();
+    }
+    if(settings.msaaSamples != VK_SAMPLE_COUNT_1_BIT){
+        createColorBuffer();
     }
     createRenderPass();
     createFramebuffer();
@@ -454,9 +498,13 @@ void VulkanBaseApp::cleanupSwapChain() {
     }
     dispose(renderPass);
 
-    if(depthTestEnabled){
+    if(settings.depthTest){
         dispose(depthBuffer.imageView);
         dispose(depthBuffer.image);
+    }
+    if(settings.msaaSamples != VK_SAMPLE_COUNT_1_BIT){
+        dispose(colorBuffer.imageView);
+        dispose(colorBuffer.imageView);
     }
 
     dispose(swapChain);

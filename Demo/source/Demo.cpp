@@ -24,7 +24,8 @@ void Demo::initApp() {
     loadSpaceShip();
     createPipelines();
     initCamera();
-    msaaSamples = settings.msaaSamples;
+    //msaaSamples = settings.msaaSamples;
+    msaaSamples = device.getMaxUsableSampleCount();
     maxAnisotrophy = device.getLimits().maxSamplerAnisotropy;
 }
 
@@ -195,6 +196,9 @@ void Demo::createPipelines() {
     rasterState.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 
     auto multisampleState = initializers::multisampleState();
+    multisampleState.rasterizationSamples = settings.msaaSamples;
+    multisampleState.sampleShadingEnable = VK_TRUE;
+    multisampleState.minSampleShading = 0.2f;
 
     auto depthStencilState = initializers::depthStencilState();
     depthStencilState.depthTestEnable = VK_TRUE;
@@ -429,6 +433,8 @@ int main(){
         settings.surfaceFormat.format = VK_FORMAT_B8G8R8A8_SRGB;
         settings.width = 2560;
         settings.height = 720;
+        settings.msaaSamples = VK_SAMPLE_COUNT_8_BIT;
+        settings.enabledFeatures.sampleRateShading = VK_TRUE;
 
         std::vector<FontInfo> fonts {
                 {"JetBrainsMono", R"(C:\Users\Josiah\Downloads\JetBrainsMono-2.225\fonts\ttf\JetBrainsMono-Regular.ttf)", 20},

@@ -81,4 +81,5 @@ public:
 
 protected:
     PluginData data{};
+    Settings settings{};
 };
