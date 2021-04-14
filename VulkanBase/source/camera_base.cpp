@@ -385,3 +385,11 @@ const glm::quat &BaseCameraController::getOrientation() const {
     return orientation;
 }
 
+void BaseCameraController::setTargetYAxis(const glm::vec3& axis) {
+    targetYAxis = axis;
+}
+
+const glm::vec3 &BaseCameraController::getYAxis() {
+    return yAxis;
+}
+

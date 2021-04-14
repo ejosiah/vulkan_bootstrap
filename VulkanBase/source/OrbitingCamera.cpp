@@ -137,7 +137,7 @@ void OrbitingCameraController::onPositionChanged() {
 }
 
 void OrbitingCameraController::push(VkCommandBuffer commandBuffer, VkPipelineLayout layout) const {
-    camera.model = glm::mat4_cast(glm::inverse(model.orientation)) * translate(glm::mat4(1), model.position);
+    camera.model = glm::mat4_cast(model.orientation) * translate(glm::mat4(1), model.position);
     BaseCameraController::push(commandBuffer, layout);
 }
 

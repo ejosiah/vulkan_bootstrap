@@ -84,6 +84,10 @@ public:
 
     void setModel(const glm::mat4& model) override;
 
+    void setTargetYAxis(const glm::vec3& axis);
+
+    const glm::vec3& getYAxis();
+
     void push(VkCommandBuffer commandBuffer, VkPipelineLayout layout) const override;
 
     void push(VkCommandBuffer commandBuffer, VkPipelineLayout layout, const glm::mat4& model) override;
