@@ -23,7 +23,7 @@ public:
 
     void update(float elapsedTime) override;
 
-    void updateModel(const glm::vec3& position, const glm::quat& orientation);
+    void updateModel(const glm::vec3& position, const glm::quat& orientation = {1, 0, 0, 0});
 
     void move(float dx, float dy, float dz) override;
 

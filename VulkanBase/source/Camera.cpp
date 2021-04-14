@@ -164,27 +164,23 @@ void CameraController::setMode(CameraMode mode) {
     auto newPos = cameras[prevMode]->position();
     switch(currentMode){
         case CameraMode::FIRST_PERSON:
-            if(prevMode == CameraMode::ORBIT){
-                newPos.xy = cameras[currentMode]->position().xy;
-            }
             newPos.y = cameras[currentMode]->position().y;
             cameras[currentMode]->position(newPos);
             break;
         case CameraMode::SPECTATOR:
         case CameraMode::FLIGHT:
-            if(prevMode == CameraMode::ORBIT){
-                newPos = cameras[currentMode]->position();
+            if(prevMode != CameraMode::ORBIT){
+                cameras[currentMode]->position(newPos);
             }
-            cameras[currentMode]->position(newPos);
             break;
         case CameraMode::ORBIT: {
-            auto prevOrientation = cameras[prevMode]->getOrientation();
             auto yAxis = cameras[prevMode]->getYAxis();
             auto orbitCam = dynamic_cast<OrbitingCameraController *>(cameras[currentMode].get());
-            orbitCam->updateModel(newPos, prevOrientation);
+            orbitCam->updateModel(newPos);
             orbitCam->setTargetYAxis(yAxis);
             orbitCam->position(newPos);
             orbitCam->rotate(0.0f, -30.0f, 0.0f);
+            auto pos = cameras[currentMode]->position();
             break;
         }
         case CameraMode::NONE:
