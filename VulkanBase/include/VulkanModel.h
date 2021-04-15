@@ -8,13 +8,13 @@ namespace vkn {
     struct Primitive {
         Primitive() = default;
 
-        Primitive(uint32_t firstIndex, uint32_t vertexCount, uint32_t firstVertex, uint32_t indexCount, uint32_t vertexOffset)
-                : firstIndex(firstIndex)
-                , indexCount(indexCount)
-                , firstVertex(firstVertex)
-                , vertexCount(vertexCount)
-                , vertexOffset(vertexOffset)
-                {};
+        static inline Primitive Vertices(uint32_t firstVertex, uint32_t vertexCount) {
+            return {0, vertexCount, firstVertex, 0, 0};
+        }
+
+        static inline Primitive indexed(uint32_t indexCount, uint32_t firstIndex, uint32_t vertexOffset) {
+            return {firstIndex, 0, 0, indexCount, vertexOffset};
+        }
 
         struct {
             glm::vec3 min = glm::vec3(std::numeric_limits<float>::max());
@@ -33,12 +33,21 @@ namespace vkn {
         uint32_t vertexOffset = 0;
 
         inline void draw(VkCommandBuffer commandBuffer, uint32_t firstInstance = 0, uint32_t instanceCount = 1) const {
-            if(indexCount > 0){
-                vkCmdDrawIndexed(commandBuffer, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
-            }else{
-                vkCmdDraw(commandBuffer, vertexCount, instanceCount, firstVertex, firstInstance);
-            }
+            vkCmdDraw(commandBuffer, vertexCount, instanceCount, firstVertex, firstInstance);
         }
+
+        inline void drawIndexed(VkCommandBuffer commandBuffer, uint32_t firstInstance = 0, uint32_t instanceCount = 1) const {
+            vkCmdDrawIndexed(commandBuffer, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
+        }
+
+    private:
+        Primitive(uint32_t firstIndex, uint32_t vertexCount, uint32_t firstVertex, uint32_t indexCount, uint32_t vertexOffset)
+                : firstIndex(firstIndex)
+                , indexCount(indexCount)
+                , firstVertex(firstVertex)
+                , vertexCount(vertexCount)
+                , vertexOffset(vertexOffset)
+        {};
     };
 
 }

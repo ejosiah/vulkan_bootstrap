@@ -83,24 +83,27 @@ void Demo::loadSpaceShip() {
     spdlog::info("min: {}, max: {}, center: {}", spaceShip.bounds.min, spaceShip.bounds.max, (spaceShip.bounds.min + spaceShip.bounds.max) * 0.5f);
 
 
-    VkDeviceSize vertexBufferSize = numVertices * sizeof(Vertex);
-    auto vertexStagingBuffer = device.createStagingBuffer(vertexBufferSize);
-    VkDeviceSize indexBufferSize = numIndices * sizeof(uint32_t);
-    auto indexStagingBuffer = device.createStagingBuffer(indexBufferSize);
+//    VkDeviceSize vertexBufferSize = numVertices * sizeof(Vertex);
+//    auto vertexStagingBuffer = device.createStagingBuffer(vertexBufferSize);
+//    VkDeviceSize indexBufferSize = numIndices * sizeof(uint32_t);
+//    auto indexStagingBuffer = device.createStagingBuffer(indexBufferSize);
 
 
-    VkDeviceSize offset = 0;
+    uint32_t firstVertex = 0;
+    uint32_t firstIndex = 0;
+    std::vector<char> indexBuffer(numIndices * sizeof(uint32_t));
+    std::vector<char> vertexBuffer(numVertices * sizeof(Vertex));
     for(auto& mesh : meshes){
-        auto vertices = device.createDeviceLocalBuffer(mesh.vertices.data(), sizeof(Vertex) * mesh.vertices.size(), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-        auto indices = device.createDeviceLocalBuffer(mesh.indices.data(), sizeof(uint32_t) * mesh.indices.size(), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+        auto size = mesh.vertices.size() * sizeof(Vertex);
+        void* dest = vertexBuffer.data() + firstVertex * sizeof(Vertex);
+        std::memcpy(dest, mesh.vertices.data(), size);
 
-        spaceShip.vertices.push_back(std::move(vertices));
-        spaceShip.indices.push_back(std::move(indices));
+        size = mesh.indices.size() * sizeof(mesh.indices[0]);
+        dest = indexBuffer.data() + firstIndex * sizeof(mesh.indices[0]);
+        std::memcpy(dest, mesh.indices.data(), size);
 
-
-        spaceShip.primitives.emplace_back(0, 0, 0,  uint32_t(mesh.indices.size()), 0);
-        spaceShip.offsets.push_back(offset);
-
+        auto primitive = vkn::Primitive::indexed(mesh.indices.size(), firstIndex, firstVertex);
+        spaceShip.primitives.push_back(primitive);
 
         Material material{};
         material.ambient = mesh.material.ambient;
@@ -108,8 +111,13 @@ void Demo::loadSpaceShip() {
         material.specular = mesh.material.specular;
         material.shininess = 128;
         spaceShip.materials.push_back(material);
-        offset += 1;
+
+        spaceShip.offsets.push_back(firstVertex);
+        firstVertex += mesh.vertices.size();
+        firstIndex += mesh.indices.size();
     }
+    spaceShip.vertexBuffer = device.createDeviceLocalBuffer(vertexBuffer.data(), numVertices * sizeof(Vertex), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+    spaceShip.indexBuffer = device.createDeviceLocalBuffer(indexBuffer.data(), numIndices * sizeof(uint32_t), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
 }
 
 
@@ -306,14 +314,14 @@ VkCommandBuffer *Demo::buildCommandBuffers(uint32_t imageIndex, uint32_t &numCom
     if(cameraController->isInObitMode()) {
         cameraController->push(commandBuffer, layouts.spaceShipLayout);
         int numPrims = spaceShip.primitives.size();
+        vkCmdBindVertexBuffers(commandBuffer, 0, 1, spaceShip.vertexBuffer, &offset);
+        vkCmdBindIndexBuffer(commandBuffer, spaceShip.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
         for (auto i = 0; i < numPrims; i++) {
-            auto &primitive = spaceShip.primitives[i];
             // vkCmdPushConstants(commandBuffer, layouts.spaceShipLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0U, sizeof(Camera) + sizeof(Material), pushConstants);
             vkCmdPushConstants(commandBuffer, layouts.spaceShipLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(Camera),
                                sizeof(Material), &spaceShip.materials[i]);
-            vkCmdBindVertexBuffers(commandBuffer, 0, 1, spaceShip.vertices[i], &offset);
-            vkCmdBindIndexBuffer(commandBuffer, spaceShip.indices[i], 0, VK_INDEX_TYPE_UINT32);
-            vkCmdDrawIndexed(commandBuffer, primitive.indexCount, 1, primitive.firstIndex, 0, 0);
+            spaceShip.primitives[i].drawIndexed(commandBuffer);
+
         }
     }
 

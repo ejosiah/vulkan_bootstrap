@@ -10,7 +10,7 @@ namespace initializers{
         const char*  entry = "main";
     };
 
-    static inline std::vector<VkPipelineShaderStageCreateInfo> vertexShaderStages(const std::vector<ShaderInfo>& shaderInfos){
+    inline std::vector<VkPipelineShaderStageCreateInfo> vertexShaderStages(const std::vector<ShaderInfo>& shaderInfos){
         std::vector<VkPipelineShaderStageCreateInfo> createInfos;
 
         for(auto& shaderInfo : shaderInfos){
@@ -24,6 +24,16 @@ namespace initializers{
         }
 
         return createInfos;
+    }
+
+    inline VkPipelineShaderStageCreateInfo computeShaderStage(const ShaderInfo& shaderInfo){
+        VkPipelineShaderStageCreateInfo createInfo{};
+        createInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        createInfo.stage = shaderInfo.stage;
+        createInfo.module = shaderInfo.module;
+        createInfo.pName = shaderInfo.entry;
+
+        return createInfo;
     }
 
     inline VkPipelineVertexInputStateCreateInfo vertexInputState(const std::vector<VkVertexInputBindingDescription>& bindings = {}, const std::vector<VkVertexInputAttributeDescription>& attributes = {}){
@@ -274,6 +284,16 @@ namespace initializers{
         return write;
     }
 
+    template<size_t size>
+    inline std::array<VkWriteDescriptorSet, size> writeDescriptorSets(VkDescriptorSet descriptorSet = VK_NULL_HANDLE) {
+        std::array<VkWriteDescriptorSet, size> writes{};
+        for(auto& write : writes){
+            write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            write.dstSet = descriptorSet;
+        }
+        return writes;
+    }
+
 
     constexpr VkGraphicsPipelineCreateInfo graphicsPipelineCreateInfo() {
         VkGraphicsPipelineCreateInfo createInfo{};
@@ -291,5 +311,22 @@ namespace initializers{
         createInfo.maxSets = maxSets;
 
         return createInfo;
+    }
+
+
+    inline VkComputePipelineCreateInfo computePipelineCreateInfo() {
+        VkComputePipelineCreateInfo createInfo{};
+        createInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+        return createInfo;
+    }
+
+
+    inline VkImageMemoryBarrier ImageMemoryBarrier() {
+        VkImageMemoryBarrier barrier{};
+        barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+
+        return barrier;
     }
 }

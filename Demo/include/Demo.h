@@ -30,8 +30,8 @@ struct Material{
 };
 
 struct SpaceShip{
-    std::vector<VulkanBuffer> vertices;
-    std::vector<VulkanBuffer> indices;
+    VulkanBuffer vertexBuffer;
+    VulkanBuffer indexBuffer;
     std::vector<VkDeviceSize> offsets;
     std::vector<vkn::Primitive> primitives;
     std::vector<Material> materials;

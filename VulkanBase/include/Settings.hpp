@@ -41,6 +41,8 @@ struct Settings{
 
     VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_1_BIT;
 
+    VkQueueFlags queueFlags = VK_QUEUE_GRAPHICS_BIT;
+
     /**
      * sets Vulkan features to enable
      */

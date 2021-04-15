@@ -182,7 +182,7 @@ VkFormat VulkanBaseApp::findDepthFormat() {
 }
 
 void VulkanBaseApp::createLogicalDevice() {
-    device.createLogicalDevice(enabledFeatures, deviceExtensions, validationLayers, surface, VK_QUEUE_GRAPHICS_BIT);
+    device.createLogicalDevice(enabledFeatures, deviceExtensions, validationLayers, surface, settings.queueFlags);
     memoryAllocator = device.allocator;
 }
 

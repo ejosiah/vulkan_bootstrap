@@ -13,6 +13,8 @@ public:
 protected:
     void initApp() final;
 
+    VkCommandBuffer& dispatchCompute();
+
     VkCommandBuffer *buildCommandBuffers(uint32_t imageIndex, uint32_t &numCommandBuffers) final;
 
     void update(float time) final;
@@ -31,9 +33,16 @@ protected:
 
     void createGraphicsPipeline();
 
+    void createComputeDescriptorSetLayout();
+
+    void createComputePipeline();
+
+    void createComputeImage();
+
 private:
     VulkanCommandPool commandPool;
     std::vector<VkCommandBuffer> commandBuffers;
+    std::vector<VkCommandBuffer> cpuCmdBuffers;
     VulkanPipelineLayout pipelineLayout;
     VulkanPipeline pipeline;
     VulkanBuffer vertexBuffer;
@@ -42,4 +51,11 @@ private:
     VulkanDescriptorSetLayout descriptorSetLayout;
     VkDescriptorSet descriptorSet;
     Texture texture;
+    struct {
+        VulkanDescriptorSetLayout descriptorSetLayout;
+        VulkanPipelineLayout pipelineLayout;
+        VkDescriptorSet descriptorSet;
+        VulkanPipeline pipeline;
+        Texture texture;
+    } compute;
 };

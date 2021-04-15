@@ -76,13 +76,13 @@ struct VulkanDevice{
     inline void initQueueFamilies(VkQueueFlags queueFlags, VkSurfaceKHR surface = VK_NULL_HANDLE){
         auto queueFamily = getQueueFamilyProperties();
         for(uint32_t i = 0; i < queueFamily.size(); i++){
-            if(!queueFamilyIndex.graphics && (queueFamily[i].queueFlags & queueFlags) == VK_QUEUE_GRAPHICS_BIT){
+            if(!queueFamilyIndex.graphics && (queueFamily[i].queueFlags & queueFlags) && (queueFlags & VK_QUEUE_GRAPHICS_BIT) == VK_QUEUE_GRAPHICS_BIT){
                 queueFamilyIndex.graphics = i;
             }
-            if(!queueFamilyIndex.compute && (queueFamily[i].queueFlags & queueFlags) == VK_QUEUE_COMPUTE_BIT){
+            if(!queueFamilyIndex.compute && (queueFamily[i].queueFlags & queueFlags) && (queueFlags & VK_QUEUE_COMPUTE_BIT) == VK_QUEUE_COMPUTE_BIT){
                queueFamilyIndex.compute = i;
             }
-            if(!queueFamilyIndex.transfer && (queueFamily[i].queueFlags & queueFlags) == VK_QUEUE_TRANSFER_BIT){
+            if(!queueFamilyIndex.transfer && (queueFamily[i].queueFlags & queueFlags) && (queueFlags & VK_QUEUE_TRANSFER_BIT) == VK_QUEUE_TRANSFER_BIT){
                 queueFamilyIndex.transfer = i;
             }
 
@@ -335,6 +335,13 @@ struct VulkanDevice{
         VkPipeline pipeline;
         ASSERT(vkCreateGraphicsPipelines(logicalDevice, pipelineCache, 1, &createInfo, nullptr, &pipeline));
         return VulkanPipeline { logicalDevice, pipeline};
+    }
+
+    inline VulkanPipeline createComputePipeline(const VkComputePipelineCreateInfo& createInfo, VkPipelineCache pipelineCache = VK_NULL_HANDLE){
+        assert(logicalDevice);
+        VkPipeline pipeline;
+        ASSERT(vkCreateComputePipelines(logicalDevice, pipelineCache, 1, &createInfo, nullptr, &pipeline));
+        return VulkanPipeline{ logicalDevice, pipeline};
     }
 
     inline std::vector<VulkanPipeline> createGraphicsPipelines(const std::vector<VkGraphicsPipelineCreateInfo>& createInfos, VkPipelineCache pipelineCache = VK_NULL_HANDLE) const {
