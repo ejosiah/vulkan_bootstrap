@@ -102,6 +102,7 @@ void VulkanBaseApp::initPlugins() {
         spdlog::info("initializing plugin: {}", plugin->name());
         plugin->set({ &instance, &device, &renderPass, &swapChain, window, &currentImageIndex, settings.msaaSamples});
         plugin->init();
+        registerPluginEventListeners(plugin.get());
     }
 }
 
@@ -575,17 +576,15 @@ void VulkanBaseApp::cleanupPlugins() {
     }
 }
 
-void VulkanBaseApp::registerPluginEventListeners() {
-    for(auto & plugin : plugins){
-        addWindowResizeListeners(plugin->windowResizeListener());
-        addMousePressListener(plugin->mousePressListener());
-        addMouseReleaseListener(plugin->mouseReleaseListener());
-        addMouseClickListener(plugin->mouseClickListener());
-        addMouseMoveListener(plugin->mouseMoveListener());
-        addMouseWheelMoveListener(plugin->mouseWheelMoveListener());
-        addKeyPressListener(plugin->keyPressListener());
-        addKeyReleaseListener(plugin->keyReleaseListener());
-    }
+void VulkanBaseApp::registerPluginEventListeners(Plugin* plugin) {
+    addWindowResizeListeners(plugin->windowResizeListener());
+    addMousePressListener(plugin->mousePressListener());
+    addMouseReleaseListener(plugin->mouseReleaseListener());
+    addMouseClickListener(plugin->mouseClickListener());
+    addMouseMoveListener(plugin->mouseMoveListener());
+    addMouseWheelMoveListener(plugin->mouseWheelMoveListener());
+    addKeyPressListener(plugin->keyPressListener());
+    addKeyReleaseListener(plugin->keyReleaseListener());
 }
 
 void VulkanBaseApp::updatePlugins(float dt){

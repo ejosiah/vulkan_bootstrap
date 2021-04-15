@@ -26,41 +26,36 @@ public:
     [[nodiscard]]
     virtual std::string name() const = 0;
 
-    [[nodiscard]]
-    virtual bool willRender() const {
-        return false;
-    };
-
     virtual MouseClickListener mouseClickListener(){
-        return {};
+        return [](const MouseEvent&){};
     };
 
     virtual MousePressListener mousePressListener(){
-        return {};
+        return [](const MouseEvent&){};
     };
 
     virtual MouseReleaseListener mouseReleaseListener(){
-        return {};
+        return [](const MouseEvent&){};
     };
 
     virtual MouseMoveListener mouseMoveListener(){
-        return {};
+        return [](const MouseEvent&){};
     };
 
     virtual MouseWheelMovedListener mouseWheelMoveListener(){
-        return {};
+        return [](const MouseEvent&){};
     };
 
     virtual KeyPressListener keyPressListener(){
-        return {};
+        return [](const KeyEvent&){};
     };
 
     virtual KeyReleaseListener keyReleaseListener(){
-        return {};
+        return [](const KeyEvent&){};
     };
 
     virtual WindowResizeListener windowResizeListener(){
-        return {};
+        return [](const ResizeEvent&){};
     };
 
     virtual void draw(VkCommandBuffer commandBuffer){}

@@ -1,6 +1,6 @@
 #include "ImGuiDemo.hpp"
 
-ImGuiDemo::ImGuiDemo() :VulkanBaseApp("ImGui Demo", {}) {}
+ImGuiDemo::ImGuiDemo(const Settings& settings) :VulkanBaseApp("ImGui Demo", settings) {}
 
 void ImGuiDemo::initApp() {
     commandPool = device.createCommandPool(*device.queueFamilyIndex.graphics, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
@@ -87,8 +87,9 @@ int main(){
         std::unique_ptr<Plugin> plugin = std::make_unique<ImGuiPlugin>();
 //        std::vector<std::unique_ptr<Plugin>> plugins;
 //        plugins.push_back(std::move(plugin));
-
-        auto app = ImGuiDemo{};
+        Settings settings;
+        settings.vSync = true;
+        auto app = ImGuiDemo{settings};
         app.addPlugin(plugin);
         app.run();
     }catch(std::runtime_error& err){

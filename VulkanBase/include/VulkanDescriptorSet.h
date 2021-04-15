@@ -8,7 +8,8 @@ struct VulkanDescriptorPool{
 
     VulkanDescriptorPool() = default;
 
-    VulkanDescriptorPool(VkDevice device, uint32_t maxSet, const std::vector<VkDescriptorPoolSize>& poolSizes, VkDescriptorPoolCreateFlags flags = 0)
+    template<typename PoolSizes>
+    VulkanDescriptorPool(VkDevice device, uint32_t maxSet, const PoolSizes& poolSizes, VkDescriptorPoolCreateFlags flags = 0)
             :device(device)
     {
         VkDescriptorPoolCreateInfo createInfo{};

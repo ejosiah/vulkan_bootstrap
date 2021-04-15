@@ -159,7 +159,7 @@ protected:
 
     void notifyPluginsOfSwapChainRecreation();
 
-    void registerPluginEventListeners();
+    void registerPluginEventListeners(Plugin* plugin);
 
     void updatePlugins(float dt);
 

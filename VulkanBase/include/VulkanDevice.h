@@ -355,12 +355,14 @@ struct VulkanDevice{
         return VulkanPipelineLayout{ logicalDevice, layouts, ranges };
     }
 
-    [[nodiscard]] inline VulkanDescriptorPool createDescriptorPool(uint32_t maxSet, const std::vector<VkDescriptorPoolSize>& poolSizes, VkDescriptorPoolCreateFlags flags = 0) const {
+    template<typename PoolSizes>
+    [[nodiscard]] inline VulkanDescriptorPool createDescriptorPool(uint32_t maxSet, const PoolSizes& poolSizes, VkDescriptorPoolCreateFlags flags = 0) const {
         assert(logicalDevice);
         return VulkanDescriptorPool{ logicalDevice, maxSet, poolSizes, flags};
     }
 
-    [[nodiscard]] inline VulkanDescriptorSetLayout createDescriptorSetLayout(const std::vector<VkDescriptorSetLayoutBinding>& bindings, VkDescriptorSetLayoutCreateFlags flags = 0u) const {
+    template<typename Bindings>
+    [[nodiscard]] inline VulkanDescriptorSetLayout createDescriptorSetLayout(const Bindings& bindings, VkDescriptorSetLayoutCreateFlags flags = 0u) const {
         assert(logicalDevice);
         VkDescriptorSetLayoutCreateInfo createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;

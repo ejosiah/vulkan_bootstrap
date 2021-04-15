@@ -5,7 +5,7 @@
 
 class ImGuiDemo : public VulkanBaseApp{
 public:
-    ImGuiDemo();
+    ImGuiDemo(const Settings& settings);
 
 protected:
     void initApp() override;

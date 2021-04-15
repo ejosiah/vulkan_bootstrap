@@ -25,7 +25,7 @@ namespace textures{
                 , Dimension3D<uint32_t> dimensions, VkSamplerAddressMode addressMode = VK_SAMPLER_ADDRESS_MODE_REPEAT
                 , uint32_t sizeMultiplier = 1);
 
-    void fromFile(const VulkanDevice& device, Texture& texture, std::string_view path);
+    void fromFile(const VulkanDevice& device, Texture& texture, std::string_view path, bool flipUv = false, VkFormat format = VK_FORMAT_R8G8B8A8_SRGB);
 
     void checkerboard(const VulkanDevice& device, Texture& texture, const glm::vec3& colorA = glm::vec3(1), const glm::vec3& colorB = glm::vec3(0));
 

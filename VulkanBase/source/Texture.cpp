@@ -35,14 +35,14 @@ constexpr VkFormat getFormat(uint32_t numChannels){
     }
 }
 
-void textures::fromFile(const VulkanDevice &device, Texture &texture, std::string_view path) {
+void textures::fromFile(const VulkanDevice &device, Texture &texture, std::string_view path, bool flipUv, VkFormat format) {
     int texWidth, texHeight, texChannels;
-    stbi_set_flip_vertically_on_load(1);
+    stbi_set_flip_vertically_on_load(flipUv ? 1 : 0);
     stbi_uc* pixels = stbi_load(path.data(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
     if(!pixels){
         throw std::runtime_error{"failed to load texture image!"};
     }
-    create(device, texture, VK_IMAGE_TYPE_2D, VK_FORMAT_R8G8B8A8_SRGB, pixels, {texWidth, texHeight, 1u});
+    create(device, texture, VK_IMAGE_TYPE_2D, format, pixels, {texWidth, texHeight, 1u});
     stbi_image_free(pixels);
 }
 
