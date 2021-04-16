@@ -3,46 +3,13 @@
 #include "glm_format.h"
 
 FontTest::FontTest() :VulkanBaseApp("Font Test") {
-
+    cappedSink = std::make_shared<VulkanSink<spdlog::details::null_mutex, 20>>();
+    spdlog::default_logger()->sinks().push_back(cappedSink);
 }
 
 void FontTest::initApp() {
     commandPool = device.createCommandPool(*device.queueFamilyIndex.graphics, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
     commandBuffers = commandPool.allocate(swapChain.imageCount());
-    std::stringstream ss;
-    ss.clear();
-    ss.str("");
-    ss
-            << "Press 1 to switch to first person behavior\n"
-            << "Press 2 to switch to spectator behavior\n"
-            << "Press 3 to switch to flight behavior\n"
-            << "Press 4 to switch to orbit behavior\n\n"
-            << "First Person and Spectator behaviors\n"
-            << "\tPress W and S to move forwards and backwards\n"
-            << "\tPress A and D to strafe left and right\n"
-            << "\tPress E and Q to move up and down\n"
-            << "\tMove mouse to free look\n\n"
-            << "Flight behavior\n"
-            << "\tPress W and S to move forwards and backwards\n"
-            << "\tPress A and D to yaw left and right\n"
-            << "\tPress E and Q to move up and down\n"
-            << "\tMove mouse up and down to change pitch\n"
-            << "\tMove mouse left and right to change roll\n\n"
-            << "Orbit behavior\n"
-            << "\tPress SPACE to enable/disable target Y axis orbiting\n"
-            << "\tMove mouse to orbit the model\n"
-            << "\tMouse wheel to zoom in and out\n\n"
-            << "Press M to enable/disable mouse smoothing\n"
-            << "Press V to enable/disable vertical sync\n"
-            << "Press + and - to change camera rotation speed\n"
-            << "Press , and . to change mouse sensitivity\n"
-            << "Press BACKSPACE or middle mouse button to level camera\n"
-            << "Press ALT and ENTER to toggle full screen\n"
-            << "Press ESC to exit\n\n"
-            << "Press H to hide help";
-;
-
-    msg = ss.str();
 }
 
 
@@ -78,15 +45,22 @@ VkCommandBuffer *FontTest::buildCommandBuffers(uint32_t imageIndex, uint32_t &nu
 
 
     auto& imGuiPlugin = plugin<ImGuiPlugin>(IM_GUI_PLUGIN);
-    auto font = imGuiPlugin.font("Arial", 20);
-    ImGui::PushFont(font);
+ //   auto font = imGuiPlugin.font("Arial", 20);
+  //  ImGui::PushFont(font);
     ImGuiWindowFlags flags = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMouseInputs | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoBackground;
     ImGui::Begin("Font test", nullptr, flags);
     ImGui::SetWindowSize({float(width), float(height)});
     ImGui::TextColored({1, 1, 0, 1}, "Frames: %llu\nFPS: %d", frameCount, framePerSecond);
     ImGui::TextColored({1, 1, 0, 1}, "Hello World, And well come to the world of Vulkan!");
+    std::for_each(cappedSink->begin(), cappedSink->end(), [&](const std::string& msg){
+        if(msg.find("error") != std::string::npos){
+            ImGui::TextColored({1, 0, 0, 1}, msg.c_str());
+        }else {
+            ImGui::TextColored({1, 1, 0, 1}, msg.c_str());
+        }
+    });
     ImGui::End();
-    ImGui::PopFont();
+//    ImGui::PopFont();
 
 
     imGuiPlugin.draw(commandBuffer);

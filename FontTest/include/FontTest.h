@@ -1,4 +1,5 @@
 #include "VulkanBaseApp.h"
+#include "VulkanSink.h"
 
 class FontTest : public VulkanBaseApp {
 public:
@@ -21,4 +22,5 @@ private:
     std::vector<VkCommandBuffer> commandBuffers;
     VulkanCommandPool commandPool;
     std::string msg;
+    std::shared_ptr<VulkanSink<spdlog::details::null_mutex, 20>> cappedSink;
 };

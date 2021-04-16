@@ -1,7 +1,7 @@
 #pragma once
 
 #include "VulkanBaseApp.h"
-#include "CappedSink.h"
+#include "VulkanSink.h"
 #include <spdlog/details/null_mutex.h>
 
 class VulkanCube : public VulkanBaseApp {
@@ -60,5 +60,4 @@ private:
     std::unique_ptr<BaseCameraController> cameraController;
     Vertices mesh;
     uint32_t numIndices;
-    CappedSink<spdlog::details::null_mutex, 20> cappedSink;
 };

@@ -23,6 +23,6 @@ void main(){
         }
     }
 
-    imageStore(image, ivec2(gl_GlobalInvocationID.xy), color);
+    imageStore(image, ivec2(gl_GlobalInvocationID.xy), vec4(uv, 0, 1));
     memoryBarrierImage();
 }

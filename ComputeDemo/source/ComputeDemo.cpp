@@ -26,7 +26,7 @@ VkCommandBuffer& ComputeDemo::dispatchCompute() {
     vkBeginCommandBuffer(cpuCmdBuffer, &beginInfo);
     vkCmdBindPipeline(cpuCmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, compute.pipeline);
     vkCmdBindDescriptorSets(cpuCmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, compute.pipelineLayout, 0, 1, &compute.descriptorSet, 0, nullptr);
-    vkCmdDispatch(cpuCmdBuffer, width/32, height/32, 1);
+    vkCmdDispatch(cpuCmdBuffer, swapChain.extent.width/32, swapChain.extent.height/32, 1);
     vkEndCommandBuffer(cpuCmdBuffer);
 
 
@@ -215,7 +215,7 @@ void ComputeDemo::createDescriptorPool() {
     poolSizes[1].descriptorCount = 1;
     poolSizes[1].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
 
-    descriptorPool = device.createDescriptorPool(2, poolSizes);
+    descriptorPool = device.createDescriptorPool(2, poolSizes, VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT);
 }
 
 void ComputeDemo::createComputeDescriptorSetLayout() {
@@ -243,7 +243,7 @@ void ComputeDemo::createComputePipeline() {
 
 void ComputeDemo::createComputeImage() {
     VkImageCreateInfo info = initializers::imageCreateInfo(VK_IMAGE_TYPE_2D, VK_FORMAT_R32G32B32A32_SFLOAT,
-                                                           VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, width, height, 1);
+                                                           VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, swapChain.extent.width, swapChain.extent.height, 1);
 
     compute.texture.image = device.createImage(info, VMA_MEMORY_USAGE_GPU_ONLY);
     commandPool.oneTimeCommand(device.queues.compute, [&](auto commandBuffer) {
@@ -286,6 +286,18 @@ void ComputeDemo::createComputeImage() {
     samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
 
     compute.texture.sampler = device.createSampler(samplerInfo);
+}
+
+void ComputeDemo::onSwapChainDispose() {
+    descriptorPool.free({ compute.descriptorSet, descriptorSet });
+    dispose(compute.texture.imageView);
+    dispose(compute.texture.sampler);
+    dispose(compute.texture.image);
+}
+
+void ComputeDemo::onSwapChainRecreation() {
+    createComputeImage();
+    createDescriptorSet();
 }
 
 int main(){

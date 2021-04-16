@@ -39,6 +39,10 @@ protected:
 
     void createComputeImage();
 
+    void onSwapChainDispose() override;
+
+    void onSwapChainRecreation() override;
+
 private:
     VulkanCommandPool commandPool;
     std::vector<VkCommandBuffer> commandBuffers;

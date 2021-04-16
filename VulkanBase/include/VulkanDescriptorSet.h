@@ -14,7 +14,7 @@ struct VulkanDescriptorPool{
     {
         VkDescriptorPoolCreateInfo createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-        createInfo.flags = 0;
+        createInfo.flags = flags;
         createInfo.maxSets = maxSet;
         createInfo.poolSizeCount = COUNT(poolSizes);
         createInfo.pPoolSizes = poolSizes.data();
@@ -57,13 +57,14 @@ struct VulkanDescriptorPool{
         return sets;
     }
 
-    void free(VkDescriptorSet set){
+    inline void free(VkDescriptorSet set) const {
        vkFreeDescriptorSets(device, pool, 1, &set);
     }
 
-    void free(const std::vector<VkDescriptorSet>& sets) const {
+    inline void free(const std::vector<VkDescriptorSet>& sets) const {
         vkFreeDescriptorSets(device, pool ,COUNT(sets), sets.data());
     }
+
 
     operator VkDescriptorPool() const {
         return pool;
