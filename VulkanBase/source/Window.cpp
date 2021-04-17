@@ -55,6 +55,7 @@ void Window::initWindow() {
     }
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     GLFWmonitor* monitor = nullptr;
+    int refreshRate = 0;
     if(fullscreen) {
         auto mainMonitor = glfwGetPrimaryMonitor();
         int numMonitors;
@@ -68,6 +69,7 @@ void Window::initWindow() {
         auto vidMode = glfwGetVideoMode(monitor);
         width = vidMode->width;
         height = vidMode->height;
+        refreshRate = vidMode->refreshRate;
     }
 
     if(!monitor){
@@ -85,7 +87,8 @@ void Window::initWindow() {
         if(height > maxHeight) height = maxHeight;
     }
 
-    window = glfwCreateWindow(width, height, title.data(), monitor, nullptr);
+    window = glfwCreateWindow(width, height, title.data(), nullptr, nullptr);
+    glfwSetWindowMonitor(window, monitor, 0, 0, width, height, refreshRate);
 
     glfwSetWindowUserPointer(window, this);
     glfwSetKeyCallback(window, onKeyPress);

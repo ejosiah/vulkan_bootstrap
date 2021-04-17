@@ -124,7 +124,7 @@ namespace primitives{
                     std::vector<Vertex> &vertices = mesh.vertices;
                     numVertices += vertices.size();
                     for (auto &vertex : vertices) {
-                        updateBounds(vertex.position.xyz);
+                        updateBounds(vertex.position.xyz());
                     }
                 }
             }
@@ -142,7 +142,7 @@ namespace primitives{
                 for (auto &mesh : meshes) {
                     std::vector<Vertex> &vertices = mesh.vertices;
                     for (auto &vertex : vertices) {
-                        vertex.position.xyz = (vertex.position.xyz + offset) * scalingFactor;
+                        vertex.position.xyz() = (vertex.position.xyz() + offset) * scalingFactor;
                     }
                 }
             }
@@ -168,15 +168,16 @@ namespace primitives{
                 min = glm::min(min, glm::vec3(vertex.position));
                 max = glm::max(max, glm::vec3(vertex.position));
             }
-        }else{
-           for(const auto& mesh : meshes){
-               const std::vector<Vertices>& vertices = mesh.vertices;
-               for (const auto &vertex : vertices) {
-                   min = glm::min(min, glm::vec3(vertex.position));
-                   max = glm::max(max, glm::vec3(vertex.position));
-               }
-           }
         }
+//        else{
+//           for(const auto& mesh : meshes){
+//               const std::vector<Vertices>& vertices = mesh.vertices;
+//               for (const auto &vertex : vertices) {
+//                   min = glm::min(min, glm::vec3(vertex.position));
+//                   max = glm::max(max, glm::vec3(vertex.position));
+//               }
+//           }
+//        }
 
         return std::make_tuple(min, max);
     }

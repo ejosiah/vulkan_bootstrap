@@ -438,16 +438,23 @@ int main(){
         settings.depthTest = true;
         settings.relativeMouseMode = true;
         settings.vSync = false;
+        settings.fullscreen = true;
         settings.surfaceFormat.format = VK_FORMAT_B8G8R8A8_SRGB;
         settings.width = 2560 * 0.5;
         settings.height = 720;
         settings.msaaSamples = VK_SAMPLE_COUNT_8_BIT;
         settings.enabledFeatures.sampleRateShading = VK_TRUE;
 
+
         std::vector<FontInfo> fonts {
+#ifdef WIN32
                 {"JetBrainsMono", R"(C:\Users\Josiah\Downloads\JetBrainsMono-2.225\fonts\ttf\JetBrainsMono-Regular.ttf)", 20},
                 {"Arial", R"(C:\Windows\Fonts\arial.ttf)", 20},
                 {"Arial", R"(C:\Windows\Fonts\arial.ttf)", 15}
+#elif defined(__APPLE__)
+                {"Arial", "/Library/Fonts/Arial Unicode.ttf", 20},
+                {"Arial", "/Library/Fonts/Arial Unicode.ttf", 15}
+#endif
         };
         std::unique_ptr<Plugin> imGui = std::make_unique<ImGuiPlugin>(fonts);
 

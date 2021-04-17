@@ -3,6 +3,10 @@ project(vulkan_bootstrap VERSION 0.0.0)
 
 set(CMAKE_CXX_STANDARD 17)
 
+if(CMAKE_GENERATOR STREQUAL "Xcode")
+    add_compile_options(-Wno-nullability-completeness)
+endif()
+
 include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
 conan_basic_setup()
 
