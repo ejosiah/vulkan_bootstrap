@@ -10,6 +10,7 @@ Demo::Demo(const Settings &settings)
 {
     actions.help = &mapToKey(Key::H, "Help menu", Action::detectInitialPressOnly());
     actions.toggleVSync = &mapToKey(Key::V, "Toggle VSync", Action::detectInitialPressOnly());
+    actions.fullscreen = &mapToKey(Key::ENTER, "Fullscreen", Action::detectInitialPressOnly(), KeyModifierFlagBits::ALT);
     cameraModes.flight = &mapToKey(Key::_1, "First person camera", Action::detectInitialPressOnly());
     cameraModes.spectator = &mapToKey(Key::_2, "Spectator camera", Action::detectInitialPressOnly());
     cameraModes.flight = &mapToKey(Key::_3, "Flight Camera", Action::detectInitialPressOnly());
@@ -81,12 +82,6 @@ void Demo::loadSpaceShip() {
     }
     spdlog::info("height: {}", spaceShip.height());
     spdlog::info("min: {}, max: {}, center: {}", spaceShip.bounds.min, spaceShip.bounds.max, (spaceShip.bounds.min + spaceShip.bounds.max) * 0.5f);
-
-
-//    VkDeviceSize vertexBufferSize = numVertices * sizeof(Vertex);
-//    auto vertexStagingBuffer = device.createStagingBuffer(vertexBufferSize);
-//    VkDeviceSize indexBufferSize = numIndices * sizeof(uint32_t);
-//    auto indexStagingBuffer = device.createStagingBuffer(indexBufferSize);
 
 
     uint32_t firstVertex = 0;
@@ -344,6 +339,9 @@ void Demo::checkAppInputs() {
     if(actions.toggleVSync->isPressed()){
         settings.vSync = !settings.vSync;
         swapChainInvalidated = true;
+    }
+    if(actions.fullscreen->isPressed()){
+        toggleFullscreen = true;
     }
 
     cameraController->processInput();

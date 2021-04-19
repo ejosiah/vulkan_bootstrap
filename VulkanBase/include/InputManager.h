@@ -112,11 +112,15 @@ public:
         }
     }
 
-    Action& mapToKey(Key key, std::string_view name = "", Action::Behavior behavior = Action::Behavior::NORMAL){
+    Action& mapToKey(Key key, std::string_view name = "", Action::Behavior behavior = Action::Behavior::NORMAL, KeyModiferFlags modiferFlags = KeyModifierFlagBits::NONE){
         int index = static_cast<int>(key);
         keyActions.insert(std::make_pair(index, Action{name, behavior}));
+        auto& action = keyActions[index];
+        if(modiferFlags != KeyModifierFlagBits::NONE){
+            actionModifiers.insert(std::make_pair(&action, modiferFlags));
+        }
 
-        return keyActions[index];
+        return action;
     }
 
     Action& mapToMouse(int mouseCode, std::string_view name = "", Action::Behavior behavior = Action::Behavior::NORMAL) { // TODO use enum
@@ -166,7 +170,12 @@ public:
         int key = static_cast<int>(event.key);
         auto itr = keyActions.find(key);
         if(itr != end(keyActions)){
-            itr->second.press();
+            auto& action = itr->second;
+            auto itr1 = actionModifiers.find(&action);
+            if(itr1 != end(actionModifiers) && !(event.modifierFlags & itr1->second)){
+                return;
+            }
+            action.press();
         }
     }
 
@@ -275,6 +284,7 @@ public:
 
     std::map<int, Action> keyActions;
     std::map<int, Action> mouseActions;
+    std::map<Action*, KeyModiferFlags> actionModifiers;
     glm::vec2 center{0};
     glm::vec2 prevPos{0};
     bool relativeMouseMode;

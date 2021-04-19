@@ -123,6 +123,7 @@ private:
     struct {
         Action* help;
         Action* toggleVSync;
+        Action* fullscreen;
     } actions;
 
     struct {
