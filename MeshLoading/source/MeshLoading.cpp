@@ -73,8 +73,8 @@ int main(){
 //    }
 
     auto projection = vkn::ortho(-1, 1, -1, 1);
-    for(int i = 0; i < 6; i+= 2){
-        auto pos = ClipSpace::Triangle::positions[i];
+    for(int i = 0; i < 8; i+= 2){
+        auto pos = ClipSpace::Quad::positions[i];
         auto pos_prime = (projection * glm::vec4(pos, 0, 1)).xy();
         fmt::print("p: {}, p1: {}\n", pos, pos_prime);
     }

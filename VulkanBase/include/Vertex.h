@@ -10,12 +10,12 @@ struct ClipSpace{
 
     struct Quad{
         static constexpr  std::array<glm::vec2, 8> positions{
-                glm::vec2{-1, 1},glm::vec2{0, 1},
-                glm::vec2{1, 1}, glm::vec2{1, 1},
+                glm::vec2{-1, -1},glm::vec2{0, 0},
+                glm::vec2{-1, 1}, glm::vec2{0, 1},
                 glm::vec2{1, -1}, glm::vec2{1, 0},
-                glm::vec2{-1, -1}, glm::vec2{0, 0}
+                glm::vec2{1, 1}, glm::vec2{1, 1}
         };
-        static constexpr VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN;
+        static constexpr VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
 
         static constexpr VkFrontFace  frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     };
