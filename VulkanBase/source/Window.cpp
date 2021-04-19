@@ -54,25 +54,18 @@ void Window::initWindow() {
         throw std::runtime_error("Vulkan Not supported");
     }
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    GLFWmonitor* monitor = nullptr;
-    int refreshRate = 0;
-    if(fullscreen) {
-        auto mainMonitor = glfwGetPrimaryMonitor();
-        int numMonitors;
-        GLFWmonitor **monitors = glfwGetMonitors(&numMonitors);
-        for (int i = 0; i < numMonitors; i++) {
-            if (monitors[i] == mainMonitor) {
-                monitor = monitors[i];
-                break;
-            }
+
+    if(fullscreen){
+        monitor = glfwGetPrimaryMonitor();
+        auto mode = glfwGetVideoMode(monitor);
+        if(videoMode.width == 0 || videoMode.height == 0 || videoMode.refreshRate == 0) {
+            videoMode.width = width = mode->width;
+            videoMode.height = height = mode->height;
+            videoMode.refreshRate = mode->refreshRate;
         }
-        auto vidMode = glfwGetVideoMode(monitor);
-        width = vidMode->width;
-        height = vidMode->height;
-        refreshRate = vidMode->refreshRate;
     }
 
-    if(!monitor){
+    if(!fullscreen){
         int count;
         auto* modes = glfwGetVideoModes(glfwGetPrimaryMonitor(), &count);
         int maxHeight = std::numeric_limits<int>::min();
@@ -87,8 +80,7 @@ void Window::initWindow() {
         if(height > maxHeight) height = maxHeight;
     }
 
-    window = glfwCreateWindow(width, height, title.data(), nullptr, nullptr);
-    glfwSetWindowMonitor(window, monitor, 0, 0, width, height, refreshRate);
+    window = glfwCreateWindow(width, height, title.data(), monitor, nullptr);
 
     glfwSetWindowUserPointer(window, this);
     glfwSetKeyCallback(window, onKeyPress);
@@ -160,4 +152,33 @@ void Window::onMouseWheelMove(GLFWwindow *window, double xOffset, double yOffset
 
 void Window::onCursorEntered(GLFWwindow *window, int entered) {
 
+}
+
+bool Window::setFullScreen() {
+    if(fullscreen) return false;
+    if(!monitor){
+        monitor = glfwGetPrimaryMonitor();
+        auto mode = glfwGetVideoMode(monitor);
+        videoMode.width = mode->width;
+        videoMode.height = mode->height;
+        videoMode.refreshRate = mode->refreshRate;
+    }
+    prevWidth = width;
+    prevHeight = height;
+    width = videoMode.width;
+    height = videoMode.height;
+    fullscreen = true;
+    glfwSetWindowMonitor(window, monitor, 0, 0, width, height, videoMode.refreshRate);
+    return true;
+}
+
+bool Window::unsetFullScreen() {
+    if(!fullscreen || prevWidth == 0 || prevHeight == 0) return false;
+    width = prevWidth;
+    height = prevHeight;
+    prevWidth = 0;
+    prevHeight = 0;
+    fullscreen = false;
+    glfwSetWindowMonitor(window, nullptr, 0, 0, width, height, 0);
+    return true;
 }

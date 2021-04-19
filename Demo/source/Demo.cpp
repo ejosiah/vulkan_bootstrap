@@ -438,9 +438,8 @@ int main(){
         settings.depthTest = true;
         settings.relativeMouseMode = true;
         settings.vSync = false;
-        settings.fullscreen = true;
         settings.surfaceFormat.format = VK_FORMAT_B8G8R8A8_SRGB;
-        settings.width = 2560 * 0.5;
+        settings.width = 2560 * 0.7;
         settings.height = 720;
         settings.msaaSamples = VK_SAMPLE_COUNT_8_BIT;
         settings.enabledFeatures.sampleRateShading = VK_TRUE;

@@ -4,6 +4,8 @@
 #include "VulkanInstance.h"
 #include "VulkanDevice.h"
 #include "VulkanSwapChain.h"
+#include "Window.h"
+
 
 struct PluginData{
     VulkanInstance* instance = nullptr;

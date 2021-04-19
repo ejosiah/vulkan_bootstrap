@@ -99,6 +99,10 @@ protected:
         }
     }
 
+    bool setFullScreen();
+
+    bool unsetFullScreen();
+
     static void onError(int error, const char* msg);
 
     static void onResize(GLFWwindow* window, int width, int height);
@@ -122,12 +126,20 @@ protected:
     std::string title;
     int width;
     int height;
+    int prevWidth;
+    int prevHeight;
     bool resized = false;
     bool fullscreen;
     GLFWwindow* window = nullptr;
     MouseEvent mouseEvent{};
     KeyEvent keyEvent{};
     ResizeEvent resizeEvent{};
+    GLFWmonitor* monitor = nullptr;
+    struct{
+        int width = 0;
+        int height = 0;
+        int refreshRate = 0;
+    } videoMode;
 
 private:
     std::vector<MouseClickListener> mouseClickListeners;

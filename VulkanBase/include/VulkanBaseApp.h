@@ -205,6 +205,8 @@ protected:
 
     void cleanupSwapChain();
 
+    void fullscreenCheck();
+
     float getTime();
 
     /**
@@ -278,6 +280,7 @@ protected:
     std::vector<std::unique_ptr<Plugin>> plugins;
     Settings settings;
     bool ready = false;
+    bool toggleFullscreen = false;
 
 private:
     static VulkanBaseApp* appInstance;

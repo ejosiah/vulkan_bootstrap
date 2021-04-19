@@ -12,6 +12,12 @@ struct Settings{
      */
     bool fullscreen = false;
 
+    struct {
+        int width = 0;
+        int height = 0;
+        int refreshRate = 0;
+    } videoMode;
+
     /**
      * mouse will be recentered if set
      */

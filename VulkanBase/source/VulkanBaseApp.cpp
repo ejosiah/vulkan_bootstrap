@@ -222,6 +222,7 @@ void VulkanBaseApp::mainLoop() {
     while(isRunning()){
         recenter();
         glfwPollEvents();
+        fullscreenCheck();
 
         if(swapChainInvalidated){
             swapChainInvalidated = false;
@@ -594,3 +595,14 @@ void VulkanBaseApp::updatePlugins(float dt){
 }
 
 VulkanBaseApp* VulkanBaseApp::appInstance = nullptr;
+
+void VulkanBaseApp::fullscreenCheck() {
+    if(toggleFullscreen && !fullscreen){
+        toggleFullscreen = false;
+        swapChainInvalidated = setFullScreen();
+
+    }else if(toggleFullscreen && fullscreen){
+        toggleFullscreen = false;
+        swapChainInvalidated = unsetFullScreen();
+    }
+}
