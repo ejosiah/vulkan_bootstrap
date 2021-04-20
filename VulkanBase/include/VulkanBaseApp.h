@@ -247,8 +247,6 @@ protected:
 
     std::vector<VulkanFramebuffer> framebuffers;
 
-    VmaAllocator memoryAllocator = VK_NULL_HANDLE;
-
     std::vector<VulkanSemaphore> imageAcquired;
     std::vector<VulkanSemaphore> renderingFinished;
     std::vector<VulkanFence> inFlightFences;

@@ -183,7 +183,6 @@ VkFormat VulkanBaseApp::findDepthFormat() {
 
 void VulkanBaseApp::createLogicalDevice() {
     device.createLogicalDevice(enabledFeatures, deviceExtensions, validationLayers, surface, settings.queueFlags);
-    memoryAllocator = device.allocator;
 }
 
 void VulkanBaseApp::pickPhysicalDevice() {
@@ -215,7 +214,6 @@ void VulkanBaseApp::run() {
     mainLoop();
     cleanupPlugins();
     cleanup();
-    spdlog::info("fps: {}", framePerSecond);
 }
 
 void VulkanBaseApp::mainLoop() {
@@ -230,6 +228,7 @@ void VulkanBaseApp::mainLoop() {
         }
 
         checkSystemInputs();
+        if(!isRunning()) break;
 
         if(!paused) {
             checkAppInputs();
@@ -501,11 +500,11 @@ void VulkanBaseApp::cleanupSwapChain() {
     dispose(renderPass);
 
     if(settings.depthTest){
-        dispose(depthBuffer.imageView);
         dispose(depthBuffer.image);
+        dispose(depthBuffer.imageView);
     }
     if(settings.msaaSamples != VK_SAMPLE_COUNT_1_BIT){
-        dispose(colorBuffer.imageView);
+        dispose(colorBuffer.image);
         dispose(colorBuffer.imageView);
     }
 

@@ -28,6 +28,8 @@ struct VulkanImage : public Copyable{
     VulkanImage& operator=(VulkanImage&& source) noexcept {
         if(&source == this) return *this;
 
+        this->~VulkanImage();
+
         device = source.device;
         allocator = source.allocator;
         image = source.image;

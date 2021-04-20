@@ -108,27 +108,25 @@ public:
     static std::map<FontInfo, ImFont*, FontInfoComp>  setFonts(const std::vector<FontInfo>& fontInfos);
 
 protected:
-    VulkanDescriptorPool descriptorPool;
-    VulkanDescriptorSetLayout descriptorSetLayout;
-    VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
-    VulkanPipelineLayout pipelineLayout;
-    VulkanPipeline pipeline;
     VulkanPipelineCache pipelineCache;
-    std::map<FontInfo, ImFont*, FontInfoComp> fonts;
     Texture fontTexture;
-
-    struct {
-        std::array<bool, ImGuiMouseButton_COUNT> justPressed;
-        std::array<GLFWcursor *, ImGuiMouseCursor_COUNT> cursors;
-    } mouse{};
-
-
-
     struct {
         uint32_t index;
         uint32_t count;
         std::vector<FrameRenderBuffers> frameRenderBuffers;
     } windowRenderBuffers;
+
+    VulkanDescriptorSetLayout descriptorSetLayout;
+    VulkanDescriptorPool descriptorPool;
+    VulkanPipelineLayout pipelineLayout;
+    VulkanPipeline pipeline;
+    std::map<FontInfo, ImFont*, FontInfoComp> fonts;
+    VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
+
+    struct {
+        std::array<bool, ImGuiMouseButton_COUNT> justPressed;
+        std::array<GLFWcursor *, ImGuiMouseCursor_COUNT> cursors;
+    } mouse{};
 
     double time = 0.0;
     uint32_t subpass;

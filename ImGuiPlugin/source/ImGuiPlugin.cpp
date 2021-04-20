@@ -169,6 +169,7 @@ void ImGuiPlugin::createPipeline() {
 }
 
 void ImGuiPlugin::createPipelineLayout() {
+    dispose(pipelineLayout);
     // Constants: we are using 'vec2 offset' and 'vec2 scale' instead of a full 3d projection matrix
     std::vector<VkPushConstantRange> push_constants(1);
     push_constants[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
@@ -321,11 +322,11 @@ void ImGuiPlugin::cleanup() {
 }
 
 void ImGuiPlugin::onSwapChainDispose() {
-
+    dispose(pipeline);
 }
 
 void ImGuiPlugin::onSwapChainRecreation() {
-
+    createPipeline();
 }
 
 

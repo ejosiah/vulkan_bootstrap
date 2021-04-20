@@ -267,11 +267,15 @@ void Demo::createPipelines() {
 }
 
 void Demo::onSwapChainDispose() {
-    commandPool.free(commandBuffers);
+    dispose(layouts.spaceShipLayout);
+    dispose(layouts.floorLayout);
+    dispose(pipelines.spaceShip);
+    dispose(pipelines.floor);
 }
 
 void Demo::onSwapChainRecreation() {
-    commandBuffers = commandPool.allocate(swapChainImageCount);
+    cameraController->onResize(width, height);
+    createPipelines();
 }
 
 VkCommandBuffer *Demo::buildCommandBuffers(uint32_t imageIndex, uint32_t &numCommandBuffers) {
@@ -436,6 +440,7 @@ int main(){
         settings.depthTest = true;
         settings.relativeMouseMode = true;
         settings.vSync = false;
+        settings.fullscreen = false;
         settings.surfaceFormat.format = VK_FORMAT_B8G8R8A8_SRGB;
         settings.width = 2560 * 0.7;
         settings.height = 720;

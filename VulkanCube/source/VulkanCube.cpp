@@ -245,7 +245,7 @@ void VulkanCube::createDescriptorSet() {
 }
 
 void VulkanCube::createTextureBuffers() {
-    textures::fromFile(device, texture, "../../data/textures/vulkan.png");
+    textures::fromFile(device, texture, "../../data/textures/vulkan.png", true);
 }
 
 void VulkanCube::createVertexBuffer() {

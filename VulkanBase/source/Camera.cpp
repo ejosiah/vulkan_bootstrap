@@ -75,7 +75,9 @@ void CameraController::perspective(float fovx, float aspect, float znear, float 
 }
 
 void CameraController::perspective(float aspect) {
-    cameras[currentMode]->perspective(aspect);
+    for(auto& [_, cam] : cameras){
+        cam->perspective(aspect);
+    }
 }
 
 void CameraController::rotateSmoothly(float headingDegrees, float pitchDegrees, float rollDegrees) {
@@ -111,7 +113,9 @@ void CameraController::zoom(float zoom, float minZoom, float maxZoom) {
 }
 
 void CameraController::onResize(int width, int height) {
-    cameras[currentMode]->onResize(width, height);
+    for(auto& [_, cam] : cameras){
+        cam->onResize(width, height);
+    }
 }
 
 void CameraController::setModel(const glm::mat4 &model) {

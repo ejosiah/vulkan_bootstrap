@@ -2,6 +2,8 @@
 
 
 void Window::onKeyPress(GLFWwindow *window, int key, int scancode, int action, int mods) {
+    if(glfwWindowShouldClose(window)) return;
+
     auto& self = getSelf(window);
     auto& keyEvent = self.keyEvent;
 
@@ -36,6 +38,8 @@ void Window::onKeyPress(GLFWwindow *window, int key, int scancode, int action, i
 }
 
 void Window::onResize(GLFWwindow *window, int width, int height) {
+    if(glfwWindowShouldClose(window)) return;
+
     auto& self = getSelf(window);
     self.resized = true;
     self.width = width;
@@ -92,10 +96,10 @@ void Window::initWindow() {
 }
 
 void Window::onMouseClick(GLFWwindow *window, int button, int action, int mods) {
+    if(glfwWindowShouldClose(window)) return;
+
     auto& self = getSelf(window);
     auto& mouseEvent = self.mouseEvent;
-
-
 
     switch(button){
         case GLFW_MOUSE_BUTTON_LEFT:
@@ -131,6 +135,8 @@ void Window::onMouseClick(GLFWwindow *window, int button, int action, int mods) 
 }
 
 void Window::onMouseMove(GLFWwindow *window, double x, double y) {
+    if(glfwWindowShouldClose(window)) return;
+
     auto& self = getSelf(window);
     self.mouseEvent.pos.x = static_cast<float>(x);
     self.mouseEvent.pos.y = static_cast<float>(y);
@@ -142,6 +148,7 @@ void Window::onError(int error, const char* msg) {
 }
 
 void Window::onMouseWheelMove(GLFWwindow *window, double xOffset, double yOffset) {
+    if(glfwWindowShouldClose(window)) return;
 
     auto& self = getSelf(window);
     auto& mouseEvent = self.mouseEvent;
@@ -151,7 +158,7 @@ void Window::onMouseWheelMove(GLFWwindow *window, double xOffset, double yOffset
 }
 
 void Window::onCursorEntered(GLFWwindow *window, int entered) {
-
+    if(glfwWindowShouldClose(window)) return;
 }
 
 bool Window::setFullScreen() {
@@ -181,4 +188,8 @@ bool Window::unsetFullScreen() {
     fullscreen = false;
     glfwSetWindowMonitor(window, nullptr, 0, 0, width, height, 0);
     return true;
+}
+
+bool Window::isShuttingDown() const{
+    return glfwWindowShouldClose(window);
 }

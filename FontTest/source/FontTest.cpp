@@ -45,8 +45,8 @@ VkCommandBuffer *FontTest::buildCommandBuffers(uint32_t imageIndex, uint32_t &nu
 
 
     auto& imGuiPlugin = plugin<ImGuiPlugin>(IM_GUI_PLUGIN);
- //   auto font = imGuiPlugin.font("Arial", 20);
-  //  ImGui::PushFont(font);
+    auto font = imGuiPlugin.font("Arial", 20);
+    ImGui::PushFont(font);
     ImGuiWindowFlags flags = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMouseInputs | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoBackground;
     ImGui::Begin("Font test", nullptr, flags);
     ImGui::SetWindowSize({float(width), float(height)});
@@ -60,7 +60,7 @@ VkCommandBuffer *FontTest::buildCommandBuffers(uint32_t imageIndex, uint32_t &nu
         }
     });
     ImGui::End();
-//    ImGui::PopFont();
+    ImGui::PopFont();
 
 
     imGuiPlugin.draw(commandBuffer);
@@ -78,8 +78,8 @@ void FontTest::cleanup() {
 int main(){
     try{
         std::vector<FontInfo> fonts {
-//                {"JetBrainsMono", R"(C:\Users\Josiah\Downloads\JetBrainsMono-2.225\fonts\ttf\JetBrainsMono-Regular.ttf)", 20},
-//                {"Arial", R"(C:\Windows\Fonts\arial.ttf)", 20}
+                {"JetBrainsMono", R"(C:\Users\Josiah\Downloads\JetBrainsMono-2.225\fonts\ttf\JetBrainsMono-Regular.ttf)", 20},
+                {"Arial", R"(C:\Windows\Fonts\arial.ttf)", 20}
         };
         std::unique_ptr<Plugin> imGui = std::make_unique<ImGuiPlugin>(fonts);
         auto app = FontTest();

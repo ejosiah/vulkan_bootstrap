@@ -103,6 +103,8 @@ protected:
 
     bool unsetFullScreen();
 
+    bool isShuttingDown() const;
+
     static void onError(int error, const char* msg);
 
     static void onResize(GLFWwindow* window, int width, int height);
