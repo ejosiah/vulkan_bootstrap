@@ -14,7 +14,8 @@ void ClothDemo::initApp() {
 }
 
 void ClothDemo::createCloth() {
-    auto plane = primitives::plane(10, 10, cloth.size, cloth.size);
+    auto xform = glm::mat4(1);
+    auto plane = primitives::plane(10, 10, cloth.size, cloth.size, xform, glm::vec4(1));
     cloth.vertices = device.createDeviceLocalBuffer(plane.vertices.data(), sizeof(Vertex) * plane.vertices.size()
                                                     , VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
     cloth.vertexCount = plane.vertices.size();
@@ -50,13 +51,23 @@ VkCommandBuffer *ClothDemo::buildCommandBuffers(uint32_t imageIndex, uint32_t &n
 
     vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.wireframe);
-    cameraController->push(commandBuffer, pipelineLayouts.wireframe);
-
     VkDeviceSize offset = 0;
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, cloth.vertices, &offset);
     vkCmdBindIndexBuffer(commandBuffer, cloth.indices, 0, VK_INDEX_TYPE_UINT32);
+
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.wireframe);
+    cameraController->push(commandBuffer, pipelineLayouts.wireframe);
+
+
     vkCmdDrawIndexed(commandBuffer, cloth.indexCount, 1, 0, 0, 0);
+
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.point);
+    cameraController->push(commandBuffer, pipelineLayouts.point);
+
+    glm::vec4 pointColor{1, 0, 0, 1};
+    vkCmdPushConstants(commandBuffer, pipelineLayouts.point, VK_SHADER_STAGE_VERTEX_BIT, sizeof(Camera), sizeof(glm::vec4), &pointColor[0]);
+    vkCmdDrawIndexed(commandBuffer, cloth.indexCount, 1, 0, 0, 0);
+
     vkCmdEndRenderPass(commandBuffer);
     vkEndCommandBuffer(commandBuffer);
 
@@ -73,7 +84,9 @@ void ClothDemo::checkAppInputs() {
 
 void ClothDemo::initCamera() {
     OrbitingCameraSettings settings;
-//    settings.offsetDistance = 1.0;
+    settings.orbitMinZoom = 0.5f;
+    settings.orbitMaxZoom = 10.0f;
+    settings.offsetDistance = 1.0;
     settings.modelHeight = cloth.size;
     settings.aspectRatio = float(swapChain.extent.width)/float(swapChain.extent.height);
     cameraController = std::make_unique<OrbitingCameraController>(device, swapChainImageCount, currentImageIndex, dynamic_cast<InputManager&>(*this), settings);
@@ -132,11 +145,38 @@ void ClothDemo::createPipelines() {
     createInfo.subpass = 0;
 
     pipelines.wireframe = device.createGraphicsPipeline(createInfo);
+
+
+    auto pointVertexShaderModule = ShaderModule{ "../../data/shaders/point.vert.spv", device };
+    auto pointFragShaderModule = ShaderModule{ "../../data/shaders/point.frag.spv", device };
+    stages = initializers::vertexShaderStages({
+        {pointVertexShaderModule, VK_SHADER_STAGE_VERTEX_BIT},
+        {pointFragShaderModule, VK_SHADER_STAGE_FRAGMENT_BIT}
+    });
+
+    inputAssemblyState.topology = VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
+    inputAssemblyState.primitiveRestartEnable = VK_FALSE;
+
+    std::vector<VkPushConstantRange> constants(1);
+    constants[0].offset = 0;
+    constants[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    constants[0].size = sizeof(Camera) + sizeof(glm::vec4);
+
+    pipelineLayouts.point = device.createPipelineLayout({}, constants);
+
+    createInfo.flags = VK_PIPELINE_CREATE_DERIVATIVE_BIT;
+    createInfo.stageCount = COUNT(stages);
+    createInfo.pStages = stages.data();
+    createInfo.pInputAssemblyState = &inputAssemblyState;
+    createInfo.layout = pipelineLayouts.point;
+    createInfo.basePipelineIndex = -1;
+    createInfo.basePipelineHandle = pipelines.wireframe;
+
+    pipelines.point = device.createGraphicsPipeline(createInfo);
 }
 
 int main(){
     Settings settings;
-    settings.enabledFeatures.wideLines = true;
     settings.enabledFeatures.fillModeNonSolid = true;
     try{
         auto app = ClothDemo{ settings };
