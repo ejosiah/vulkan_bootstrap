@@ -140,7 +140,8 @@ namespace initializers{
         return createInfo;
     }
 
-    static inline VkPipelineColorBlendStateCreateInfo colorBlendState(const std::vector<VkPipelineColorBlendAttachmentState>& blendAttachmentState = {}){
+    template<typename ColorBlendStates>
+    inline VkPipelineColorBlendStateCreateInfo colorBlendState(const ColorBlendStates& blendAttachmentState = {}){
         VkPipelineColorBlendStateCreateInfo createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
         createInfo.attachmentCount = COUNT(blendAttachmentState);
@@ -328,5 +329,14 @@ namespace initializers{
         barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 
         return barrier;
+    }
+
+    template<size_t Size = 1>
+    inline std::array<VkPipelineColorBlendAttachmentState, Size> colorBlendStateAttachmentStates() {
+        std::array<VkPipelineColorBlendAttachmentState, Size> states{};
+        for(VkPipelineColorBlendAttachmentState& state : states){
+            state.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+        }
+        return states;
     }
 }
