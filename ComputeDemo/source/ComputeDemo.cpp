@@ -289,6 +289,10 @@ void ComputeDemo::createComputeImage() {
 }
 
 void ComputeDemo::onSwapChainDispose() {
+    dispose(compute.pipelineLayout);
+    dispose(compute.pipeline);
+    dispose(pipelineLayout);
+    dispose(pipeline);
     descriptorPool.free({ compute.descriptorSet, descriptorSet });
     dispose(compute.texture.imageView);
     dispose(compute.texture.sampler);
@@ -298,6 +302,8 @@ void ComputeDemo::onSwapChainDispose() {
 void ComputeDemo::onSwapChainRecreation() {
     createComputeImage();
     createDescriptorSet();
+    createGraphicsPipeline();
+    createComputePipeline();
 }
 
 int main(){

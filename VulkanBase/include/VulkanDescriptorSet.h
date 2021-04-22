@@ -44,7 +44,7 @@ struct VulkanDescriptorPool{
     }
 
     [[nodiscard]]
-    std::vector<VkDescriptorSet> allocate(const std::vector<VkDescriptorSetLayout>& layouts) const {
+    inline std::vector<VkDescriptorSet> allocate(const std::vector<VkDescriptorSetLayout>& layouts) const {
         VkDescriptorSetAllocateInfo allocInfo{};
         allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
         allocInfo.descriptorPool = pool;
@@ -55,6 +55,19 @@ struct VulkanDescriptorPool{
         vkAllocateDescriptorSets(device, &allocInfo, sets.data());
 
         return sets;
+    }
+
+    template<typename DescriptorSets>
+    inline void allocate(const std::vector<VkDescriptorSetLayout>& layouts, DescriptorSets& descriptorSets){
+        assert(descriptorSets.size() >= layouts.size());
+
+        VkDescriptorSetAllocateInfo allocInfo{};
+        allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        allocInfo.descriptorPool = pool;
+        allocInfo.descriptorSetCount = COUNT(layouts);
+        allocInfo.pSetLayouts = layouts.data();
+
+        vkAllocateDescriptorSets(device, &allocInfo, descriptorSets.data());
     }
 
     inline void free(VkDescriptorSet set) const {

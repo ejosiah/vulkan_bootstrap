@@ -339,4 +339,11 @@ namespace initializers{
         }
         return states;
     }
+
+
+    inline VkBufferMemoryBarrier bufferMemoryBarrier() {
+        VkBufferMemoryBarrier barrier{};
+        barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+        return barrier;
+    }
 }

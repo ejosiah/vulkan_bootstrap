@@ -88,7 +88,7 @@ int main(){
 //        std::vector<std::unique_ptr<Plugin>> plugins;
 //        plugins.push_back(std::move(plugin));
         Settings settings;
-        settings.vSync = true;
+      //  settings.vSync = true;
         auto app = ImGuiDemo{settings};
         app.addPlugin(plugin);
         app.run();

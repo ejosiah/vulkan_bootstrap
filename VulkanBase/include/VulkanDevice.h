@@ -78,12 +78,15 @@ struct VulkanDevice{
         for(uint32_t i = 0; i < queueFamily.size(); i++){
             if(!queueFamilyIndex.graphics && (queueFamily[i].queueFlags & queueFlags) && (queueFlags & VK_QUEUE_GRAPHICS_BIT) == VK_QUEUE_GRAPHICS_BIT){
                 queueFamilyIndex.graphics = i;
+                uniqueQueueIndices.insert(i);
             }
             if(!queueFamilyIndex.compute && (queueFamily[i].queueFlags & queueFlags) && (queueFlags & VK_QUEUE_COMPUTE_BIT) == VK_QUEUE_COMPUTE_BIT){
                queueFamilyIndex.compute = i;
+                uniqueQueueIndices.insert(i);
             }
             if(!queueFamilyIndex.transfer && (queueFamily[i].queueFlags & queueFlags) && (queueFlags & VK_QUEUE_TRANSFER_BIT) == VK_QUEUE_TRANSFER_BIT){
                 queueFamilyIndex.transfer = i;
+                uniqueQueueIndices.insert(i);
             }
 
             if(surface && !queueFamilyIndex.present) {
@@ -93,7 +96,6 @@ struct VulkanDevice{
                     queueFamilyIndex.present = i;
                 }
             }
-            uniqueQueueIndices.insert(i);
         }
     }
 
@@ -141,11 +143,15 @@ struct VulkanDevice{
         auto commandPool = createCommandPool(*queueFamilyIndex.graphics, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
         commandPools.emplace(std::make_pair(*queueFamilyIndex.graphics, std::move(commandPool)));
 
-        commandPool = createCommandPool(*queueFamilyIndex.compute, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
-        commandPools.emplace(std::make_pair(*queueFamilyIndex.compute, std::move(commandPool)));
+        if(queueFamilyIndex.compute) {
+            commandPool = createCommandPool(*queueFamilyIndex.compute, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
+            commandPools.emplace(std::make_pair(*queueFamilyIndex.compute, std::move(commandPool)));
+        }
 
-        commandPool = createCommandPool(*queueFamilyIndex.transfer, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
-        commandPools.emplace(std::make_pair(*queueFamilyIndex.transfer, std::move(commandPool)));
+        if(queueFamilyIndex.transfer) {
+            commandPool = createCommandPool(*queueFamilyIndex.transfer, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
+            commandPools.emplace(std::make_pair(*queueFamilyIndex.transfer, std::move(commandPool)));
+        }
 
     }
 
@@ -290,6 +296,13 @@ struct VulkanDevice{
             vkCmdCopyBuffer(cmdBuffer, source, buffer, 1u, &copy);
         });
 
+        return buffer;
+    }
+
+    inline VulkanBuffer createCpuVisibleBuffer(void* data, VkDeviceSize size, VkBufferUsageFlags usage, std::set<uint32_t> queueIndices = {}) const {
+
+        VulkanBuffer buffer = createBuffer(usage, VMA_MEMORY_USAGE_CPU_TO_GPU, size, "", queueIndices);
+        buffer.copy(data, size);
         return buffer;
     }
 
