@@ -6,6 +6,7 @@ ClothDemo::ClothDemo(const Settings &settings) : VulkanBaseApp("Cloth", settings
 }
 
 void ClothDemo::initApp() {
+    checkInvariants();
     commandPool = device.createCommandPool(*device.queueFamilyIndex.graphics, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
     commandBuffers = commandPool.allocate(swapChainImageCount);
     createCloth();
@@ -17,6 +18,11 @@ void ClothDemo::initApp() {
     createPositionDescriptorSet();
     createPipelines();
     createComputePipeline();
+}
+
+void ClothDemo::checkInvariants() {
+    auto pcLimit = device.getLimits().maxPushConstantsSize;
+    assert(sizeof(constants) <= pcLimit);
 }
 
 void ClothDemo::createCloth() {

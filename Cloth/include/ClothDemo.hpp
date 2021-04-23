@@ -11,6 +11,8 @@ public:
 protected:
     void initApp() override;
 
+    void checkInvariants();
+
     void initCamera();
 
     void checkAppInputs() override;

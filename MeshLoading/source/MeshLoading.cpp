@@ -53,14 +53,13 @@ void MeshLoading::checkAppInputs() {
 
 
 int main(){
-    fmt::print("Vertex size: {}\n\tposition: {}\n\tcolor: {}\n\tnormal: {}\n\ttangent: {}\n\tbitangent: {}\n\tuv: {}"
-               , sizeof(Vertex)
-               , offsetOf(Vertex, position)
-               , offsetOf(Vertex, color)
-               , offsetOf(Vertex, normal)
-               , offsetOf(Vertex, tangent)
-               , offsetOf(Vertex, bitangent)
-               , offsetOf(Vertex, uv)
-    );
+    glm::vec3 y{0, 1, 0};
+    glm::vec3 x{1, 0, 0};
+    glm::vec3 n_y{0, -1, 0};
+    glm::vec3 n_x{-1, 0, 0};
+    fmt::print("{}\n", glm::cross(x, y));
+    fmt::print("{}\n", glm::cross(n_y, x));
+    fmt::print("{}\n", glm::cross(n_x, n_y));
+    fmt::print("{}\n", glm::cross(y, n_x));
     return 0;
 }
