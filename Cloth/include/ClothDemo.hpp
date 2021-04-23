@@ -1,6 +1,7 @@
 #pragma once
 
 #include "VulkanBaseApp.h"
+#include "ImGuiPlugin.hpp"
 
 struct Cloth{
     std::array<VulkanBuffer, 2> vertices;
@@ -54,6 +55,8 @@ protected:
 
     void runPhysics0(float time, int i, int j);
 
+    void renderUI(VkCommandBuffer commandBuffer);
+
 private:
     VulkanCommandPool commandPool;
     std::vector<VkCommandBuffer> commandBuffers;
@@ -104,11 +107,14 @@ private:
         glm::vec3 tangent;
         glm::vec3 bitangent;
     } vertexAttribs;
-    int numIterations = 10;
+    int numIterations = 1;
 
     struct {
         VulkanBuffer vertices;
         VulkanBuffer indices;
         uint32_t indexCount;
     } floor;
+
+    float frameTime = 0.005;
+   // float frameTime =  0.0083;
 };

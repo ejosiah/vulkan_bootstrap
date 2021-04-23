@@ -48,11 +48,11 @@ struct ClipSpace{
 
 struct Vertex{
     glm::vec4 position;
-    glm::vec3 normal;
     glm::vec4 color;
-    glm::vec2 uv; // TODO std::array<std::vector<glm::vec2>, MAX_UVS>>;
-    glm::vec3 tangent;
-    glm::vec3 bitangent;
+    alignas(16) glm::vec3 normal;
+    alignas(16) glm::vec3 tangent;
+    alignas(16) glm::vec3 bitangent;
+    glm::vec2 uv;
 
     static std::vector<VkVertexInputBindingDescription> bindingDisc(){
         return {

@@ -23,23 +23,23 @@ void ClothDemo::createCloth() {
  //   auto xform = glm::translate(glm::mat4(1), {0, 60, 0});
     auto plane = primitives::plane(cloth.gridSize.x - 1, cloth.gridSize.y - 1, cloth.size.x, cloth.size.y, xform, glm::vec4(1));
     std::vector<decltype(vertexAttribs)> attributes(plane.vertices.size());
-    std::vector<glm::vec4> positions(plane.vertices.size());
-    for(int i = 0; i < plane.vertices.size(); i++){
-        auto& vertex = plane.vertices[i];
-        positions[i] = vertex.position;
-        attributes[i].normal = vertex.normal;
-        attributes[i].color = vertex.color;
-        attributes[i].uv = vertex.uv;
-        attributes[i].tangent = vertex.tangent;
-        attributes[i].bitangent = vertex.bitangent;
-    }
+//    std::vector<glm::vec4> positions(plane.vertices.size());
+//    for(int i = 0; i < plane.vertices.size(); i++){
+//        auto& vertex = plane.vertices[i];
+//        positions[i] = vertex.position;
+//        attributes[i].normal = vertex.normal;
+//        attributes[i].color = vertex.color;
+//        attributes[i].uv = vertex.uv;
+//        attributes[i].tangent = vertex.tangent;
+//        attributes[i].bitangent = vertex.bitangent;
+//    }
 
-    cloth.vertices[0] = device.createCpuVisibleBuffer(positions.data(), sizeof(glm::vec4) * positions.size()
+    cloth.vertices[0] = device.createCpuVisibleBuffer(plane.vertices.data(), sizeof(Vertex) * plane.vertices.size()
                                                     , VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-    cloth.vertices[1] = device.createCpuVisibleBuffer(positions.data(), sizeof(glm::vec4) * positions.size()
+    cloth.vertices[1] = device.createCpuVisibleBuffer(plane.vertices.data(), sizeof(Vertex) * plane.vertices.size()
                                                     , VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
 
-    cloth.vertexAttributes = device.createDeviceLocalBuffer(attributes.data(), sizeof(vertexAttribs) * attributes.size(), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+//    cloth.vertexAttributes = device.createDeviceLocalBuffer(attributes.data(), sizeof(vertexAttribs) * attributes.size(), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
 ;
     cloth.vertexCount = plane.vertices.size();
 
@@ -95,7 +95,7 @@ VkCommandBuffer *ClothDemo::buildCommandBuffers(uint32_t imageIndex, uint32_t &n
 
     static std::array<VkDeviceSize, 2> offsets{0u, 0u};
     static std::array<VkBuffer, 2> buffers{cloth.vertices[output_index], cloth.vertexAttributes };
-    vkCmdBindVertexBuffers(commandBuffer, 0, 2, buffers.data(), offsets.data());
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, buffers.data(), offsets.data());
     vkCmdBindIndexBuffer(commandBuffer, cloth.indices, 0, VK_INDEX_TYPE_UINT32);
 
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.wireframe);
@@ -119,6 +119,9 @@ VkCommandBuffer *ClothDemo::buildCommandBuffers(uint32_t imageIndex, uint32_t &n
     vkCmdBindIndexBuffer(commandBuffer, floor.indices, 0, VK_INDEX_TYPE_UINT32);
     vkCmdDrawIndexed(commandBuffer, floor.indexCount, 1, 0, 0, 0);
 
+
+    renderUI(commandBuffer);
+
     vkCmdEndRenderPass(commandBuffer);
     vkEndCommandBuffer(commandBuffer);
 
@@ -127,7 +130,7 @@ VkCommandBuffer *ClothDemo::buildCommandBuffers(uint32_t imageIndex, uint32_t &n
 
 void ClothDemo::update(float time) {
     cameraController->update(time);
-    constants.timeStep = 0.0083/numIterations;
+    constants.timeStep = frameTime/numIterations;
     constants.elapsedTime = elapsedTime;
   //  constants.timeStep = 0.0005f/numIterations;
   //  constants.timeStep = time/numIterations;
@@ -147,6 +150,8 @@ void ClothDemo::initCamera() {
 //    settings.offsetDistance = 60.f;
 //    settings.modelHeight = cloth.size.y;
     settings.floorOffset = cloth.size.x * 0.5;
+    settings.velocity = glm::vec3{10};
+    settings.acceleration = glm::vec3(20);
     settings.aspectRatio = float(swapChain.extent.width)/float(swapChain.extent.height);
     cameraController = std::make_unique<SpectatorCameraController>(device, swapChainImageCount, currentImageIndex, dynamic_cast<InputManager&>(*this), settings);
     cameraController->lookAt({0, settings.floorOffset, 20}, glm::vec3(0), {0, 1, 0});
@@ -161,18 +166,21 @@ void ClothDemo::createPipelines() {
         { flatFragmentModule, VK_SHADER_STAGE_FRAGMENT_BIT}
     });
 
-    std::vector<VkVertexInputBindingDescription> vertexBindings{
-            {0, sizeof(glm::vec4), VK_VERTEX_INPUT_RATE_VERTEX},
-            {1, sizeof(VertexAttribs), VK_VERTEX_INPUT_RATE_VERTEX}
-    };
-    std::vector<VkVertexInputAttributeDescription> vertexAttributes{
-            {0, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 0},
-            {1, 1, VK_FORMAT_R32G32B32_SFLOAT, (uint32_t)offsetof(VertexAttribs, normal)},
-            {2, 1, VK_FORMAT_R32G32B32_SFLOAT, (uint32_t)offsetof(VertexAttribs, tangent)},
-            {3, 1, VK_FORMAT_R32G32B32_SFLOAT, (uint32_t)offsetof(VertexAttribs, bitangent)},
-            {4, 1, VK_FORMAT_R32G32B32A32_SFLOAT, (uint32_t)offsetof(VertexAttribs, color)},
-            {5, 1, VK_FORMAT_R32G32_SFLOAT, (uint32_t)offsetof(VertexAttribs, uv)}
-    };
+//    std::vector<VkVertexInputBindingDescription> vertexBindings{
+//            {0, sizeof(glm::vec4), VK_VERTEX_INPUT_RATE_VERTEX},
+//            {1, sizeof(VertexAttribs), VK_VERTEX_INPUT_RATE_VERTEX}
+//    };
+//    std::vector<VkVertexInputAttributeDescription> vertexAttributes{
+//            {0, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 0},
+//            {1, 1, VK_FORMAT_R32G32B32_SFLOAT, (uint32_t)offsetof(VertexAttribs, normal)},
+//            {2, 1, VK_FORMAT_R32G32B32_SFLOAT, (uint32_t)offsetof(VertexAttribs, tangent)},
+//            {3, 1, VK_FORMAT_R32G32B32_SFLOAT, (uint32_t)offsetof(VertexAttribs, bitangent)},
+//            {4, 1, VK_FORMAT_R32G32B32A32_SFLOAT, (uint32_t)offsetof(VertexAttribs, color)},
+//            {5, 1, VK_FORMAT_R32G32_SFLOAT, (uint32_t)offsetof(VertexAttribs, uv)}
+//    };
+
+    auto vertexBindings = Vertex::bindingDisc();
+    auto vertexAttributes = Vertex::attributeDisc();
 
     auto vertexInputState = initializers::vertexInputState( vertexBindings, vertexAttributes);
 
@@ -256,13 +264,8 @@ void ClothDemo::createPipelines() {
 
     pipelines.point = device.createGraphicsPipeline(createInfo);
 
-
-
     inputAssemblyState.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
     inputAssemblyState.primitiveRestartEnable = VK_TRUE;
-
-    vertexBindings = Vertex::bindingDisc();
-    vertexAttributes = Vertex::attributeDisc();
 
     vertexInputState = initializers::vertexInputState(vertexBindings, vertexAttributes);
     createInfo.stageCount = COUNT(wireFrameStages);
@@ -547,15 +550,29 @@ void ClothDemo::runPhysics0(float time, int i, int j) {
     });
 }
 
+void ClothDemo::renderUI(VkCommandBuffer commandBuffer) {
+    auto& imGuiPlugin = plugin<ImGuiPlugin>(IM_GUI_PLUGIN);
+
+    ImGui::Begin("Cloth Simulation");
+    ImGui::Text("Application average %.2f ms/frame, (%d FPS)", 1000.0/framePerSecond, framePerSecond);
+    ImGui::End();
+
+    imGuiPlugin.draw(commandBuffer);
+}
+
 int main(){
     Settings settings;
-    settings.vSync = true;
+    settings.vSync = false;
     settings.depthTest = true;
     settings.enabledFeatures.fillModeNonSolid = true;
     settings.queueFlags = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT;
     spdlog::set_level(spdlog::level::err);
+
+    std::unique_ptr<Plugin> imGui = std::make_unique<ImGuiPlugin>();
+
     try{
         auto app = ClothDemo{ settings };
+        app.addPlugin(imGui);
         app.run();
     }catch(const std::runtime_error& err){
         spdlog::error(err.what());

@@ -6,12 +6,21 @@
 
 layout(local_size_x = 10, local_size_y = 10) in;
 
+struct Particle{
+    vec4 position;
+    vec4 color;
+    vec3 normal;
+    vec3 tangent;
+    vec3 bitangent;
+    vec2 uv;
+};
+
 layout(set = 0, binding = 0) buffer POINT_MASSES_IN{
-    vec4 positionIn[];
+    Particle particleIn[];
 };
 
 layout(set = 1, binding = 0) buffer POINT_MASS_OUT{
-    vec4 positionOut[];
+    Particle particleOut[];
 };
 
 layout(push_constant) uniform SIM_CONSTANTS {
@@ -51,8 +60,8 @@ bool neighbour(int i, out vec3 pos, out vec3 prev_pos, out float ks, out float k
     }
     int nid = index.y * width + index.x;
 
-    pos = positionIn[nid].xyz;
-    prev_pos = positionOut[nid].xyz;
+    pos = particleIn[nid].position.xyz;
+    prev_pos = particleOut[nid].position.xyz;
 
     rest_length = length(coord * inv_cloth_size);
     if(i < 4){
@@ -73,8 +82,8 @@ void main(){
 //    float dt = 0.00083;
     float dt = timeStep;
     float inv_dt = 1/dt;
-    vec3 pos = positionIn[id].xyz;
-    vec3 prev_pos = positionOut[id].xyz;
+    vec3 pos = particleIn[id].position.xyz;
+    vec3 prev_pos = particleOut[id].position.xyz;
     vec3 velocity = (pos - prev_pos) * inv_dt;
 
     float t = elapsedTime;
@@ -115,6 +124,6 @@ void main(){
     if(p.y < 0) p.y = 0;
 
 
-    positionIn[id].xyz = pos;
-    positionOut[id].xyz = p;
+    particleIn[id].position.xyz = pos;
+    particleOut[id].position.xyz = p;
 }

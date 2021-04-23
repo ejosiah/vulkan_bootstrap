@@ -143,11 +143,8 @@ void PrimitivesApp::createPrimitives() {
 }
 
 void PrimitivesApp::createPipeline() {
-    auto vertexShaderModule = ShaderModule{"../../data/shaders/flat.vert.spv", device};
-    auto fragmentShaderModule = ShaderModule{"../../data/shaders/flat.frag.spv", device};
-
-//    auto vertexShaderModule = ShaderModule{"../../data/shaders/flat.vert.spv", device};
-//    auto fragmentShaderModule = ShaderModule{"../../data/shaders/flat.frag.spv", device};
+    auto vertexShaderModule = ShaderModule{"../../data/shaders/phong/phong.vert.spv", device};
+    auto fragmentShaderModule = ShaderModule{"../../data/shaders/phong/phong.frag.spv", device};
 
     std::vector<VkPipelineShaderStageCreateInfo> stages = initializers::vertexShaderStages(
             {
@@ -190,7 +187,8 @@ void PrimitivesApp::createPipeline() {
     depthStencilState.maxDepthBounds = 1.0f;
     depthStencilState.depthCompareOp = VK_COMPARE_OP_LESS;
 
-    VkPipelineColorBlendStateCreateInfo blendState = initializers::colorBlendState();
+    auto colorBlendAttachment = initializers::colorBlendStateAttachmentStates();
+    VkPipelineColorBlendStateCreateInfo blendState = initializers::colorBlendState(colorBlendAttachment);
 
     VkPipelineDynamicStateCreateInfo dynamicState = initializers::dynamicState();
 
