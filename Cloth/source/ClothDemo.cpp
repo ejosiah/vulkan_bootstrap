@@ -347,16 +347,15 @@ void ClothDemo::createComputePipeline() {
 }
 
 VkCommandBuffer ClothDemo::dispatchCompute() {
-//    auto commandBuffer = commandPool.allocate(1).front();
-//
-//    auto beginInfo = initializers::commandBufferBeginInfo();
-//    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-//
-//    vkBeginCommandBuffer(commandBuffer, &beginInfo);
-//    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelines.compute);
-//    vkCmdPushConstants(commandBuffer, pipelineLayouts.compute, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(constants), &constants);
 
-
+    if(!startSim){
+        if(elapsedTime > 5.0f){
+            numIterations = std::max(1.0f, 1/(frameTime * framePerSecond));
+            frameTime *= numIterations;
+            startSim = true;
+        }
+        return nullptr;
+    }
 
     commandPool.oneTimeCommand(device.queues.compute, [&](auto commandBuffer){
         static std::array<VkDescriptorSet, 2> descriptors{};
@@ -377,8 +376,6 @@ VkCommandBuffer ClothDemo::dispatchCompute() {
         }
     });
 
-
-//    vkEndCommandBuffer(commandBuffer);
 
     return nullptr;
 }
@@ -554,7 +551,9 @@ void ClothDemo::renderUI(VkCommandBuffer commandBuffer) {
     auto& imGuiPlugin = plugin<ImGuiPlugin>(IM_GUI_PLUGIN);
 
     ImGui::Begin("Cloth Simulation");
-    ImGui::Text("Application average %.2f ms/frame, (%d FPS)", 1000.0/framePerSecond, framePerSecond);
+    ImGui::SetWindowSize("Cloth Simulation", {350, 70});
+    ImGui::Text("%d iteration(s), timeStep: %.3f ms", numIterations, frameTime * 1000);
+    ImGui::Text("Application average %.3f ms/frame, (%d FPS)", 1000.0/framePerSecond, framePerSecond);
     ImGui::End();
 
     imGuiPlugin.draw(commandBuffer);
@@ -562,7 +561,7 @@ void ClothDemo::renderUI(VkCommandBuffer commandBuffer) {
 
 int main(){
     Settings settings;
-    settings.vSync = false;
+    settings.vSync = true;
     settings.depthTest = true;
     settings.enabledFeatures.fillModeNonSolid = true;
     settings.queueFlags = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT;

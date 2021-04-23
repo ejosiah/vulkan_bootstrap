@@ -115,6 +115,7 @@ private:
         uint32_t indexCount;
     } floor;
 
-    float frameTime = 0.005;
+    float frameTime = 0.0005;
+    bool startSim = false;
    // float frameTime =  0.0083;
 };
