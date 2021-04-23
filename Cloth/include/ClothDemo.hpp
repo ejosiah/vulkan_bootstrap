@@ -80,7 +80,6 @@ private:
     struct {
         VulkanPipeline point;
         VulkanPipeline wireframe;
-        VulkanPipeline flat;
         VulkanPipeline shaded;
         VulkanPipeline compute;
     } pipelines;

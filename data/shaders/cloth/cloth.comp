@@ -87,8 +87,9 @@ void main(){
     vec3 velocity = (pos - prev_pos) * inv_dt;
 
     float t = elapsedTime;
-    float f = 10 * TWO_PI;
-    vec3 wind = vec3( 10 * cos(f * pos.x), 0, 10 * sin(f * pos.z));
+    float f = 0.2 * TWO_PI;
+    vec3 wind = vec3(0, 0, -10);
+    wind.z *= max(0, cos(f * t));
     vec3 force = mass * gravity + kd * (wind-velocity);
 
     for(int i = 0; i < 12; i++){

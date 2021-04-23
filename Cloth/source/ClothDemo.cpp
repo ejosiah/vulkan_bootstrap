@@ -59,7 +59,6 @@ void ClothDemo::createFloor() {
 
 void ClothDemo::onSwapChainDispose() {
     dispose(pipelines.wireframe);
-    dispose(pipelines.flat);
     dispose(pipelines.point);
 }
 
@@ -93,13 +92,18 @@ VkCommandBuffer *ClothDemo::buildCommandBuffers(uint32_t imageIndex, uint32_t &n
 
     vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
+    VkDeviceSize offset = 0;
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.wireframe);
+    cameraController->push(commandBuffer, pipelineLayouts.wireframe);
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, floor.vertices, &offset);
+    vkCmdBindIndexBuffer(commandBuffer, floor.indices, 0, VK_INDEX_TYPE_UINT32);
+    vkCmdDrawIndexed(commandBuffer, floor.indexCount, 1, 0, 0, 0);
+
     static std::array<VkDeviceSize, 2> offsets{0u, 0u};
     static std::array<VkBuffer, 2> buffers{cloth.vertices[output_index], cloth.vertexAttributes };
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, buffers.data(), offsets.data());
     vkCmdBindIndexBuffer(commandBuffer, cloth.indices, 0, VK_INDEX_TYPE_UINT32);
 
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.wireframe);
-    cameraController->push(commandBuffer, pipelineLayouts.wireframe);
     vkCmdDrawIndexed(commandBuffer, cloth.indexCount, 1, 0, 0, 0);
 
 
@@ -110,14 +114,6 @@ VkCommandBuffer *ClothDemo::buildCommandBuffers(uint32_t imageIndex, uint32_t &n
     vkCmdPushConstants(commandBuffer, pipelineLayouts.point, VK_SHADER_STAGE_VERTEX_BIT, sizeof(Camera), sizeof(glm::vec4), &pointColor[0]);
     vkCmdDraw(commandBuffer, cloth.vertexCount, 1, 0, 0);
 
-
-
-    VkDeviceSize offset = 0;
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.flat);
-    cameraController->push(commandBuffer, pipelineLayouts.wireframe);
-    vkCmdBindVertexBuffers(commandBuffer, 0, 1, floor.vertices, &offset);
-    vkCmdBindIndexBuffer(commandBuffer, floor.indices, 0, VK_INDEX_TYPE_UINT32);
-    vkCmdDrawIndexed(commandBuffer, floor.indexCount, 1, 0, 0, 0);
 
 
     renderUI(commandBuffer);
@@ -263,17 +259,6 @@ void ClothDemo::createPipelines() {
     createInfo.basePipelineHandle = pipelines.wireframe;
 
     pipelines.point = device.createGraphicsPipeline(createInfo);
-
-    inputAssemblyState.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
-    inputAssemblyState.primitiveRestartEnable = VK_TRUE;
-
-    vertexInputState = initializers::vertexInputState(vertexBindings, vertexAttributes);
-    createInfo.stageCount = COUNT(wireFrameStages);
-    createInfo.pStages = wireFrameStages.data();
-    createInfo.pInputAssemblyState = &inputAssemblyState;
-    createInfo.layout = pipelineLayouts.wireframe;
-
-    pipelines.flat = device.createGraphicsPipeline(createInfo);
 }
 
 void ClothDemo::createPositionDescriptorSetLayout() {
