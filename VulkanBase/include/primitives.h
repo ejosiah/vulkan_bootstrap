@@ -28,7 +28,7 @@ namespace primitives{
      * @param color color of sphere
      * @return vertices defining a sphere
      */
-    Vertices sphere(int rows, int columns, float radius = 1.0f, const glm::vec4& color = randomColor());
+    Vertices sphere(int rows, int columns, float radius = 1.0f, glm::mat4 xform = glm::mat4{1}, const glm::vec4& color = randomColor());
 
     /**
      *

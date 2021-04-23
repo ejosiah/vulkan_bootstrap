@@ -9,6 +9,7 @@ void ClothDemo::initApp() {
     commandPool = device.createCommandPool(*device.queueFamilyIndex.graphics, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
     commandBuffers = commandPool.allocate(swapChainImageCount);
     createCloth();
+    createSphere();
     createFloor();
     initCamera();
     createPositionDescriptorSetLayout();
@@ -20,32 +21,30 @@ void ClothDemo::initApp() {
 
 void ClothDemo::createCloth() {
     auto xform = glm::translate(glm::mat4(1), {0, 60, 0}) *  glm::rotate(glm::mat4(1), -glm::half_pi<float>(), {1, 0, 0});
- //   auto xform = glm::translate(glm::mat4(1), {0, 60, 0});
     auto plane = primitives::plane(cloth.gridSize.x - 1, cloth.gridSize.y - 1, cloth.size.x, cloth.size.y, xform, glm::vec4(1));
-    std::vector<decltype(vertexAttribs)> attributes(plane.vertices.size());
-//    std::vector<glm::vec4> positions(plane.vertices.size());
-//    for(int i = 0; i < plane.vertices.size(); i++){
-//        auto& vertex = plane.vertices[i];
-//        positions[i] = vertex.position;
-//        attributes[i].normal = vertex.normal;
-//        attributes[i].color = vertex.color;
-//        attributes[i].uv = vertex.uv;
-//        attributes[i].tangent = vertex.tangent;
-//        attributes[i].bitangent = vertex.bitangent;
-//    }
 
     cloth.vertices[0] = device.createCpuVisibleBuffer(plane.vertices.data(), sizeof(Vertex) * plane.vertices.size()
                                                     , VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
     cloth.vertices[1] = device.createCpuVisibleBuffer(plane.vertices.data(), sizeof(Vertex) * plane.vertices.size()
                                                     , VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-
-//    cloth.vertexAttributes = device.createDeviceLocalBuffer(attributes.data(), sizeof(vertexAttribs) * attributes.size(), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-;
+    ;
     cloth.vertexCount = plane.vertices.size();
 
     cloth.indices = device.createDeviceLocalBuffer(plane.indices.data(), sizeof(uint32_t) * plane.indices.size(), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
     cloth.indexCount = plane.indices.size();
     constants.inv_cloth_size = cloth.size/(cloth.gridSize - glm::vec2(1));
+}
+
+void ClothDemo::createSphere(){
+    auto& xform = sphere.ubo.xform;
+    xform = glm::translate(glm::mat4(1), {0, sphere.radius * 1.2, 0});
+    xform = glm::scale(xform, glm::vec3(sphere.radius));
+    auto s = primitives::sphere(25, 25, 1.0f, xform,  {1, 1, 0, 1});
+    sphere.vertices = device.createDeviceLocalBuffer(s.vertices.data(), sizeof(Vertex) * s.vertices.size(), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+    sphere.indices = device.createDeviceLocalBuffer(s.indices.data(), sizeof(uint32_t) * s.indices.size(), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+    sphere.indexCount = s.indices.size();
+
+    sphere.uboBuffer = device.createDeviceLocalBuffer(&sphere.ubo, sizeof(sphere.ubo), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
 }
 
 void ClothDemo::createFloor() {
@@ -98,6 +97,10 @@ VkCommandBuffer *ClothDemo::buildCommandBuffers(uint32_t imageIndex, uint32_t &n
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, floor.vertices, &offset);
     vkCmdBindIndexBuffer(commandBuffer, floor.indices, 0, VK_INDEX_TYPE_UINT32);
     vkCmdDrawIndexed(commandBuffer, floor.indexCount, 1, 0, 0, 0);
+
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, sphere.vertices, &offset);
+    vkCmdBindIndexBuffer(commandBuffer, sphere.indices, 0, VK_INDEX_TYPE_UINT32);
+    vkCmdDrawIndexed(commandBuffer, sphere.indexCount, 1, 0, 0, 0);
 
     static std::array<VkDeviceSize, 2> offsets{0u, 0u};
     static std::array<VkBuffer, 2> buffers{cloth.vertices[output_index], cloth.vertexAttributes };
@@ -269,13 +272,24 @@ void ClothDemo::createPositionDescriptorSetLayout() {
     bindings[0].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
     positionSetLayout = device.createDescriptorSetLayout(bindings);
+
+    bindings[0].binding = 0;
+    bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    bindings[0].descriptorCount = 1;
+    bindings[0].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    collision.setLayout = device.createDescriptorSetLayout(bindings);
 }
 
 void ClothDemo::createDescriptorPool() {
-    std::array<VkDescriptorPoolSize, 1> poolSizes{};
+    std::array<VkDescriptorPoolSize, 2> poolSizes{};
     poolSizes[0].descriptorCount = 2;
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    uint32_t maxSet = 2;
+
+    poolSizes[1].descriptorCount = 1;
+    poolSizes[1].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+
+    uint32_t maxSet = 3;
 
     descriptorPool = device.createDescriptorPool(maxSet, poolSizes);
 }
@@ -283,9 +297,13 @@ void ClothDemo::createDescriptorPool() {
 void ClothDemo::createPositionDescriptorSet() {
     assert(cloth.vertices[0].buffer != VK_NULL_HANDLE && cloth.vertices[1].buffer != VK_NULL_HANDLE);
 
-    descriptorPool.allocate({ positionSetLayout, positionSetLayout}, positionDescriptorSets);
 
-    std::array<VkDescriptorBufferInfo, 2> bufferInfo{};
+    auto descriptorSets = descriptorPool.allocate({ positionSetLayout, positionSetLayout, collision.setLayout});
+    positionDescriptorSets[0] = descriptorSets[0];
+    positionDescriptorSets[1] = descriptorSets[1];
+    collision.descriptorSet = descriptorSets[2];
+
+    std::array<VkDescriptorBufferInfo, 3> bufferInfo{};
     bufferInfo[0].buffer = cloth.vertices[0];
     bufferInfo[0].offset = 0;
     bufferInfo[0].range = VK_WHOLE_SIZE;
@@ -294,7 +312,11 @@ void ClothDemo::createPositionDescriptorSet() {
     bufferInfo[1].offset = 0;
     bufferInfo[1].range = VK_WHOLE_SIZE;
 
-    auto writes = initializers::writeDescriptorSets<2>();
+    bufferInfo[2].buffer = sphere.uboBuffer;
+    bufferInfo[2].offset = 0;
+    bufferInfo[2].range = VK_WHOLE_SIZE;
+
+    auto writes = initializers::writeDescriptorSets<3>();
     writes[0].dstSet = positionDescriptorSets[0];
     writes[0].dstBinding = 0;
     writes[0].dstArrayElement = 0;
@@ -309,6 +331,13 @@ void ClothDemo::createPositionDescriptorSet() {
     writes[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     writes[1].pBufferInfo = &bufferInfo[1];
 
+    writes[2].dstSet = collision.descriptorSet;
+    writes[2].dstBinding = 0;
+    writes[2].dstArrayElement = 0;
+    writes[2].descriptorCount = 1;
+    writes[2].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    writes[2].pBufferInfo = &bufferInfo[2];
+
     vkUpdateDescriptorSets(device, COUNT(writes), writes.data(), 0, VK_NULL_HANDLE);
 }
 
@@ -322,7 +351,7 @@ void ClothDemo::createComputePipeline() {
     range.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
     range.size = sizeof(constants);
 
-    pipelineLayouts.compute = device.createPipelineLayout({positionSetLayout, positionSetLayout}, { range });
+    pipelineLayouts.compute = device.createPipelineLayout({positionSetLayout, positionSetLayout, collision.setLayout}, { range });
 
     auto info = initializers::computePipelineCreateInfo();
     info.stage = stage;
@@ -334,7 +363,7 @@ void ClothDemo::createComputePipeline() {
 VkCommandBuffer ClothDemo::dispatchCompute() {
 
     if(!startSim){
-        if(elapsedTime > 5.0f){
+        if(elapsedTime > 5.0f){ // wait 5 seconds
             numIterations = std::max(1.0f, 1/(frameTime * framePerSecond));
             frameTime *= numIterations;
             startSim = true;
@@ -343,13 +372,14 @@ VkCommandBuffer ClothDemo::dispatchCompute() {
     }
 
     commandPool.oneTimeCommand(device.queues.compute, [&](auto commandBuffer){
-        static std::array<VkDescriptorSet, 2> descriptors{};
+        static std::array<VkDescriptorSet, 3> descriptors{};
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelines.compute);
         vkCmdPushConstants(commandBuffer, pipelineLayouts.compute, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(constants), &constants);
         for(auto i = 0; i < numIterations; i++) {
             descriptors[0] = positionDescriptorSets[input_index];
             descriptors[1] = positionDescriptorSets[output_index];
-            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayouts.compute, 0, 2, descriptors.data(), 0,
+            descriptors[2] = collision.descriptorSet;
+            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayouts.compute, 0, COUNT(descriptors), descriptors.data(), 0,
                                     nullptr);
             vkCmdDispatch(commandBuffer, 1, 1, 1);
 

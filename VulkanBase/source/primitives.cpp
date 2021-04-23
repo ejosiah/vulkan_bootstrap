@@ -47,7 +47,7 @@ Vertices primitives::cube(const glm::vec4& color){
     return mesh;
 }
 
-Vertices primitives::sphere(int rows, int columns, float radius, const glm::vec4 &color) {
+Vertices primitives::sphere(int rows, int columns, float radius, glm::mat4 xform, const glm::vec4 &color) {
     const auto p = columns;
     const auto q = rows;
     const auto r = radius;
@@ -68,7 +68,7 @@ Vertices primitives::sphere(int rows, int columns, float radius, const glm::vec4
        return std::make_tuple(glm::vec3(x, y, z), glm::vec3(nx, ny, nz));
     };
 
-    return surface(p, q, f, color);
+    return surface(p, q, f, color, xform);
 }
 
 Vertices primitives::hemisphere(int rows, int columns, float radius, const glm::vec4 &color) {

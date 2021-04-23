@@ -3,16 +3,6 @@
 #include "VulkanBaseApp.h"
 #include "ImGuiPlugin.hpp"
 
-struct Cloth{
-    std::array<VulkanBuffer, 2> vertices;
-    VulkanBuffer vertexAttributes;
-    VulkanBuffer indices;
-    uint32_t indexCount;
-    uint32_t vertexCount;
-    glm::vec2 size = glm::vec2(60.0f);
-    glm::vec2 gridSize{10};
-};
-
 
 class ClothDemo : public VulkanBaseApp{
 public:
@@ -26,6 +16,8 @@ protected:
     void checkAppInputs() override;
 
     void createCloth();
+
+    void createSphere();
 
     void createFloor();
 
@@ -62,13 +54,13 @@ private:
     std::vector<VkCommandBuffer> commandBuffers;
     std::unique_ptr<BaseCameraController> cameraController;
 
-    Cloth cloth;
     int input_index = 0;
     int output_index = 1;
 
     VulkanDescriptorSetLayout positionSetLayout;
     VulkanDescriptorPool descriptorPool;
     std::array<VkDescriptorSet, 2> positionDescriptorSets;
+
 
     struct {
         VulkanPipelineLayout point;
@@ -84,6 +76,10 @@ private:
         VulkanPipeline compute;
     } pipelines;
 
+    struct {
+        VulkanDescriptorSetLayout setLayout;
+        VkDescriptorSet descriptorSet;
+    } collision;
 
     struct {
         glm::vec2 inv_cloth_size;
@@ -99,13 +95,6 @@ private:
         float elapsedTime = 0;
     } constants{};
 
-    struct VertexAttribs{
-        glm::vec3 normal;
-        glm::vec4 color;
-        glm::vec2 uv;
-        glm::vec3 tangent;
-        glm::vec3 bitangent;
-    } vertexAttribs;
     int numIterations = 1;
 
     struct {
@@ -113,6 +102,29 @@ private:
         VulkanBuffer indices;
         uint32_t indexCount;
     } floor;
+
+    struct Cloth{
+        std::array<VulkanBuffer, 2> vertices;
+        VulkanBuffer vertexAttributes;
+        VulkanBuffer indices;
+        uint32_t indexCount;
+        uint32_t vertexCount;
+        glm::vec2 size = glm::vec2(60.0f);
+        glm::vec2 gridSize{10};
+    } cloth;
+
+    struct Sphere{
+        VulkanBuffer vertices;
+        VulkanBuffer indices;
+        VulkanBuffer uboBuffer;
+        float radius = 10;
+        uint32_t indexCount;
+
+        struct {
+            glm::mat4 xform = glm::mat4(0);
+        } ubo;
+
+    } sphere;
 
     float frameTime = 0.0005;
     bool startSim = false;
