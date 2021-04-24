@@ -65,6 +65,7 @@ void ClothDemo::createFloor() {
 void ClothDemo::onSwapChainDispose() {
     dispose(pipelines.wireframe);
     dispose(pipelines.point);
+    dispose(pipelines.normals);
 }
 
 void ClothDemo::onSwapChainRecreation() {
@@ -119,11 +120,19 @@ VkCommandBuffer *ClothDemo::buildCommandBuffers(uint32_t imageIndex, uint32_t &n
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.point);
     cameraController->push(commandBuffer, pipelineLayouts.point);
 
-    glm::vec4 pointColor{1, 0, 0, 1};
+    static glm::vec4 pointColor{1, 0, 0, 1};
     vkCmdPushConstants(commandBuffer, pipelineLayouts.point, VK_SHADER_STAGE_VERTEX_BIT, sizeof(Camera), sizeof(glm::vec4), &pointColor[0]);
     vkCmdDraw(commandBuffer, cloth.vertexCount, 1, 0, 0);
 
-
+    static glm::vec4 normalColor{1, 1, 0, 1};
+    static float normalLength = glm::length(constants.inv_cloth_size) * 0.5f;
+    static std::array<char, sizeof(normalColor) + sizeof(normalLength)> normalConstants{};
+    std::memcpy(normalConstants.data(), &normalColor[0], sizeof(normalColor));
+    std::memcpy(normalConstants.data() + sizeof(normalColor), &normalLength, sizeof(normalLength));
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.normals);
+    cameraController->push(commandBuffer, pipelineLayouts.normals, VK_SHADER_STAGE_GEOMETRY_BIT);
+    vkCmdPushConstants(commandBuffer, pipelineLayouts.normals, VK_SHADER_STAGE_GEOMETRY_BIT, sizeof(Camera), normalConstants.size(), normalConstants.data());
+    vkCmdDraw(commandBuffer, cloth.vertexCount, 1, 0, 0);
 
     renderUI(commandBuffer);
 
@@ -170,19 +179,6 @@ void ClothDemo::createPipelines() {
         {flatVertexModule, VK_SHADER_STAGE_VERTEX_BIT},
         { flatFragmentModule, VK_SHADER_STAGE_FRAGMENT_BIT}
     });
-
-//    std::vector<VkVertexInputBindingDescription> vertexBindings{
-//            {0, sizeof(glm::vec4), VK_VERTEX_INPUT_RATE_VERTEX},
-//            {1, sizeof(VertexAttribs), VK_VERTEX_INPUT_RATE_VERTEX}
-//    };
-//    std::vector<VkVertexInputAttributeDescription> vertexAttributes{
-//            {0, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 0},
-//            {1, 1, VK_FORMAT_R32G32B32_SFLOAT, (uint32_t)offsetof(VertexAttribs, normal)},
-//            {2, 1, VK_FORMAT_R32G32B32_SFLOAT, (uint32_t)offsetof(VertexAttribs, tangent)},
-//            {3, 1, VK_FORMAT_R32G32B32_SFLOAT, (uint32_t)offsetof(VertexAttribs, bitangent)},
-//            {4, 1, VK_FORMAT_R32G32B32A32_SFLOAT, (uint32_t)offsetof(VertexAttribs, color)},
-//            {5, 1, VK_FORMAT_R32G32_SFLOAT, (uint32_t)offsetof(VertexAttribs, uv)}
-//    };
 
     auto vertexBindings = Vertex::bindingDisc();
     auto vertexAttributes = Vertex::attributeDisc();
@@ -268,6 +264,26 @@ void ClothDemo::createPipelines() {
     createInfo.basePipelineHandle = pipelines.wireframe;
 
     pipelines.point = device.createGraphicsPipeline(createInfo);
+
+    auto normalVertexShaderModule = ShaderModule{ "../../data/shaders/draw_normals.vert.spv", device};
+    auto normalGeometryShaderModule = ShaderModule{"../../data/shaders/draw_normals.geom.spv", device};
+
+    auto drawNormalStages = initializers::vertexShaderStages({
+        {normalVertexShaderModule, VK_SHADER_STAGE_VERTEX_BIT},
+        {normalGeometryShaderModule, VK_SHADER_STAGE_GEOMETRY_BIT},
+        {pointFragShaderModule, VK_SHADER_STAGE_FRAGMENT_BIT}
+    });
+
+    pushConstants[0].stageFlags = VK_SHADER_STAGE_GEOMETRY_BIT;
+    pushConstants[0].size = sizeof(Camera) + sizeof(glm::vec4) + sizeof(float);
+
+    dispose(pipelineLayouts.normals);
+    pipelineLayouts.normals = device.createPipelineLayout({}, pushConstants);
+    createInfo.stageCount = COUNT(drawNormalStages);
+    createInfo.pStages = drawNormalStages.data();
+    createInfo.layout = pipelineLayouts.normals;
+
+    pipelines.normals = device.createGraphicsPipeline(createInfo);
 }
 
 void ClothDemo::createPositionDescriptorSetLayout() {
@@ -585,6 +601,7 @@ int main(){
     settings.vSync = true;
     settings.depthTest = true;
     settings.enabledFeatures.fillModeNonSolid = true;
+    settings.enabledFeatures.geometryShader = true;
     settings.queueFlags = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT;
     spdlog::set_level(spdlog::level::err);
 

@@ -60,9 +60,9 @@ public:
 
     void setModel(const glm::mat4& model) final;
 
-    void push(VkCommandBuffer commandBuffer, VkPipelineLayout layout) const final;
+    void push(VkCommandBuffer commandBuffer, VkPipelineLayout layout, VkShaderStageFlags stageFlags = VK_SHADER_STAGE_VERTEX_BIT) const final;
 
-    void push(VkCommandBuffer commandBuffer, VkPipelineLayout layout, const glm::mat4& model) final;
+    void push(VkCommandBuffer commandBuffer, VkPipelineLayout layout, const glm::mat4& model, VkShaderStageFlags stageFlags = VK_SHADER_STAGE_VERTEX_BIT) final;
 
     const glm::vec3 &position() const final;
 

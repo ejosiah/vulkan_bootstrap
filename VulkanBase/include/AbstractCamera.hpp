@@ -56,9 +56,9 @@ public:
 
     virtual void setModel(const glm::mat4& model) = 0;
 
-    virtual void push(VkCommandBuffer commandBuffer, VkPipelineLayout layout) const = 0;
+    virtual void push(VkCommandBuffer commandBuffer, VkPipelineLayout layout, VkShaderStageFlags stageFlags = VK_SHADER_STAGE_VERTEX_BIT) const = 0;
 
-    virtual void push(VkCommandBuffer commandBuffer, VkPipelineLayout layout, const glm::mat4& model) = 0;
+    virtual void push(VkCommandBuffer commandBuffer, VkPipelineLayout layout, const glm::mat4& model, VkShaderStageFlags stageFlags = VK_SHADER_STAGE_VERTEX_BIT) = 0;
 
     [[nodiscard]]
     virtual const glm::quat& getOrientation() const = 0;

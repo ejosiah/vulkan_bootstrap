@@ -136,11 +136,11 @@ void OrbitingCameraController::onPositionChanged() {
     lookAt(newEyes, newTarget, targetYAxis);
 }
 
-void OrbitingCameraController::push(VkCommandBuffer commandBuffer, VkPipelineLayout layout) const {
+void OrbitingCameraController::push(VkCommandBuffer commandBuffer, VkPipelineLayout layout, VkShaderStageFlags stageFlags) const {
     camera.model = glm::mat4_cast(model.orientation) * translate(glm::mat4(1), model.position);
-    BaseCameraController::push(commandBuffer, layout);
+    BaseCameraController::push(commandBuffer, layout, stageFlags);
 }
 
-void OrbitingCameraController::push(VkCommandBuffer commandBuffer, VkPipelineLayout layout, const glm::mat4 &model) {
-    BaseCameraController::push(commandBuffer, layout, model);
+void OrbitingCameraController::push(VkCommandBuffer commandBuffer, VkPipelineLayout layout, const glm::mat4 &model, VkShaderStageFlags stageFlags) {
+    BaseCameraController::push(commandBuffer, layout, model, stageFlags);
 }

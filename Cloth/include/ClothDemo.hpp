@@ -69,6 +69,7 @@ private:
         VulkanPipelineLayout wireframe;
         VulkanPipelineLayout shaded;
         VulkanPipelineLayout compute;
+        VulkanPipelineLayout normals;
     } pipelineLayouts;
 
     struct {
@@ -76,6 +77,7 @@ private:
         VulkanPipeline wireframe;
         VulkanPipeline shaded;
         VulkanPipeline compute;
+        VulkanPipeline normals;
     } pipelines;
 
     struct {
