@@ -98,7 +98,7 @@ public:
     [[nodiscard]]
     const glm::quat &getOrientation() const final;
 
-protected:
+public:
     virtual void updateViewMatrix();
 
     virtual void processMovementInput();

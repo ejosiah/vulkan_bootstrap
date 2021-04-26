@@ -43,6 +43,10 @@ protected:
 
     VkCommandBuffer *buildCommandBuffers(uint32_t imageIndex, uint32_t &numCommandBuffers) override;
 
+    void drawWireframe(VkCommandBuffer commandBuffer);
+
+    void drawShaded(VkCommandBuffer commandBuffer);
+
     void update(float time) override;
 
     void runPhysics(float time);
@@ -89,12 +93,12 @@ private:
         glm::vec2 inv_cloth_size;
         float timeStep;
         float mass = 1.0;
-        float ksStruct = 100.0f;
-        float ksShear = 1.25f;
-        float ksBend = 1.25f;
-        float kdStruct = 5.5f;
-        float kdShear = 0.25f;
-        float kdBend = 0.25f;
+        float ksStruct = 2000.0f;
+        float ksShear = 2000.25f;
+        float ksBend = 2000.25f;
+        float kdStruct = 500.5f;
+        float kdShear = 200.25f;
+        float kdBend = 200.25f;
         float kd = 0.05f;
         float elapsedTime = 0;
     } constants{};
@@ -113,8 +117,11 @@ private:
         VulkanBuffer indices;
         uint32_t indexCount;
         uint32_t vertexCount;
+        VkDescriptorSet descriptorSet;
+        VulkanDescriptorSetLayout setLayout;
+        Texture diffuseMap;
         glm::vec2 size = glm::vec2(60.0f);
-        glm::vec2 gridSize{10};
+        glm::vec2 gridSize{100};
     } cloth;
 
     struct Sphere{
@@ -125,12 +132,21 @@ private:
         uint32_t indexCount;
 
         struct {
-            glm::mat4 xform = glm::mat4(0);
+            glm::mat4 xform = glm::mat4(1);
+            alignas(16) glm::vec3 center;
+            float radius;
         } ubo;
 
     } sphere;
 
     float frameTime = 0.0005;
     bool startSim = false;
-   // float frameTime =  0.0083;
+
+    enum class Shading : int {
+        WIREFRAME = 0,
+        SHADED = 1
+    } shading = Shading::SHADED;
+    bool showPoints = false;
+    bool showNormals = false;
+    float shine = 50;
 };

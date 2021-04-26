@@ -25,6 +25,8 @@ layout(set = 1, binding = 0) buffer POINT_MASS_OUT{
 
 layout(set = 2, binding = 0) uniform SPHERE_DATA {
     mat4 xform;
+    vec3 center;
+    float radius;
 } sphere;
 
 layout(push_constant) uniform SIM_CONSTANTS {
@@ -92,13 +94,18 @@ bool neighbour(int i, out vec3 pos, out vec3 prev_pos, out float ks, out float k
 }
 
 void sphereCollisionTest(inout vec3 position){
-    vec3 p = (inverse(sphere.xform) * vec4(position, 1.0)).xyz; // bring into sphere local space
-    float dist = length(p);
-    float d = dist - 1;    // we assume the local sphere is a unit sphere
-    if(d < 0){
-        p /= dist;
-        vec4 worldP = sphere.xform * vec4(p, 1.0);
-        position = worldP.xyz;
+//    vec3 p = (inverse(sphere.xform) * vec4(position, 1.0)).xyz; // bring into sphere local space
+//    float dist = length(p);
+//    float d = dist - 1;    // we assume the local sphere is a unit sphere
+//    if(d < 0.01){
+//        p /= dist;
+//        vec4 worldP = sphere.xform * vec4(p, 1.0);
+//        position = worldP.xyz;
+//    }
+    vec3 x = position - sphere.center;
+    float r = sphere.radius + 0.02;
+    if(length(x) < r){
+        position = sphere.center + r * normalize(x);
     }
 }
 
@@ -166,7 +173,11 @@ void main(){
 
     sphereCollisionTest(p);
 
-    if(p.y < 0) p.y = 0;
+//    if(p.y < 0) p.y = 0.01;
+    float d = dot(p, vec3(0, 1, 0));
+    if(d < 0.01){
+        p += abs(d) * vec3(0, 1, 0);
+    }
 
 
     particleOut[id].position.xyz = p;

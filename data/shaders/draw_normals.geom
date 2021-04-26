@@ -29,4 +29,5 @@ void main(){
     position.xyz = position.xyz + vIn[0].normal * nlength;
     gl_Position = projection * view * model * position;
     EmitVertex();
+    EndPrimitive();
 }

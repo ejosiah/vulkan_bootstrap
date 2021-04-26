@@ -27,24 +27,29 @@ void ClothDemo::checkInvariants() {
 
 void ClothDemo::createCloth() {
     auto xform = glm::translate(glm::mat4(1), {0, 60, 0}) *  glm::rotate(glm::mat4(1), -glm::half_pi<float>(), {1, 0, 0});
-    auto plane = primitives::plane(cloth.gridSize.x - 1, cloth.gridSize.y - 1, cloth.size.x, cloth.size.y, xform, glm::vec4(1));
+    auto plane = primitives::plane(cloth.gridSize.x - 1, cloth.gridSize.y - 1, cloth.size.x, cloth.size.y, xform, glm::vec4(0.2, 0.2, 0.2, 1.0));
 
     cloth.vertices[0] = device.createCpuVisibleBuffer(plane.vertices.data(), sizeof(Vertex) * plane.vertices.size()
                                                     , VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
     cloth.vertices[1] = device.createCpuVisibleBuffer(plane.vertices.data(), sizeof(Vertex) * plane.vertices.size()
                                                     , VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-    ;
     cloth.vertexCount = plane.vertices.size();
 
     cloth.indices = device.createDeviceLocalBuffer(plane.indices.data(), sizeof(uint32_t) * plane.indices.size(), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
     cloth.indexCount = plane.indices.size();
+
+    textures::fromFile(device, cloth.diffuseMap, "../../data/textures/cloth/Cloth_Diffuse_3K.jpg", true);
+
     constants.inv_cloth_size = cloth.size/(cloth.gridSize - glm::vec2(1));
 }
 
 void ClothDemo::createSphere(){
     auto& xform = sphere.ubo.xform;
-    xform = glm::translate(glm::mat4(1), {0, sphere.radius * 1.2, 0});
+    xform = glm::translate(glm::mat4(1), {0, sphere.radius * 2, -sphere.radius * 2});
     xform = glm::scale(xform, glm::vec3(sphere.radius));
+    sphere.ubo.radius = sphere.radius;
+    sphere.ubo.center = (xform * glm::vec4(0, 0, 0, 1)).xyz();
+
     auto s = primitives::sphere(25, 25, 1.0f, xform,  {1, 1, 0, 1});
     sphere.vertices = device.createDeviceLocalBuffer(s.vertices.data(), sizeof(Vertex) * s.vertices.size(), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
     sphere.indices = device.createDeviceLocalBuffer(s.indices.data(), sizeof(uint32_t) * s.indices.size(), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
@@ -98,7 +103,23 @@ VkCommandBuffer *ClothDemo::buildCommandBuffers(uint32_t imageIndex, uint32_t &n
 
     vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
+
+    if(shading == Shading::WIREFRAME) {
+        drawWireframe(commandBuffer);
+    }else if(shading == Shading::SHADED) {
+        drawShaded(commandBuffer);
+    }
+    renderUI(commandBuffer);
+
+    vkCmdEndRenderPass(commandBuffer);
+    vkEndCommandBuffer(commandBuffer);
+
+    return cmdBuffers.data();
+}
+
+void ClothDemo::drawWireframe(VkCommandBuffer commandBuffer) {
     VkDeviceSize offset = 0;
+
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.wireframe);
     cameraController->push(commandBuffer, pipelineLayouts.wireframe);
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, floor.vertices, &offset);
@@ -110,36 +131,81 @@ VkCommandBuffer *ClothDemo::buildCommandBuffers(uint32_t imageIndex, uint32_t &n
     vkCmdDrawIndexed(commandBuffer, sphere.indexCount, 1, 0, 0, 0);
 
     static std::array<VkDeviceSize, 2> offsets{0u, 0u};
-    static std::array<VkBuffer, 2> buffers{cloth.vertices[output_index], cloth.vertexAttributes };
+    static std::array<VkBuffer, 2> buffers{cloth.vertices[input_index], cloth.vertexAttributes };
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, buffers.data(), offsets.data());
     vkCmdBindIndexBuffer(commandBuffer, cloth.indices, 0, VK_INDEX_TYPE_UINT32);
 
     vkCmdDrawIndexed(commandBuffer, cloth.indexCount, 1, 0, 0, 0);
 
+    if(showPoints) {
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.point);
+        cameraController->push(commandBuffer, pipelineLayouts.point);
 
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.point);
-    cameraController->push(commandBuffer, pipelineLayouts.point);
 
-    static glm::vec4 pointColor{1, 0, 0, 1};
-    vkCmdPushConstants(commandBuffer, pipelineLayouts.point, VK_SHADER_STAGE_VERTEX_BIT, sizeof(Camera), sizeof(glm::vec4), &pointColor[0]);
-    vkCmdDraw(commandBuffer, cloth.vertexCount, 1, 0, 0);
+        static glm::vec4 pointColor{1, 0, 0, 1};
+        vkCmdPushConstants(commandBuffer, pipelineLayouts.point, VK_SHADER_STAGE_VERTEX_BIT, sizeof(Camera),
+                           sizeof(glm::vec4), &pointColor[0]);
+        vkCmdBindVertexBuffers(commandBuffer, 0, 1, buffers.data(), offsets.data());
+        vkCmdDraw(commandBuffer, cloth.vertexCount, 1, 0, 0);
+    }
 
-    static glm::vec4 normalColor{1, 1, 0, 1};
-    static float normalLength = glm::length(constants.inv_cloth_size) * 0.5f;
-    static std::array<char, sizeof(normalColor) + sizeof(normalLength)> normalConstants{};
-    std::memcpy(normalConstants.data(), &normalColor[0], sizeof(normalColor));
-    std::memcpy(normalConstants.data() + sizeof(normalColor), &normalLength, sizeof(normalLength));
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.normals);
-    cameraController->push(commandBuffer, pipelineLayouts.normals, VK_SHADER_STAGE_GEOMETRY_BIT);
-    vkCmdPushConstants(commandBuffer, pipelineLayouts.normals, VK_SHADER_STAGE_GEOMETRY_BIT, sizeof(Camera), normalConstants.size(), normalConstants.data());
-    vkCmdDraw(commandBuffer, cloth.vertexCount, 1, 0, 0);
+    if(showNormals) {
+        static glm::vec4 normalColor{1, 1, 0, 1};
+        static float normalLength = glm::length(constants.inv_cloth_size) * 0.5f;
+        static std::array<char, sizeof(normalColor) + sizeof(normalLength)> normalConstants{};
 
-    renderUI(commandBuffer);
+        std::memcpy(normalConstants.data(), &normalColor[0], sizeof(normalColor));
+        std::memcpy(normalConstants.data() + sizeof(normalColor), &normalLength, sizeof(normalLength));
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.normals);
+        cameraController->push(commandBuffer, pipelineLayouts.normals, VK_SHADER_STAGE_GEOMETRY_BIT);
+        vkCmdPushConstants(commandBuffer, pipelineLayouts.normals, VK_SHADER_STAGE_GEOMETRY_BIT, sizeof(Camera),
+                           normalConstants.size(), normalConstants.data());
+        vkCmdDraw(commandBuffer, cloth.vertexCount, 1, 0, 0);
+    }
+}
 
-    vkCmdEndRenderPass(commandBuffer);
-    vkEndCommandBuffer(commandBuffer);
+void ClothDemo::drawShaded(VkCommandBuffer commandBuffer) {
+    VkDeviceSize offset = 0;
 
-    return cmdBuffers.data();
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.wireframe);
+    cameraController->push(commandBuffer, pipelineLayouts.wireframe);
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, floor.vertices, &offset);
+    vkCmdBindIndexBuffer(commandBuffer, floor.indices, 0, VK_INDEX_TYPE_UINT32);
+    vkCmdDrawIndexed(commandBuffer, floor.indexCount, 1, 0, 0, 0);
+
+    static int useTexture;
+    useTexture = 1;
+    static std::array<char, sizeof(int) + sizeof(float)> lightParams{};
+    std::memcpy(lightParams.data(), &useTexture, sizeof(int));
+    std::memcpy(lightParams.data() + sizeof(int), &shine, sizeof(float));
+
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.shaded);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayouts.shaded, 0, 1, &cloth.descriptorSet, 0, nullptr);
+    cameraController->push(commandBuffer, pipelineLayouts.shaded);
+    vkCmdPushConstants(commandBuffer, pipelineLayouts.shaded, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(Camera), sizeof(int) + sizeof(float), lightParams.data());
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, cloth.vertices[input_index], &offset);
+    vkCmdBindIndexBuffer(commandBuffer, cloth.indices, 0, VK_INDEX_TYPE_UINT32);
+    vkCmdDrawIndexed(commandBuffer, cloth.indexCount, 1, 0, 0, 0);
+
+    useTexture = 0;
+    std::memcpy(lightParams.data(), &useTexture, sizeof(int));
+    std::memcpy(lightParams.data() + sizeof(int), &shine, sizeof(float));
+    vkCmdPushConstants(commandBuffer, pipelineLayouts.shaded, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(Camera), sizeof(int) + sizeof(float), lightParams.data());
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, sphere.vertices, &offset);
+    vkCmdBindIndexBuffer(commandBuffer, sphere.indices, 0, VK_INDEX_TYPE_UINT32);
+    vkCmdDrawIndexed(commandBuffer, sphere.indexCount, 1, 0, 0, 0);
+
+//    if(showPoints) {
+//        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.point);
+//        cameraController->push(commandBuffer, pipelineLayouts.point);
+//
+//
+//        static glm::vec4 pointColor{1, 0, 0, 1};
+//        vkCmdPushConstants(commandBuffer, pipelineLayouts.point, VK_SHADER_STAGE_VERTEX_BIT, sizeof(Camera),
+//                           sizeof(glm::vec4), &pointColor[0]);
+//        vkCmdBindVertexBuffers(commandBuffer, 0, 1, cloth.vertices[input_index], &offset);
+//        vkCmdDraw(commandBuffer, cloth.vertexCount, 1, 0, 0);
+//    }
 }
 
 void ClothDemo::update(float time) {
@@ -168,7 +234,7 @@ void ClothDemo::initCamera() {
     settings.acceleration = glm::vec3(20);
     settings.aspectRatio = float(swapChain.extent.width)/float(swapChain.extent.height);
     cameraController = std::make_unique<SpectatorCameraController>(device, swapChainImageCount, currentImageIndex, dynamic_cast<InputManager&>(*this), settings);
-    cameraController->lookAt({0, settings.floorOffset, 20}, glm::vec3(0), {0, 1, 0});
+    cameraController->lookAt({-20, 37, 8}, {0.5, -0.6, 0.6}, {0, 1, 0});
 }
 
 void ClothDemo::createPipelines() {
@@ -284,6 +350,29 @@ void ClothDemo::createPipelines() {
     createInfo.layout = pipelineLayouts.normals;
 
     pipelines.normals = device.createGraphicsPipeline(createInfo);
+
+    auto shadedVertexShaderModule = ShaderModule{ "../../data/shaders/phong/phong.vert.spv", device};
+    auto shadedFragmentShaderModule = ShaderModule{ "../../data/shaders/phong/phong.frag.spv", device};
+    auto shadedStages = initializers::vertexShaderStages({
+        {shadedVertexShaderModule, VK_SHADER_STAGE_VERTEX_BIT},
+        {shadedFragmentShaderModule, VK_SHADER_STAGE_FRAGMENT_BIT}
+    });
+
+    inputAssemblyState.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
+    inputAssemblyState.primitiveRestartEnable = VK_TRUE;
+    rasterState.polygonMode = VK_POLYGON_MODE_FILL;
+
+    dispose(pipelineLayouts.shaded);
+    pipelineLayouts.shaded = device.createPipelineLayout({ cloth.setLayout }
+    , {Camera::pushConstant(), {VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(Camera), sizeof(int) + sizeof(float)}});
+
+    createInfo.stageCount = COUNT(shadedStages);
+    createInfo.pStages = shadedStages.data();
+    createInfo.pInputAssemblyState = &inputAssemblyState;
+    createInfo.pRasterizationState = &rasterState;
+    createInfo.layout = pipelineLayouts.shaded;
+
+    pipelines.shaded = device.createGraphicsPipeline(createInfo);
 }
 
 void ClothDemo::createPositionDescriptorSetLayout() {
@@ -301,17 +390,28 @@ void ClothDemo::createPositionDescriptorSetLayout() {
     bindings[0].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
     collision.setLayout = device.createDescriptorSetLayout(bindings);
+
+    bindings[0].binding = 0;
+    bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    bindings[0].descriptorCount = 1;
+    bindings[0].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+    cloth.setLayout = device.createDescriptorSetLayout(bindings);
+
 }
 
 void ClothDemo::createDescriptorPool() {
-    std::array<VkDescriptorPoolSize, 2> poolSizes{};
+    std::array<VkDescriptorPoolSize, 3> poolSizes{};
     poolSizes[0].descriptorCount = 2;
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 
     poolSizes[1].descriptorCount = 1;
     poolSizes[1].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 
-    uint32_t maxSet = 3;
+    poolSizes[2].descriptorCount = 2;
+    poolSizes[2].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+
+    uint32_t maxSet = 4;
 
     descriptorPool = device.createDescriptorPool(maxSet, poolSizes);
 }
@@ -320,10 +420,11 @@ void ClothDemo::createPositionDescriptorSet() {
     assert(cloth.vertices[0].buffer != VK_NULL_HANDLE && cloth.vertices[1].buffer != VK_NULL_HANDLE);
 
 
-    auto descriptorSets = descriptorPool.allocate({ positionSetLayout, positionSetLayout, collision.setLayout});
+    auto descriptorSets = descriptorPool.allocate({ positionSetLayout, positionSetLayout, collision.setLayout, cloth.setLayout});
     positionDescriptorSets[0] = descriptorSets[0];
     positionDescriptorSets[1] = descriptorSets[1];
     collision.descriptorSet = descriptorSets[2];
+    cloth.descriptorSet = descriptorSets[3];
 
     std::array<VkDescriptorBufferInfo, 3> bufferInfo{};
     bufferInfo[0].buffer = cloth.vertices[0];
@@ -338,7 +439,7 @@ void ClothDemo::createPositionDescriptorSet() {
     bufferInfo[2].offset = 0;
     bufferInfo[2].range = VK_WHOLE_SIZE;
 
-    auto writes = initializers::writeDescriptorSets<3>();
+    auto writes = initializers::writeDescriptorSets<4>();
     writes[0].dstSet = positionDescriptorSets[0];
     writes[0].dstBinding = 0;
     writes[0].dstArrayElement = 0;
@@ -359,6 +460,18 @@ void ClothDemo::createPositionDescriptorSet() {
     writes[2].descriptorCount = 1;
     writes[2].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     writes[2].pBufferInfo = &bufferInfo[2];
+
+    VkDescriptorImageInfo imageInfo{};
+    imageInfo.imageView = cloth.diffuseMap.imageView;
+    imageInfo.sampler = cloth.diffuseMap.sampler;
+    imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    writes[3].dstSet = cloth.descriptorSet;
+    writes[3].dstBinding = 0;
+    writes[3].dstArrayElement = 0;
+    writes[3].descriptorCount = 1;
+    writes[3].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    writes[3].pImageInfo = &imageInfo;
 
     vkUpdateDescriptorSets(device, COUNT(writes), writes.data(), 0, VK_NULL_HANDLE);
 }
@@ -403,7 +516,7 @@ VkCommandBuffer ClothDemo::dispatchCompute() {
             descriptors[2] = collision.descriptorSet;
             vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayouts.compute, 0, COUNT(descriptors), descriptors.data(), 0,
                                     nullptr);
-            vkCmdDispatch(commandBuffer, 1, 1, 1);
+            vkCmdDispatch(commandBuffer, cloth.gridSize.x/10, cloth.gridSize.y/10, 1);
 
             if(i - 1 < numIterations){
                 computeToComputeBarrier(commandBuffer);
@@ -588,9 +701,37 @@ void ClothDemo::renderUI(VkCommandBuffer commandBuffer) {
     auto& imGuiPlugin = plugin<ImGuiPlugin>(IM_GUI_PLUGIN);
 
     ImGui::Begin("Cloth Simulation");
-    ImGui::SetWindowSize("Cloth Simulation", {350, 70});
+    ImGui::SetWindowSize("Cloth Simulation", {350, 400});
+    static int option = 1;
+
+    ImGui::RadioButton("wireframe", &option, 0);
+    ImGui::SameLine();
+    ImGui::RadioButton("shaded", &option, 1);
+    shading = static_cast<Shading>(option);
+
+    bool showWireframeOptions = shading == Shading::WIREFRAME;
+    if(ImGui::CollapsingHeader("wireframe options", &showWireframeOptions, ImGuiTreeNodeFlags_DefaultOpen)){
+        ImGui::Checkbox("points", &showPoints);
+        ImGui::Checkbox("normals", &showNormals);
+    }
+
+    if(ImGui::CollapsingHeader("Spring Constants", ImGuiTreeNodeFlags_DefaultOpen)){
+        ImGui::SliderFloat("structural", &constants.ksStruct, 10.0f, 1000.0f);
+        ImGui::SliderFloat("shear", &constants.ksShear, 0.1f, 200.0f);
+        ImGui::SliderFloat("bend", &constants.ksBend, 0.1f, 200.0f);
+    }
+    if(ImGui::CollapsingHeader("Damping Constants", ImGuiTreeNodeFlags_DefaultOpen)){
+        ImGui::SliderFloat("structural_d", &constants.kdStruct, 0.1f, 10.0f);
+        ImGui::SliderFloat("shear_d", &constants.kdShear, 0.1f, 10.0f);
+        ImGui::SliderFloat("bend_d", &constants.kdBend, 0.1f, 10.0f);
+        ImGui::SliderFloat("velocity", &constants.kd, 0.1f, 10.0f);
+    }
+
+    ImGui::SliderFloat("shine", &shine, 1, 100);
     ImGui::Text("%d iteration(s), timeStep: %.3f ms", numIterations, frameTime * 1000);
     ImGui::Text("Application average %.3f ms/frame, (%d FPS)", 1000.0/framePerSecond, framePerSecond);
+    ImGui::Text(fmt::format("Camera position: {}", cameraController->position()).c_str());
+    ImGui::Text(fmt::format("Camera target: {}", cameraController->viewDir).c_str());
     ImGui::End();
 
     imGuiPlugin.draw(commandBuffer);
