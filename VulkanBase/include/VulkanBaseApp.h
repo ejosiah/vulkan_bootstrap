@@ -279,6 +279,7 @@ protected:
     Settings settings;
     bool ready = false;
     bool toggleFullscreen = false;
+    void* deviceCreateNextChain = nullptr;
 
 private:
     static VulkanBaseApp* appInstance;

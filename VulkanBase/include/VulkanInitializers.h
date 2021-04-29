@@ -36,7 +36,8 @@ namespace initializers{
         return createInfo;
     }
 
-    inline VkPipelineVertexInputStateCreateInfo vertexInputState(const std::vector<VkVertexInputBindingDescription>& bindings = {}, const std::vector<VkVertexInputAttributeDescription>& attributes = {}){
+    template<typename BindingDescriptions = std::vector<VkVertexInputBindingDescription>, typename AttributeDescriptions = std::vector<VkVertexInputAttributeDescription>>
+    inline VkPipelineVertexInputStateCreateInfo vertexInputState(const BindingDescriptions& bindings = {}, const AttributeDescriptions& attributes = {}){
         VkPipelineVertexInputStateCreateInfo createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
         createInfo.vertexBindingDescriptionCount = COUNT(bindings);
@@ -345,5 +346,23 @@ namespace initializers{
         VkBufferMemoryBarrier barrier{};
         barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
         return barrier;
+    }
+
+
+    inline VkApplicationInfo AppInfo() {
+        VkApplicationInfo appInfo{};
+        appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+        appInfo.applicationVersion = VK_MAKE_VERSION(0, 0, 0);
+        appInfo.pApplicationName = "";
+        appInfo.apiVersion = VK_API_VERSION_1_2;
+        appInfo.pEngineName = "";
+        return appInfo;
+    }
+
+    inline VkBufferCreateInfo bufferCreateInfo() {
+        VkBufferCreateInfo  bufferInfo{};
+        bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+        bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        return bufferInfo;
     }
 }

@@ -53,4 +53,8 @@ struct Settings{
      * sets Vulkan features to enable
      */
     VkPhysicalDeviceFeatures enabledFeatures{};
+
+    std::vector<const char*> instanceExtensions;
+    std::vector<const char*> validationLayers;
+    std::vector<const char*> deviceExtensions;
 };

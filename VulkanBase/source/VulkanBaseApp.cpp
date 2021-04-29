@@ -49,6 +49,7 @@ VulkanBaseApp::VulkanBaseApp(std::string_view name, const Settings& settings, st
 , plugins(std::move(plugins))
 {
     appInstance = this;
+    this->settings.deviceExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 }
 
 VulkanBaseApp::~VulkanBaseApp(){
@@ -72,6 +73,18 @@ void VulkanBaseApp::initWindow() {
     uint32_t size;
     auto extensions = glfwGetRequiredInstanceExtensions(&size);
     instanceExtensions = std::vector<const char*>(extensions, extensions + size);
+
+    for(auto& extension : settings.instanceExtensions){
+        instanceExtensions.push_back(extension);
+    }
+
+    for(auto& extension : settings.deviceExtensions){
+        deviceExtensions.push_back(extension);
+    }
+
+    for(auto& layer : settings.validationLayers){
+        validationLayers.push_back(layer);
+    }
 
     if(enableValidation){
         instanceExtensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
@@ -182,7 +195,7 @@ VkFormat VulkanBaseApp::findDepthFormat() {
 }
 
 void VulkanBaseApp::createLogicalDevice() {
-    device.createLogicalDevice(enabledFeatures, deviceExtensions, validationLayers, surface, settings.queueFlags);
+    device.createLogicalDevice(enabledFeatures, deviceExtensions, validationLayers, surface, settings.queueFlags, deviceCreateNextChain);
 }
 
 void VulkanBaseApp::pickPhysicalDevice() {

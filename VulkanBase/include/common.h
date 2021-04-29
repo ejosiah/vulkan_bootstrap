@@ -111,3 +111,7 @@ inline void dispose(T& t){
 #define DISABLE_COPY(TypeName) \
 TypeName(const TypeName&) = delete; \
 TypeName& operator=(const TypeName&) = delete;
+
+constexpr uint32_t alignedSize(uint32_t value, uint32_t alignment){
+    return (value + alignment - 1) & ~(alignment - 1);
+}

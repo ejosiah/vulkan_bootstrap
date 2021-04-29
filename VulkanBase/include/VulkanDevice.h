@@ -132,7 +132,15 @@ struct VulkanDevice{
         ASSERT(vkCreateDevice(physicalDevice, &createInfo, nullptr, &logicalDevice));
         initQueues();
 
+        auto deviceAddressExtensionEnabled = std::any_of(begin(enabledExtensions), end(enabledExtensions), [](auto& ext){
+            return std::strcmp(ext, VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME) == 0;
+        });
+
         VmaAllocatorCreateInfo allocatorInfo{};
+        if(deviceAddressExtensionEnabled){
+            allocatorInfo.flags |=  VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
+        }
+
         allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_2;
         allocatorInfo.instance = instance;
         allocatorInfo.physicalDevice = physicalDevice;
@@ -400,7 +408,7 @@ struct VulkanDevice{
         return VulkanCommandPool{ logicalDevice, queueFamilyIndex, flags };
     }
 
-    [[nodiscard]] inline VulkanImage createImage(const VkImageCreateInfo& createInfo, VmaMemoryUsage usage) const{
+    [[nodiscard]] inline VulkanImage createImage(const VkImageCreateInfo& createInfo, VmaMemoryUsage usage = VMA_MEMORY_USAGE_GPU_ONLY) const{
         assert(logicalDevice);
         VmaAllocationCreateInfo allocInfo{};
         allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
@@ -485,6 +493,30 @@ struct VulkanDevice{
     [[nodiscard]]
     inline const VulkanCommandPool& commandPoolFor(uint32_t queueFamilyIndex) const {
         return commandPools[queueFamilyIndex];
+    }
+
+    [[nodiscard]]
+    inline uint32_t getMemoryTypeIndex(uint32_t memoryTypeBitsReq, VkMemoryPropertyFlags requiredProperties) const{
+        VkPhysicalDeviceMemoryProperties memoryProperties;
+        vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memoryProperties);
+        for(uint32_t memoryIndex = 0; memoryIndex < memoryProperties.memoryTypeCount; memoryIndex++){
+            const uint32_t memoryTypeBits = (1u << memoryIndex);
+            const bool isRequiredMemoryType = memoryTypeBits & memoryTypeBitsReq;
+
+            const bool hasRequiredMemoryProperties = memoryProperties.memoryTypes[memoryIndex].propertyFlags & requiredProperties;
+
+            if(isRequiredMemoryType && hasRequiredMemoryProperties){
+                return memoryIndex;
+            }
+        }
+        throw std::runtime_error{"Failed to find Required memory type"};
+    }
+
+    inline VkDeviceAddress getAddress(const VulkanBuffer& buffer) const{
+        VkBufferDeviceAddressInfo info{};
+        info.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
+        info.buffer = buffer;
+        return vkGetBufferDeviceAddress(logicalDevice, &info);
     }
 
     VkInstance instance = VK_NULL_HANDLE;

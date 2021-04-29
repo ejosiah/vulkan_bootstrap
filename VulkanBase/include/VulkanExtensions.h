@@ -25,10 +25,26 @@ struct VulkanExtensions{
     : instance(instance)
     , createDebugUtilsMessenger(procAddress<PFN_vkCreateDebugUtilsMessengerEXT>(instance,"vkCreateDebugUtilsMessengerEXT"))
     , destroyDebugUtilsMessenger(procAddress<PFN_vkDestroyDebugUtilsMessengerEXT>(instance,"vkDestroyDebugUtilsMessengerEXT"))
+    , vkGetAccelerationStructureBuildSizesKHR(procAddress<PFN_vkGetAccelerationStructureBuildSizesKHR>(instance,"vkGetAccelerationStructureBuildSizesKHR"))
+    , vkCreateAccelerationStructureKHR(procAddress<PFN_vkCreateAccelerationStructureKHR>(instance,"vkCreateAccelerationStructureKHR"))
+    , vkDestroyAccelerationStructureKHR(procAddress<PFN_vkDestroyAccelerationStructureKHR>(instance,"vkDestroyAccelerationStructureKHR"))
+    , vkCmdBuildAccelerationStructuresKHR(procAddress<PFN_vkCmdBuildAccelerationStructuresKHR>(instance,"vkCmdBuildAccelerationStructuresKHR"))
+    , vkGetAccelerationStructureDeviceAddressKHR(procAddress<PFN_vkGetAccelerationStructureDeviceAddressKHR>(instance,"vkGetAccelerationStructureDeviceAddressKHR"))
+    , vkGetRayTracingShaderGroupHandlesKHR(procAddress<PFN_vkGetRayTracingShaderGroupHandlesKHR>(instance,"vkGetRayTracingShaderGroupHandlesKHR"))
+    , vkCmdTraceRaysKHR(procAddress<PFN_vkCmdTraceRaysKHR>(instance,"vkCmdTraceRaysKHR"))
+    , vkCreateRayTracingPipelinesKHR(procAddress<PFN_vkCreateRayTracingPipelinesKHR>(instance,"vkCreateRayTracingPipelinesKHR"))
     {
     }
 
     VkInstance instance;
     PFN_vkCreateDebugUtilsMessengerEXT  createDebugUtilsMessenger;
     PFN_vkDestroyDebugUtilsMessengerEXT destroyDebugUtilsMessenger;
+    PFN_vkGetAccelerationStructureBuildSizesKHR vkGetAccelerationStructureBuildSizesKHR;
+    PFN_vkCreateAccelerationStructureKHR vkCreateAccelerationStructureKHR;
+    PFN_vkDestroyAccelerationStructureKHR vkDestroyAccelerationStructureKHR;
+    PFN_vkCmdBuildAccelerationStructuresKHR vkCmdBuildAccelerationStructuresKHR;
+    PFN_vkGetAccelerationStructureDeviceAddressKHR vkGetAccelerationStructureDeviceAddressKHR;
+    PFN_vkGetRayTracingShaderGroupHandlesKHR vkGetRayTracingShaderGroupHandlesKHR;
+    PFN_vkCreateRayTracingPipelinesKHR vkCreateRayTracingPipelinesKHR;
+    PFN_vkCmdTraceRaysKHR vkCmdTraceRaysKHR;
 };

@@ -30,6 +30,6 @@ void main(){
    vec3 diffuse = (useTexture == 1) ? texture(diffuseMap, vUv).rgb : vColor;
 
    vec3 color = lightColor * max(dot(L, N), 0) * diffuse;
-    color += lightColor * pow(max(dot(H, N), 0), shine) * diffuse;
+    color += lightColor * pow(max(dot(H, N), 0), shine);
     fragColor = vec4(color, 1);
 }

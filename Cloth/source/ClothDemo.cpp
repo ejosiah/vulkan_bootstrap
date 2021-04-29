@@ -19,8 +19,7 @@ void ClothDemo::initApp() {
     createPipelines();
     createComputePipeline();
 }
-
-void ClothDemo::checkInvariants() {
+VK_KHR_acceleration_structure
     auto pcLimit = device.getLimits().maxPushConstantsSize;
     assert(sizeof(constants) <= pcLimit);
 }
@@ -45,7 +44,7 @@ void ClothDemo::createCloth() {
 
 void ClothDemo::createSphere(){
     auto& xform = sphere.ubo.xform;
-    xform = glm::translate(glm::mat4(1), {0, sphere.radius * 2, -sphere.radius * 2});
+    xform = glm::translate(glm::mat4(1), {0, sphere.radius * 2, 0});
     xform = glm::scale(xform, glm::vec3(sphere.radius));
     sphere.ubo.radius = sphere.radius;
     sphere.ubo.center = (xform * glm::vec4(0, 0, 0, 1)).xyz();
@@ -174,7 +173,7 @@ void ClothDemo::drawShaded(VkCommandBuffer commandBuffer) {
     vkCmdDrawIndexed(commandBuffer, floor.indexCount, 1, 0, 0, 0);
 
     static int useTexture;
-    useTexture = 1;
+    useTexture = 0;
     static std::array<char, sizeof(int) + sizeof(float)> lightParams{};
     std::memcpy(lightParams.data(), &useTexture, sizeof(int));
     std::memcpy(lightParams.data() + sizeof(int), &shine, sizeof(float));
