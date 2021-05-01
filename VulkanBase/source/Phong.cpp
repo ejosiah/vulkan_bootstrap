@@ -1,71 +1,66 @@
 #include "Phong.h"
 
-phong::Material::Material(
-        const VulkanDevice &device,
-        const VulkanDescriptorPool& pool,
-        std::unique_ptr<Texture> diffuseMap,
-        std::unique_ptr<Texture> specularMap,
-        std::unique_ptr<Texture> normalMap,
-        std::unique_ptr<Texture> ambientMap,
-        std::unique_ptr<Texture> emission,
-        std::unique_ptr<Texture> shine)
-        : diffuseMap(std::move(diffuseMap))
-        , specularMap(std::move(specularMap))
-        , normalMap(std::move(normalMap))
-        , ambientMap(std::move(ambientMap))
-        , emission(std::move(emission))
-        , shine(std::move(shine))
-{
-    // TODO create setLayout
+void phong::Material::init(const mesh::Mesh& mesh, const VulkanDevice& device, const VulkanDescriptorPool& descriptorPool
+                           , const VulkanDescriptorSetLayout& descriptorSetLayout, const VulkanBuffer& materialBuffer, int id){
 
-    descriptorSet = pool.allocate({setLayout}).front();
+    descriptorSet = descriptorPool.allocate({descriptorSetLayout}).front();
+    std::vector<VkWriteDescriptorSet> writes;
 
-    std::array<VkDescriptorImageInfo, 6> imageInfos{};
-    imageInfos[0].imageView = diffuseMap->imageView;
-    imageInfos[0].sampler = diffuseMap->sampler;
-    imageInfos[0].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    auto initTexture = [&](Texture& texture, const std::string& path, uint32_t binding){
+        if(!path.empty()){
+            textures::fromFile(device, texture, path, true);
+            VkDescriptorImageInfo info{};
+            info.imageView = texture.imageView;
+            info.sampler = texture.sampler;
+            info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            VkWriteDescriptorSet write = initializers::writeDescriptorSet();
+            write.dstSet = descriptorSet;
+            write.dstBinding = binding;
+            write.descriptorCount = 1;
+            write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+            write.pImageInfo = &info;
+            writes.push_back(write);
+        }
+    };
 
-    imageInfos[1].imageView = specularMap->imageView;
-    imageInfos[1].sampler = specularMap->sampler;
-    imageInfos[1].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    textures.ambientMap = std::make_unique<Texture>();
+    initTexture(*textures.ambientMap, mesh.textureMaterial.ambientMap, 1);
 
-    imageInfos[2].imageView = normalMap->imageView;
-    imageInfos[2].sampler = normalMap->sampler;
-    imageInfos[2].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    textures.diffuseMap = std::make_unique<Texture>();
+    initTexture(*textures.diffuseMap, mesh.textureMaterial.diffuseMap, 2);
 
-    imageInfos[3].imageView = ambientMap->imageView;
-    imageInfos[3].sampler = ambientMap->sampler;
-    imageInfos[3].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    textures.specularMap = std::make_unique<Texture>();
+    initTexture(*textures.specularMap, mesh.textureMaterial.specularMap, 3);
 
-    imageInfos[4].imageView = emission->imageView;
-    imageInfos[4].sampler = emission->sampler;
-    imageInfos[4].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    textures.normalMap = std::make_unique<Texture>();
+    initTexture(*textures.normalMap, mesh.textureMaterial.normalMap, 4);
 
-    imageInfos[5].imageView = shine->imageView;
-    imageInfos[5].sampler = shine->sampler;
-    imageInfos[5].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    textures.ambientOcclusionMap = std::make_unique<Texture>();
+    initTexture(*textures.ambientOcclusionMap, mesh.textureMaterial.ambientOcclusionMap, 5);
 
-    std::vector<VkWriteDescriptorSet> writes(6, initializers::writeDescriptorSet(descriptorSet));
+    uint32_t size = sizeof(mesh.material) - sizeof(std::string);
+    std::vector<char> materialData(size);
+    std::memcpy(materialData.data(), &mesh.material.diffuse, size);
 
-    for (auto i = 0; i < imageInfos.size(); i++) {
-        writes[0].dstBinding = i;
-        writes[0].dstArrayElement = 0;
-        writes[0].descriptorCount = 1;
-        writes[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        writes[0].pImageInfo = &imageInfos[i];
+    uniformBuffer = device.createDeviceLocalBuffer(materialData.data(), size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
+
+    VkDescriptorBufferInfo bufferInfo{};
+    bufferInfo.buffer = uniformBuffer;
+    bufferInfo.offset = 0;
+    bufferInfo.range = VK_WHOLE_SIZE;
+    VkWriteDescriptorSet write = initializers::writeDescriptorSet();
+    write.dstSet = descriptorSet;
+    write.dstBinding = 0;
+    write.descriptorCount = 1;
+    write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    write.pBufferInfo = &bufferInfo;
+    writes.push_back(write);
+
+    if(!writes.empty()){
+        device.updateDescriptorSets(writes);
     }
 
-    vkUpdateDescriptorSets(device, COUNT(writes), writes.data(), 0, VK_NULL_HANDLE);
 }
 
-phong::Mesh::Mesh():vkn::Primitive() {
 
-}
-
-phong::Mesh::Mesh(const VulkanDevice &device, const VulkanDescriptorPool &pool, const VulkanBuffer &vertexBuffer,
-                  const VulkanBuffer &indexBuffer, const mesh::Mesh &mesh, const glm::mat4 &model)
-                  :vkn::Primitive()
-{
-
-}
 

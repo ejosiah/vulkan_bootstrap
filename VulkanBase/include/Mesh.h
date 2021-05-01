@@ -1,3 +1,5 @@
+#pragma once
+
 #include "common.h"
 #include "Vertex.h"
 #include <assimp/scene.h>
@@ -11,18 +13,23 @@ namespace mesh {
 
     struct Material{
         std::string name;
-        glm::vec3 diffuse = glm::vec3(0.6f);
-        glm::vec3 ambient = glm::vec3(0.6f);
-        glm::vec3 specular = glm::vec3(1);
-        glm::vec3 emission = glm::vec3(0);
+        alignas(16) glm::vec3 diffuse = glm::vec3(0.6f);
+        alignas(16) glm::vec3 ambient = glm::vec3(0.6f);
+        alignas(16) glm::vec3 specular = glm::vec3(1);
+        alignas(16) glm::vec3 emission = glm::vec3(0);
+        alignas(16) glm::vec3 transmittance = glm::vec3(0);
+        float shininess = 0;
+        float ior = 0;
+        float opacity = 1;
+        float illum = 1;
+    };
+
+    struct TextureMaterial{
         std::string diffuseMap;
         std::string ambientMap;
         std::string specularMap;
         std::string normalMap;
         std::string ambientOcclusionMap;
-        float indexOfRefraction = 0;
-        float shininess = 0;
-        float opacity = 1;
     };
 
     struct Mesh {
@@ -30,6 +37,7 @@ namespace mesh {
         std::vector<Vertex> vertices;
         std::vector<uint32_t> indices;
         Material material{};
+        TextureMaterial textureMaterial{};
         VkPrimitiveTopology primitiveTopology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 
         struct {

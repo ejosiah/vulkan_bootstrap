@@ -121,6 +121,7 @@ void RayTracerDemo::renderUI(VkCommandBuffer commandBuffer) {
     auto& imguiPlugin = plugin<ImGuiPlugin>(IM_GUI_PLUGIN);
     ImGui::Begin("Settings");
     ImGui::Checkbox("Ray trace mode", &useRayTracing);
+    ImGui::Text("FPS: %d", framePerSecond);
     ImGui::End();
 
     imguiPlugin.draw(commandBuffer);

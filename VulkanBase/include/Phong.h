@@ -29,47 +29,124 @@ namespace phong{
     };
 
     struct Material {
+        struct {
+            std::unique_ptr<Texture> ambientMap;
+            std::unique_ptr<Texture> diffuseMap;
+            std::unique_ptr<Texture> specularMap;
+            std::unique_ptr<Texture> normalMap;
+            std::unique_ptr<Texture> ambientOcclusionMap;
+        } textures;
 
-        Material() = default;
-
-        Material(
-            const VulkanDevice &device,
-            const VulkanDescriptorPool& pool,
-            std::unique_ptr<Texture> diffuseMap,
-            std::unique_ptr<Texture> specularMap,
-            std::unique_ptr<Texture> normalMap,
-            std::unique_ptr<Texture> ambientMap,
-            std::unique_ptr<Texture> emission,
-            std::unique_ptr<Texture> shine
-        );
-
-
-        std::unique_ptr<Texture> diffuseMap;
-        std::unique_ptr<Texture> specularMap;
-        std::unique_ptr<Texture> normalMap;
-        std::unique_ptr<Texture> ambientMap;
-        std::unique_ptr<Texture> emission;
-        std::unique_ptr<Texture> shine;
-        VulkanDescriptorSetLayout setLayout;
+        VulkanBuffer uniformBuffer;
 
         VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
+
+        void init(const mesh::Mesh& mesh, const VulkanDevice& device, const VulkanDescriptorPool& descriptorPool, const VulkanDescriptorSetLayout& descriptorSetLayout, const VulkanBuffer& materialBuffer, int id);
     };
 
     struct Mesh : public vkn::Primitive{
         std::string name;
         Material material;
-
-        Mesh();
-
-        Mesh(const VulkanDevice &device,
-             const VulkanDescriptorPool& pool,
-             const VulkanBuffer& vertexBuffer,
-             const VulkanBuffer& indexBuffer,
-             const mesh::Mesh& mesh,
-             const glm::mat4& model = {});
-
     };
 
-    std::vector<Mesh> load(std::string_view path, const VulkanDevice &device, const VulkanDescriptorPool& pool);
+    inline std::vector<VkDescriptorPoolSize> getPoolSizes(uint32_t numSets = 1){
+        std::vector<VkDescriptorPoolSize> poolSizes(2);
+        poolSizes[0].descriptorCount = 1 * numSets;
+        poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+
+        poolSizes[1].descriptorCount = 5 * numSets;
+        poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+
+        return poolSizes;
+    }
+
+    /**
+     * @brief loads a phong object
+     * @tparam Drawable type with members
+     *  VulkanBuffer* vertexBuffer,
+     *  VulkanBuffer* indexBuffer,
+     *  VulkanDescriptorSetLayout descriptorSetLayout;
+     *  std::vector<phong::Mesh> meshes;
+     * @param path
+     * @param device
+     * @param pool
+     * @param drawable
+     * @return
+     */
+    template<typename Drawable>
+    inline void load(const std::string& path, const VulkanDevice &device, const VulkanDescriptorPool& pool, Drawable& drawable){
+        std::array<VkDescriptorSetLayoutBinding, 6> bindings{};
+
+        bindings[0].binding = 0;
+        bindings[0].descriptorCount = 1;
+        bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        bindings[0].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+        for(auto i = 1; i < 6; i++){
+            bindings[i].binding = i;
+            bindings[i].descriptorCount = 1;
+            bindings[i].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+            bindings[i].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+        }
+        drawable.descriptorSetLayout = device.createDescriptorSetLayout(bindings);
+
+        std::vector<mesh::Mesh> meshes;
+        mesh::load(meshes, path);
+
+        mesh::normalize(meshes);
+
+        int numIndices = 0;
+        int numVertices = 0;
+        glm::vec3 min{MAX_FLOAT};
+        glm::vec3 max{MIN_FLOAT};
+
+        // get Drawable bounds
+        for(const auto& mesh : meshes){
+            numIndices += mesh.indices.size();
+            numVertices += mesh.vertices.size();
+
+            for(const auto& vertex : mesh.vertices){
+                drawable.bounds.min = glm::min(glm::vec3(vertex.position), drawable.bounds.min);
+                drawable.bounds.max = glm::max(glm::vec3(vertex.position), drawable.bounds.max);
+            }
+        }
+
+//        VkDeviceSize materialBufferSize = (sizeof(meshes[0].material) - sizeof(std::string)) * meshes.size();
+//        drawable.materialBuffer = device.createDeviceLocalBuffer(nullptr, materialBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
+
+        // copy meshes into vertex/index buffers
+        drawable.meshes.resize(meshes.size());
+        uint32_t firstVertex = 0;
+        uint32_t firstIndex = 0;
+        std::vector<char> indexBuffer(numIndices * sizeof(uint32_t));
+        std::vector<char> vertexBuffer(numVertices * sizeof(Vertex));
+        for(int i = 0; i < meshes.size(); i++){
+            auto& mesh = meshes[i];
+            auto size = mesh.vertices.size() * sizeof(Vertex);
+            void* dest = vertexBuffer.data() + firstVertex * sizeof(Vertex);
+            std::memcpy(dest, mesh.vertices.data(), size);
+
+            size = mesh.indices.size() * sizeof(mesh.indices[0]);
+            dest = indexBuffer.data() + firstIndex * sizeof(mesh.indices[0]);
+            std::memcpy(dest, mesh.indices.data(), size);
+
+            auto primitive = vkn::Primitive::indexed(mesh.indices.size(), firstIndex, firstVertex);
+            drawable.meshes[i].name = mesh.name;
+            drawable.meshes[i].firstIndex = primitive.firstIndex;
+            drawable.meshes[i].indexCount = primitive.indexCount;
+            drawable.meshes[i].firstVertex = primitive.firstVertex;
+            drawable.meshes[i].vertexCount = primitive.vertexCount;
+            drawable.meshes[i].vertexOffset = primitive.vertexOffset;
+
+            drawable.meshes[i].material.init(mesh, device, pool, drawable.descriptorSetLayout, drawable.materialBuffer, i);
+
+
+            firstVertex += mesh.vertices.size();
+            firstIndex += mesh.indices.size();
+        }
+
+        drawable.vertexBuffer = device.createDeviceLocalBuffer(vertexBuffer.data(), numVertices * sizeof(Vertex), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+        drawable.indexBuffer = device.createDeviceLocalBuffer(indexBuffer.data(), numIndices * sizeof(uint32_t), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+    }
 
 }

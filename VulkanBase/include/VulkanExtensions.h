@@ -1,17 +1,17 @@
+#pragma once
+
 #include <vulkan/vulkan.h>
 #include <stdexcept>
 
-#pragma once
-
 template<typename FuncType>
-FuncType procAddress(VkInstance instance, const char* procName){
+inline FuncType procAddress(VkInstance instance, const char* procName){
     auto func =  reinterpret_cast<FuncType>(vkGetInstanceProcAddr(instance, procName));
     if(!func) throw std::runtime_error("unable to find prod address: " + std::string(procName));
     return func;
 }
 
 template<typename FuncType>
-FuncType procAddress(const char* procName){
+inline FuncType procAddress(const char* procName){
     auto func =  reinterpret_cast<FuncType>(vkGetInstanceProcAddr(nullptr, procName));
     if(!func) throw std::runtime_error("unable to find prod address: " + std::string(procName));
     return func;
@@ -33,7 +33,9 @@ struct VulkanExtensions{
     , vkGetRayTracingShaderGroupHandlesKHR(procAddress<PFN_vkGetRayTracingShaderGroupHandlesKHR>(instance,"vkGetRayTracingShaderGroupHandlesKHR"))
     , vkCmdTraceRaysKHR(procAddress<PFN_vkCmdTraceRaysKHR>(instance,"vkCmdTraceRaysKHR"))
     , vkCreateRayTracingPipelinesKHR(procAddress<PFN_vkCreateRayTracingPipelinesKHR>(instance,"vkCreateRayTracingPipelinesKHR"))
+    , vkSetDebugUtilsObjectNameEXT(procAddress<PFN_vkSetDebugUtilsObjectNameEXT>(instance,"vkSetDebugUtilsObjectNameEXT"))
     {
+        ext = this;
     }
 
     VkInstance instance;
@@ -47,4 +49,9 @@ struct VulkanExtensions{
     PFN_vkGetRayTracingShaderGroupHandlesKHR vkGetRayTracingShaderGroupHandlesKHR;
     PFN_vkCreateRayTracingPipelinesKHR vkCreateRayTracingPipelinesKHR;
     PFN_vkCmdTraceRaysKHR vkCmdTraceRaysKHR;
+    PFN_vkSetDebugUtilsObjectNameEXT vkSetDebugUtilsObjectNameEXT;
+
+    static VulkanExtensions* ext;
 };
+
+inline VulkanExtensions* VulkanExtensions::ext = nullptr;

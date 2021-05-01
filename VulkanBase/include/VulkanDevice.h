@@ -11,6 +11,7 @@
 #include "VulkanFence.h"
 #include "VulkanRenderPass.h"
 #include "VulkanFramebuffer.h"
+#include "VulkanDebug.h"
 
 struct VulkanDevice{
 
@@ -307,6 +308,16 @@ struct VulkanDevice{
         return buffer;
     }
 
+    inline void copy(const VulkanBuffer& source, const VulkanBuffer& destination, VkDeviceSize size, VkDeviceSize srcOffset = 0u, VkDeviceSize dstOffset = 0u) const {
+        commandPoolFor(*this->queueFamilyIndex.graphics).oneTimeCommand(queues.graphics, [&](auto cmdBuffer){
+            VkBufferCopy copy{};
+            copy.size = size;
+            copy.srcOffset = srcOffset;
+            copy.dstOffset = dstOffset;
+            vkCmdCopyBuffer(cmdBuffer, source, destination, 1u, &copy);
+        });
+    }
+
     inline VulkanBuffer createCpuVisibleBuffer(void* data, VkDeviceSize size, VkBufferUsageFlags usage, std::set<uint32_t> queueIndices = {}) const {
 
         VulkanBuffer buffer = createBuffer(usage, VMA_MEMORY_USAGE_CPU_TO_GPU, size, "", queueIndices);
@@ -339,7 +350,12 @@ struct VulkanDevice{
         VmaAllocation allocation;
 
         ASSERT(vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &buffer, &allocation, nullptr));
-
+        if(!name.empty()){
+         //   VulkanDebug::setObjectName(logicalDevice, buffer, name);
+            VkDebugUtilsObjectNameInfoEXT s{VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT, nullptr, VK_OBJECT_TYPE_BUFFER, (uint64_t)buffer, name.c_str()};
+            auto SetDebugUtilsObjectName = procAddress<PFN_vkSetDebugUtilsObjectNameEXT>(instance, "vkSetDebugUtilsObjectNameEXT");
+            SetDebugUtilsObjectName(logicalDevice, &s);
+        }
         return VulkanBuffer{allocator, buffer, allocation, size, name};
     }
 
@@ -525,4 +541,9 @@ struct VulkanDevice{
     VmaAllocator allocator = VK_NULL_HANDLE;
     Settings settings{};
     mutable std::map<uint32_t ,VulkanCommandPool> commandPools;
+
+    template<typename Writes = std::vector<VkWriteDescriptorSet>, typename Copies = std::vector<VkCopyDescriptorSet>>
+    inline void updateDescriptorSets(const Writes& writes, const Copies& copies = {}) const {
+        vkUpdateDescriptorSets(logicalDevice, COUNT(writes), writes.data(), COUNT(copies), copies.data());
+    }
 };

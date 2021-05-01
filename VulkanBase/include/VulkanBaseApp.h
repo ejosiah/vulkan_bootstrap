@@ -34,6 +34,7 @@
 #include "glm_format.h"
 #include "Plugin.hpp"
 #include "Settings.hpp"
+#include "VulkanDrawable.hpp"
 
 #ifdef NDBUG
 constexpr bool enableValidation = false;

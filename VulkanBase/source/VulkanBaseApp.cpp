@@ -106,6 +106,7 @@ void VulkanBaseApp::initVulkan() {
     createRenderPass();
     createFramebuffer();
 
+    auto& ext1 = *VulkanExtensions::ext;
     createSyncObjects();
 }
 

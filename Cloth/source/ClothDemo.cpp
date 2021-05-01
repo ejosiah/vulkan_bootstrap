@@ -19,10 +19,6 @@ void ClothDemo::initApp() {
     createPipelines();
     createComputePipeline();
 }
-VK_KHR_acceleration_structure
-    auto pcLimit = device.getLimits().maxPushConstantsSize;
-    assert(sizeof(constants) <= pcLimit);
-}
 
 void ClothDemo::createCloth() {
     auto xform = glm::translate(glm::mat4(1), {0, 60, 0}) *  glm::rotate(glm::mat4(1), -glm::half_pi<float>(), {1, 0, 0});
@@ -173,7 +169,7 @@ void ClothDemo::drawShaded(VkCommandBuffer commandBuffer) {
     vkCmdDrawIndexed(commandBuffer, floor.indexCount, 1, 0, 0, 0);
 
     static int useTexture;
-    useTexture = 0;
+    useTexture = 1;
     static std::array<char, sizeof(int) + sizeof(float)> lightParams{};
     std::memcpy(lightParams.data(), &useTexture, sizeof(int));
     std::memcpy(lightParams.data() + sizeof(int), &shine, sizeof(float));
@@ -208,7 +204,9 @@ void ClothDemo::drawShaded(VkCommandBuffer commandBuffer) {
 }
 
 void ClothDemo::update(float time) {
-    cameraController->update(time);
+    if(!ImGui::IsAnyItemActive()) {
+        cameraController->update(time);
+    }
     constants.timeStep = frameTime/numIterations;
     constants.elapsedTime = elapsedTime;
   //  constants.timeStep = 0.0005f/numIterations;
@@ -734,6 +732,10 @@ void ClothDemo::renderUI(VkCommandBuffer commandBuffer) {
     ImGui::End();
 
     imGuiPlugin.draw(commandBuffer);
+}
+
+void ClothDemo::checkInvariants() {
+
 }
 
 int main(){

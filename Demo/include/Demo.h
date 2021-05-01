@@ -2,6 +2,7 @@
 
 #include "VulkanBaseApp.h"
 #include "VulkanModel.h"
+#include "Phong.h"
 
 constexpr float     FLOOR_WIDTH = 8.0f;
 constexpr float     FLOOR_HEIGHT = 8.0f;
@@ -27,28 +28,6 @@ struct Material{
     alignas(16) glm::vec3 diffuse;
     alignas(16) glm::vec3 specular;
     float shininess;
-};
-
-struct SpaceShip{
-    VulkanBuffer vertexBuffer;
-    VulkanBuffer indexBuffer;
-    std::vector<VkDeviceSize> offsets;
-    std::vector<vkn::Primitive> primitives;
-    std::vector<Material> materials;
-    struct {
-        glm::vec3 min{MAX_FLOAT};
-        glm::vec3 max{MIN_FLOAT};
-    } bounds;
-
-    [[nodiscard]]
-    float height() const {
-        auto diagonal = bounds.max - bounds.min;
-        return std::abs(diagonal.y);
-    }
-
-    static constexpr VkPushConstantRange pushConstantRange(){
-        return { VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(Camera), sizeof(Material) };
-    }
 };
 
 struct Floor{
@@ -106,7 +85,7 @@ private:
     std::vector<VkCommandBuffer> commandBuffers;
     VulkanDescriptorPool descriptorPool;
 
-    SpaceShip spaceShip;
+    VulkanDrawable spaceShip;
     Floor floor;
     std::unique_ptr<CameraController> cameraController;
     struct {

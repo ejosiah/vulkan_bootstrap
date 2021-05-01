@@ -31,10 +31,21 @@ void Demo::initApp() {
 }
 
 void Demo::createDescriptorPool() {
-    auto maxSets = 1u;
+    auto maxSets = 1000u;
     std::vector<VkDescriptorPoolSize> poolSizes{
-            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2}
+            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2 * maxSets}
     };
+    auto phongPoolSizes = phong::getPoolSizes(maxSets);
+    for(auto& poolSize : phongPoolSizes){
+        auto itr = std::find_if(begin(poolSizes), end(poolSizes), [&](auto& p){
+            return p.type == poolSize.type;
+        });
+        if(itr != end(poolSizes)){
+            itr->descriptorCount += poolSize.descriptorCount;
+        }else{
+            poolSizes.push_back(poolSize);
+        }
+    }
     descriptorPool = device.createDescriptorPool(maxSets, poolSizes);
 }
 
@@ -60,59 +71,7 @@ void Demo::initCamera() {
 }
 
 void Demo::loadSpaceShip() {
-    std::vector<mesh::Mesh> meshes;
-    int numVertices0 = mesh::load(meshes, "../../data/models/bigship1.obj");
-    int numIndices = 0;
-    int numVertices = 0;
-
-    spdlog::info("numVertices: {}, {}", numVertices0, numVertices);
-    mesh::normalize(meshes);
-
-    glm::vec3 min{MAX_FLOAT};
-    glm::vec3 max{MIN_FLOAT};
-    for(const auto& mesh : meshes){
-        numIndices += mesh.indices.size();
-        numVertices += mesh.vertices.size();
-
-        for(const auto& vertex : mesh.vertices){
-            spaceShip.bounds.min = glm::min(glm::vec3(vertex.position), spaceShip.bounds.min);
-            spaceShip.bounds.max = glm::max(glm::vec3(vertex.position), spaceShip.bounds.max);
-        }
-
-    }
-    spdlog::info("height: {}", spaceShip.height());
-    spdlog::info("min: {}, max: {}, center: {}", spaceShip.bounds.min, spaceShip.bounds.max, (spaceShip.bounds.min + spaceShip.bounds.max) * 0.5f);
-
-
-    uint32_t firstVertex = 0;
-    uint32_t firstIndex = 0;
-    std::vector<char> indexBuffer(numIndices * sizeof(uint32_t));
-    std::vector<char> vertexBuffer(numVertices * sizeof(Vertex));
-    for(auto& mesh : meshes){
-        auto size = mesh.vertices.size() * sizeof(Vertex);
-        void* dest = vertexBuffer.data() + firstVertex * sizeof(Vertex);
-        std::memcpy(dest, mesh.vertices.data(), size);
-
-        size = mesh.indices.size() * sizeof(mesh.indices[0]);
-        dest = indexBuffer.data() + firstIndex * sizeof(mesh.indices[0]);
-        std::memcpy(dest, mesh.indices.data(), size);
-
-        auto primitive = vkn::Primitive::indexed(mesh.indices.size(), firstIndex, firstVertex);
-        spaceShip.primitives.push_back(primitive);
-
-        Material material{};
-        material.ambient = mesh.material.ambient;
-        material.diffuse = mesh.material.diffuse;
-        material.specular = mesh.material.specular;
-        material.shininess = 128;
-        spaceShip.materials.push_back(material);
-
-        spaceShip.offsets.push_back(firstVertex);
-        firstVertex += mesh.vertices.size();
-        firstIndex += mesh.indices.size();
-    }
-    spaceShip.vertexBuffer = device.createDeviceLocalBuffer(vertexBuffer.data(), numVertices * sizeof(Vertex), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-    spaceShip.indexBuffer = device.createDeviceLocalBuffer(indexBuffer.data(), numIndices * sizeof(uint32_t), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+    phong::load("../../data/models/bigship1.obj", device, descriptorPool, spaceShip);
 }
 
 
@@ -120,11 +79,10 @@ void Demo::loadFloor() {
     auto flip90Degrees = glm::rotate(glm::mat4{1}, -glm::half_pi<float>(), {1, 0, 0});
     auto plane = primitives::plane(5, 5, floor.dimensions.width, floor.dimensions.height, flip90Degrees, glm::vec4(1));
 
-
     floor.vertices = device.createDeviceLocalBuffer(plane.vertices.data(), sizeof(Vertex) * plane.vertices.size(), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
     floor.indices = device.createDeviceLocalBuffer(plane.indices.data(), sizeof(uint32_t) * plane.indices.size(), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
     floor.indexCount =  plane.indices.size();
-    textures::fromFile(device, floor.texture, "../../data/textures/floor_color_map.tga");
+    textures::fromFile(device, floor.texture, "../../data/textures/floor_color_map.tga", true, VK_FORMAT_R8G8B8A8_SRGB);
     textures::fromFile(device, floor.lightMap, "../../data/textures/floor_light_map.tga");
     createFloorDescriptors();
 }
@@ -253,7 +211,7 @@ void Demo::createPipelines() {
     inputAssemblyState.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
     inputAssemblyState.primitiveRestartEnable = VK_FALSE;
 
-    layouts.spaceShipLayout = device.createPipelineLayout({}, {Camera::pushConstant(), SpaceShip::pushConstantRange()});
+    layouts.spaceShipLayout = device.createPipelineLayout({ spaceShip.descriptorSetLayout}, {Camera::pushConstant()});
 
     createInfo.flags = VK_PIPELINE_CREATE_DERIVATIVE_BIT;
     createInfo.pStages = shaderStages.data();
@@ -312,16 +270,7 @@ VkCommandBuffer *Demo::buildCommandBuffers(uint32_t imageIndex, uint32_t &numCom
 
     if(cameraController->isInObitMode()) {
         cameraController->push(commandBuffer, layouts.spaceShipLayout);
-        int numPrims = spaceShip.primitives.size();
-        vkCmdBindVertexBuffers(commandBuffer, 0, 1, spaceShip.vertexBuffer, &offset);
-        vkCmdBindIndexBuffer(commandBuffer, spaceShip.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-        for (auto i = 0; i < numPrims; i++) {
-            // vkCmdPushConstants(commandBuffer, layouts.spaceShipLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0U, sizeof(Camera) + sizeof(Material), pushConstants);
-            vkCmdPushConstants(commandBuffer, layouts.spaceShipLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(Camera),
-                               sizeof(Material), &spaceShip.materials[i]);
-            spaceShip.primitives[i].drawIndexed(commandBuffer);
-
-        }
+        spaceShip.draw(commandBuffer, layouts.spaceShipLayout);
     }
 
     displayMenu(commandBuffer);

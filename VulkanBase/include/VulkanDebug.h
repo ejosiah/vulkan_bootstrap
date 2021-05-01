@@ -1,6 +1,7 @@
 #pragma once
 #include <stdexcept>
 #include "common.h"
+#include "VulkanExtensions.h"
 
 
 struct VulkanDebug{
@@ -80,6 +81,19 @@ struct VulkanDebug{
             auto DestroyDebugUtilsMessenger = instanceProc<PFN_vkDestroyDebugUtilsMessengerEXT>("vkDestroyDebugUtilsMessengerEXT", instance);
             DestroyDebugUtilsMessenger(instance, debugMessenger, nullptr);
         }
+    }
+
+    static void setObjectName(VkDevice& device, const uint64_t object, const std::string& name, VkObjectType type) {
+        if constexpr (debugMode) {
+
+            VkDebugUtilsObjectNameInfoEXT s{VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT, nullptr, type, object, name.c_str()};
+            VulkanExtensions::ext->vkSetDebugUtilsObjectNameEXT(device, &s);
+
+        }
+    }
+
+    static void setObjectName(VkDevice device, VkBuffer buffer, const std::string& name){
+        setObjectName(device, (uint64_t)buffer, name, VK_OBJECT_TYPE_BUFFER);
     }
 
     VkDebugUtilsMessengerEXT debugMessenger = VK_NULL_HANDLE;

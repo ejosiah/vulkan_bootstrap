@@ -76,12 +76,17 @@ mesh::Mesh loadMesh(const std::string& parent, const aiNode* node, const aiScene
 
     ret = aiMaterial->Get(AI_MATKEY_REFRACTI, scalar);
     if(ret == aiReturn_SUCCESS){
-        material.indexOfRefraction = scalar;
+        material.ior = scalar;
     }
+
 
     ret = aiMaterial->Get(AI_MATKEY_SHININESS, scalar);
     if(ret == aiReturn_SUCCESS){
         material.shininess = scalar;
+    }
+    ret = aiMaterial->Get(AI_MATKEY_SHADING_MODEL, scalar);
+    if(ret == aiReturn_SUCCESS){
+        material.illum = scalar;
     }
 
     glm::vec3 color;
@@ -106,31 +111,38 @@ mesh::Mesh loadMesh(const std::string& parent, const aiNode* node, const aiScene
         material.emission = color;
     }
 
+    ret = aiMaterial->Get(AI_MATKEY_COLOR_TRANSPARENT, glm::value_ptr(color), &size);
+    if(ret == aiReturn_SUCCESS){
+        material.transmittance = color;
+    }
+
+    mesh::TextureMaterial texMaterial;
     ret = aiMaterial->GetTexture(aiTextureType_DIFFUSE, 0, &aiString);
     if(ret == aiReturn_SUCCESS){
-        material.diffuseMap = parent + aiString.C_Str();
+        texMaterial.diffuseMap = parent + aiString.C_Str();
     }
 
     ret = aiMaterial->GetTexture(aiTextureType_AMBIENT, 0, &aiString);
     if(ret == aiReturn_SUCCESS){
-        material.ambientMap =  parent + aiString.C_Str();
+        texMaterial.ambientMap =  parent + aiString.C_Str();
     }
 
     ret = aiMaterial->GetTexture(aiTextureType_SPECULAR, 0, &aiString);
     if(ret == aiReturn_SUCCESS){
-        material.specularMap =  parent + aiString.C_Str();
+        texMaterial.specularMap =  parent + aiString.C_Str();
     }
 
     ret = aiMaterial->GetTexture(aiTextureType_NORMALS, 0, &aiString);
     if(ret == aiReturn_SUCCESS){
-        material.normalMap =  parent + aiString.C_Str();
+        texMaterial.normalMap =  parent + aiString.C_Str();
     }
 
     ret = aiMaterial->GetTexture(aiTextureType_AMBIENT_OCCLUSION, 0, &aiString);
     if(ret == aiReturn_SUCCESS){
-        material.ambientOcclusionMap =  parent + aiString.C_Str();
+        texMaterial.ambientOcclusionMap =  parent + aiString.C_Str();
     }
     mesh.material = material;
+    mesh.textureMaterial = texMaterial;
 
     return mesh;
 }
