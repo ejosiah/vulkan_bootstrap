@@ -279,7 +279,7 @@ struct VulkanDevice{
 
         VulkanBuffer buffer = createBuffer(usage, VMA_MEMORY_USAGE_GPU_ONLY, size, "", queueIndices);
 
-        commandPoolFor(*this->queueFamilyIndex.graphics).oneTimeCommand(queues.graphics, [&](auto cmdBuffer){
+        commandPoolFor(*this->queueFamilyIndex.graphics).oneTimeCommand([&](auto cmdBuffer){
             VkBufferCopy copy{};
             copy.size = size;
             copy.dstOffset = 0;
@@ -297,7 +297,7 @@ struct VulkanDevice{
         auto size = source.size;
         VulkanBuffer buffer = createBuffer(usage, VMA_MEMORY_USAGE_GPU_ONLY, size, "", queueIndices);
 
-        commandPoolFor(*this->queueFamilyIndex.graphics).oneTimeCommand(queues.graphics, [&](auto cmdBuffer){
+        commandPoolFor(*this->queueFamilyIndex.graphics).oneTimeCommand( [&](auto cmdBuffer){
             VkBufferCopy copy{};
             copy.size = size;
             copy.dstOffset = 0;
@@ -309,7 +309,7 @@ struct VulkanDevice{
     }
 
     inline void copy(const VulkanBuffer& source, const VulkanBuffer& destination, VkDeviceSize size, VkDeviceSize srcOffset = 0u, VkDeviceSize dstOffset = 0u) const {
-        commandPoolFor(*this->queueFamilyIndex.graphics).oneTimeCommand(queues.graphics, [&](auto cmdBuffer){
+        commandPoolFor(*this->queueFamilyIndex.graphics).oneTimeCommand([&](auto cmdBuffer){
             VkBufferCopy copy{};
             copy.size = size;
             copy.srcOffset = srcOffset;

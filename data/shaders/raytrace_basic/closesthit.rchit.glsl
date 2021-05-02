@@ -8,5 +8,7 @@ hitAttributeEXT vec3 attribs;
 void main()
 {
   const vec3 barycentricCoords = vec3(1.0f - attribs.x - attribs.y, attribs.x, attribs.y);
-  hitValue = barycentricCoords;
+ // hitValue = barycentricCoords;
+  float t = 1/(gl_HitTEXT + 1);
+  hitValue = vec3(t);
 }

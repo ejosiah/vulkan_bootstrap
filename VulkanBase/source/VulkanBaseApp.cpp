@@ -95,7 +95,8 @@ void VulkanBaseApp::initWindow() {
 
 void VulkanBaseApp::initVulkan() {
     createInstance();
-    ext = VulkanExtensions{instance};
+    this->ext = VulkanExtensions{instance};
+    ext::init(instance);
     createDebugMessenger();
     pickPhysicalDevice();
     createLogicalDevice();
@@ -106,7 +107,6 @@ void VulkanBaseApp::initVulkan() {
     createRenderPass();
     createFramebuffer();
 
-    auto& ext1 = *VulkanExtensions::ext;
     createSyncObjects();
 }
 

@@ -19,16 +19,18 @@ RayTracerDemo::RayTracerDemo(const Settings& settings): VulkanBaseApp("Ray trace
 }
 
 void RayTracerDemo::initApp() {
+    rtBuilder = rt::AccelerationStructureBuilder{&device};
     loadRayTracingPropertiesAndFeatures();
     createCommandPool();
+    createDescriptorPool();
     initCamera();
     createInverseCam();
     createModel();
+    loadSpaceShip();
     createBottomLevelAccelerationStructure();
     createTopLevelAccelerationStructure();
     createStorageImage();
     createDescriptorSetLayouts();
-    createDescriptorPool();
     createDescriptorSets();
     createGraphicsPipeline();
     createRayTracePipeline();
@@ -69,7 +71,8 @@ VkCommandBuffer *RayTracerDemo::buildCommandBuffers(uint32_t imageIndex, uint32_
     VkCommandBufferBeginInfo beginInfo = initializers::commandBufferBeginInfo();
     vkBeginCommandBuffer(commandBuffer, &beginInfo);
 
-    std::array<VkClearValue, 1> clearValues{{0.0f, 0.0f, 0.0f, 1.0f}};
+    std::array<VkClearValue, 2> clearValues{{0.0f, 0.0f, 0.0f, 1.0f}};
+    clearValues[1].depthStencil = {1.0f, 0};
 
     VkRenderPassBeginInfo rPassBeginInfo = initializers::renderPassBeginInfo();
     rPassBeginInfo.renderPass = renderPass;
@@ -85,9 +88,10 @@ VkCommandBuffer *RayTracerDemo::buildCommandBuffers(uint32_t imageIndex, uint32_
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphics.pipeline);
         camera->push(commandBuffer, graphics.layout);
         static VkDeviceSize offset = 0;
-        vkCmdBindVertexBuffers(commandBuffer, 0, 1, triangle.vertices, &offset);
-        vkCmdBindIndexBuffer(commandBuffer, triangle.indices, 0, VK_INDEX_TYPE_UINT16);
-        vkCmdDrawIndexed(commandBuffer, 3, 1, 0, 0, 0);
+//        vkCmdBindVertexBuffers(commandBuffer, 0, 1, triangle.vertices, &offset);
+//        vkCmdBindIndexBuffer(commandBuffer, triangle.indices, 0, VK_INDEX_TYPE_UINT16);
+//        vkCmdDrawIndexed(commandBuffer, 3, 1, 0, 0, 0);
+          spaceShip.draw(commandBuffer, graphics.layout);
     }else{
         drawCanvas(commandBuffer);
     }
@@ -105,7 +109,7 @@ VkCommandBuffer *RayTracerDemo::buildCommandBuffers(uint32_t imageIndex, uint32_
 
 void RayTracerDemo::drawCanvas(VkCommandBuffer commandBuffer) {
 
-    commandPool.oneTimeCommand(device.queues.graphics, [&](auto& cmdBuffer){
+    commandPool.oneTimeCommand([&](auto& cmdBuffer){
        rayTrace(cmdBuffer);
     });
 
@@ -148,18 +152,30 @@ void RayTracerDemo::createCommandPool() {
 }
 
 void RayTracerDemo::createDescriptorPool() {
+    auto maxSets = 1000u;
     std::vector<VkDescriptorPoolSize> poolSizes = {
             { VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1 },
             { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1 },
             { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1 },
-            { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1 }
+            { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1 },
+            { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 4}
     };
-
-    descriptorPool = device.createDescriptorPool(2, poolSizes);
+    auto phongPoolSizes = phong::getPoolSizes(maxSets);
+    for(auto& poolSize : phongPoolSizes){
+        auto itr = std::find_if(begin(poolSizes), end(poolSizes), [&](auto& p){
+            return p.type == poolSize.type;
+        });
+        if(itr != end(poolSizes)){
+            itr->descriptorCount += poolSize.descriptorCount;
+        }else{
+            poolSizes.push_back(poolSize);
+        }
+    }
+    descriptorPool = device.createDescriptorPool(maxSets, poolSizes);
 }
 
 void RayTracerDemo::createDescriptorSetLayouts(){
-    std::array<VkDescriptorSetLayoutBinding, 3> bindings{};
+    std::array<VkDescriptorSetLayoutBinding, 5> bindings{};
     bindings[0].binding = 0;
     bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
     bindings[0].descriptorCount = 1;
@@ -175,6 +191,16 @@ void RayTracerDemo::createDescriptorSetLayouts(){
     bindings[2].descriptorCount = 1;
     bindings[2].stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
 
+    bindings[3].binding = 3;
+    bindings[3].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    bindings[3].descriptorCount = 5;
+    bindings[3].stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+
+    bindings[4].binding = 4;
+    bindings[4].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    bindings[4].descriptorCount = 1;
+    bindings[4].stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+
     raytrace.descriptorSetLayout = device.createDescriptorSetLayout(bindings);
 }
 
@@ -184,9 +210,10 @@ void RayTracerDemo::createDescriptorSets() {
     VkWriteDescriptorSetAccelerationStructureKHR accWrites{};
     accWrites.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR;
     accWrites.accelerationStructureCount = 1;
-    accWrites.pAccelerationStructures = &topLevelAs.handle;
+ //   accWrites.pAccelerationStructures = &topLevelAs.handle;
+    accWrites.pAccelerationStructures = rtBuilder.accelerationStructure();
 
-    auto writes = initializers::writeDescriptorSets<3>();
+    auto writes = initializers::writeDescriptorSets<5>();
     writes[0].pNext = &accWrites;
     writes[0].dstSet = raytrace.descriptorSet;
     writes[0].dstBinding = 0;
@@ -213,6 +240,34 @@ void RayTracerDemo::createDescriptorSets() {
     writes[2].descriptorCount = 1;
     writes[2].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     writes[2].pBufferInfo = &bufferInfo;
+
+    // material writes
+    std::vector<VkDescriptorBufferInfo> materialBufferInfos;
+    materialBufferInfos.reserve(spaceShip.meshes.size());
+    for(auto& mesh : spaceShip.meshes){
+        VkDescriptorBufferInfo info{};
+        info.buffer = mesh.material.materialBuffer;
+        info.offset = 0;
+        info.range = VK_WHOLE_SIZE;
+        materialBufferInfos.push_back(info);
+    }
+    writes[3].dstSet = raytrace.descriptorSet;
+    writes[3].dstBinding = 3;
+    writes[3].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    writes[3].descriptorCount = COUNT(materialBufferInfos);
+    writes[3].pBufferInfo = materialBufferInfos.data();
+
+    VkDescriptorBufferInfo matIdBufferInfo{};
+    matIdBufferInfo.buffer = spaceShip.materialIdBuffer;
+    matIdBufferInfo.offset = 0;
+    matIdBufferInfo.range = VK_WHOLE_SIZE;
+
+    writes[4].dstSet = raytrace.descriptorSet;
+    writes[4].dstBinding = 4;
+    writes[4].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    writes[4].descriptorCount = 1;
+    writes[4].pBufferInfo = &matIdBufferInfo;
+
 
     vkUpdateDescriptorSets(device, COUNT(writes), writes.data(), 0, nullptr);
 }
@@ -249,24 +304,32 @@ void RayTracerDemo::createModel() {
 }
 
 void RayTracerDemo::createGraphicsPipeline() {
-    auto vertexShaderModule = ShaderModule{"../../data/shaders/barycenter.vert.spv", device};
-    auto fragmentShaderModule = ShaderModule{"../../data/shaders/barycenter.frag.spv", device};
+//    auto vertexShaderModule = ShaderModule{"../../data/shaders/barycenter.vert.spv", device};
+//    auto fragmentShaderModule = ShaderModule{"../../data/shaders/barycenter.frag.spv", device};
+
+    ShaderModule vertexShaderModule = ShaderModule{ "../../data/shaders/demo/spaceship.vert.spv", device};
+    ShaderModule fragmentShaderModule = ShaderModule{ "../../data/shaders/demo/spaceship.frag.spv", device};
 
     auto stages = initializers::vertexShaderStages({
         { vertexShaderModule, VK_SHADER_STAGE_VERTEX_BIT},
         {fragmentShaderModule, VK_SHADER_STAGE_FRAGMENT_BIT}
     });
 
-    std::array<VkVertexInputBindingDescription, 1> bindings{
-            { 0, sizeof(glm::vec3), VK_VERTEX_INPUT_RATE_VERTEX}
-    };
-    std::array<VkVertexInputAttributeDescription, 1> attributes{
-            {0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0}
-    };
+//    std::array<VkVertexInputBindingDescription, 1> bindings{
+//            { 0, sizeof(glm::vec3), VK_VERTEX_INPUT_RATE_VERTEX}
+//    };
+//    std::array<VkVertexInputAttributeDescription, 1> attributes{
+//            {0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0}
+//    };
+
+    auto bindings = Vertex::bindingDisc();
+    auto attributes = Vertex::attributeDisc();
 
     auto vertexInputState = initializers::vertexInputState(bindings, attributes);
 
     auto inputAssemblyState = initializers::inputAssemblyState();
+    inputAssemblyState.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    inputAssemblyState.primitiveRestartEnable = VK_FALSE;
 
     auto viewport = initializers::viewport(swapChain.extent);
     auto scissors = initializers::scissor(swapChain.extent);
@@ -285,9 +348,14 @@ void RayTracerDemo::createGraphicsPipeline() {
     auto colorBlendState = initializers::colorBlendState(colorAttachmentState);
 
     auto depthStencilState = initializers::depthStencilState();
+    depthStencilState.depthTestEnable = VK_TRUE;
+    depthStencilState.depthWriteEnable = VK_TRUE;
+    depthStencilState.depthCompareOp = VK_COMPARE_OP_LESS;
+    depthStencilState.minDepthBounds = 0;
+    depthStencilState.maxDepthBounds = 1;
 
     dispose(graphics.layout);
-    graphics.layout = device.createPipelineLayout({}, {Camera::pushConstant()});
+    graphics.layout = device.createPipelineLayout({ spaceShip.descriptorSetLayout }, {Camera::pushConstant()});
 
     auto createInfo = initializers::graphicsPipelineCreateInfo();
     createInfo.stageCount = COUNT(stages);
@@ -369,7 +437,7 @@ void RayTracerDemo::createBottomLevelAccelerationStructure() {
     accelerationStructureGeometry.geometry.triangles.indexData = indexBufferDeviceAddress;
     accelerationStructureGeometry.geometry.triangles.transformData.deviceAddress = 0;
     accelerationStructureGeometry.geometry.triangles.transformData.hostAddress = nullptr;
-    accelerationStructureGeometry.geometry.triangles.transformData = xformBufferDeviceAddress;
+  //  accelerationStructureGeometry.geometry.triangles.transformData = xformBufferDeviceAddress;
 
     // get size info
     VkAccelerationStructureBuildGeometryInfoKHR accelerationStructureBuildGeometryInfo{};
@@ -399,7 +467,6 @@ void RayTracerDemo::createBottomLevelAccelerationStructure() {
 
     accelerationStructureBuildGeometryInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
     accelerationStructureBuildGeometryInfo.dstAccelerationStructure = bottomLevelAS.handle;
-    accelerationStructureBuildGeometryInfo.pGeometries = &accelerationStructureGeometry;
     accelerationStructureBuildGeometryInfo.scratchData.deviceAddress = scratchBuffer.deviceAddress;
 
     VkAccelerationStructureBuildRangeInfoKHR  accelerationStructureBuildRangeInfo{};
@@ -409,7 +476,7 @@ void RayTracerDemo::createBottomLevelAccelerationStructure() {
     accelerationStructureBuildRangeInfo.transformOffset = 0;
     std::vector<VkAccelerationStructureBuildRangeInfoKHR*> accelerationBuildStructureRangeInfos = { &accelerationStructureBuildRangeInfo };
 
-    commandPool.oneTimeCommand(device.queues.graphics, [&](auto commandBuffer){
+    commandPool.oneTimeCommand( [&](auto commandBuffer){
        ext.vkCmdBuildAccelerationStructuresKHR(commandBuffer, 1, &accelerationStructureBuildGeometryInfo, accelerationBuildStructureRangeInfos.data());
     });
 
@@ -417,6 +484,8 @@ void RayTracerDemo::createBottomLevelAccelerationStructure() {
     accelerationStructureDeviceAddressInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR;
     accelerationStructureDeviceAddressInfo.accelerationStructure = bottomLevelAS.handle;
     bottomLevelAS.deviceAddress = ext.vkGetAccelerationStructureDeviceAddressKHR(device, &accelerationStructureDeviceAddressInfo);
+
+    rtBuilder.buildAs({spaceShipInstance});
 
 }
 
@@ -491,7 +560,7 @@ void RayTracerDemo::createTopLevelAccelerationStructure() {
     accelerationStructureBuildRangeInfo.transformOffset = 0;
     std::vector<VkAccelerationStructureBuildRangeInfoKHR*> accelerationBuildStructureRangeInfos = { &accelerationStructureBuildRangeInfo };
 
-    commandPool.oneTimeCommand(device.queues.graphics, [&](auto commandBuffer){
+    commandPool.oneTimeCommand( [&](auto commandBuffer){
         ext.vkCmdBuildAccelerationStructuresKHR(commandBuffer, 1, &accelerationStructureBuildGeometryInfo, accelerationBuildStructureRangeInfos.data());
     });
 
@@ -540,7 +609,7 @@ void RayTracerDemo::createStorageImage() {
     subresourceRange.baseArrayLayer = 0;
     subresourceRange.layerCount = 1;
     storageImage.imageview = storageImage.image.createView(VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_VIEW_TYPE_2D, subresourceRange);
-    commandPool.oneTimeCommand(device.queues.graphics, [&](auto commandBuffer) {
+    commandPool.oneTimeCommand([&](auto commandBuffer) {
         auto barrier = initializers::ImageMemoryBarrier();
         barrier.srcAccessMask = 0;
         barrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
@@ -632,7 +701,7 @@ void RayTracerDemo::rayTrace(VkCommandBuffer commandBuffer) {
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, raytrace.pipeline);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, raytrace.layout, 0, 1, &raytrace.descriptorSet, 0, VK_NULL_HANDLE);
 
-    ext.vkCmdTraceRaysKHR(commandBuffer, &rayGenShaderSbtEntry, &missShaderSbtEntry, &hitShaderSbtEntry,
+    vkCmdTraceRaysKHR(commandBuffer, &rayGenShaderSbtEntry, &missShaderSbtEntry, &hitShaderSbtEntry,
                       &callableShaderSbtEntry, swapChain.extent.width, swapChain.extent.height, 1);
 }
 
@@ -762,10 +831,22 @@ void RayTracerDemo::createVertexBuffer() {
     vertexColorBuffer = device.createDeviceLocalBuffer(colors.data(), size, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
 }
 
+void RayTracerDemo::loadSpaceShip() {
+    phong::VulkanDrawableInfo info{};
+    info.vertexUsage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
+    info.indexUsage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
+    info.materialUsage |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
+    info.materialIdUsage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
+    info.generateMaterialId = true;
+    phong::load("../../data/models/bigship1.obj", device, descriptorPool, spaceShip, info);
+    spaceShipInstance.drawable = &spaceShip;
+}
+
 
 int main(){
 
     Settings settings;
+    settings.depthTest = true;
     settings.deviceExtensions = {
             VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
             VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,

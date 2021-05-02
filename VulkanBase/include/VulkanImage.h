@@ -67,7 +67,7 @@ struct VulkanImage : public Copyable{
     }
 
     void transitionLayout(const VulkanCommandPool& pool, VkQueue queue, VkImageLayout newLayout) {
-        pool.oneTimeCommand(queue, [&](VkCommandBuffer commandBuffer) {
+        pool.oneTimeCommand([&](VkCommandBuffer commandBuffer) {
 
             VkImageMemoryBarrier barrier{};
             barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;

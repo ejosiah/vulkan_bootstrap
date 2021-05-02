@@ -5,11 +5,13 @@
 #include "VulkanDescriptorSet.h"
 #include "Phong.h"
 
+
 struct VulkanDrawable{
+    std::vector<phong::Mesh> meshes;
+
     VulkanBuffer vertexBuffer;
     VulkanBuffer indexBuffer;
-    VulkanBuffer materialBuffer;
-    std::vector<phong::Mesh> meshes;
+    VulkanBuffer materialIdBuffer;
     VulkanDescriptorSetLayout descriptorSetLayout;
 
     struct {
@@ -34,4 +36,15 @@ struct VulkanDrawable{
 
         }
     }
+
+    [[nodiscard]]
+    uint32_t numVertices() const {
+        return vertexBuffer.size / sizeof(Vertex);
+    }
+};
+
+struct VulkanDrawableInstance{
+    VulkanDrawable* drawable{ nullptr };
+    glm::mat4 xform{ 1 };
+    glm::mat4 xformIT{ 1 };
 };

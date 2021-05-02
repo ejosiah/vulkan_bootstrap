@@ -71,7 +71,7 @@ void textures::create(const VulkanDevice &device, Texture &texture, VkImageType 
     texture.image = device.createImage(imageCreateInfo, VMA_MEMORY_USAGE_GPU_ONLY);
     texture.image.transitionLayout(commandPool, device.queues.graphics, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
-    commandPool.oneTimeCommand(device.queues.graphics, [&](auto cmdBuffer) {
+    commandPool.oneTimeCommand([&](auto cmdBuffer) {
         VkBufferImageCopy region{};
         region.bufferOffset = 0;
         region.bufferRowLength = 0;

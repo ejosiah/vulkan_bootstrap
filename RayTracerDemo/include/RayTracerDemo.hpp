@@ -1,4 +1,5 @@
 #include "VulkanBaseApp.h"
+#include "VulkanRayTraceModel.hpp"
 
 struct RayTracingScratchBuffer{
     VkDeviceAddress deviceAddress = 0;
@@ -19,6 +20,8 @@ protected:
     void initApp() override;
 
     void initCamera();
+
+    void loadSpaceShip();
 
     void loadRayTracingPropertiesAndFeatures();
 
@@ -130,7 +133,11 @@ protected:
     VulkanBuffer vertexBuffer;
     VulkanBuffer vertexColorBuffer;
 
+    VulkanDrawable spaceShip;
+    VulkanDrawableInstance spaceShipInstance;
+
     VulkanBuffer inverseCamProj;
+    rt::AccelerationStructureBuilder rtBuilder;
 
     VkPhysicalDeviceRayTracingPipelinePropertiesKHR  rayTracingPipelineProperties{};
     VkPhysicalDeviceAccelerationStructureFeaturesKHR accelerationStructureFeatures{};

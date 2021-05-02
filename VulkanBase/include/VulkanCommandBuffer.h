@@ -16,6 +16,7 @@ struct VulkanCommandPool{
         createInfo.queueFamilyIndex = queueFamilyIndex;
 
         ASSERT(vkCreateCommandPool(device, &createInfo, nullptr, &pool));
+        vkGetDeviceQueue(device, queueFamilyIndex, 0, &queue);
     }
 
     VulkanCommandPool(const VulkanCommandPool&) = delete;
@@ -37,8 +38,10 @@ struct VulkanCommandPool{
 
         this->device = source.device;
         this->pool = source.pool;
+        this->queue = source.queue;
 
         source.pool = VK_NULL_HANDLE;
+        source.queue = VK_NULL_HANDLE;
 
         return *this;
     }
@@ -66,7 +69,7 @@ struct VulkanCommandPool{
     }
 
     template<typename Command>
-    inline void oneTimeCommand(VkQueue queue, Command&& command) const {
+    inline void oneTimeCommand(Command&& command) const {
         auto commandBuffer = allocate().front();
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -86,11 +89,34 @@ struct VulkanCommandPool{
         vkFreeCommandBuffers(device, pool, 1, &commandBuffer);
     }
 
+    template<typename Command>
+    inline void oneTimeCommands(int size, Command&& command) const {
+        auto commandBuffers = allocate(size);
+        for(auto i = 0; i < size; i++){
+            VkCommandBufferBeginInfo beginInfo{};
+            beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+            beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+            vkBeginCommandBuffer(commandBuffers[i], &beginInfo);
+            command(i, commandBuffers[i]);
+            vkEndCommandBuffer(commandBuffers[i]);
+        }
+        VkSubmitInfo submitInfo{};
+        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+        submitInfo.commandBufferCount = size;
+        submitInfo.pCommandBuffers = commandBuffers.data();
+
+        ASSERT(vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE));
+        vkQueueWaitIdle(queue);
+        vkFreeCommandBuffers(device, pool, size, commandBuffers.data());
+    }
+
     operator VkCommandPool() const {
         return pool;
     }
 
     VkDevice device = VK_NULL_HANDLE;
     VkCommandPool pool = VK_NULL_HANDLE;
+    VkQueue queue = VK_NULL_HANDLE;
 };
 

@@ -55,3 +55,10 @@ struct VulkanExtensions{
 };
 
 inline VulkanExtensions* VulkanExtensions::ext = nullptr;
+
+
+namespace ext{
+
+    extern void init(VkInstance instance);
+
+}

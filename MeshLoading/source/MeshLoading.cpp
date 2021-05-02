@@ -53,13 +53,11 @@ void MeshLoading::checkAppInputs() {
 
 
 int main(){
-    glm::vec3 y{0, 1, 0};
-    glm::vec3 x{1, 0, 0};
-    glm::vec3 n_y{0, -1, 0};
-    glm::vec3 n_x{-1, 0, 0};
-    fmt::print("{}\n", glm::cross(x, y));
-    fmt::print("{}\n", glm::cross(n_y, x));
-    fmt::print("{}\n", glm::cross(n_x, n_y));
-    fmt::print("{}\n", glm::cross(y, n_x));
+    std::vector<mesh::Mesh> meshes;
+    mesh::load(meshes, "../../data/models/bigship1.obj");
+    fmt::print("SpaceShip\n");
+    for(auto& mesh : meshes){
+        fmt::print("\tmesh: {}\n", mesh.name);
+    }
     return 0;
 }

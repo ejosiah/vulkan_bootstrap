@@ -18,5 +18,5 @@ layout(location = 0) out vec3 vColor;
 
 void main(){
     vColor = color[gl_VertexIndex];
-    gl_Position = projection * view * vec4(position, 1);
+    gl_Position = projection * view * model * vec4(position, 1);
 }

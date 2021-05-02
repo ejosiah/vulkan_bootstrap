@@ -34,6 +34,7 @@ constexpr bool debugMode = false;
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
 #include <glm/gtc/matrix_access.hpp>
 #include <vulkan/vulkan.h>
 #include <fmt/chrono.h>
@@ -111,6 +112,10 @@ inline void dispose(T& t){
 #define DISABLE_COPY(TypeName) \
 TypeName(const TypeName&) = delete; \
 TypeName& operator=(const TypeName&) = delete;
+
+#define DISABLE_MOVE(TypeName) \
+TypeName(TypeName&&) = delete; \
+TypeName& operator=(TypeName&&) = delete;
 
 constexpr uint32_t alignedSize(uint32_t value, uint32_t alignment){
     return (value + alignment - 1) & ~(alignment - 1);

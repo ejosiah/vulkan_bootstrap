@@ -12,8 +12,8 @@ namespace vkn {
             return {0, vertexCount, firstVertex, 0, 0};
         }
 
-        static inline Primitive indexed(uint32_t indexCount, uint32_t firstIndex, uint32_t vertexOffset) {
-            return {firstIndex, 0, 0, indexCount, vertexOffset};
+        static inline Primitive indexed(uint32_t indexCount, uint32_t firstIndex, uint32_t vertexCount, uint32_t vertexOffset) {
+            return {firstIndex, vertexCount, 0, indexCount, vertexOffset};
         }
 
         struct {
@@ -38,6 +38,17 @@ namespace vkn {
 
         inline void drawIndexed(VkCommandBuffer commandBuffer, uint32_t firstInstance = 0, uint32_t instanceCount = 1) const {
             vkCmdDrawIndexed(commandBuffer, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
+        }
+
+        [[nodiscard]]
+        uint32_t numTriangles() const {
+      //      if(vertexCount != 0) return vertexCount/3;
+            return indexCount / 3;
+        }
+
+        [[nodiscard]]
+        uint32_t maxVertex() const {
+            return vertexOffset + vertexCount;
         }
 
     private:

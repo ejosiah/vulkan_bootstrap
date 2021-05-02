@@ -37,11 +37,11 @@ namespace phong{
             std::unique_ptr<Texture> ambientOcclusionMap;
         } textures;
 
-        VulkanBuffer uniformBuffer;
+        VulkanBuffer materialBuffer;
 
         VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
 
-        void init(const mesh::Mesh& mesh, const VulkanDevice& device, const VulkanDescriptorPool& descriptorPool, const VulkanDescriptorSetLayout& descriptorSetLayout, const VulkanBuffer& materialBuffer, int id);
+        void init(const mesh::Mesh& mesh, const VulkanDevice& device, const VulkanDescriptorPool& descriptorPool, const VulkanDescriptorSetLayout& descriptorSetLayout, VkBufferUsageFlags usageFlags = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
     };
 
     struct Mesh : public vkn::Primitive{
@@ -51,7 +51,7 @@ namespace phong{
 
     inline std::vector<VkDescriptorPoolSize> getPoolSizes(uint32_t numSets = 1){
         std::vector<VkDescriptorPoolSize> poolSizes(2);
-        poolSizes[0].descriptorCount = 1 * numSets;
+        poolSizes[0].descriptorCount = 2 * numSets;
         poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 
         poolSizes[1].descriptorCount = 5 * numSets;
@@ -59,6 +59,14 @@ namespace phong{
 
         return poolSizes;
     }
+
+    struct VulkanDrawableInfo{
+        VkBufferUsageFlags vertexUsage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+        VkBufferUsageFlags indexUsage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+        VkBufferUsageFlags materialUsage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+        VkBufferUsageFlags  materialIdUsage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+        bool generateMaterialId = false;
+    };
 
     /**
      * @brief loads a phong object
@@ -74,7 +82,9 @@ namespace phong{
      * @return
      */
     template<typename Drawable>
-    inline void load(const std::string& path, const VulkanDevice &device, const VulkanDescriptorPool& pool, Drawable& drawable){
+    inline void load(const std::string& path, const VulkanDevice &device, const VulkanDescriptorPool& pool,
+                     Drawable& drawable,
+                     const VulkanDrawableInfo info = {}){
         std::array<VkDescriptorSetLayoutBinding, 6> bindings{};
 
         bindings[0].binding = 0;
@@ -120,9 +130,12 @@ namespace phong{
         uint32_t firstIndex = 0;
         std::vector<char> indexBuffer(numIndices * sizeof(uint32_t));
         std::vector<char> vertexBuffer(numVertices * sizeof(Vertex));
+
+        uint32_t numPrimitives = 0;
         for(int i = 0; i < meshes.size(); i++){
             auto& mesh = meshes[i];
-            auto size = mesh.vertices.size() * sizeof(Vertex);
+            auto numVertices = mesh.vertices.size();
+            auto size = numVertices * sizeof(Vertex);
             void* dest = vertexBuffer.data() + firstVertex * sizeof(Vertex);
             std::memcpy(dest, mesh.vertices.data(), size);
 
@@ -130,7 +143,7 @@ namespace phong{
             dest = indexBuffer.data() + firstIndex * sizeof(mesh.indices[0]);
             std::memcpy(dest, mesh.indices.data(), size);
 
-            auto primitive = vkn::Primitive::indexed(mesh.indices.size(), firstIndex, firstVertex);
+            auto primitive = vkn::Primitive::indexed(mesh.indices.size(), firstIndex, numVertices, firstVertex);
             drawable.meshes[i].name = mesh.name;
             drawable.meshes[i].firstIndex = primitive.firstIndex;
             drawable.meshes[i].indexCount = primitive.indexCount;
@@ -138,15 +151,28 @@ namespace phong{
             drawable.meshes[i].vertexCount = primitive.vertexCount;
             drawable.meshes[i].vertexOffset = primitive.vertexOffset;
 
-            drawable.meshes[i].material.init(mesh, device, pool, drawable.descriptorSetLayout, drawable.materialBuffer, i);
-
+            drawable.meshes[i].material.init(mesh, device, pool, drawable.descriptorSetLayout, info.materialUsage);
 
             firstVertex += mesh.vertices.size();
             firstIndex += mesh.indices.size();
+            numPrimitives += drawable.meshes[i].numTriangles();
         }
 
-        drawable.vertexBuffer = device.createDeviceLocalBuffer(vertexBuffer.data(), numVertices * sizeof(Vertex), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-        drawable.indexBuffer = device.createDeviceLocalBuffer(indexBuffer.data(), numIndices * sizeof(uint32_t), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+        if(info.generateMaterialId){
+            std::vector<int> materialIds;
+            materialIds.reserve(numPrimitives);
+            int matId = 0;
+            for(phong::Mesh& mesh : drawable.meshes){
+                for(int i = 0; i < mesh.numTriangles(); i++){
+                    materialIds.push_back(matId);
+                }
+                matId++;
+            }
+            drawable.materialIdBuffer = device.createDeviceLocalBuffer(materialIds.data(), numPrimitives * sizeof(int), info.materialIdUsage);
+        }
+
+        drawable.vertexBuffer = device.createDeviceLocalBuffer(vertexBuffer.data(), numVertices * sizeof(Vertex), info.vertexUsage);
+        drawable.indexBuffer = device.createDeviceLocalBuffer(indexBuffer.data(), numIndices * sizeof(uint32_t), info.indexUsage);
     }
 
 }
