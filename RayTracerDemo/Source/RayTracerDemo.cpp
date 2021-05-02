@@ -193,13 +193,13 @@ void RayTracerDemo::createDescriptorSetLayouts(){
 
     bindings[3].binding = 3;
     bindings[3].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    bindings[3].descriptorCount = 5;
-    bindings[3].stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+    bindings[3].descriptorCount = 1;
+    bindings[3].stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
 
     bindings[4].binding = 4;
     bindings[4].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     bindings[4].descriptorCount = 1;
-    bindings[4].stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+    bindings[4].stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
 
     raytrace.descriptorSetLayout = device.createDescriptorSetLayout(bindings);
 }
@@ -242,20 +242,26 @@ void RayTracerDemo::createDescriptorSets() {
     writes[2].pBufferInfo = &bufferInfo;
 
     // material writes
-    std::vector<VkDescriptorBufferInfo> materialBufferInfos;
-    materialBufferInfos.reserve(spaceShip.meshes.size());
-    for(auto& mesh : spaceShip.meshes){
-        VkDescriptorBufferInfo info{};
-        info.buffer = mesh.material.materialBuffer;
-        info.offset = 0;
-        info.range = VK_WHOLE_SIZE;
-        materialBufferInfos.push_back(info);
-    }
+//    std::vector<VkDescriptorBufferInfo> materialBufferInfos;
+//    materialBufferInfos.reserve(spaceShip.meshes.size());
+//    for(auto& mesh : spaceShip.meshes){
+//        VkDescriptorBufferInfo info{};
+//        info.buffer = mesh.material.materialBuffer;
+//        info.offset = 0;
+//        info.range = VK_WHOLE_SIZE;
+//        materialBufferInfos.push_back(info);
+//    }
+//    materialBufferInfos.push_back(info);
+
+    VkDescriptorBufferInfo matInfo{};
+    matInfo.buffer = spaceShip.materialBuffer;
+    matInfo.offset = 0;
+    matInfo.range = VK_WHOLE_SIZE;
     writes[3].dstSet = raytrace.descriptorSet;
     writes[3].dstBinding = 3;
     writes[3].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    writes[3].descriptorCount = COUNT(materialBufferInfos);
-    writes[3].pBufferInfo = materialBufferInfos.data();
+    writes[3].descriptorCount = 1;
+    writes[3].pBufferInfo = &matInfo;
 
     VkDescriptorBufferInfo matIdBufferInfo{};
     matIdBufferInfo.buffer = spaceShip.materialIdBuffer;

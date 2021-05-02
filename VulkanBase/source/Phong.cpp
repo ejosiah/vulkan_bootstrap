@@ -1,7 +1,7 @@
 #include "Phong.h"
 
 void phong::Material::init(const mesh::Mesh& mesh, const VulkanDevice& device, const VulkanDescriptorPool& descriptorPool
-                           , const VulkanDescriptorSetLayout& descriptorSetLayout, VkBufferUsageFlags usageFlags){
+                           , const VulkanDescriptorSetLayout& descriptorSetLayout, std::vector<char>& materials, int id, VkBufferUsageFlags usageFlags){
 
     descriptorSet = descriptorPool.allocate({descriptorSetLayout}).front();
     std::vector<VkWriteDescriptorSet> writes;
@@ -43,6 +43,8 @@ void phong::Material::init(const mesh::Mesh& mesh, const VulkanDevice& device, c
     std::memcpy(materialData.data(), &mesh.material.diffuse, size);
 
     materialBuffer = device.createDeviceLocalBuffer(materialData.data(), size, usageFlags);
+    materialOffset = id * size;
+    std::memcpy(materials.data() + materialOffset, materialData.data(), materialData.size());
 
     VkDescriptorBufferInfo bufferInfo{};
     bufferInfo.buffer = materialBuffer;

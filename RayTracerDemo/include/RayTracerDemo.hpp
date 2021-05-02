@@ -101,7 +101,7 @@ protected:
     VulkanDescriptorPool descriptorPool;
     std::unique_ptr<OrbitingCameraController> camera;
     std::vector<VkCommandBuffer> commandBuffers;
-    bool useRayTracing = false;
+    bool useRayTracing = true;
 
     AccelerationStructure bottomLevelAS{};
     AccelerationStructure topLevelAs{};

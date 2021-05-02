@@ -38,10 +38,11 @@ namespace phong{
         } textures;
 
         VulkanBuffer materialBuffer;
+        VkDeviceSize materialOffset;
 
         VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
 
-        void init(const mesh::Mesh& mesh, const VulkanDevice& device, const VulkanDescriptorPool& descriptorPool, const VulkanDescriptorSetLayout& descriptorSetLayout, VkBufferUsageFlags usageFlags = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+        void init(const mesh::Mesh& mesh, const VulkanDevice& device, const VulkanDescriptorPool& descriptorPool, const VulkanDescriptorSetLayout& descriptorSetLayout, std::vector<char>& materials, int id, VkBufferUsageFlags usageFlags = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
     };
 
     struct Mesh : public vkn::Primitive{
@@ -65,7 +66,7 @@ namespace phong{
         VkBufferUsageFlags indexUsage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
         VkBufferUsageFlags materialUsage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
         VkBufferUsageFlags  materialIdUsage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-        bool generateMaterialId = false;
+        bool generateMaterialId = true;
     };
 
     /**
@@ -121,15 +122,15 @@ namespace phong{
             }
         }
 
-//        VkDeviceSize materialBufferSize = (sizeof(meshes[0].material) - sizeof(std::string)) * meshes.size();
-//        drawable.materialBuffer = device.createDeviceLocalBuffer(nullptr, materialBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
-
         // copy meshes into vertex/index buffers
         drawable.meshes.resize(meshes.size());
         uint32_t firstVertex = 0;
         uint32_t firstIndex = 0;
         std::vector<char> indexBuffer(numIndices * sizeof(uint32_t));
         std::vector<char> vertexBuffer(numVertices * sizeof(Vertex));
+
+        VkDeviceSize materialBufferSize = (sizeof(meshes[0].material) - sizeof(std::string)) * meshes.size();
+        std::vector<char> materials(materialBufferSize);
 
         uint32_t numPrimitives = 0;
         for(int i = 0; i < meshes.size(); i++){
@@ -151,12 +152,15 @@ namespace phong{
             drawable.meshes[i].vertexCount = primitive.vertexCount;
             drawable.meshes[i].vertexOffset = primitive.vertexOffset;
 
-            drawable.meshes[i].material.init(mesh, device, pool, drawable.descriptorSetLayout, info.materialUsage);
+            drawable.meshes[i].material.init(mesh, device, pool, drawable.descriptorSetLayout, materials, i, info.materialUsage);
 
             firstVertex += mesh.vertices.size();
             firstIndex += mesh.indices.size();
             numPrimitives += drawable.meshes[i].numTriangles();
         }
+
+
+        drawable.materialBuffer = device.createDeviceLocalBuffer(materials.data(), materialBufferSize, info.materialUsage);
 
         if(info.generateMaterialId){
             std::vector<int> materialIds;

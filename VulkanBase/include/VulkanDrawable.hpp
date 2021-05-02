@@ -12,6 +12,7 @@ struct VulkanDrawable{
     VulkanBuffer vertexBuffer;
     VulkanBuffer indexBuffer;
     VulkanBuffer materialIdBuffer;
+    VulkanBuffer materialBuffer;
     VulkanDescriptorSetLayout descriptorSetLayout;
 
     struct {

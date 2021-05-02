@@ -1,18 +1,6 @@
 #version 460
 #extension GL_EXT_ray_tracing : enable
 
-struct Material{
-	vec3 diffuse;
-	vec3 ambient;
-	vec3 specular;
-	vec3 emission;
-	vec3 transmittance;
-	float shininess;
-	float ior;
-	float opacity;
-	float illum;
-};
-
 layout(binding = 0, set = 0) uniform accelerationStructureEXT topLevelAS;
 layout(binding = 1, set = 0, rgba8) uniform image2D image;
 layout(binding = 2, set = 0) uniform CameraProperties
@@ -20,12 +8,6 @@ layout(binding = 2, set = 0) uniform CameraProperties
 	mat4 viewInverse;
 	mat4 projInverse;
 } cam;
-layout(binding = 3, set = 0) buffer MATERIALS{
-	Material m[];
-} materials[];
-layout(binding = 4, set = 0) buffer MATERIAL_ID{
- int i[];
-} matId[];
 
 layout(location = 0) rayPayloadEXT vec3 hitValue;
 

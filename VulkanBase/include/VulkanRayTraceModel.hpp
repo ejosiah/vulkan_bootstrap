@@ -59,11 +59,10 @@ namespace rt{
 
                 VkAccelerationStructureBuildRangeInfoKHR buildInfo{};
                 buildInfo.primitiveCount = mesh.numTriangles();
-                buildInfo.primitiveOffset = mesh.firstIndex;
+                buildInfo.primitiveOffset = mesh.firstIndex * sizeof(uint32_t);
                 buildInfo.firstVertex = mesh.vertexOffset;
                 buildInfo.transformOffset = 0;
                 asBuildOffsetInfo.push_back(buildInfo);
-                break;
             }
         }
 
