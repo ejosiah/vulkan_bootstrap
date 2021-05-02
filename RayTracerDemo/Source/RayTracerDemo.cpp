@@ -1,6 +1,7 @@
 #define DEVICE_ADDRESS_BIT
 #include <ImGuiPlugin.hpp>
 #include "RayTracerDemo.hpp"
+#include "spdlog/sinks/basic_file_sink.h"
 
 RayTracerDemo::RayTracerDemo(const Settings& settings): VulkanBaseApp("Ray trace Demo", settings) {
     // Enable features required for ray tracing using feature chaining via pNext
@@ -20,6 +21,7 @@ RayTracerDemo::RayTracerDemo(const Settings& settings): VulkanBaseApp("Ray trace
 
 void RayTracerDemo::initApp() {
     rtBuilder = rt::AccelerationStructureBuilder{&device};
+    debugBuffer = device.createBuffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, sizeof(glm::vec4) * swapChain.extent.width * swapChain.extent.height);
     loadRayTracingPropertiesAndFeatures();
     createCommandPool();
     createDescriptorPool();
@@ -113,6 +115,24 @@ void RayTracerDemo::drawCanvas(VkCommandBuffer commandBuffer) {
        rayTrace(cmdBuffer);
     });
 
+    static std::vector<glm::vec4> output;
+    if(debugOn){
+        debugOn = false;
+        output.clear();
+        std::set<int> ids;
+        std::set<int> cids;
+        debugBuffer.use<glm::vec4>([&](glm::vec4 debugInfo){
+            if(debugInfo.w != 1) return;
+            output.push_back(debugInfo);
+            ids.insert(int(debugInfo.x));
+            cids.insert(int(debugInfo.y));
+            spdlog::info("debuginfo: {}", debugInfo);
+        });
+        spdlog::info("ids: {}", ids);
+        spdlog::info("cids: {}", cids);
+
+    }
+
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, canvas.pipeline);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, canvas.pipelineLayout, 0, 1, &canvas.descriptorSet, 0, VK_NULL_HANDLE);
     std::array<VkDeviceSize, 1> offsets = {0u};
@@ -126,6 +146,7 @@ void RayTracerDemo::renderUI(VkCommandBuffer commandBuffer) {
     ImGui::Begin("Settings");
     ImGui::Checkbox("Ray trace mode", &useRayTracing);
     ImGui::Text("FPS: %d", framePerSecond);
+    debugOn = ImGui::Button("debug");
     ImGui::End();
 
     imguiPlugin.draw(commandBuffer);
@@ -175,7 +196,7 @@ void RayTracerDemo::createDescriptorPool() {
 }
 
 void RayTracerDemo::createDescriptorSetLayouts(){
-    std::array<VkDescriptorSetLayoutBinding, 5> bindings{};
+    std::array<VkDescriptorSetLayoutBinding, 6> bindings{};
     bindings[0].binding = 0;
     bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
     bindings[0].descriptorCount = 1;
@@ -201,6 +222,11 @@ void RayTracerDemo::createDescriptorSetLayouts(){
     bindings[4].descriptorCount = 1;
     bindings[4].stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
 
+    bindings[5].binding = 5;
+    bindings[5].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    bindings[5].descriptorCount = 1;
+    bindings[5].stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR | VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+
     raytrace.descriptorSetLayout = device.createDescriptorSetLayout(bindings);
 }
 
@@ -213,7 +239,7 @@ void RayTracerDemo::createDescriptorSets() {
  //   accWrites.pAccelerationStructures = &topLevelAs.handle;
     accWrites.pAccelerationStructures = rtBuilder.accelerationStructure();
 
-    auto writes = initializers::writeDescriptorSets<5>();
+    auto writes = initializers::writeDescriptorSets<6>();
     writes[0].pNext = &accWrites;
     writes[0].dstSet = raytrace.descriptorSet;
     writes[0].dstBinding = 0;
@@ -274,15 +300,27 @@ void RayTracerDemo::createDescriptorSets() {
     writes[4].descriptorCount = 1;
     writes[4].pBufferInfo = &matIdBufferInfo;
 
+    VkDescriptorBufferInfo debugInfo{};
+    debugInfo.buffer = debugBuffer;
+    debugInfo.offset = 0;
+    debugInfo.range = VK_WHOLE_SIZE;
+
+
+    writes[5].dstSet = raytrace.descriptorSet;
+    writes[5].dstBinding = 5;
+    writes[5].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    writes[5].descriptorCount = 1;
+    writes[5].pBufferInfo = &debugInfo;
 
     vkUpdateDescriptorSets(device, COUNT(writes), writes.data(), 0, nullptr);
 }
 
 void RayTracerDemo::initCamera() {
     OrbitingCameraSettings cameraSettings;
+//    FirstPersonSpectatorCameraSettings cameraSettings;
     cameraSettings.orbitMinZoom = 0.1;
     cameraSettings.orbitMaxZoom = 512.0f;
-    cameraSettings.offsetDistance = 2.5f;
+    cameraSettings.offsetDistance = 1.0f;
     cameraSettings.modelHeight = 0.0f;
     cameraSettings.fieldOfView = 60.0f;
     cameraSettings.aspectRatio = float(swapChain.extent.width)/float(swapChain.extent.height);
@@ -863,6 +901,8 @@ int main(){
             VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME
     };
     std::unique_ptr<Plugin> plugin = std::make_unique<ImGuiPlugin>();
+//    auto logger = spdlog::basic_logger_mt("logger", "log.txt");
+//    spdlog::set_default_logger(logger);
     try{
         auto app = RayTracerDemo{settings};
         app.addPlugin(plugin);

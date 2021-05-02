@@ -99,9 +99,11 @@ protected:
 
     VulkanCommandPool commandPool;
     VulkanDescriptorPool descriptorPool;
+  //  std::unique_ptr<SpectatorCameraController> camera;
     std::unique_ptr<OrbitingCameraController> camera;
     std::vector<VkCommandBuffer> commandBuffers;
     bool useRayTracing = true;
+    bool debugOn = false;
 
     AccelerationStructure bottomLevelAS{};
     AccelerationStructure topLevelAs{};
@@ -132,6 +134,7 @@ protected:
 
     VulkanBuffer vertexBuffer;
     VulkanBuffer vertexColorBuffer;
+    VulkanBuffer debugBuffer;
 
     VulkanDrawable spaceShip;
     VulkanDrawableInstance spaceShipInstance;

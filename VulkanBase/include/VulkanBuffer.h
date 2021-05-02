@@ -57,6 +57,16 @@ struct VulkanBuffer{
         vmaUnmapMemory(allocator, allocation);
     }
 
+    template<typename T>
+    void use(std::function<void(T)> func){
+        map<T>([&](auto* ptr){
+            int n = size/(sizeof(T));
+           for(auto i = 0; i < n; i++){
+               func(*(ptr+i));
+           }
+        });
+    }
+
     ~VulkanBuffer(){
         if(buffer){
             vmaDestroyBuffer(allocator, buffer, allocation);
@@ -76,4 +86,5 @@ struct VulkanBuffer{
     VmaAllocation allocation = VK_NULL_HANDLE;
     VkDeviceSize  size = 0;
     std::string name;
+    bool mappable = false;
 };
