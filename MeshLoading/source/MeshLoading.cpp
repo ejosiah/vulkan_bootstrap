@@ -53,11 +53,27 @@ void MeshLoading::checkAppInputs() {
 
 
 int main(){
-    std::vector<mesh::Mesh> meshes;
-    mesh::load(meshes, "../../data/models/bigship1.obj");
-    fmt::print("SpaceShip\n");
-    for(auto& mesh : meshes){
-        fmt::print("\tmesh: {}\n", mesh.name);
-    }
+//    std::vector<mesh::Mesh> meshes;
+//    mesh::load(meshes, "../../data/models/bigship1.obj");
+//    fmt::print("SpaceShip\n");
+//    for(auto& mesh : meshes){
+//        fmt::print("\tmesh: {}\n", mesh.name);
+//    }
+    mesh::Material m;
+    fmt::print("Material: {}\n", sizeof(mesh::Material));
+    fmt::print("{}\n", sizeof(mesh::Material) - offsetof(mesh::Material, diffuse));
+    fmt::print("name: [offset: {}, size: {}]\n", offsetof(mesh::Material, name), sizeof(m.name));
+    fmt::print("diffuse: [offset: {}, size: {}]\n", offsetof(mesh::Material, diffuse), sizeof(m.diffuse));
+    fmt::print("ambient: [offset: {}, size: {}]\n", offsetof(mesh::Material, ambient), sizeof(m.ambient));
+    fmt::print("specular: [offset: {}, size: {}]\n", offsetof(mesh::Material, specular), sizeof(m.specular));
+    fmt::print("emission: [offset: {}, size: {}]\n", offsetof(mesh::Material, emission), sizeof(m.emission));
+    fmt::print("transmittance: [offset: {}, size: {}]\n", offsetof(mesh::Material, transmittance), sizeof(m.transmittance));
+    fmt::print("shininess: [offset: {}, size: {}]\n", offsetof(mesh::Material, shininess), sizeof(m.shininess));
+    fmt::print("ior: [offset: {}, size: {}]\n", offsetof(mesh::Material, ior), sizeof(m.ior));
+    fmt::print("opacity: [offset: {}, size: {}]\n", offsetof(mesh::Material, opacity), sizeof(m.opacity));
+    fmt::print("illum: [offset: {}, size: {}]\n", offsetof(mesh::Material, illum), sizeof(m.illum));
+
+
+
     return 0;
 }

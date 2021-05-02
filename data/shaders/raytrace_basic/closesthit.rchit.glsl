@@ -14,7 +14,7 @@ struct Material{
   float illum;
 };
 
-layout(binding = 3, set = 0, scalar) buffer MATERIALS{
+layout(binding = 3, set = 0) buffer MATERIALS{
   Material materials[];
 };
 
@@ -30,7 +30,7 @@ void main()
   const vec3 barycentricCoords = vec3(1.0f - attribs.x - attribs.y, attribs.x, attribs.y);
  // hitValue = barycentricCoords;
   int matId = matIds[0].i[gl_PrimitiveID];
-  vec3 color = materials[2].diffuse;
+  vec3 color = materials[matId].diffuse;
   float t = 1/(gl_HitTEXT + 1);
   //hitValue = vec3(t);
   hitValue = color;

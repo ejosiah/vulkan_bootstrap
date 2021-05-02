@@ -42,7 +42,7 @@ namespace phong{
 
         VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
 
-        void init(const mesh::Mesh& mesh, const VulkanDevice& device, const VulkanDescriptorPool& descriptorPool, const VulkanDescriptorSetLayout& descriptorSetLayout, std::vector<char>& materials, int id, VkBufferUsageFlags usageFlags = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+        void init(const mesh::Mesh& mesh, const VulkanDevice& device, const VulkanDescriptorPool& descriptorPool, const VulkanDescriptorSetLayout& descriptorSetLayout, const VulkanBuffer& mainMaterialBuffer, std::vector<char>& materials, int id, VkBufferUsageFlags usageFlags = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
     };
 
     struct Mesh : public vkn::Primitive{
@@ -129,8 +129,10 @@ namespace phong{
         std::vector<char> indexBuffer(numIndices * sizeof(uint32_t));
         std::vector<char> vertexBuffer(numVertices * sizeof(Vertex));
 
-        VkDeviceSize materialBufferSize = (sizeof(meshes[0].material) - sizeof(std::string)) * meshes.size();
+        VkDeviceSize materialBufferSize = (sizeof(meshes[0].material) - offsetof(mesh::Material, diffuse)) * meshes.size();
         std::vector<char> materials(materialBufferSize);
+
+        drawable.materialBuffer = device.createBuffer(info.materialUsage | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_ONLY, materialBufferSize);
 
         uint32_t numPrimitives = 0;
         for(int i = 0; i < meshes.size(); i++){
@@ -152,15 +154,17 @@ namespace phong{
             drawable.meshes[i].vertexCount = primitive.vertexCount;
             drawable.meshes[i].vertexOffset = primitive.vertexOffset;
 
-            drawable.meshes[i].material.init(mesh, device, pool, drawable.descriptorSetLayout, materials, i, info.materialUsage);
+            drawable.meshes[i].material.init(mesh, device, pool, drawable.descriptorSetLayout, drawable.materialBuffer, materials, i, info.materialUsage);
 
             firstVertex += mesh.vertices.size();
             firstIndex += mesh.indices.size();
             numPrimitives += drawable.meshes[i].numTriangles();
         }
 
-
-        drawable.materialBuffer = device.createDeviceLocalBuffer(materials.data(), materialBufferSize, info.materialUsage);
+        auto stagingBuffer = device.createStagingBuffer(materialBufferSize);
+        stagingBuffer.copy(materials.data(), materialBufferSize);
+        device.copy(stagingBuffer, drawable.materialBuffer, materialBufferSize);
+        //drawable.materialBuffer = device.createDeviceLocalBuffer(materials.data(), materialBufferSize, info.materialUsage);
 
         if(info.generateMaterialId){
             std::vector<int> materialIds;

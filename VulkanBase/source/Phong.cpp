@@ -1,7 +1,7 @@
 #include "Phong.h"
 
 void phong::Material::init(const mesh::Mesh& mesh, const VulkanDevice& device, const VulkanDescriptorPool& descriptorPool
-                           , const VulkanDescriptorSetLayout& descriptorSetLayout, std::vector<char>& materials, int id, VkBufferUsageFlags usageFlags){
+                           , const VulkanDescriptorSetLayout& descriptorSetLayout, const VulkanBuffer& mainMaterialBuffer, std::vector<char>& materials, int id, VkBufferUsageFlags usageFlags){
 
     descriptorSet = descriptorPool.allocate({descriptorSetLayout}).front();
     std::vector<VkWriteDescriptorSet> writes;
@@ -38,7 +38,7 @@ void phong::Material::init(const mesh::Mesh& mesh, const VulkanDevice& device, c
     textures.ambientOcclusionMap = std::make_unique<Texture>();
     initTexture(*textures.ambientOcclusionMap, mesh.textureMaterial.ambientOcclusionMap, 5);
 
-    uint32_t size = sizeof(mesh.material) - sizeof(std::string);
+    uint32_t size = sizeof(mesh.material) - offsetof(mesh::Material, diffuse);
     std::vector<char> materialData(size);
     std::memcpy(materialData.data(), &mesh.material.diffuse, size);
 
@@ -47,9 +47,9 @@ void phong::Material::init(const mesh::Mesh& mesh, const VulkanDevice& device, c
     std::memcpy(materials.data() + materialOffset, materialData.data(), materialData.size());
 
     VkDescriptorBufferInfo bufferInfo{};
-    bufferInfo.buffer = materialBuffer;
-    bufferInfo.offset = 0;
-    bufferInfo.range = VK_WHOLE_SIZE;
+    bufferInfo.buffer = mainMaterialBuffer;
+    bufferInfo.offset = materialOffset;
+    bufferInfo.range = size;
     VkWriteDescriptorSet write = initializers::writeDescriptorSet();
     write.dstSet = descriptorSet;
     write.dstBinding = 0;

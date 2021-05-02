@@ -23,12 +23,6 @@ constexpr float     CAMERA_SPEED_ORBIT_ROLL = 100.0f;
 constexpr glm::vec3   CAMERA_ACCELERATION(4.0f, 4.0f, 4.0f);
 constexpr glm::vec3   CAMERA_VELOCITY(1.0f, 1.0f, 1.0f);
 
-struct Material{
-    alignas(16) glm::vec3 ambient;
-    alignas(16) glm::vec3 diffuse;
-    alignas(16) glm::vec3 specular;
-    float shininess;
-};
 
 struct Floor{
     struct {
