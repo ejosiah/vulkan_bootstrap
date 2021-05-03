@@ -42,7 +42,7 @@ void phong::Material::init(const mesh::Mesh& mesh, const VulkanDevice& device, c
     std::vector<char> materialData(size);
     std::memcpy(materialData.data(), &mesh.material.diffuse, size);
 
-    materialBuffer = device.createDeviceLocalBuffer(materialData.data(), size, usageFlags);
+    materialBuffer = device.createDeviceLocalBuffer(materialData.data(), size, usageFlags | VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
 
     VkDescriptorBufferInfo bufferInfo{};
     bufferInfo.buffer = materialBuffer;

@@ -737,7 +737,9 @@ void RayTracerDemo::rayTrace(VkCommandBuffer commandBuffer) {
 
     VkStridedDeviceAddressRegionKHR hitShaderSbtEntry{};
     hitShaderSbtEntry.deviceAddress = device.getAddress(bindingTable.hitShader);
-    missShaderSbtEntry.size = handleSizeAligned;
+    hitShaderSbtEntry.size = handleSizeAligned;
+    hitShaderSbtEntry.stride = handleSizeAligned;
+
 
     VkStridedDeviceAddressRegionKHR callableShaderSbtEntry{};
 

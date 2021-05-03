@@ -23,6 +23,7 @@ constexpr bool debugMode = false;
 #include <algorithm>
 #include <numeric>
 #include <optional>
+#include <variant>
 #include <stdexcept>
 #include <thread>
 #include <chrono>

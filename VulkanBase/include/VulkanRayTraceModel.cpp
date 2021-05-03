@@ -27,7 +27,8 @@ rt::AccelerationStructureBuilder::~AccelerationStructureBuilder() {
     }
 }
 
-void rt::AccelerationStructureBuilder::buildAs(const std::vector<VulkanDrawableInstance> &drawableInstances,
+std::tuple<std::vector<rt::InstanceGroup>, std::vector<rt::Instance>>
+rt::AccelerationStructureBuilder::buildAs(const std::vector<VulkanDrawableInstance> &drawableInstances,
                                                VkBuildAccelerationStructureFlagsKHR flags) {
     std::set<VulkanDrawable*> set;
     for(auto& dInstance : drawableInstances){
@@ -36,34 +37,35 @@ void rt::AccelerationStructureBuilder::buildAs(const std::vector<VulkanDrawableI
     std::vector<VulkanDrawable*> drawables(begin(set), end(set));
     buildBlas(drawables, flags);
 
-    auto blasId = [&](VulkanDrawable* drawable) -> std::optional<uint32_t> {
-        for(int i = 0; i < drawables.size(); i++){
-            if(drawable == drawables[i]) return i;
-        }
-        return {};
-    };
-
+    std::vector<InstanceGroup> instanceGroups;
     std::vector<Instance> instances;
-    instances.reserve(drawableInstances.size());
+
+    instanceGroups.reserve(drawableInstances.size());
+    instances.reserve(drawableInstances.size());    // TODO reserve drawInst.size * drawable.meshes.size
     uint32_t customInstanceId = 0;
-    for(auto i = 0; i < drawableInstances.size(); i++){
-        auto dInstance = drawableInstances[i];
-        auto id = blasId(dInstance.drawable);
-        assert(id.has_value());
+    uint32_t blasId = 0;
+    for(auto i = 0; i < drawableInstances.size(); i++, customInstanceId++){
+        auto& dInstance = drawableInstances[i];
+        InstanceGroup instanceGroup{ dInstance, customInstanceId };
+
 
         auto& meshes = dInstance.drawable->meshes;
-        for(int j = 0; j < meshes.size(); j++, customInstanceId++){
+        for(int j = 0; j < meshes.size(); j++, blasId++){
             Instance instance;
-            instance.blasId = customInstanceId;
+            instance.blasId = blasId;
             instance.instanceCustomId = customInstanceId;
             instance.hitGroupId = 0;
             instance.mask = 0xFF;
             instance.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
             instance.xform = dInstance.xform;
             instances.push_back(instance);
+            instanceGroup.instances.push_back(&instances.back());
         }
+        instanceGroups.push_back(instanceGroup);
     }
     buildTlas(instances);
+
+    return std::make_tuple( std::move(instanceGroups), std::move(instances));
 }
 
 void rt::AccelerationStructureBuilder::buildBlas(const std::vector<VulkanDrawable*>& drawables, VkBuildAccelerationStructureFlagsKHR flags){

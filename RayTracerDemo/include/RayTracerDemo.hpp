@@ -94,6 +94,7 @@ protected:
         VulkanPipeline pipeline;
         VulkanPipelineLayout layout;
         VulkanDescriptorSetLayout descriptorSetLayout;
+        VulkanDescriptorSetLayout instanceDescriptorSetLayout;
         VkDescriptorSet descriptorSet;
     } raytrace;
 

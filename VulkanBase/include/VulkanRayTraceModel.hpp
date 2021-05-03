@@ -1,10 +1,10 @@
 #pragma once
 
+#include "common.h"
 #include "VulkanDrawable.hpp"
 #include "VulkanDevice.h"
 #include "VulkanModel.h"
 #include "VulkanExtensions.h"
-
 
 namespace rt{
 
@@ -23,14 +23,75 @@ namespace rt{
         glm::mat4 xform{1};
     };
 
+    struct AABB{
+        alignas(16) glm::vec3 min{MAX_FLOAT};
+        alignas(16) glm::vec3 max{MIN_FLOAT};
+    };
+
+    struct Plane{
+        alignas(16) glm::vec3 normal{ 0 };
+        float d{ 0 };
+    };
+
+    struct Sphere{
+        alignas(16) glm::vec3 center{0};
+        float radius;
+    };
+
+    struct Cylinder{
+        alignas(16) glm::vec3 center{0};
+        float radius;
+        float height;
+    };
+
+    enum class ImplicitType : uint32_t {
+        PLANE = 0,
+        SPHERE = 1,
+        CYLINDER = 2,
+        BOX = 3,
+        NONE = 0,
+    };
+
+    struct ImplicitObject{
+        VulkanBuffer aabbBuffer;
+        ImplicitType type = ImplicitType::NONE;
+    };
+
+
+    struct ImplicitObjectInstance{
+        ImplicitObject* object{ nullptr };
+        glm::mat4 xform{ 1 };
+        glm::mat4 xformIT{ 1 };
+    };
+
     struct InstanceGroup{
-        VulkanDrawableInstance* drawableInstance;
-        std::vector<Instance> instances;
+
+        InstanceGroup() = default;
+
+        explicit InstanceGroup(const VulkanDrawableInstance& _instance, uint32_t id)
+            :sceneInstances{_instance}
+        {
+            desc.xform = _instance.xform;
+            desc.xformIT = glm::inverseTranspose(_instance.xformIT);
+            desc.objId = id;
+        }
+
+        explicit InstanceGroup(const ImplicitObjectInstance& _instance, uint32_t id)
+            :sceneInstances{_instance}
+        {
+            desc.xform = _instance.xform;
+            desc.xformIT = glm::inverseTranspose(_instance.xformIT);
+            desc.objId = id;
+        }
+
+
+        std::variant<VulkanDrawableInstance, ImplicitObjectInstance> sceneInstances{};
+        std::vector<Instance*> instances;
         uint32_t mask{0xFF};
         struct {
-            glm::mat4 xform;
-            glm::mat4 xformIT;
-            int objId;
+            glm::mat4 xform{1};
+            glm::mat4 xformIT{1};
+            int objId = 0;
         } desc;
     };
 
@@ -121,7 +182,7 @@ namespace rt{
 
         AccelerationStructureBuilder& operator=(AccelerationStructureBuilder&& source) noexcept;
 
-        void buildAs(const std::vector<VulkanDrawableInstance>& drawableInstances,
+        std::tuple<std::vector<InstanceGroup>, std::vector<Instance>> buildAs(const std::vector<VulkanDrawableInstance>& drawableInstances,
                      VkBuildAccelerationStructureFlagsKHR flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR);
 
         void buildBlas(const std::vector<VulkanDrawable*>& drawables, VkBuildAccelerationStructureFlagsKHR flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR);
