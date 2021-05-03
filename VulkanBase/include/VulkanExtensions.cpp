@@ -25,6 +25,7 @@ namespace ext {
         pfn_vkCreateAccelerationStructureKHR = procAddress<PFN_vkCreateAccelerationStructureKHR>(instance, "vkCreateAccelerationStructureKHR");
         pfn_vkCmdBuildAccelerationStructuresKHR = procAddress<PFN_vkCmdBuildAccelerationStructuresKHR>(instance, "vkCmdBuildAccelerationStructuresKHR");
         pfn_vkGetAccelerationStructureDeviceAddressKHR = procAddress<PFN_vkGetAccelerationStructureDeviceAddressKHR>(instance, "vkGetAccelerationStructureDeviceAddressKHR");
+        pfn_vkDestroyAccelerationStructureKHR = procAddress<PFN_vkDestroyAccelerationStructureKHR>(instance, "vkDestroyAccelerationStructureKHR");
     }
 
 }
@@ -83,4 +84,12 @@ VKAPI_ATTR VkDeviceAddress VKAPI_CALL vkGetAccelerationStructureDeviceAddressKHR
         VkDevice                                    device,
         const VkAccelerationStructureDeviceAddressInfoKHR* pInfo){
         return pfn_vkGetAccelerationStructureDeviceAddressKHR(device, pInfo);
+}
+
+VKAPI_ATTR void VKAPI_CALL vkDestroyAccelerationStructureKHR(
+        VkDevice                                    device,
+        VkAccelerationStructureKHR                  accelerationStructure,
+        const VkAllocationCallbacks*                pAllocator){
+    assert(pfn_vkDestroyAccelerationStructureKHR);
+    pfn_vkDestroyAccelerationStructureKHR(device, accelerationStructure, pAllocator);
 }

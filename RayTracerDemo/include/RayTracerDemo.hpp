@@ -148,4 +148,5 @@ protected:
     VkPhysicalDeviceBufferDeviceAddressFeatures enabledBufferDeviceAddressFeatures{};
     VkPhysicalDeviceRayTracingPipelineFeaturesKHR enabledRayTracingPipelineFeatures{};
     VkPhysicalDeviceAccelerationStructureFeaturesKHR enabledAccelerationStructureFeatures{};
+    VkPhysicalDeviceDescriptorIndexingFeatures enabledDescriptorIndexingFeatures{};
 };

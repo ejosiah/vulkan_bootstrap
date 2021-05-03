@@ -6,6 +6,27 @@ rt::AccelerationStructureBuilder::AccelerationStructureBuilder(const VulkanDevic
 
 }
 
+rt::AccelerationStructureBuilder::AccelerationStructureBuilder(AccelerationStructureBuilder &&source) noexcept {
+    operator=(static_cast<AccelerationStructureBuilder&&>(source));
+}
+
+rt::AccelerationStructureBuilder& rt::AccelerationStructureBuilder::operator=(AccelerationStructureBuilder &&source) noexcept {
+    if(this == &source) return *this;
+    this->m_blas = std::move(source.m_blas);
+    this->m_tlas = std::move(source.m_tlas);
+    this->m_instanceBuffer = std::move(source.m_instanceBuffer);
+    this->m_device = source.m_device;
+
+    return *this;
+}
+
+rt::AccelerationStructureBuilder::~AccelerationStructureBuilder() {
+    vkDestroyAccelerationStructureKHR(*m_device, m_tlas.as.handle, nullptr);
+    for(auto& input : m_blas){
+        vkDestroyAccelerationStructureKHR(*m_device, input.as.handle, nullptr);
+    }
+}
+
 void rt::AccelerationStructureBuilder::buildAs(const std::vector<VulkanDrawableInstance> &drawableInstances,
                                                VkBuildAccelerationStructureFlagsKHR flags) {
     std::set<VulkanDrawable*> set;
@@ -24,19 +45,23 @@ void rt::AccelerationStructureBuilder::buildAs(const std::vector<VulkanDrawableI
 
     std::vector<Instance> instances;
     instances.reserve(drawableInstances.size());
+    uint32_t customInstanceId = 0;
     for(auto i = 0; i < drawableInstances.size(); i++){
         auto dInstance = drawableInstances[i];
         auto id = blasId(dInstance.drawable);
         assert(id.has_value());
 
-        Instance instance;
-        instance.blasId = *id;
-        instance.instanceCustomId = i;
-        instance.hitGroupId = 0;
-        instance.mask = 0xFF;
-        instance.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
-        instance.xform = dInstance.xform;
-        instances.push_back(instance);
+        auto& meshes = dInstance.drawable->meshes;
+        for(int j = 0; j < meshes.size(); j++, customInstanceId++){
+            Instance instance;
+            instance.blasId = customInstanceId;
+            instance.instanceCustomId = customInstanceId;
+            instance.hitGroupId = 0;
+            instance.mask = 0xFF;
+            instance.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
+            instance.xform = dInstance.xform;
+            instances.push_back(instance);
+        }
     }
     buildTlas(instances);
 }
@@ -45,7 +70,9 @@ void rt::AccelerationStructureBuilder::buildBlas(const std::vector<VulkanDrawabl
     std::vector<BlasInput> inputs;
     inputs.reserve(drawables.size());
     for(auto drawable : drawables){
-        inputs.emplace_back(*m_device, *drawable);
+        for(int meshId = 0; meshId < drawable->meshes.size(); meshId++){
+            inputs.emplace_back(*m_device, *drawable, meshId);
+        }
     }
     buildBlas(inputs, flags);
 }
@@ -114,7 +141,7 @@ void rt::AccelerationStructureBuilder::buildTlas(const std::vector<Instance> &in
     uint32_t numInstances = instances.size();
     std::vector<VkAccelerationStructureInstanceKHR> asInstances(numInstances);
     std::transform(begin(instances), end(instances), begin(asInstances), [&](auto& instance){
-        return convert(instance);
+        return toVkAccStruct(instance);
     });
 
     m_instanceBuffer = m_device->createDeviceLocalBuffer(asInstances.data(), sizeof(VkAccelerationStructureInstanceKHR) * numInstances
@@ -135,7 +162,7 @@ void rt::AccelerationStructureBuilder::buildTlas(const std::vector<Instance> &in
     accelerationStructureBuildGeometryInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
     accelerationStructureBuildGeometryInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
     accelerationStructureBuildGeometryInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_BUILD_BIT_KHR;
-    accelerationStructureBuildGeometryInfo.geometryCount = numInstances;
+    accelerationStructureBuildGeometryInfo.geometryCount = 1;
     accelerationStructureBuildGeometryInfo.pGeometries = &geometry;
 
     VkAccelerationStructureBuildSizesInfoKHR accelerationStructureBuildSizesInfo{};
@@ -181,6 +208,21 @@ void rt::AccelerationStructureBuilder::buildTlas(const std::vector<Instance> &in
     accelerationStructureDeviceAddressInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR;
     accelerationStructureDeviceAddressInfo.accelerationStructure = m_tlas.as.handle;
     m_tlas.as.deviceAddress = vkGetAccelerationStructureDeviceAddressKHR(*m_device, &accelerationStructureDeviceAddressInfo);
+}
+
+VkAccelerationStructureInstanceKHR rt::AccelerationStructureBuilder::toVkAccStruct(const Instance& instance){
+    assert(!m_blas.empty() && instance.blasId < m_blas.size());
+    VkAccelerationStructureInstanceKHR asInstance{};
+    asInstance.instanceCustomIndex = instance.instanceCustomId;
+    asInstance.mask = instance.mask;
+    asInstance.instanceShaderBindingTableRecordOffset = 0;
+    asInstance.flags = instance.flags;
+    asInstance.accelerationStructureReference = m_blas[instance.blasId].as.deviceAddress;
+
+    auto xform = glm::transpose(instance.xform);
+    std::memcpy(&asInstance.transform, glm::value_ptr(xform), sizeof(VkTransformMatrixKHR));
+
+    return asInstance;
 }
 
 rt::ScratchBuffer rt::AccelerationStructureBuilder::createScratchBuffer(VkDeviceSize size) const {

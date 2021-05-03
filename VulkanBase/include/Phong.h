@@ -42,7 +42,7 @@ namespace phong{
 
         VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
 
-        void init(const mesh::Mesh& mesh, const VulkanDevice& device, const VulkanDescriptorPool& descriptorPool, const VulkanDescriptorSetLayout& descriptorSetLayout, const VulkanBuffer& mainMaterialBuffer, std::vector<char>& materials, int id, VkBufferUsageFlags usageFlags = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+        void init(const mesh::Mesh& mesh, const VulkanDevice& device, const VulkanDescriptorPool& descriptorPool, const VulkanDescriptorSetLayout& descriptorSetLayout, VkBufferUsageFlags usageFlags = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
     };
 
     struct Mesh : public vkn::Primitive{
@@ -132,8 +132,6 @@ namespace phong{
         VkDeviceSize materialBufferSize = (sizeof(meshes[0].material) - offsetof(mesh::Material, diffuse)) * meshes.size();
         std::vector<char> materials(materialBufferSize);
 
-        drawable.materialBuffer = device.createBuffer(info.materialUsage | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_ONLY, materialBufferSize);
-
         uint32_t numPrimitives = 0;
         for(int i = 0; i < meshes.size(); i++){
             auto& mesh = meshes[i];
@@ -154,27 +152,20 @@ namespace phong{
             drawable.meshes[i].vertexCount = primitive.vertexCount;
             drawable.meshes[i].vertexOffset = primitive.vertexOffset;
 
-            drawable.meshes[i].material.init(mesh, device, pool, drawable.descriptorSetLayout, drawable.materialBuffer, materials, i, info.materialUsage);
+            drawable.meshes[i].material.init(mesh, device, pool, drawable.descriptorSetLayout, info.materialUsage);
 
             firstVertex += mesh.vertices.size();
             firstIndex += mesh.indices.size();
             numPrimitives += drawable.meshes[i].numTriangles();
         }
 
-        auto stagingBuffer = device.createStagingBuffer(materialBufferSize);
-        stagingBuffer.copy(materials.data(), materialBufferSize);
-        device.copy(stagingBuffer, drawable.materialBuffer, materialBufferSize);
-        //drawable.materialBuffer = device.createDeviceLocalBuffer(materials.data(), materialBufferSize, info.materialUsage);
-
         if(info.generateMaterialId){
             std::vector<int> materialIds;
             materialIds.reserve(numPrimitives);
-            int matId = 0;
             for(phong::Mesh& mesh : drawable.meshes){
                 for(int i = 0; i < mesh.numTriangles(); i++){
-                    materialIds.push_back(matId);
+                    materialIds.push_back(0);
                 }
-                matId++;
             }
             drawable.materialIdBuffer = device.createDeviceLocalBuffer(materialIds.data(), numPrimitives * sizeof(int), info.materialIdUsage);
         }

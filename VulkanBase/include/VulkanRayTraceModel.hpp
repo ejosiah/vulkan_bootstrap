@@ -23,6 +23,17 @@ namespace rt{
         glm::mat4 xform{1};
     };
 
+    struct InstanceGroup{
+        VulkanDrawableInstance* drawableInstance;
+        std::vector<Instance> instances;
+        uint32_t mask{0xFF};
+        struct {
+            glm::mat4 xform;
+            glm::mat4 xformIT;
+            int objId;
+        } desc;
+    };
+
     struct ScratchBuffer{
         VkDeviceAddress deviceAddress = 0;
         VulkanBuffer buffer;
@@ -32,13 +43,20 @@ namespace rt{
         std::vector<VkAccelerationStructureGeometryKHR> asGeomentry;
         std::vector<VkAccelerationStructureBuildRangeInfoKHR> asBuildOffsetInfo;
 
-        BlasInput(const VulkanDevice& device, const VulkanDrawable& drawable){
+        BlasInput(const VulkanDevice& device, const VulkanDrawable& drawable, int meshIndex = std::numeric_limits<int>::max()){
             VkDeviceOrHostAddressConstKHR vertexAddress{};
             VkDeviceOrHostAddressConstKHR indicesAddress{};
             vertexAddress.deviceAddress = device.getAddress(drawable.vertexBuffer);
             indicesAddress.deviceAddress = device.getAddress(drawable.indexBuffer);
 
-            for(auto& mesh : drawable.meshes) {
+            int size = meshIndex + 1;
+            if(meshIndex == std::numeric_limits<int>::max()){
+                meshIndex = 0;
+                size = drawable.meshes.size();
+            }
+
+            for(auto i = meshIndex; i < size; i++) {
+                auto& mesh = drawable.meshes[i];
                 VkAccelerationStructureGeometryDataKHR gData{};
                 gData.triangles.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR;
                 gData.triangles.vertexFormat = VK_FORMAT_R32G32B32A32_SFLOAT;
@@ -91,9 +109,17 @@ namespace rt{
 
     class AccelerationStructureBuilder{
     public:
+        DISABLE_COPY(AccelerationStructureBuilder)
+
         AccelerationStructureBuilder() = default;
 
         explicit AccelerationStructureBuilder(const VulkanDevice* device);
+
+        AccelerationStructureBuilder(AccelerationStructureBuilder&& source) noexcept;
+
+        ~AccelerationStructureBuilder();
+
+        AccelerationStructureBuilder& operator=(AccelerationStructureBuilder&& source) noexcept;
 
         void buildAs(const std::vector<VulkanDrawableInstance>& drawableInstances,
                      VkBuildAccelerationStructureFlagsKHR flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR);
@@ -106,20 +132,7 @@ namespace rt{
                        VkBuildAccelerationStructureFlagsKHR flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR,
                        bool                                 update = false);
 
-        VkAccelerationStructureInstanceKHR convert(const Instance& instance){
-            assert(!m_blas.empty() && instance.blasId < m_blas.size());
-            VkAccelerationStructureInstanceKHR asInstance{};
-            asInstance.instanceCustomIndex = instance.instanceCustomId;
-            asInstance.mask = instance.mask;
-            asInstance.instanceShaderBindingTableRecordOffset = 0;
-            asInstance.flags = instance.flags;
-            asInstance.accelerationStructureReference = m_blas[instance.blasId].as.deviceAddress;
-
-            auto xform = glm::transpose(instance.xform);
-            std::memcpy(&asInstance.transform, glm::value_ptr(xform), sizeof(VkTransformMatrixKHR));
-
-             return asInstance;
-        }
+        VkAccelerationStructureInstanceKHR toVkAccStruct(const Instance& instance);
 
         [[nodiscard]]
         ScratchBuffer createScratchBuffer(VkDeviceSize size) const;

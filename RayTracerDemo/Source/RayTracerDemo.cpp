@@ -16,7 +16,11 @@ RayTracerDemo::RayTracerDemo(const Settings& settings): VulkanBaseApp("Ray trace
     enabledAccelerationStructureFeatures.accelerationStructure = VK_TRUE;
     enabledAccelerationStructureFeatures.pNext = &enabledRayTracingPipelineFeatures;
 
-    deviceCreateNextChain = &enabledAccelerationStructureFeatures;
+    enabledDescriptorIndexingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
+    enabledDescriptorIndexingFeatures.pNext = &enabledAccelerationStructureFeatures;
+    enabledDescriptorIndexingFeatures.runtimeDescriptorArray = VK_TRUE;
+
+    deviceCreateNextChain = &enabledDescriptorIndexingFeatures;
 }
 
 void RayTracerDemo::initApp() {
@@ -214,7 +218,7 @@ void RayTracerDemo::createDescriptorSetLayouts(){
 
     bindings[3].binding = 3;
     bindings[3].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    bindings[3].descriptorCount = 1;
+    bindings[3].descriptorCount = 5;
     bindings[3].stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
 
     bindings[4].binding = 4;
@@ -268,26 +272,21 @@ void RayTracerDemo::createDescriptorSets() {
     writes[2].pBufferInfo = &bufferInfo;
 
     // material writes
-//    std::vector<VkDescriptorBufferInfo> materialBufferInfos;
-//    materialBufferInfos.reserve(spaceShip.meshes.size());
-//    for(auto& mesh : spaceShip.meshes){
-//        VkDescriptorBufferInfo info{};
-//        info.buffer = mesh.material.materialBuffer;
-//        info.offset = 0;
-//        info.range = VK_WHOLE_SIZE;
-//        materialBufferInfos.push_back(info);
-//    }
-//    materialBufferInfos.push_back(info);
+    std::vector<VkDescriptorBufferInfo> materialBufferInfos;
+    materialBufferInfos.reserve(spaceShip.meshes.size());
+    for(auto& mesh : spaceShip.meshes){
+        VkDescriptorBufferInfo info{};
+        info.buffer = mesh.material.materialBuffer;
+        info.offset = 0;
+        info.range = VK_WHOLE_SIZE;
+        materialBufferInfos.push_back(info);
+    }
 
-    VkDescriptorBufferInfo matInfo{};
-    matInfo.buffer = spaceShip.materialBuffer;
-    matInfo.offset = 0;
-    matInfo.range = VK_WHOLE_SIZE;
     writes[3].dstSet = raytrace.descriptorSet;
     writes[3].dstBinding = 3;
     writes[3].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    writes[3].descriptorCount = 1;
-    writes[3].pBufferInfo = &matInfo;
+    writes[3].descriptorCount = COUNT(materialBufferInfos);
+    writes[3].pBufferInfo = materialBufferInfos.data();
 
     VkDescriptorBufferInfo matIdBufferInfo{};
     matIdBufferInfo.buffer = spaceShip.materialIdBuffer;

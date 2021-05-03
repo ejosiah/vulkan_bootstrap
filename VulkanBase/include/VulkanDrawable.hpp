@@ -12,7 +12,6 @@ struct VulkanDrawable{
     VulkanBuffer vertexBuffer;
     VulkanBuffer indexBuffer;
     VulkanBuffer materialIdBuffer;
-    VulkanBuffer materialBuffer;
     VulkanDescriptorSetLayout descriptorSetLayout;
 
     struct {
@@ -36,6 +35,10 @@ struct VulkanDrawable{
             meshes[i].drawIndexed(commandBuffer);
 
         }
+    }
+
+    static void flatten(VulkanDrawable& drawable) {
+
     }
 
     [[nodiscard]]
