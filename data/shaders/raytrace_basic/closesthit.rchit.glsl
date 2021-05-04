@@ -103,13 +103,14 @@ void main()
   vec3 normal = v0.normal * u + v1.normal * v + v2.normal * w;
   vec3 worldPos = v0.position * u + v1.position * v + v2.position * w;
   vec3 N = normalize(normal);
-  vec3 L = eyes - worldPos;
-
+  vec3 lightPos = eyes - worldPos;
+  vec3 L = normalize(lightPos);
   int matId = matIds[objId].i[gl_PrimitiveID];
  // vec3 color = materials[gl_InstanceID].m[matId].diffuse;
   vec3 color = materials[gl_InstanceID].m[matId].diffuse;
+  float shininess = materials[gl_InstanceID].m[matId].shininess;
 
-  hitValue = color * dot(N, L);
+  hitValue = color * dot(N, L) + color * pow(dot(N, L), shininess);
   //hitValue = N;
  // hitValue = worldPos;
  // hitValue = colors[gl_InstanceID];

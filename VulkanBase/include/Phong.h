@@ -134,7 +134,7 @@ namespace phong{
 
         VkDeviceSize materialBufferSize = (sizeof(meshes[0].material) - offsetof(mesh::Material, diffuse)) * meshes.size();
         std::vector<char> materials(materialBufferSize);
-
+        drawable.materialBuffer = device.createBuffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_GPU_ONLY, materialBufferSize * meshes.size());
         uint32_t numPrimitives = 0;
         for(int i = 0; i < meshes.size(); i++){
             auto& mesh = meshes[i];
@@ -156,12 +156,13 @@ namespace phong{
             drawable.meshes[i].vertexOffset = primitive.vertexOffset;
 
             drawable.meshes[i].material.init(mesh, device, pool, drawable.descriptorSetLayout, info.materialUsage);
+            device.copy(drawable.meshes[i].material.materialBuffer, drawable.materialBuffer, materialBufferSize, 0, i * materialBufferSize);
 
 //            std::memcpy(offsetBuffer.data() + offset, &firstIndex, sizeOfInt);
 //            offset += sizeOfInt;
 //            std::memcpy(offsetBuffer.data() + offset, &primitive.vertexOffset, sizeOfInt);
 //            offset += sizeOfInt;
-            offsetBuffer.emplace_back(firstIndex, primitive.vertexOffset, 0, 0);
+            offsetBuffer.emplace_back(firstIndex, primitive.vertexOffset, materialBufferSize * i, 0);
 
             firstVertex += mesh.vertices.size();
             firstIndex += mesh.indices.size();

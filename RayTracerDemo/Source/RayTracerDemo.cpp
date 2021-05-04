@@ -77,7 +77,7 @@ VkCommandBuffer *RayTracerDemo::buildCommandBuffers(uint32_t imageIndex, uint32_
     VkCommandBufferBeginInfo beginInfo = initializers::commandBufferBeginInfo();
     vkBeginCommandBuffer(commandBuffer, &beginInfo);
 
-    std::array<VkClearValue, 2> clearValues{{0.0f, 0.0f, 0.0f, 1.0f}};
+    std::array<VkClearValue, 2> clearValues{{0.0f, 0.0f, 0.2f, 1.0f}};
     clearValues[1].depthStencil = {1.0f, 0};
 
     VkRenderPassBeginInfo rPassBeginInfo = initializers::renderPassBeginInfo();
