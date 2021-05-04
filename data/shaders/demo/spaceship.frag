@@ -44,4 +44,5 @@ void main(){
 
     vec3 color = Light * (saturate(dot(L, N)) * diffuse + saturate(pow(dot(H, N), shininess)) * specular);
     fragColor = vec4(color, 1);
+    fragColor = vec4(N, 1);
 }

@@ -28,5 +28,6 @@ void main()
 
     traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT, 0xff, 0, 0, 0, origin.xyz, tmin, direction.xyz, tmax, 0);
 
+	//vec2 uv = vec2(gl_LaunchIDEXT.xy + uvec2(1))/vec2(gl_LaunchSizeEXT.xy);
 	imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(hitValue, 0.0));
 }

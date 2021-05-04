@@ -126,8 +126,11 @@ namespace phong{
         drawable.meshes.resize(meshes.size());
         uint32_t firstVertex = 0;
         uint32_t firstIndex = 0;
+        auto sizeOfInt = sizeof(uint32_t);
+        auto offset = 0;
         std::vector<char> indexBuffer(numIndices * sizeof(uint32_t));
         std::vector<char> vertexBuffer(numVertices * sizeof(Vertex));
+        std::vector<glm::ivec4> offsetBuffer;
 
         VkDeviceSize materialBufferSize = (sizeof(meshes[0].material) - offsetof(mesh::Material, diffuse)) * meshes.size();
         std::vector<char> materials(materialBufferSize);
@@ -154,6 +157,12 @@ namespace phong{
 
             drawable.meshes[i].material.init(mesh, device, pool, drawable.descriptorSetLayout, info.materialUsage);
 
+//            std::memcpy(offsetBuffer.data() + offset, &firstIndex, sizeOfInt);
+//            offset += sizeOfInt;
+//            std::memcpy(offsetBuffer.data() + offset, &primitive.vertexOffset, sizeOfInt);
+//            offset += sizeOfInt;
+            offsetBuffer.emplace_back(firstIndex, primitive.vertexOffset, 0, 0);
+
             firstVertex += mesh.vertices.size();
             firstIndex += mesh.indices.size();
             numPrimitives += drawable.meshes[i].numTriangles();
@@ -170,6 +179,13 @@ namespace phong{
             drawable.materialIdBuffer = device.createDeviceLocalBuffer(materialIds.data(), numPrimitives * sizeof(int), info.materialIdUsage);
         }
 
+        for(auto i = 0; i < 5; i++){
+            static std::array<int, 2> offsets;
+            std::memcpy(offsets.data(), offsetBuffer.data() + i * 8, sizeOfInt * 2);
+            spdlog::info("index: {}, vertexOffset: {}", offsets.front(), offsets.back());
+        }
+
+        drawable.offsetBuffer = device.createDeviceLocalBuffer(offsetBuffer.data(), offsetBuffer.size() * sizeof(glm::ivec4), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
         drawable.vertexBuffer = device.createDeviceLocalBuffer(vertexBuffer.data(), numVertices * sizeof(Vertex), info.vertexUsage);
         drawable.indexBuffer = device.createDeviceLocalBuffer(indexBuffer.data(), numIndices * sizeof(uint32_t), info.indexUsage);
     }

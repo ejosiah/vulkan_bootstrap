@@ -77,6 +77,10 @@ protected:
 
     void createVertexBuffer();
 
+    void rayTraceToCanvasBarrier(VkCommandBuffer commandBuffer) const;
+
+    void CanvasToRayTraceBarrier(VkCommandBuffer commandBuffer) const;
+
     void cleanup() override;
 
     struct {
@@ -95,7 +99,10 @@ protected:
         VulkanPipelineLayout layout;
         VulkanDescriptorSetLayout descriptorSetLayout;
         VulkanDescriptorSetLayout instanceDescriptorSetLayout;
+        VulkanDescriptorSetLayout vertexDescriptorSetLayout;
         VkDescriptorSet descriptorSet;
+        VkDescriptorSet instanceDescriptorSet;
+        VkDescriptorSet vertexDescriptorSet;
     } raytrace;
 
     VulkanCommandPool commandPool;
@@ -142,6 +149,11 @@ protected:
 
     VulkanBuffer inverseCamProj;
     rt::AccelerationStructureBuilder rtBuilder;
+    std::vector<rt::Instance> asInstances;
+    std::vector<rt::InstanceGroup> sceneObjects;
+
+    VulkanBuffer sceneObjectBuffer;
+    VulkanBuffer vertexOffsetsBuffer;
 
     VkPhysicalDeviceRayTracingPipelinePropertiesKHR  rayTracingPipelineProperties{};
     VkPhysicalDeviceAccelerationStructureFeaturesKHR accelerationStructureFeatures{};

@@ -11,6 +11,7 @@ struct VulkanDrawable{
 
     VulkanBuffer vertexBuffer;
     VulkanBuffer indexBuffer;
+    VulkanBuffer offsetBuffer;
     VulkanBuffer materialIdBuffer;
     VulkanDescriptorSetLayout descriptorSetLayout;
 
@@ -108,6 +109,8 @@ struct VulkanDrawable{
         writes.push_back(write);
         device.updateDescriptorSets(writes);
 
+        // TODO flatten offset buffer
+
         // TODO flatten texture
 
         return result;
@@ -122,6 +125,7 @@ struct VulkanDrawable{
         return vertexBuffer.size / sizeof(Vertex);
     }
 };
+
 
 struct VulkanDrawableInstance{
     VulkanDrawable* drawable{ nullptr };

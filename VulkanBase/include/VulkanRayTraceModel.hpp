@@ -72,7 +72,7 @@ namespace rt{
             :sceneInstances{_instance}
         {
             desc.xform = _instance.xform;
-            desc.xformIT = glm::inverseTranspose(_instance.xformIT);
+            desc.xformIT = glm::inverseTranspose(_instance.xform);
             desc.objId = id;
         }
 
@@ -80,10 +80,9 @@ namespace rt{
             :sceneInstances{_instance}
         {
             desc.xform = _instance.xform;
-            desc.xformIT = glm::inverseTranspose(_instance.xformIT);
+            desc.xformIT = glm::inverseTranspose(_instance.xform);
             desc.objId = id;
         }
-
 
         std::variant<VulkanDrawableInstance, ImplicitObjectInstance> sceneInstances{};
         std::vector<Instance*> instances;

@@ -106,7 +106,7 @@ VkCommandBuffer *RayTracerDemo::buildCommandBuffers(uint32_t imageIndex, uint32_
 
     vkCmdEndRenderPass(commandBuffer);
 
-  //  rayTrace(commandBuffer);
+    rayTrace(commandBuffer);
 
     vkEndCommandBuffer(commandBuffer);
 
@@ -115,27 +115,27 @@ VkCommandBuffer *RayTracerDemo::buildCommandBuffers(uint32_t imageIndex, uint32_
 
 void RayTracerDemo::drawCanvas(VkCommandBuffer commandBuffer) {
 
-    commandPool.oneTimeCommand([&](auto& cmdBuffer){
-       rayTrace(cmdBuffer);
-    });
-
-    static std::vector<glm::vec4> output;
-    if(debugOn){
-        debugOn = false;
-        output.clear();
-        std::set<int> ids;
-        std::set<int> cids;
-        debugBuffer.use<glm::vec4>([&](glm::vec4 debugInfo){
-            if(debugInfo.w != 1) return;
-            output.push_back(debugInfo);
-            ids.insert(int(debugInfo.x));
-            cids.insert(int(debugInfo.y));
-            spdlog::info("debuginfo: {}", debugInfo);
-        });
-        spdlog::info("ids: {}", ids);
-        spdlog::info("cids: {}", cids);
-
-    }
+//    commandPool.oneTimeCommand([&](auto& cmdBuffer){
+//       rayTrace(cmdBuffer);
+//    });
+//
+//    static std::vector<glm::vec4> output;
+//    if(debugOn){
+//        debugOn = false;
+//        output.clear();
+//        std::set<int> ids;
+//        std::set<int> cids;
+//        debugBuffer.use<glm::vec4>([&](glm::vec4 debugInfo){
+//            if(debugInfo.w != 1) return;
+//            output.push_back(debugInfo);
+//            ids.insert(int(debugInfo.x));
+//            cids.insert(int(debugInfo.y));
+//            spdlog::info("debuginfo: {}", debugInfo);
+//        });
+//        spdlog::info("ids: {}", ids);
+//        spdlog::info("cids: {}", cids);
+//
+//    }
 
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, canvas.pipeline);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, canvas.pipelineLayout, 0, 1, &canvas.descriptorSet, 0, VK_NULL_HANDLE);
@@ -179,11 +179,11 @@ void RayTracerDemo::createCommandPool() {
 void RayTracerDemo::createDescriptorPool() {
     auto maxSets = 1000u;
     std::vector<VkDescriptorPoolSize> poolSizes = {
-            { VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1 },
-            { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1 },
-            { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1 },
-            { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1 },
-            { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 4}
+            { VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1 * maxSets },
+            { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1  * maxSets },
+            { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1  * maxSets},
+            { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1  * maxSets},
+            { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 4  * maxSets}
     };
     auto phongPoolSizes = phong::getPoolSizes(maxSets);
     for(auto& poolSize : phongPoolSizes){
@@ -200,7 +200,7 @@ void RayTracerDemo::createDescriptorPool() {
 }
 
 void RayTracerDemo::createDescriptorSetLayouts(){
-    std::array<VkDescriptorSetLayoutBinding, 6> bindings{};
+    std::vector<VkDescriptorSetLayoutBinding> bindings(3);
     bindings[0].binding = 0;
     bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
     bindings[0].descriptorCount = 1;
@@ -216,26 +216,55 @@ void RayTracerDemo::createDescriptorSetLayouts(){
     bindings[2].descriptorCount = 1;
     bindings[2].stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
 
-    bindings[3].binding = 3;
-    bindings[3].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    bindings[3].descriptorCount = 5;
-    bindings[3].stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
-
-    bindings[4].binding = 4;
-    bindings[4].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    bindings[4].descriptorCount = 1;
-    bindings[4].stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
-
-    bindings[5].binding = 5;
-    bindings[5].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    bindings[5].descriptorCount = 1;
-    bindings[5].stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR | VK_SHADER_STAGE_RAYGEN_BIT_KHR;
-
     raytrace.descriptorSetLayout = device.createDescriptorSetLayout(bindings);
+
+    // Instance bindings
+    bindings.clear();
+    bindings.resize(3);
+
+    bindings[0].binding = 0;    // materials
+    bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    bindings[0].descriptorCount = 5;
+    bindings[0].stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+
+    bindings[1].binding = 1;    // material ids
+    bindings[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    bindings[1].descriptorCount = 1;
+    bindings[1].stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+
+    bindings[2].binding = 2;  // scene objects
+    bindings[2].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    bindings[2].descriptorCount = 1;
+    bindings[2].stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+
+    raytrace.instanceDescriptorSetLayout = device.createDescriptorSetLayout(bindings);
+
+    bindings.clear();
+    bindings.resize(3);
+    bindings[0].binding = 0;    // vertex buffer binding
+    bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    bindings[0].descriptorCount = 1;
+    bindings[0].stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+
+    bindings[1].binding = 1;    // index buffer bindings
+    bindings[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    bindings[1].descriptorCount = 1;
+    bindings[1].stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+
+    bindings[2].binding = 2;
+    bindings[2].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    bindings[2].descriptorCount = 1;
+    bindings[2].stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+
+    raytrace.vertexDescriptorSetLayout = device.createDescriptorSetLayout(bindings);
+
 }
 
 void RayTracerDemo::createDescriptorSets() {
-    raytrace.descriptorSet = descriptorPool.allocate({ raytrace.descriptorSetLayout }).front();
+    auto sets = descriptorPool.allocate({ raytrace.descriptorSetLayout, raytrace.instanceDescriptorSetLayout, raytrace.vertexDescriptorSetLayout });
+    raytrace.descriptorSet = sets[0];
+    raytrace.instanceDescriptorSet = sets[1];
+    raytrace.vertexDescriptorSet = sets[2];
 
     VkWriteDescriptorSetAccelerationStructureKHR accWrites{};
     accWrites.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR;
@@ -243,7 +272,7 @@ void RayTracerDemo::createDescriptorSets() {
  //   accWrites.pAccelerationStructures = &topLevelAs.handle;
     accWrites.pAccelerationStructures = rtBuilder.accelerationStructure();
 
-    auto writes = initializers::writeDescriptorSets<6>();
+    auto writes = initializers::writeDescriptorSets<9>();
     writes[0].pNext = &accWrites;
     writes[0].dstSet = raytrace.descriptorSet;
     writes[0].dstBinding = 0;
@@ -274,6 +303,7 @@ void RayTracerDemo::createDescriptorSets() {
     // material writes
     std::vector<VkDescriptorBufferInfo> materialBufferInfos;
     materialBufferInfos.reserve(spaceShip.meshes.size());
+
     for(auto& mesh : spaceShip.meshes){
         VkDescriptorBufferInfo info{};
         info.buffer = mesh.material.materialBuffer;
@@ -282,8 +312,8 @@ void RayTracerDemo::createDescriptorSets() {
         materialBufferInfos.push_back(info);
     }
 
-    writes[3].dstSet = raytrace.descriptorSet;
-    writes[3].dstBinding = 3;
+    writes[3].dstSet = raytrace.instanceDescriptorSet;
+    writes[3].dstBinding = 0;
     writes[3].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     writes[3].descriptorCount = COUNT(materialBufferInfos);
     writes[3].pBufferInfo = materialBufferInfos.data();
@@ -293,23 +323,55 @@ void RayTracerDemo::createDescriptorSets() {
     matIdBufferInfo.offset = 0;
     matIdBufferInfo.range = VK_WHOLE_SIZE;
 
-    writes[4].dstSet = raytrace.descriptorSet;
-    writes[4].dstBinding = 4;
+    writes[4].dstSet = raytrace.instanceDescriptorSet;
+    writes[4].dstBinding = 1;
     writes[4].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     writes[4].descriptorCount = 1;
     writes[4].pBufferInfo = &matIdBufferInfo;
 
-    VkDescriptorBufferInfo debugInfo{};
-    debugInfo.buffer = debugBuffer;
-    debugInfo.offset = 0;
-    debugInfo.range = VK_WHOLE_SIZE;
+    VkDescriptorBufferInfo sceneBufferInfo{};
+    sceneBufferInfo.buffer = sceneObjectBuffer;
+    sceneBufferInfo.offset = 0;
+    sceneBufferInfo.range = VK_WHOLE_SIZE;
 
-
-    writes[5].dstSet = raytrace.descriptorSet;
-    writes[5].dstBinding = 5;
+    writes[5].dstSet= raytrace.instanceDescriptorSet;
+    writes[5].dstBinding = 2;
     writes[5].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     writes[5].descriptorCount = 1;
-    writes[5].pBufferInfo = &debugInfo;
+    writes[5].pBufferInfo = &sceneBufferInfo;
+
+    VkDescriptorBufferInfo vertexBufferInfo{};
+    vertexBufferInfo.buffer = spaceShip.vertexBuffer;
+    vertexBufferInfo.offset = 0;
+    vertexBufferInfo.range = VK_WHOLE_SIZE;
+
+    writes[6].dstSet = raytrace.vertexDescriptorSet;
+    writes[6].dstBinding = 0;
+    writes[6].descriptorCount = 1;
+    writes[6].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    writes[6].pBufferInfo = &vertexBufferInfo;
+
+    VkDescriptorBufferInfo indexBufferInfo{};
+    indexBufferInfo.buffer = spaceShip.indexBuffer;
+    indexBufferInfo.offset = 0;
+    indexBufferInfo.range = VK_WHOLE_SIZE;
+
+    writes[7].dstSet = raytrace.vertexDescriptorSet;
+    writes[7].dstBinding = 1;
+    writes[7].descriptorCount = 1;
+    writes[7].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    writes[7].pBufferInfo = &indexBufferInfo;
+
+    VkDescriptorBufferInfo offsetBufferInfo{};
+    offsetBufferInfo.buffer = spaceShip.offsetBuffer;
+    offsetBufferInfo.offset = 0;
+    offsetBufferInfo.range = VK_WHOLE_SIZE;
+
+    writes[8].dstSet = raytrace.vertexDescriptorSet;
+    writes[8].dstBinding = 2;
+    writes[8].descriptorCount = 1;
+    writes[8].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    writes[8].pBufferInfo = &offsetBufferInfo;
 
     vkUpdateDescriptorSets(device, COUNT(writes), writes.data(), 0, nullptr);
 }
@@ -528,8 +590,18 @@ void RayTracerDemo::createBottomLevelAccelerationStructure() {
     accelerationStructureDeviceAddressInfo.accelerationStructure = bottomLevelAS.handle;
     bottomLevelAS.deviceAddress = ext.vkGetAccelerationStructureDeviceAddressKHR(device, &accelerationStructureDeviceAddressInfo);
 
-    rtBuilder.buildAs({spaceShipInstance});
+    auto res = rtBuilder.buildAs({spaceShipInstance});
+    sceneObjects = std::move(std::get<0>(res));
+    asInstances = std::move(std::get<1>(res));
+    VkDeviceSize size = sizeof(sceneObjects.front().desc);
+    auto stagingBuffer = device.createBuffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, size * sceneObjects.size());
 
+    VkDeviceSize offset = 0;
+    for(auto& scObj : sceneObjects){
+        stagingBuffer.copy(&scObj.desc, size, offset);
+        offset += size;
+    }
+    sceneObjectBuffer = device.createDeviceLocalBuffer(stagingBuffer, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
 }
 
 void RayTracerDemo::createTopLevelAccelerationStructure() {
@@ -704,7 +776,8 @@ void RayTracerDemo::createRayTracePipeline() {
     shaderGroup.closestHitShader = shaderGroups.size();
     shaderGroups.push_back(shaderGroup);
 
-    raytrace.layout = device.createPipelineLayout({ raytrace.descriptorSetLayout });
+    raytrace.layout = device.createPipelineLayout(
+            { raytrace.descriptorSetLayout, raytrace.instanceDescriptorSetLayout, raytrace.vertexDescriptorSetLayout });
     VkRayTracingPipelineCreateInfoKHR createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR;
     createInfo.stageCount = COUNT(stages);
@@ -742,12 +815,15 @@ void RayTracerDemo::rayTrace(VkCommandBuffer commandBuffer) {
 
 
     VkStridedDeviceAddressRegionKHR callableShaderSbtEntry{};
+    CanvasToRayTraceBarrier(commandBuffer);
 
+    static std::vector<VkDescriptorSet> sets{ raytrace.descriptorSet, raytrace.instanceDescriptorSet, raytrace.vertexDescriptorSet };
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, raytrace.pipeline);
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, raytrace.layout, 0, 1, &raytrace.descriptorSet, 0, VK_NULL_HANDLE);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, raytrace.layout, 0, COUNT(sets), sets.data(), 0, VK_NULL_HANDLE);
 
     vkCmdTraceRaysKHR(commandBuffer, &rayGenShaderSbtEntry, &missShaderSbtEntry, &hitShaderSbtEntry,
                       &callableShaderSbtEntry, swapChain.extent.width, swapChain.extent.height, 1);
+    rayTraceToCanvasBarrier(commandBuffer);
 }
 
 void RayTracerDemo::loadTexture() {
@@ -878,13 +954,67 @@ void RayTracerDemo::createVertexBuffer() {
 
 void RayTracerDemo::loadSpaceShip() {
     phong::VulkanDrawableInfo info{};
-    info.vertexUsage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
-    info.indexUsage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
-    info.materialUsage |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
-    info.materialIdUsage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
+    info.vertexUsage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+    info.indexUsage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+    info.materialUsage |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+    info.materialIdUsage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
     info.generateMaterialId = true;
     phong::load("../../data/models/bigship1.obj", device, descriptorPool, spaceShip, info);
     spaceShipInstance.drawable = &spaceShip;
+}
+
+void RayTracerDemo::CanvasToRayTraceBarrier(VkCommandBuffer commandBuffer) const {
+    VkImageMemoryBarrier barrier = initializers::ImageMemoryBarrier();
+    barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    barrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+    barrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
+    barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
+    barrier.image = storageImage.image;
+    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barrier.subresourceRange.baseArrayLayer = 0;
+    barrier.subresourceRange.baseMipLevel = 0;
+    barrier.subresourceRange.layerCount = 1;
+    barrier.subresourceRange.levelCount = 1;
+
+    VkMemoryBarrier mBarrier{};
+    mBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+    mBarrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    mBarrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+
+    vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                         VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+                         0,
+                         0,
+                         VK_NULL_HANDLE,
+                         0,
+                         VK_NULL_HANDLE,
+                         1,
+                         &barrier);
+}
+
+void RayTracerDemo::rayTraceToCanvasBarrier(VkCommandBuffer commandBuffer) const {
+    VkImageMemoryBarrier barrier = initializers::ImageMemoryBarrier();
+    barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    barrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
+    barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
+    barrier.image = storageImage.image;
+    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barrier.subresourceRange.baseArrayLayer = 0;
+    barrier.subresourceRange.baseMipLevel = 0;
+    barrier.subresourceRange.layerCount = 1;
+    barrier.subresourceRange.levelCount = 1;
+
+
+    vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+                         VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                         0,
+                         0,
+                         VK_NULL_HANDLE,
+                         0,
+                         VK_NULL_HANDLE,
+                         1,
+                         &barrier);
 }
 
 

@@ -42,11 +42,21 @@ rt::AccelerationStructureBuilder::buildAs(const std::vector<VulkanDrawableInstan
 
     instanceGroups.reserve(drawableInstances.size());
     instances.reserve(drawableInstances.size());    // TODO reserve drawInst.size * drawable.meshes.size
+
+    auto findObjId = [&](VulkanDrawable* drawable) -> std::optional<uint32_t> {
+        for(int i = 0; i < drawables.size(); i++){
+            if(drawable == drawables[i]) return i;
+        }
+        return {};
+    };
+
     uint32_t customInstanceId = 0;
     uint32_t blasId = 0;
     for(auto i = 0; i < drawableInstances.size(); i++, customInstanceId++){
         auto& dInstance = drawableInstances[i];
-        InstanceGroup instanceGroup{ dInstance, customInstanceId };
+        auto objId = findObjId(dInstance.drawable);
+        assert(objId.has_value());
+        InstanceGroup instanceGroup{ dInstance, *objId };
 
 
         auto& meshes = dInstance.drawable->meshes;
@@ -61,7 +71,7 @@ rt::AccelerationStructureBuilder::buildAs(const std::vector<VulkanDrawableInstan
             instances.push_back(instance);
             instanceGroup.instances.push_back(&instances.back());
         }
-        instanceGroups.push_back(instanceGroup);
+        instanceGroups.push_back(std::move(instanceGroup));
     }
     buildTlas(instances);
 
