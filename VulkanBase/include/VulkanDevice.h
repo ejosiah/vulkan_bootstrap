@@ -270,6 +270,7 @@ struct VulkanDevice{
         });
     }
 
+
     inline VulkanBuffer createDeviceLocalBuffer(void* data, VkDeviceSize size, VkBufferUsageFlags usage, std::set<uint32_t> queueIndices = {}) const {
         // TODO use transfer queue and then transfer ownership
         VulkanBuffer stagingBuffer = createBuffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, size, "", queueIndices);
@@ -350,6 +351,7 @@ struct VulkanDevice{
         VmaAllocation allocation;
 
         ASSERT(vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &buffer, &allocation, nullptr));
+
         if(!name.empty()){
          //   VulkanDebug::setObjectName(logicalDevice, buffer, name);
             VkDebugUtilsObjectNameInfoEXT s{VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT, nullptr, VK_OBJECT_TYPE_BUFFER, (uint64_t)buffer, name.c_str()};

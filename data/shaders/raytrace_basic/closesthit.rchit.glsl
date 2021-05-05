@@ -37,6 +37,8 @@ struct SceneObject{
   int objId;
 };
 
+layout(binding = 0, set = 0) uniform accelerationStructureEXT topLevelAS;
+
 layout(binding = 0, set = 1) buffer MATERIALS {
   Material m[];
 } materials [];
@@ -64,6 +66,9 @@ layout(binding = 2, set = 2) buffer VETEX_OFFSETS {
 
 
 layout(location = 0) rayPayloadInEXT vec3 hitValue;
+
+layout(location = 1) rayPayloadEXT bool isShadow;
+
 hitAttributeEXT vec3 attribs;
 
 const vec3 colors[5] = {
@@ -103,25 +108,37 @@ void main()
   vec3 normal = v0.normal * u + v1.normal * v + v2.normal * w;
   vec3 worldPos = v0.position * u + v1.position * v + v2.position * w;
   vec3 N = normalize(normal);
-  vec3 lightPos = eyes - worldPos;
-  vec3 L = normalize(lightPos);
+  vec3 lightPos = eyes;
+  vec3 L = normalize(lightPos - worldPos);
+//  vec3 L = vec3(0, 1, 0);
   int matId = matIds[objId].i[gl_PrimitiveID];
  // vec3 color = materials[gl_InstanceID].m[matId].diffuse;
-  vec3 color = materials[gl_InstanceID].m[matId].diffuse;
-  float shininess = materials[gl_InstanceID].m[matId].shininess;
 
-  hitValue = color * dot(N, L) + color * pow(dot(N, L), shininess);
-  //hitValue = N;
- // hitValue = worldPos;
- // hitValue = colors[gl_InstanceID];
+//  vec3 color = materials[gl_InstanceID].m[matId].diffuse;
+//  float shininess = materials[gl_InstanceID].m[matId].shininess;
+  Material material = materials[objId].m[gl_InstanceID];
+  vec3 color = material.diffuse;
+  float shininess = material.shininess;
 
-//    if(gl_PrimitiveID == 8446){
-//      debug[launchId] = vec4(gl_InstanceID, gl_InstanceCustomIndexEXT, gl_PrimitiveID, 1);
-//    }
-//  if(gl_InstanceID == 0 && offset.firstIndex != 0) color = vec3(1, 0, 0);
-//  if(gl_InstanceID == 1  && offset.firstIndex != 25338) color = vec3(0, 1, 0);
-//  if(gl_InstanceID == 2  && offset.firstIndex != 25602) color = vec3(0, 0, 1);
-//  if(gl_InstanceID == 3  && offset.firstIndex != 25746) color = vec3(1, 1, 0);
-//  if(gl_InstanceID == 4  && offset.firstIndex != 25866) color = vec3(0, 1, 1);
-//  hitValue = color;
+
+  float attenuation = 1.0;
+
+
+  if(dot(N, L) > 0){
+    isShadow = false;
+
+    uint flags = gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsOpaqueEXT
+    | gl_RayFlagsSkipClosestHitShaderEXT;
+    traceRayEXT(topLevelAS, flags, 0XFF, 0, 0, 1, worldPos, gl_RayTminEXT, L, gl_RayTmaxEXT, 1);
+  }
+  vec3 specularColor = vec3(0);
+  if(isShadow){
+    attenuation = 0.3;
+  }else{
+    specularColor = color * pow(dot(N, L), shininess);
+  }
+  vec3 diffuseColor = color * dot(N, L);
+
+  hitValue = attenuation * (diffuseColor + specularColor);
+
 }

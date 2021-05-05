@@ -40,7 +40,7 @@ void RayTracerDemo::initApp() {
     createDescriptorSets();
     createGraphicsPipeline();
     createRayTracePipeline();
-    createShaderBindingTable();
+    createShaderbindingTables();
     loadTexture();
     createVertexBuffer();
     createCanvasDescriptorSetLayout();
@@ -204,7 +204,7 @@ void RayTracerDemo::createDescriptorSetLayouts(){
     bindings[0].binding = 0;
     bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
     bindings[0].descriptorCount = 1;
-    bindings[0].stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+    bindings[0].stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
 
     bindings[1].binding = 1;
     bindings[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
@@ -224,7 +224,7 @@ void RayTracerDemo::createDescriptorSetLayouts(){
 
     bindings[0].binding = 0;    // materials
     bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    bindings[0].descriptorCount = 5;
+    bindings[0].descriptorCount = 1;
     bindings[0].stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
 
     bindings[1].binding = 1;    // material ids
@@ -301,22 +301,27 @@ void RayTracerDemo::createDescriptorSets() {
     writes[2].pBufferInfo = &bufferInfo;
 
     // material writes
-    std::vector<VkDescriptorBufferInfo> materialBufferInfos;
-    materialBufferInfos.reserve(spaceShip.meshes.size());
+//    std::vector<VkDescriptorBufferInfo> materialBufferInfos;
+//    materialBufferInfos.reserve(spaceShip.meshes.size());
+//
+//    for(auto& mesh : spaceShip.meshes){
+//        VkDescriptorBufferInfo info{};
+//        info.buffer = mesh.material.materialBuffer;
+//        info.offset = 0;
+//        info.range = VK_WHOLE_SIZE;
+//        materialBufferInfos.push_back(info);
+//    }
 
-    for(auto& mesh : spaceShip.meshes){
-        VkDescriptorBufferInfo info{};
-        info.buffer = mesh.material.materialBuffer;
-        info.offset = 0;
-        info.range = VK_WHOLE_SIZE;
-        materialBufferInfos.push_back(info);
-    }
+    VkDescriptorBufferInfo materialBufferInfo{};
+    materialBufferInfo.buffer = spaceShip.materialBuffer;
+    materialBufferInfo.offset = 0;
+    materialBufferInfo.range = VK_WHOLE_SIZE;
 
     writes[3].dstSet = raytrace.instanceDescriptorSet;
     writes[3].dstBinding = 0;
     writes[3].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    writes[3].descriptorCount = COUNT(materialBufferInfos);
-    writes[3].pBufferInfo = materialBufferInfos.data();
+    writes[3].descriptorCount = 1;
+    writes[3].pBufferInfo = &materialBufferInfo;
 
     VkDescriptorBufferInfo matIdBufferInfo{};
     matIdBufferInfo.buffer = spaceShip.materialIdBuffer;
@@ -690,10 +695,9 @@ void RayTracerDemo::cleanup() {
     ext.vkDestroyAccelerationStructureKHR(device, topLevelAs.handle, nullptr);
 }
 
-void RayTracerDemo::createShaderBindingTable() {
+void RayTracerDemo::createShaderbindingTables() {
     assert(raytrace.pipeline);
-    const uint32_t handleSize = rayTracingPipelineProperties.shaderGroupHandleSize;
-    const uint32_t handleSizeAligned = alignedSize(handleSize, rayTracingPipelineProperties.shaderGroupHandleAlignment);
+    const auto [handleSize, handleSizeAligned] = getShaderGroupHandleSizingInfo();
     const auto groupCount = COUNT(shaderGroups);
     uint32_t sbtSize = groupCount * handleSizeAligned;
 
@@ -702,9 +706,48 @@ void RayTracerDemo::createShaderBindingTable() {
     ext.vkGetRayTracingShaderGroupHandlesKHR(device, raytrace.pipeline, 0, groupCount, sbtSize, shaderHandleStorage.data());
 
     const VkBufferUsageFlags usageFlags = VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
-    bindingTable.rayGenShader = device.createDeviceLocalBuffer(shaderHandleStorage.data(), handleSize, usageFlags);
-    bindingTable.missShader = device.createDeviceLocalBuffer(shaderHandleStorage.data() + handleSizeAligned, handleSize, usageFlags);
-    bindingTable.hitShader = device.createDeviceLocalBuffer(shaderHandleStorage.data() + handleSizeAligned * 2, handleSize, usageFlags);
+//    bindingTables.rayGenShader = device.createDeviceLocalBuffer(shaderHandleStorage.data(), handleSize, usageFlags);
+//    bindingTables.missShader = device.createDeviceLocalBuffer(shaderHandleStorage.data() + handleSizeAligned, handleSize, usageFlags);
+//    bindingTables.hitShader = device.createDeviceLocalBuffer(shaderHandleStorage.data() + handleSizeAligned * 2, handleSize, usageFlags);
+
+    createShaderBindingTable(bindingTables.rayGenShader, shaderHandleStorage.data(), usageFlags, VMA_MEMORY_USAGE_GPU_ONLY, 1);
+    createShaderBindingTable(bindingTables.missShader, shaderHandleStorage.data() + handleSizeAligned, usageFlags, VMA_MEMORY_USAGE_GPU_ONLY, 2);
+    createShaderBindingTable(bindingTables.hitShader, shaderHandleStorage.data() + handleSizeAligned * 3, usageFlags, VMA_MEMORY_USAGE_GPU_ONLY, 1);
+
+
+}
+
+void RayTracerDemo::createShaderBindingTable(ShaderBindingTable &shaderbindingTable, void *shaderHandleStoragePtr,
+                                             VkBufferUsageFlags usageFlags, VmaMemoryUsage memoryUsage, uint32_t handleCount) {
+    const auto [handleSize, _] = getShaderGroupHandleSizingInfo();
+
+    VkDeviceSize size = handleSize * handleCount;
+    auto stagingBuffer = device.createStagingBuffer(size);
+    stagingBuffer.copy(shaderHandleStoragePtr, size);
+
+    shaderbindingTable.buffer = device.createBuffer(usageFlags | VK_BUFFER_USAGE_TRANSFER_DST_BIT, memoryUsage, size);
+    device.copy(stagingBuffer, shaderbindingTable.buffer, handleSize, 0, 0);
+
+    shaderbindingTable.stridedDeviceAddressRegion = getSbtEntryStridedDeviceAddressRegion(shaderbindingTable.buffer, handleCount);
+}
+
+VkStridedDeviceAddressRegionKHR RayTracerDemo::getSbtEntryStridedDeviceAddressRegion(const VulkanBuffer &buffer,
+                                                                                     uint32_t handleCount) const {
+
+    const auto [_, handleSizeAligned] = getShaderGroupHandleSizingInfo();
+    VkStridedDeviceAddressRegionKHR stridedDeviceAddressRegion{};
+    stridedDeviceAddressRegion.deviceAddress = device.getAddress(buffer);
+    stridedDeviceAddressRegion.stride = handleSizeAligned;
+    stridedDeviceAddressRegion.size = handleSizeAligned * handleCount;
+
+    return stridedDeviceAddressRegion;
+}
+
+std::tuple<uint32_t, uint32_t> RayTracerDemo::getShaderGroupHandleSizingInfo() const {
+    const uint32_t handleSize = rayTracingPipelineProperties.shaderGroupHandleSize;
+    const uint32_t handleSizeAligned = alignedSize(handleSize, rayTracingPipelineProperties.shaderGroupHandleAlignment);
+
+    return std::make_tuple(handleSize, handleSizeAligned);
 }
 
 void RayTracerDemo::createStorageImage() {
@@ -748,11 +791,13 @@ void RayTracerDemo::createStorageImage() {
 void RayTracerDemo::createRayTracePipeline() {
     auto rayGenShaderModule = ShaderModule{ "../../data/shaders/raytrace_basic/raygen.rgen.spv", device };
     auto missShaderModule = ShaderModule{ "../../data/shaders/raytrace_basic/miss.rmiss.spv", device };
+    auto shadowMissShaderModule = ShaderModule{ "../../data/shaders/raytrace_basic/shadow.rmiss.spv", device };
     auto closestHitModule = ShaderModule{ "../../data/shaders/raytrace_basic/closesthit.rchit.spv", device };
 
     auto stages = initializers::vertexShaderStages({
         {rayGenShaderModule, VK_SHADER_STAGE_RAYGEN_BIT_KHR},
         {missShaderModule, VK_SHADER_STAGE_MISS_BIT_KHR},
+        {shadowMissShaderModule, VK_SHADER_STAGE_MISS_BIT_KHR},
         {closestHitModule, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR}
     });
 
@@ -770,6 +815,10 @@ void RayTracerDemo::createRayTracePipeline() {
     shaderGroup.generalShader = shaderGroups.size();
     shaderGroups.push_back(shaderGroup);
 
+    // shadow group
+    shaderGroup.generalShader = shaderGroups.size();
+    shaderGroups.push_back(shaderGroup);
+
     // closest hit group
     shaderGroup.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR;
     shaderGroup.generalShader = VK_SHADER_UNUSED_KHR;
@@ -784,7 +833,7 @@ void RayTracerDemo::createRayTracePipeline() {
     createInfo.pStages = stages.data();
     createInfo.groupCount = COUNT(shaderGroups);
     createInfo.pGroups = shaderGroups.data();
-    createInfo.maxPipelineRayRecursionDepth = 1;
+    createInfo.maxPipelineRayRecursionDepth = 2;
     createInfo.layout = raytrace.layout;
 
     VkPipeline pipeline = VK_NULL_HANDLE;
@@ -797,21 +846,21 @@ void RayTracerDemo::rayTrace(VkCommandBuffer commandBuffer) {
      *  Setup buffer regions pointing to the shaders inour shader binding table;
      */
 
-    const auto handleSizeAligned = alignedSize(rayTracingPipelineProperties.shaderGroupHandleSize, rayTracingPipelineProperties.shaderGroupHandleAlignment);
-    VkStridedDeviceAddressRegionKHR  rayGenShaderSbtEntry{};
-    rayGenShaderSbtEntry.deviceAddress = device.getAddress(bindingTable.rayGenShader);
-    rayGenShaderSbtEntry.stride = handleSizeAligned;
-    rayGenShaderSbtEntry.size = handleSizeAligned;
-
-    VkStridedDeviceAddressRegionKHR missShaderSbtEntry{};
-    missShaderSbtEntry.deviceAddress = device.getAddress(bindingTable.missShader);
-    missShaderSbtEntry.stride = handleSizeAligned;
-    missShaderSbtEntry.size = handleSizeAligned;
-
-    VkStridedDeviceAddressRegionKHR hitShaderSbtEntry{};
-    hitShaderSbtEntry.deviceAddress = device.getAddress(bindingTable.hitShader);
-    hitShaderSbtEntry.size = handleSizeAligned;
-    hitShaderSbtEntry.stride = handleSizeAligned;
+//    const auto handleSizeAligned = alignedSize(rayTracingPipelineProperties.shaderGroupHandleSize, rayTracingPipelineProperties.shaderGroupHandleAlignment);
+//    VkStridedDeviceAddressRegionKHR  rayGenShaderSbtEntry{};
+//    rayGenShaderSbtEntry.deviceAddress = device.getAddress(bindingTables.rayGenShader);
+//    rayGenShaderSbtEntry.stride = handleSizeAligned;
+//    rayGenShaderSbtEntry.size = handleSizeAligned;
+//
+//    VkStridedDeviceAddressRegionKHR missShaderSbtEntry{};
+//    missShaderSbtEntry.deviceAddress = device.getAddress(bindingTables.missShader);
+//    missShaderSbtEntry.stride = handleSizeAligned;
+//    missShaderSbtEntry.size = handleSizeAligned;
+//
+//    VkStridedDeviceAddressRegionKHR hitShaderSbtEntry{};
+//    hitShaderSbtEntry.deviceAddress = device.getAddress(bindingTables.hitShader);
+//    hitShaderSbtEntry.size = handleSizeAligned;
+//    hitShaderSbtEntry.stride = handleSizeAligned;
 
 
     VkStridedDeviceAddressRegionKHR callableShaderSbtEntry{};
@@ -821,7 +870,7 @@ void RayTracerDemo::rayTrace(VkCommandBuffer commandBuffer) {
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, raytrace.pipeline);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, raytrace.layout, 0, COUNT(sets), sets.data(), 0, VK_NULL_HANDLE);
 
-    vkCmdTraceRaysKHR(commandBuffer, &rayGenShaderSbtEntry, &missShaderSbtEntry, &hitShaderSbtEntry,
+    vkCmdTraceRaysKHR(commandBuffer, bindingTables.rayGenShader, bindingTables.missShader, bindingTables.hitShader,
                       &callableShaderSbtEntry, swapChain.extent.width, swapChain.extent.height, 1);
     rayTraceToCanvasBarrier(commandBuffer);
 }

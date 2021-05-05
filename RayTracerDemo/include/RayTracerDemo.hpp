@@ -12,6 +12,15 @@ struct AccelerationStructure{
     VulkanBuffer buffer;
 };
 
+struct ShaderBindingTable{
+    VulkanBuffer buffer;
+    VkStridedDeviceAddressRegionKHR stridedDeviceAddressRegion;
+
+    operator VkStridedDeviceAddressRegionKHR*()  {
+        return &stridedDeviceAddressRegion;
+    }
+};
+
 class RayTracerDemo : public VulkanBaseApp{
 public:
     RayTracerDemo(const Settings& settings);
@@ -22,6 +31,8 @@ protected:
     void initCamera();
 
     void loadSpaceShip();
+
+    void loadStatue();
 
     void loadRayTracingPropertiesAndFeatures();
 
@@ -69,7 +80,14 @@ protected:
 
     void createTopLevelAccelerationStructure();
 
-    void createShaderBindingTable();
+    void createShaderbindingTables();
+
+    void createShaderBindingTable(ShaderBindingTable& shaderBindingTable, void* shaderHandleStoragePtr, VkBufferUsageFlags usageFlags, VmaMemoryUsage memoryUsage, uint32_t handleCount);
+
+    VkStridedDeviceAddressRegionKHR getSbtEntryStridedDeviceAddressRegion(const VulkanBuffer& buffer, uint32_t handleCount) const;
+
+    std::tuple<uint32_t, uint32_t> getShaderGroupHandleSizingInfo() const;
+
 
     void createStorageImage();
 
@@ -120,10 +138,10 @@ protected:
     std::vector<VkRayTracingShaderGroupCreateInfoKHR> shaderGroups{};
 
     struct { ;
-        VulkanBuffer rayGenShader;
-        VulkanBuffer missShader;
-        VulkanBuffer hitShader;
-    } bindingTable;
+        ShaderBindingTable rayGenShader;
+        ShaderBindingTable missShader;
+        ShaderBindingTable hitShader;
+    } bindingTables;
 
 
     struct {
