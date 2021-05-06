@@ -40,7 +40,7 @@ struct VulkanBuffer{
         return *this;
     }
 
-    void copy(void* source, VkDeviceSize size, int offset = 0) const {
+    void copy(const void* source, VkDeviceSize size, int offset = 0) const {
         assert(size + offset <= this->size);
         void* dest;
         vmaMapMemory(allocator, allocation, &dest);

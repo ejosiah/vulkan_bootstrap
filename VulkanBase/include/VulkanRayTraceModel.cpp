@@ -136,7 +136,7 @@ void rt::AccelerationStructureBuilder::buildBlas(const std::vector<BlasInput> &i
     }
 
     m_device->commandPoolFor(*m_device->queueFamilyIndex.graphics).oneTimeCommand([&](auto commandBuffer){
-        vkCmdBuildAccelerationStructuresKHR(commandBuffer, COUNT(asBuildGeomInfos), asBuildGeomInfos.data(), buildRangeInfos.data());
+       vkCmdBuildAccelerationStructuresKHR(commandBuffer, COUNT(asBuildGeomInfos), asBuildGeomInfos.data(), buildRangeInfos.data());
     });
 
     for(auto& entry : m_blas){

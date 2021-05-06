@@ -109,7 +109,11 @@ void main()
   vec3 worldPos = v0.position * u + v1.position * v + v2.position * w;
   vec3 N = normalize(normal);
   vec3 lightPos = eyes;
-  vec3 L = normalize(lightPos - worldPos);
+  vec3 lightDir = lightPos - worldPos;
+  float lightDistance = length(lightDir);
+  vec3 E = normalize(eyes - worldPos);
+  vec3 L = normalize(lightDir);
+  vec3 H = normalize(E + L);
 //  vec3 L = vec3(0, 1, 0);
   int matId = matIds[objId].i[gl_PrimitiveID];
  // vec3 color = materials[gl_InstanceID].m[matId].diffuse;
@@ -127,18 +131,21 @@ void main()
   if(dot(N, L) > 0){
     isShadow = false;
 
+    float tMin   = 0.001;
+    float tMax   = lightDistance;
     uint flags = gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsOpaqueEXT
     | gl_RayFlagsSkipClosestHitShaderEXT;
-    traceRayEXT(topLevelAS, flags, 0XFF, 0, 0, 1, worldPos, gl_RayTminEXT, L, gl_RayTmaxEXT, 1);
+    traceRayEXT(topLevelAS, flags, 0XFF, 0, 0, 1, worldPos, tMin, L, tMax, 1);
   }
   vec3 specularColor = vec3(0);
   if(isShadow){
     attenuation = 0.3;
   }else{
-    specularColor = color * pow(dot(N, L), shininess);
+    specularColor = material.specular * max(0, pow(dot(N, H), shininess));
   }
-  vec3 diffuseColor = color * dot(N, L);
+  vec3 diffuseColor = color * max(0, dot(N, L));
 
   hitValue = attenuation * (diffuseColor + specularColor);
-
+//  vec2 uv = vec2(gl_LaunchIDEXT.xy + uvec2(1))/vec2(gl_LaunchSizeEXT.xy);
+//  hitValue = vec3(uv, 0);
 }

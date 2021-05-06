@@ -30,4 +30,5 @@ void main()
 
 	//vec2 uv = vec2(gl_LaunchIDEXT.xy + uvec2(1))/vec2(gl_LaunchSizeEXT.xy);
 	imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(hitValue, 0.0));
+	//imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(inUV, 0.0, 0.0));
 }

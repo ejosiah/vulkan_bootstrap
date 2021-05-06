@@ -142,7 +142,8 @@ namespace primitives{
                 for (auto &mesh : meshes) {
                     std::vector<Vertex> &vertices = mesh.vertices;
                     for (auto &vertex : vertices) {
-                        vertex.position.xyz() = (vertex.position.xyz() + offset) * scalingFactor;
+                          glm::vec3 pos = (vertex.position.xyz() + offset) * scalingFactor;
+                          vertex.position = glm::vec4(pos, 1);
                     }
                 }
             }

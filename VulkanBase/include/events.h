@@ -101,3 +101,13 @@ using MouseReleaseListener = MouseMoveListener;
 using MouseWheelMovedListener = MouseMoveListener;
 using WindowResizeListener = std::function<void(const ResizeEvent&)>;
 using ShutdownEventListener = std::function<void(const ShutdownEvent&)>;
+
+const KeyPressListener EMPTY_KEY_PRESS_LISTENER = [](const auto& _){};
+const KeyPressListener EMPTY_KEY_RELEASE_LISTENER = EMPTY_KEY_PRESS_LISTENER;
+const MouseMoveListener EMPTY_MOUSE_MOVE_LISTENER = [](const auto& _){};
+const MouseClickListener EMPTY_MOUSE_CLICK_LISTENER = EMPTY_MOUSE_MOVE_LISTENER;
+const MousePressListener EMPTY_MOUSE_PRESS_LISTENER = EMPTY_MOUSE_MOVE_LISTENER;
+const MouseReleaseListener EMPTY_MOUSE_RELEASE_LISTENER = EMPTY_MOUSE_MOVE_LISTENER;
+const MouseWheelMovedListener EMPTY_MOUSE_WHEEL_MOVED_LISTENER = EMPTY_MOUSE_MOVE_LISTENER;
+const WindowResizeListener EMPTY_WINDOW_RESIZE_LISTENER = [](const auto& _){};
+const ShutdownEventListener EMPTY_SHUTDOWN_EVENT_LISTENER = [](const auto& _){};

@@ -103,7 +103,6 @@ namespace phong{
 
         std::vector<mesh::Mesh> meshes;
         mesh::load(meshes, path);
-
         mesh::normalize(meshes);
 
         int numIndices = 0;

@@ -23,6 +23,20 @@ public:
 
     void set(PluginData data);
 
+    [[nodiscard]]
+    virtual std::vector<const char*> instanceExtensions() const {
+        return {};
+    }
+
+    [[nodiscard]]
+    virtual std::vector<const char*> deviceExtensions() const {
+        return {};
+    }
+
+    virtual void preInit() {
+
+    }
+
     virtual void init() = 0;
 
     [[nodiscard]]

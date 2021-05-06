@@ -1,5 +1,6 @@
 #include "VulkanBaseApp.h"
 #include "VulkanRayTraceModel.hpp"
+#include <GFSDK_Aftermath.h>
 
 struct RayTracingScratchBuffer{
     VkDeviceAddress deviceAddress = 0;
@@ -82,7 +83,7 @@ protected:
 
     void createShaderbindingTables();
 
-    void createShaderBindingTable(ShaderBindingTable& shaderBindingTable, void* shaderHandleStoragePtr, VkBufferUsageFlags usageFlags, VmaMemoryUsage memoryUsage, uint32_t handleCount);
+    void createShaderBindingTable(ShaderBindingTable& shaderBindingTable,  void* shaderHandleStoragePtr, VkBufferUsageFlags usageFlags, VmaMemoryUsage memoryUsage, uint32_t handleCount);
 
     VkStridedDeviceAddressRegionKHR getSbtEntryStridedDeviceAddressRegion(const VulkanBuffer& buffer, uint32_t handleCount) const;
 
@@ -131,11 +132,9 @@ protected:
     bool useRayTracing = true;
     bool debugOn = false;
 
-    AccelerationStructure bottomLevelAS{};
-    AccelerationStructure topLevelAs{};
-
     VulkanBuffer transformBuffer;
     std::vector<VkRayTracingShaderGroupCreateInfoKHR> shaderGroups{};
+
 
     struct { ;
         ShaderBindingTable rayGenShader;
