@@ -165,7 +165,7 @@ int mesh::load(std::vector<Mesh> &meshes, const std::string& path, uint32_t flag
     Assimp::Importer importer;
     const aiScene* scene = importer.ReadFile(path.data(), flags);
     auto i = path.find_last_of("\\") + 1;
-    auto parentPath = path.substr(0, i); // TODO use file path
+    auto parentPath = fs::path{path}.parent_path().string();
 
     auto start = chrono::high_resolution_clock::now();
     auto res =  load(meshes, parentPath, scene->mRootNode, scene);

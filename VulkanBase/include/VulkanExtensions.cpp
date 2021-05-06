@@ -26,6 +26,7 @@ namespace ext {
         pfn_vkCmdBuildAccelerationStructuresKHR = procAddress<PFN_vkCmdBuildAccelerationStructuresKHR>(instance, "vkCmdBuildAccelerationStructuresKHR");
         pfn_vkGetAccelerationStructureDeviceAddressKHR = procAddress<PFN_vkGetAccelerationStructureDeviceAddressKHR>(instance, "vkGetAccelerationStructureDeviceAddressKHR");
         pfn_vkDestroyAccelerationStructureKHR = procAddress<PFN_vkDestroyAccelerationStructureKHR>(instance, "vkDestroyAccelerationStructureKHR");
+        pfn_vkSetDebugUtilsObjectNameEXT = procAddress<PFN_vkSetDebugUtilsObjectNameEXT>(instance, "vkSetDebugUtilsObjectNameEXT");
     }
 
 }
@@ -92,4 +93,11 @@ VKAPI_ATTR void VKAPI_CALL vkDestroyAccelerationStructureKHR(
         const VkAllocationCallbacks*                pAllocator){
     assert(pfn_vkDestroyAccelerationStructureKHR);
     pfn_vkDestroyAccelerationStructureKHR(device, accelerationStructure, pAllocator);
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL vkSetDebugUtilsObjectNameEXT(
+        VkDevice                                    device,
+        const VkDebugUtilsObjectNameInfoEXT*        pNameInfo){
+    assert(pfn_vkSetDebugUtilsObjectNameEXT);
+    return pfn_vkSetDebugUtilsObjectNameEXT(device, pNameInfo);
 }

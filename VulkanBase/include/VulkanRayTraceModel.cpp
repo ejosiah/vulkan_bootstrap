@@ -50,9 +50,9 @@ rt::AccelerationStructureBuilder::buildAs(const std::vector<VulkanDrawableInstan
         return {};
     };
 
-    uint32_t customInstanceId = 0;
+
     uint32_t blasId = 0;
-    for(auto i = 0; i < drawableInstances.size(); i++, customInstanceId++){
+    for(auto i = 0; i < drawableInstances.size(); i++){
         auto& dInstance = drawableInstances[i];
         auto objId = findObjId(dInstance.drawable);
         assert(objId.has_value());
@@ -63,13 +63,13 @@ rt::AccelerationStructureBuilder::buildAs(const std::vector<VulkanDrawableInstan
         for(int j = 0; j < meshes.size(); j++, blasId++){
             Instance instance;
             instance.blasId = blasId;
-            instance.instanceCustomId = customInstanceId;
+            instance.instanceCustomId = j;
             instance.hitGroupId = 0;
             instance.mask = 0xFF;
             instance.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
             instance.xform = dInstance.xform;
             instances.push_back(instance);
-            instanceGroup.instances.push_back(&instances.back());
+            instanceGroup.add(&instances.back());
         }
         instanceGroups.push_back(std::move(instanceGroup));
     }

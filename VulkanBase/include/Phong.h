@@ -85,7 +85,7 @@ namespace phong{
     template<typename Drawable>
     inline void load(const std::string& path, const VulkanDevice &device, const VulkanDescriptorPool& pool,
                      Drawable& drawable,
-                     const VulkanDrawableInfo info = {}){
+                     const VulkanDrawableInfo info = {}, bool normalize = false, float size = 1){
         std::array<VkDescriptorSetLayoutBinding, 6> bindings{};
 
         bindings[0].binding = 0;
@@ -103,7 +103,9 @@ namespace phong{
 
         std::vector<mesh::Mesh> meshes;
         mesh::load(meshes, path);
-        mesh::normalize(meshes);
+        if(normalize) {
+            mesh::normalize(meshes, size);
+        }
 
         int numIndices = 0;
         int numVertices = 0;

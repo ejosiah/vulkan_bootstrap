@@ -35,6 +35,9 @@ struct SceneObject{
   mat4 xform;
   mat4 xformIT;
   int objId;
+  int padding0;
+  int padding1;
+  int padding2;
 };
 
 layout(binding = 0, set = 0) uniform accelerationStructureEXT topLevelAS;
@@ -48,8 +51,8 @@ layout(binding = 1, set = 1) buffer MATERIAL_ID {
 } matIds [];
 
 layout(binding = 2, set = 1) buffer OBJECT_INSTANCE {
-  SceneObject sceneObjs[];  // TODO gl_InstanceCustomeIndexEXT
-};
+  SceneObject sceneObjs[];  // TODO gl_InstanceCustomIndexEXT
+}; // TODO per instance
 
 layout(binding = 0, set = 2) buffer VERTEX_BUFFER {
   Vertex v[];   // TODO VertexOffsets.vertexOffset + i[VertexOffsets.firstIndex + gl_PrimitiveID]
@@ -60,7 +63,7 @@ layout(binding = 1, set = 2) buffer INDEX_BUFFER {
 } indices[]; // TODO use object_id
 
 layout(binding = 2, set = 2) buffer VETEX_OFFSETS {
-  VertexOffsets vo[]; // TODO use gl_InstanceID
+  VertexOffsets vo[]; // TODO use gl_InstanceCustomIndexEXT
 } offsets[];  // TODO use object_id
 
 
@@ -89,11 +92,11 @@ void main()
   float w = attribs.y;
 
   vec3 eyes = gl_WorldRayOriginEXT;
-  SceneObject sceneObj = sceneObjs[gl_InstanceCustomIndexEXT];
+  SceneObject sceneObj = sceneObjs[gl_InstanceID];
   int objId = sceneObj.objId;
+ // if(gl_InstanceID > 0) objId = 1;
 
-  VertexOffsets offset = offsets[objId].vo[gl_InstanceID];
-
+  VertexOffsets offset = offsets[objId].vo[gl_InstanceCustomIndexEXT];
 
   ivec3 index = ivec3(
     indices[objId].i[offset.firstIndex + 3 * gl_PrimitiveID + 0],
@@ -106,9 +109,11 @@ void main()
   Vertex v2 = vertices[objId].v[index.z + offset.vertexOffset];
 
   vec3 normal = v0.normal * u + v1.normal * v + v2.normal * w;
-  vec3 worldPos = v0.position * u + v1.position * v + v2.position * w;
+  //vec3 worldPos = v0.position * u + v1.position * v + v2.position * w;
+  vec3 worldPos = gl_WorldRayOriginEXT + gl_HitTEXT * gl_WorldRayDirectionEXT;
   vec3 N = normalize(normal);
-  vec3 lightPos = eyes;
+  //vec3 lightPos = eyes;
+  vec3 lightPos = vec3(0, 10, 0);
   vec3 lightDir = lightPos - worldPos;
   float lightDistance = length(lightDir);
   vec3 E = normalize(eyes - worldPos);
@@ -116,11 +121,11 @@ void main()
   vec3 H = normalize(E + L);
 //  vec3 L = vec3(0, 1, 0);
   int matId = matIds[objId].i[gl_PrimitiveID];
- // vec3 color = materials[gl_InstanceID].m[matId].diffuse;
+ // vec3 color = materials[gl_InstanceCustomIndexEXT].m[matId].diffuse;
 
-//  vec3 color = materials[gl_InstanceID].m[matId].diffuse;
-//  float shininess = materials[gl_InstanceID].m[matId].shininess;
-  Material material = materials[objId].m[gl_InstanceID];
+//  vec3 color = materials[gl_InstanceCustomIndexEXT].m[matId].diffuse;
+//  float shininess = materials[gl_InstanceCustomIndexEXT].m[matId].shininess;
+  Material material = materials[objId].m[gl_InstanceCustomIndexEXT];
   vec3 color = material.diffuse;
   float shininess = material.shininess;
 
@@ -129,7 +134,7 @@ void main()
 
 
   if(dot(N, L) > 0){
-    isShadow = false;
+    isShadow = true;
 
     float tMin   = 0.001;
     float tMax   = lightDistance;
@@ -146,6 +151,9 @@ void main()
   vec3 diffuseColor = color * max(0, dot(N, L));
 
   hitValue = attenuation * (diffuseColor + specularColor);
+  //hitValue = vec3(0.6) * max(0, dot(N, L));
 //  vec2 uv = vec2(gl_LaunchIDEXT.xy + uvec2(1))/vec2(gl_LaunchSizeEXT.xy);
-//  hitValue = vec3(uv, 0);
+ // hitValue = N;
+//  if(objId == 1) hitValue = vec3(1, 0, 0);
+ // if(gl_InstanceCustomIndexEXT == 0) hitValue = vec3(1, 0, 0);
 }

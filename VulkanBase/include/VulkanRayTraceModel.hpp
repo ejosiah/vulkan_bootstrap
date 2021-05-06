@@ -64,34 +64,53 @@ namespace rt{
         glm::mat4 xformIT{ 1 };
     };
 
+    struct ObjectInstance {
+        glm::mat4 xform{1};
+        glm::mat4 xformIT{1};
+        int objId = 0;
+        int padding0;
+        int padding1;
+        int padding2;
+    };
+
     struct InstanceGroup{
 
         InstanceGroup() = default;
 
-        explicit InstanceGroup(const VulkanDrawableInstance& _instance, uint32_t id)
-            :sceneInstances{_instance}
+        InstanceGroup(const VulkanDrawableInstance& _instance, uint32_t id)
+            :sceneInstances{_instance}, objectId{id}
         {
-            desc.xform = _instance.xform;
-            desc.xformIT = glm::inverseTranspose(_instance.xform);
-            desc.objId = id;
+
         }
 
-        explicit InstanceGroup(const ImplicitObjectInstance& _instance, uint32_t id)
-            :sceneInstances{_instance}
+        InstanceGroup(const ImplicitObjectInstance& _instance, uint32_t id)
+            :sceneInstances{_instance}, objectId{id}
         {
-            desc.xform = _instance.xform;
-            desc.xformIT = glm::inverseTranspose(_instance.xform);
-            desc.objId = id;
+        }
+
+        void add(Instance* instance){
+            instances.push_back(instance);
+            ObjectInstance objInst{};
+            objInst.objId = objectId;
+            std::visit(overloaded{
+                [&](VulkanDrawableInstance inst){
+                    objInst.xform = inst.xform;
+                    objInst.xformIT = inst.xformIT;
+                },
+                [&](ImplicitObjectInstance inst){
+                    objInst.xform = inst.xform;
+                    objInst.xformIT = inst.xform;
+                }
+            }, sceneInstances);
+            objectInstances.push_back(objInst);
         }
 
         std::variant<VulkanDrawableInstance, ImplicitObjectInstance> sceneInstances{};
         std::vector<Instance*> instances;
+        std::vector<ObjectInstance> objectInstances;
+        uint32_t objectId = 0;
         uint32_t mask{0xFF};
-        struct {
-            glm::mat4 xform{1};
-            glm::mat4 xformIT{1};
-            int objId = 0;
-        } desc;
+
     };
 
     struct ScratchBuffer{

@@ -164,6 +164,9 @@ protected:
     VulkanDrawable spaceShip;
     VulkanDrawableInstance spaceShipInstance;
 
+    VulkanDrawable plane;
+    VulkanDrawableInstance planeInstance;
+
     VulkanBuffer inverseCamProj;
     rt::AccelerationStructureBuilder rtBuilder;
     std::vector<rt::Instance> asInstances;
