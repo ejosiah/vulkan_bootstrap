@@ -81,6 +81,7 @@ public:
     explicit VulkanBaseApp(std::string_view name, const Settings& settings = {}, std::vector<std::unique_ptr<Plugin>> plugins = {});
 
     virtual ~VulkanBaseApp();
+
     /**
      *  initializes the window, input managers Vulkan
      */
@@ -107,8 +108,16 @@ protected:
 
     void initVulkan();
 
+
+    void addPluginExtensions();
+
     void initPlugins();
 
+    void checkInstanceExtensionSupport();
+
+    void checkDeviceExtensionSupport();
+
+    virtual void postVulkanInit();
     /**
      * app specific initialization, this should be overridden by subclasses
      */

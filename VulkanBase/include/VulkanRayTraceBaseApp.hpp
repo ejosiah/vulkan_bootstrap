@@ -2,6 +2,8 @@
 
 #include <VulkanBaseApp.h>
 #include "VulkanRayTraceModel.hpp"
+#include "VulkanDevice.h"
+#include "Canvas.hpp"
 
 struct ShaderBindingTable{
     VulkanBuffer buffer;
@@ -14,13 +16,15 @@ struct ShaderBindingTable{
 
 class VulkanRayTraceBaseApp : public VulkanBaseApp{
 public:
-    VulkanRayTraceBaseApp(std::string_view name, const Settings& settings = {}, std::vector<std::unique_ptr<Plugin>> plugins = {});
+    explicit VulkanRayTraceBaseApp(std::string_view name, const Settings& settings = {}, std::vector<std::unique_ptr<Plugin>> plugins = {});
 
 
 protected:
+    void postVulkanInit() final;
+
     void loadRayTracingProperties();
 
-    void createShaderbindingTables();
+    virtual void createAccelerationStructure(const std::vector<VulkanDrawableInstance>& drawableInstances);
 
     void createShaderBindingTable(ShaderBindingTable& shaderBindingTable,  void* shaderHandleStoragePtr, VkBufferUsageFlags usageFlags, VmaMemoryUsage memoryUsage, uint32_t handleCount);
 
@@ -28,30 +32,7 @@ protected:
 
     std::tuple<uint32_t, uint32_t> getShaderGroupHandleSizingInfo() const;
 
-    void createStorageImage();
-
-    void createCanvas();
-
-    void createCanvasDescriptorSetLayout();
-
-    void createCanvasDescriptorSet();
-
-    void createCanvasPipeline();
-
-    void drawCanvas(VkCommandBuffer commandBuffer);
-
-    struct {
-        VulkanImage image;
-        VulkanImageView imageview;
-        VkFormat format;
-    } storageImage;
-
-    struct {
-        VulkanPipelineLayout pipelineLayout;
-        VulkanPipeline pipeline;
-        VulkanDescriptorSetLayout descriptorSetLayout;
-        VkDescriptorSet descriptorSet;
-    } canvas;
+    Canvas canvas;
 
     rt::AccelerationStructureBuilder rtBuilder;
     std::vector<rt::Instance> asInstances;
@@ -64,4 +45,8 @@ protected:
     VkPhysicalDeviceRayTracingPipelineFeaturesKHR enabledRayTracingPipelineFeatures{};
     VkPhysicalDeviceAccelerationStructureFeaturesKHR enabledAccelerationStructureFeatures{};
     VkPhysicalDeviceDescriptorIndexingFeatures enabledDescriptorIndexingFeatures{};
+
+    VulkanBuffer sceneObjectBuffer;
+
+    std::map<std::string, VulkanDrawable> drawables;
 };

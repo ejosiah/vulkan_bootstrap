@@ -3,32 +3,11 @@
 #include "RayTracerDemo.hpp"
 #include "spdlog/sinks/basic_file_sink.h"
 
-RayTracerDemo::RayTracerDemo(const Settings& settings): VulkanBaseApp("Ray trace Demo", settings) {
-    // Enable features required for ray tracing using feature chaining via pNext
-    enabledBufferDeviceAddressFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES;
-    enabledBufferDeviceAddressFeatures.bufferDeviceAddress = VK_TRUE;
+RayTracerDemo::RayTracerDemo(const Settings& settings): VulkanRayTraceBaseApp("Ray trace Demo", settings) {
 
-    enabledRayTracingPipelineFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
-    enabledRayTracingPipelineFeatures.rayTracingPipeline = VK_TRUE;
-    enabledRayTracingPipelineFeatures.pNext = &enabledBufferDeviceAddressFeatures;
-
-    enabledAccelerationStructureFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
-    enabledAccelerationStructureFeatures.accelerationStructure = VK_TRUE;
-    enabledAccelerationStructureFeatures.pNext = &enabledRayTracingPipelineFeatures;
-
-    enabledDescriptorIndexingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
-    enabledDescriptorIndexingFeatures.pNext = &enabledAccelerationStructureFeatures;
-    enabledDescriptorIndexingFeatures.runtimeDescriptorArray = VK_TRUE;
-
-    deviceCreateNextChain = &enabledDescriptorIndexingFeatures;
 }
 
 void RayTracerDemo::initApp() {
-    rtBuilder = rt::AccelerationStructureBuilder{&device};
-    loadRayTracingPropertiesAndFeatures();
-    canvas = std::move(Canvas{this, VK_IMAGE_USAGE_STORAGE_BIT});
-    canvas.init();
-
     createCommandPool();
     createDescriptorPool();
     createModel();
@@ -36,8 +15,6 @@ void RayTracerDemo::initApp() {
     initCamera();
     createInverseCam();
     createBottomLevelAccelerationStructure();
-    createTopLevelAccelerationStructure();
-    createStorageImage();
     createDescriptorSetLayouts();
     createDescriptorSets();
     createGraphicsPipeline();
@@ -50,20 +27,9 @@ void RayTracerDemo::createInverseCam() {
     inverseCamProj = device.createBuffer(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, sizeof(glm::mat4) * 2);
 }
 
-void RayTracerDemo::loadRayTracingPropertiesAndFeatures() {
-    rayTracingPipelineProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR;
-    VkPhysicalDeviceProperties2 properties{};
-    properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
-    properties.pNext = &rayTracingPipelineProperties;
-
-    vkGetPhysicalDeviceProperties2(device, &properties);
-}
-
 void RayTracerDemo::onSwapChainDispose() {
     dispose(graphics.pipeline);
     dispose(raytrace.pipeline);
-    dispose(storageImage.image);
-    dispose(storageImage.imageview);
     descriptorPool.free({raytrace.descriptorSet});
 }
 
@@ -109,7 +75,7 @@ VkCommandBuffer *RayTracerDemo::buildCommandBuffers(uint32_t imageIndex, uint32_
           camera->push(commandBuffer, graphics.layout, planeInstance.xform);
           plane.draw(commandBuffer, graphics.layout);
     }else{
-        drawCanvas(commandBuffer);
+        canvas.draw(commandBuffer);
     }
 
     renderUI(commandBuffer);
@@ -123,39 +89,6 @@ VkCommandBuffer *RayTracerDemo::buildCommandBuffers(uint32_t imageIndex, uint32_
     vkEndCommandBuffer(commandBuffer);
 
     return &commandBuffer;
-}
-
-void RayTracerDemo::drawCanvas(VkCommandBuffer commandBuffer) {
-
-//    commandPool.oneTimeCommand([&](auto& cmdBuffer){
-//       rayTrace(cmdBuffer);
-//    });
-//
-//    static std::vector<glm::vec4> output;
-//    if(debugOn){
-//        debugOn = false;
-//        output.clear();
-//        std::set<int> ids;
-//        std::set<int> cids;
-//        debugBuffer.use<glm::vec4>([&](glm::vec4 debugInfo){
-//            if(debugInfo.w != 1) return;
-//            output.push_back(debugInfo);
-//            ids.insert(int(debugInfo.x));
-//            cids.insert(int(debugInfo.y));
-//            spdlog::info("debuginfo: {}", debugInfo);
-//        });
-//        spdlog::info("ids: {}", ids);
-//        spdlog::info("cids: {}", cids);
-//
-//    }
-//    assert(canvas.pipeline);
-//    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, canvas.pipeline);
-//    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, canvas.pipelineLayout, 0, 1, &canvas.descriptorSet, 0, VK_NULL_HANDLE);
-//    std::array<VkDeviceSize, 1> offsets = {0u};
-//    std::array<VkBuffer, 2> buffers{ vertexBuffer, vertexColorBuffer};
-//    vkCmdBindVertexBuffers(commandBuffer, 0, 1, buffers.data() , offsets.data());
-//    vkCmdDraw(commandBuffer, 4, 1, 0, 0);
-    canvas.draw(commandBuffer);
 }
 
 void RayTracerDemo::renderUI(VkCommandBuffer commandBuffer) {
@@ -553,10 +486,6 @@ void RayTracerDemo::createBottomLevelAccelerationStructure() {
     sceneObjectBuffer = device.createDeviceLocalBuffer(sceneDesc.data(), size * sceneDesc.size(), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
 }
 
-void RayTracerDemo::createTopLevelAccelerationStructure() {
-
-}
-
 void RayTracerDemo::cleanup() {
 
 }
@@ -580,77 +509,6 @@ void RayTracerDemo::createShaderbindingTables() {
     createShaderBindingTable(bindingTables.missShader, missPtr, usageFlags, VMA_MEMORY_USAGE_GPU_ONLY, 2);
     createShaderBindingTable(bindingTables.hitShader, hitPtr, usageFlags, VMA_MEMORY_USAGE_GPU_ONLY, 1);
 
-}
-
-void RayTracerDemo::createShaderBindingTable(ShaderBindingTable &shaderbindingTable,  void* shaderHandleStoragePtr,
-                                             VkBufferUsageFlags usageFlags, VmaMemoryUsage memoryUsage, uint32_t handleCount) {
-    const auto [handleSize, _] = getShaderGroupHandleSizingInfo();
-
-    VkDeviceSize size = handleSize * handleCount;
-    auto stagingBuffer = device.createStagingBuffer(size);
-    stagingBuffer.copy(shaderHandleStoragePtr, size);
-
-    shaderbindingTable.buffer = device.createBuffer(usageFlags | VK_BUFFER_USAGE_TRANSFER_DST_BIT, memoryUsage, size);
-    device.copy(stagingBuffer, shaderbindingTable.buffer, size, 0, 0);
-
-    shaderbindingTable.stridedDeviceAddressRegion = getSbtEntryStridedDeviceAddressRegion(shaderbindingTable.buffer, handleCount);
-}
-
-VkStridedDeviceAddressRegionKHR RayTracerDemo::getSbtEntryStridedDeviceAddressRegion(const VulkanBuffer &buffer,
-                                                                                     uint32_t handleCount) const {
-
-    const auto [_, handleSizeAligned] = getShaderGroupHandleSizingInfo();
-    VkStridedDeviceAddressRegionKHR stridedDeviceAddressRegion{};
-    stridedDeviceAddressRegion.deviceAddress = device.getAddress(buffer);
-    stridedDeviceAddressRegion.stride = handleSizeAligned;
-    stridedDeviceAddressRegion.size = handleSizeAligned * handleCount;
-
-    return stridedDeviceAddressRegion;
-}
-
-std::tuple<uint32_t, uint32_t> RayTracerDemo::getShaderGroupHandleSizingInfo() const {
-    const uint32_t handleSize = rayTracingPipelineProperties.shaderGroupHandleSize;
-    const uint32_t handleSizeAligned = alignedSize(handleSize, rayTracingPipelineProperties.shaderGroupHandleAlignment);
-
-    return std::make_tuple(handleSize, handleSizeAligned);
-}
-
-void RayTracerDemo::createStorageImage() {
-    auto image = initializers::imageCreateInfo(
-            VK_IMAGE_TYPE_2D,
-            VK_FORMAT_R32G32B32A32_SFLOAT,
-              VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-            swapChain.extent.width,
-            swapChain.extent.height
-            );
-    storageImage.image = device.createImage(image);
-
-    VkImageSubresourceRange subresourceRange{};
-    subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    subresourceRange.baseMipLevel = 0;
-    subresourceRange.levelCount = 1;
-    subresourceRange.baseArrayLayer = 0;
-    subresourceRange.layerCount = 1;
-    storageImage.imageview = storageImage.image.createView(VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_VIEW_TYPE_2D, subresourceRange);
-    commandPool.oneTimeCommand([&](auto commandBuffer) {
-        auto barrier = initializers::ImageMemoryBarrier();
-        barrier.srcAccessMask = 0;
-        barrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-        barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
-        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        barrier.image = storageImage.image;
-        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        barrier.subresourceRange.baseMipLevel = 0;
-        barrier.subresourceRange.levelCount = 1;
-        barrier.subresourceRange.baseArrayLayer = 0;
-        barrier.subresourceRange.layerCount = 1;
-
-        vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0,
-                             0, nullptr, 0, nullptr, 1, &barrier);
-
-    });
 }
 
 void RayTracerDemo::createRayTracePipeline() {
@@ -736,20 +594,31 @@ void RayTracerDemo::loadSpaceShip() {
     info.materialUsage |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
     info.materialIdUsage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
     info.generateMaterialId = true;
+
+    std::vector<VulkanDrawableInstance> instances;
+  //  VulkanDrawable spaceShip;
     phong::load("../../data/models/bigship1.obj", device, descriptorPool, spaceShip, info, true, 1);
+  //  drawables.insert(std::make_pair("spaceShip", std::move(spaceShip)));
   //  phong::load(R"(C:\Users\Josiah\OneDrive\media\models\ChineseDragon.obj)", device, descriptorPool, spaceShip, info);
    // phong::load(R"(C:\Users\Josiah\OneDrive\media\models\Lucy-statue\metallic-lucy-statue-stanford-scan.obj)", device, descriptorPool, spaceShip, info, true, 1);
    // phong::load(R"(C:\Users\Josiah\OneDrive\media\models\werewolf.obj)", device, descriptorPool, spaceShip, info);
-    spaceShipInstance.drawable = &spaceShip;
+   // VulkanDrawableInstance spaceShipInstance;
+    spaceShipInstance.drawable = &spaceShip;  // &drawables["spaceShip"];
     spaceShipInstance.xform = glm::translate(glm::mat4{1}, {0, spaceShip.height() * 0.5f, 0});
     spaceShipInstance.xformIT = glm::inverseTranspose(spaceShipInstance.xform);
+    instances.push_back(spaceShipInstance);
 
+ //   VulkanDrawable plane;
     phong::load("../../data/models/plane.gltf", device, descriptorPool, plane,  info);
+ //   drawables.insert(std::make_pair("plane", std::move(plane)));
 //    phong::load(R"(C:\Users\Josiah\OneDrive\media\models\Lucy-statue\metallic-lucy-statue-stanford-scan.obj)", device, descriptorPool, plane,  info, true, 1);
  //   phong::load("../../data/models/bigship1.obj", device, descriptorPool, plane,  info, true, 1);
-    planeInstance.drawable = &plane;
+ //   VulkanDrawableInstance planeInstance;
+    planeInstance.drawable = &plane; //&drawables["plane"];
+    instances.push_back(planeInstance);
 //    planeInstance.xform = glm::translate(glm::mat4{1}, {0, spaceShip.height() * 0.5f, 0});
 //    planeInstance.xformIT = glm::inverseTranspose(spaceShipInstance.xform);
+ //   createAccelerationStructure({spaceShipInstance, planeInstance });
 }
 
 void RayTracerDemo::CanvasToRayTraceBarrier(VkCommandBuffer commandBuffer) const {
@@ -758,7 +627,7 @@ void RayTracerDemo::CanvasToRayTraceBarrier(VkCommandBuffer commandBuffer) const
     barrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
     barrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
     barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
-    barrier.image = storageImage.image;
+    barrier.image = canvas.image;
     barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     barrier.subresourceRange.baseArrayLayer = 0;
     barrier.subresourceRange.baseMipLevel = 0;
@@ -787,7 +656,7 @@ void RayTracerDemo::rayTraceToCanvasBarrier(VkCommandBuffer commandBuffer) const
     barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
     barrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
     barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
-    barrier.image = storageImage.image;
+    barrier.image = canvas.image;
     barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     barrier.subresourceRange.baseArrayLayer = 0;
     barrier.subresourceRange.baseMipLevel = 0;
@@ -798,6 +667,7 @@ void RayTracerDemo::rayTraceToCanvasBarrier(VkCommandBuffer commandBuffer) const
     vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
                          VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
                          0,
+
                          0,
                          VK_NULL_HANDLE,
                          0,
@@ -811,15 +681,6 @@ int main(){
 
     Settings settings;
     settings.depthTest = true;
-    settings.deviceExtensions = {
-            VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
-            VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
-            VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,
-            VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
-            VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,
-            VK_KHR_SPIRV_1_4_EXTENSION_NAME,
-            VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME
-    };
     std::unique_ptr<Plugin> plugin = std::make_unique<ImGuiPlugin>();
 //    auto logger = spdlog::basic_logger_mt("logger", "log.txt");
 //    spdlog::set_default_logger(logger);

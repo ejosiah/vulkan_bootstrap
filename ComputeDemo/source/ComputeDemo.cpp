@@ -246,7 +246,7 @@ void ComputeDemo::createComputeImage() {
                                                            VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, swapChain.extent.width, swapChain.extent.height, 1);
 
     compute.texture.image = device.createImage(info, VMA_MEMORY_USAGE_GPU_ONLY);
-    commandPool.oneTimeCommand(device.queues.compute, [&](auto commandBuffer) {
+    commandPool.oneTimeCommand( [&](auto commandBuffer) {
         auto barrier = initializers::ImageMemoryBarrier();
         barrier.srcAccessMask = 0;
         barrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT;

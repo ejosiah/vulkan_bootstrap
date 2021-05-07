@@ -29,6 +29,11 @@ public:
     }
 
     [[nodiscard]]
+    virtual std::vector<const char*> validationLayers() const {
+        return {};
+    }
+
+    [[nodiscard]]
     virtual std::vector<const char*> deviceExtensions() const {
         return {};
     }

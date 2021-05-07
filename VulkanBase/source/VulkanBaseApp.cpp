@@ -58,11 +58,14 @@ VulkanBaseApp::~VulkanBaseApp(){
 }
 
 void VulkanBaseApp::init() {
+    checkInstanceExtensionSupport();
     initWindow();
     initInputMgr(*this);
     exit = &mapToKey(Key::ESCAPE, "Exit", Action::detectInitialPressOnly());
     pause = &mapToKey(Key::P, "Pause", Action::detectInitialPressOnly());
+    addPluginExtensions();
     initVulkan();
+    postVulkanInit();
     initPlugins();
     initApp();
     ready = true;
@@ -108,6 +111,23 @@ void VulkanBaseApp::initVulkan() {
     createFramebuffer();
 
     createSyncObjects();
+}
+
+void VulkanBaseApp::postVulkanInit() {
+}
+
+void VulkanBaseApp::addPluginExtensions() {
+    for(auto& plugin : plugins){
+        for(auto extension : plugin->instanceExtensions()){
+            instanceExtensions.push_back(extension);
+        }
+        for(auto layer : plugin->validationLayers()){
+            validationLayers.push_back(layer);
+        }
+        for(auto extension : plugin->deviceExtensions()){
+            deviceExtensions.push_back(extension);
+        }
+    }
 }
 
 void VulkanBaseApp::initPlugins() {
@@ -216,6 +236,7 @@ void VulkanBaseApp::pickPhysicalDevice() {
 
     device = std::move(devices.front());
     settings.msaaSamples = std::min(settings.msaaSamples, device.getMaxUsableSampleCount());
+    checkDeviceExtensionSupport();
     spdlog::info("selected device: {}", device.name());
 }
 
@@ -619,3 +640,38 @@ void VulkanBaseApp::fullscreenCheck() {
         swapChainInvalidated = unsetFullScreen();
     }
 }
+
+void VulkanBaseApp::checkDeviceExtensionSupport() {
+    std::vector<const char*> unsupported;
+    for(auto extension : deviceExtensions){
+        if(!device.extensionSupported(extension)){
+            unsupported.push_back(extension);
+        }
+    }
+
+    if(!unsupported.empty()){
+        throw std::runtime_error{
+            fmt::format("Vulkan device [{}] does not support the following extensions {}", device.name(), unsupported) };
+    }
+}
+
+void VulkanBaseApp::checkInstanceExtensionSupport() {
+    auto supportedExtensions = enumerate<VkExtensionProperties>([](auto size, auto properties){
+        return vkEnumerateInstanceExtensionProperties("", size, properties);
+    });
+
+    std::vector<const char*> unsupported;
+    for(auto& extension : instanceExtensions){
+        auto supported = std::any_of(begin(supportedExtensions), end(supportedExtensions), [&](auto supported){
+            return std::strcmp(extension, supported.extensionName) == 0;
+        });
+        if(supported){
+            unsupported.push_back(extension);
+        }
+    }
+
+    if(!unsupported.empty()){
+        throw std::runtime_error{fmt::format("this Vulkan instance does not support the following extensions {}", unsupported) };
+    }
+}
+

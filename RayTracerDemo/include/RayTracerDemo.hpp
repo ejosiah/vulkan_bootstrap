@@ -1,17 +1,9 @@
 #include "VulkanBaseApp.h"
 #include "VulkanRayTraceModel.hpp"
 #include "Canvas.hpp"
+#include "VulkanRayTraceBaseApp.hpp"
 
-struct ShaderBindingTable{
-    VulkanBuffer buffer;
-    VkStridedDeviceAddressRegionKHR stridedDeviceAddressRegion;
-
-    operator VkStridedDeviceAddressRegionKHR*()  {
-        return &stridedDeviceAddressRegion;
-    }
-};
-
-class RayTracerDemo : public VulkanBaseApp{
+class RayTracerDemo : public VulkanRayTraceBaseApp{
 public:
     RayTracerDemo(const Settings& settings);
 
@@ -23,8 +15,6 @@ protected:
     void loadSpaceShip();
 
     void loadStatue();
-
-    void loadRayTracingPropertiesAndFeatures();
 
     void createModel();
 
@@ -48,8 +38,6 @@ protected:
 
     void rayTrace(VkCommandBuffer commandBuffer);
 
-    void drawCanvas(VkCommandBuffer commandBuffer);
-
     VkCommandBuffer *buildCommandBuffers(uint32_t imageIndex, uint32_t &numCommandBuffers) override;
 
     void renderUI(VkCommandBuffer commandBuffer);
@@ -60,18 +48,7 @@ protected:
 
     void createBottomLevelAccelerationStructure();
 
-    void createTopLevelAccelerationStructure();
-
     void createShaderbindingTables();
-
-    void createShaderBindingTable(ShaderBindingTable& shaderBindingTable,  void* shaderHandleStoragePtr, VkBufferUsageFlags usageFlags, VmaMemoryUsage memoryUsage, uint32_t handleCount);
-
-    VkStridedDeviceAddressRegionKHR getSbtEntryStridedDeviceAddressRegion(const VulkanBuffer& buffer, uint32_t handleCount) const;
-
-    std::tuple<uint32_t, uint32_t> getShaderGroupHandleSizingInfo() const;
-
-
-    void createStorageImage();
 
     void loadTexture();
 
@@ -121,16 +98,7 @@ protected:
         ShaderBindingTable hitShader;
     } bindingTables;
 
-
-    struct {
-        VulkanImage image;
-        VulkanImageView imageview;
-        VkFormat format;
-    } storageImage;
-
     Texture texture;
-
-    Canvas canvas;
 
     VulkanDrawable spaceShip;
     VulkanDrawableInstance spaceShipInstance;
@@ -139,14 +107,7 @@ protected:
     VulkanDrawableInstance planeInstance;
 
     VulkanBuffer inverseCamProj;
-    rt::AccelerationStructureBuilder rtBuilder;
-    std::vector<rt::Instance> asInstances;
-    std::vector<rt::InstanceGroup> sceneObjects;
 
-    VulkanBuffer sceneObjectBuffer;
-    VulkanBuffer vertexOffsetsBuffer;
-
-    VkPhysicalDeviceRayTracingPipelinePropertiesKHR  rayTracingPipelineProperties{};
     VkPhysicalDeviceAccelerationStructureFeaturesKHR accelerationStructureFeatures{};
 
     VkPhysicalDeviceBufferDeviceAddressFeatures enabledBufferDeviceAddressFeatures{};
