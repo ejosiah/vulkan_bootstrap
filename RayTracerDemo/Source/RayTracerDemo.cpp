@@ -25,8 +25,10 @@ RayTracerDemo::RayTracerDemo(const Settings& settings): VulkanBaseApp("Ray trace
 
 void RayTracerDemo::initApp() {
     rtBuilder = rt::AccelerationStructureBuilder{&device};
-    debugBuffer = device.createBuffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, sizeof(glm::vec4) * swapChain.extent.width * swapChain.extent.height);
     loadRayTracingPropertiesAndFeatures();
+    canvas = std::move(Canvas{this, VK_IMAGE_USAGE_STORAGE_BIT});
+    canvas.init();
+
     createCommandPool();
     createDescriptorPool();
     createModel();
@@ -42,10 +44,6 @@ void RayTracerDemo::initApp() {
     createRayTracePipeline();
     createShaderbindingTables();
     loadTexture();
-    createVertexBuffer();
-    createCanvasDescriptorSetLayout();
-    createCanvasDescriptorSet();
-    createCanvasPipeline();
 }
 
 void RayTracerDemo::createInverseCam() {
@@ -63,19 +61,16 @@ void RayTracerDemo::loadRayTracingPropertiesAndFeatures() {
 
 void RayTracerDemo::onSwapChainDispose() {
     dispose(graphics.pipeline);
-    dispose(canvas.pipeline);
     dispose(raytrace.pipeline);
     dispose(storageImage.image);
     dispose(storageImage.imageview);
-    descriptorPool.free({raytrace.descriptorSet, canvas.descriptorSet});
+    descriptorPool.free({raytrace.descriptorSet});
 }
 
 void RayTracerDemo::onSwapChainRecreation() {
-    createStorageImage();
+    canvas.recreate();
     createDescriptorSets();
-    createCanvasDescriptorSet();
     createGraphicsPipeline();
-    createCanvasPipeline();
     createRayTracePipeline();
     camera->onResize(swapChain.extent.width, swapChain.extent.height);
     createShaderbindingTables();
@@ -153,13 +148,14 @@ void RayTracerDemo::drawCanvas(VkCommandBuffer commandBuffer) {
 //        spdlog::info("cids: {}", cids);
 //
 //    }
-    assert(canvas.pipeline);
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, canvas.pipeline);
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, canvas.pipelineLayout, 0, 1, &canvas.descriptorSet, 0, VK_NULL_HANDLE);
-    std::array<VkDeviceSize, 1> offsets = {0u};
-    std::array<VkBuffer, 2> buffers{ vertexBuffer, vertexColorBuffer};
-    vkCmdBindVertexBuffers(commandBuffer, 0, 1, buffers.data() , offsets.data());
-    vkCmdDraw(commandBuffer, 4, 1, 0, 0);
+//    assert(canvas.pipeline);
+//    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, canvas.pipeline);
+//    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, canvas.pipelineLayout, 0, 1, &canvas.descriptorSet, 0, VK_NULL_HANDLE);
+//    std::array<VkDeviceSize, 1> offsets = {0u};
+//    std::array<VkBuffer, 2> buffers{ vertexBuffer, vertexColorBuffer};
+//    vkCmdBindVertexBuffers(commandBuffer, 0, 1, buffers.data() , offsets.data());
+//    vkCmdDraw(commandBuffer, 4, 1, 0, 0);
+    canvas.draw(commandBuffer);
 }
 
 void RayTracerDemo::renderUI(VkCommandBuffer commandBuffer) {
@@ -313,7 +309,7 @@ void RayTracerDemo::createDescriptorSets() {
     writes[0].descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
 
     VkDescriptorImageInfo imageInfo{};
-    imageInfo.imageView = storageImage.imageview;
+    imageInfo.imageView = canvas.imageView;
     imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 
     writes[1].dstSet = raytrace.descriptorSet;
@@ -540,42 +536,6 @@ void RayTracerDemo::createGraphicsPipeline() {
     graphics.pipeline = device.createGraphicsPipeline(createInfo);
 }
 
-RayTracingScratchBuffer RayTracerDemo::createScratchBuffer(VkDeviceSize size) {
-    RayTracingScratchBuffer scratchBuffer{};
-//
-//
-//    VkBufferCreateInfo bufferInfo = initializers::bufferCreateInfo();
-//    bufferInfo.size = size;
-//    bufferInfo.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
-//    vkCreateBuffer(device, &bufferInfo, nullptr, &scratchBuffer.buffer);
-//
-//    VkMemoryRequirements  memoryRequirements{};
-//    vkGetBufferMemoryRequirements(device, scratchBuffer.buffer, &memoryRequirements);
-//
-//    VkMemoryAllocateFlagsInfo  allocateFlagsInfo{};
-//    allocateFlagsInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO;
-//    allocateFlagsInfo.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR;
-//
-//    VkMemoryAllocateInfo  allocInfo{};
-//    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-//    allocInfo.pNext = &allocateFlagsInfo;
-//    allocInfo.allocationSize = memoryRequirements.size;
-//    allocInfo.memoryTypeIndex = device.getMemoryTypeIndex(memoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-//
-//    vkAllocateMemory(device, &allocInfo, nullptr, &scratchBuffer.memory);
-//    vkBindBufferMemory(device, scratchBuffer.buffer, scratchBuffer.memory, 0);
-
-    scratchBuffer.buffer = device.createBuffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_GPU_ONLY, size, "");
-
-    VkBufferDeviceAddressInfo bufferDeviceAddressInfo{};
-    bufferDeviceAddressInfo.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
-    bufferDeviceAddressInfo.buffer = scratchBuffer.buffer;
-    scratchBuffer.deviceAddress = vkGetBufferDeviceAddress(device, &bufferDeviceAddressInfo);
-
-    return scratchBuffer;
-
-}
-
 void RayTracerDemo::createBottomLevelAccelerationStructure() {
     auto res = rtBuilder.buildAs({spaceShipInstance, planeInstance});
     sceneObjects = std::move(std::get<0>(res));
@@ -767,128 +727,6 @@ void RayTracerDemo::rayTrace(VkCommandBuffer commandBuffer) {
 void RayTracerDemo::loadTexture() {
     textures::fromFile(device, texture, "../../data/textures/portrait.jpg", false, VK_FORMAT_R8G8B8A8_SRGB);
 
-}
-
-void RayTracerDemo::createCanvasDescriptorSet() {
-    canvas.descriptorSet = descriptorPool.allocate({ canvas.descriptorSetLayout }).front();
-
- //   std::array<VkDescriptorImageInfo, 1> imageInfo{};
-//    imageInfo[0].imageView = texture.imageView;
-//    imageInfo[0].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-//    imageInfo[0].sampler = texture.sampler;
-
-    std::array<VkDescriptorImageInfo, 1> imageInfo{};
-    imageInfo[0].imageView = storageImage.imageview;
-    imageInfo[0].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-    imageInfo[0].sampler = texture.sampler;
-
-    auto writes = initializers::writeDescriptorSets<1>();
-    writes[0].dstSet = canvas.descriptorSet;
-    writes[0].dstBinding = 0;
-    writes[0].dstArrayElement = 0;
-    writes[0].descriptorCount = 1;
-    writes[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    writes[0].pImageInfo = imageInfo.data();
-
-//    VkDescriptorImageInfo computeImageInfo{};
-//    computeImageInfo.imageView = compute.texture.imageView;
-//    computeImageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-//
-//    writes[1].dstSet = compute.descriptorSet;
-//    writes[1].dstBinding = 0;
-//    writes[1].dstArrayElement = 0;
-//    writes[1].descriptorCount = 1;
-//    writes[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-//    writes[1].pImageInfo = &computeImageInfo;
-
-    vkUpdateDescriptorSets(device, COUNT(writes), writes.data(), 0, nullptr);
-}
-
-void RayTracerDemo::createCanvasDescriptorSetLayout() {
-    std::array<VkDescriptorSetLayoutBinding, 1> binding{};
-    binding[0].binding = 0;
-    binding[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    binding[0].descriptorCount = 1;
-    binding[0].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-
-    canvas.descriptorSetLayout = device.createDescriptorSetLayout(binding);
-}
-
-void RayTracerDemo::createCanvasPipeline() {
-    auto vertexShaderModule = ShaderModule{ "../../data/shaders/quad.vert.spv", device };
-    auto fragmentShaderModule = ShaderModule{ "../../data/shaders/quad.frag.spv", device };
-
-    auto stages = initializers::vertexShaderStages({
-                                                             { vertexShaderModule, VK_SHADER_STAGE_VERTEX_BIT}
-                                                           , {fragmentShaderModule, VK_SHADER_STAGE_FRAGMENT_BIT}
-                                                   });
-
-    auto bindings = ClipSpace::bindingDescription();
-    //   bindings.push_back({1, sizeof(glm::vec4), VK_VERTEX_INPUT_RATE_VERTEX});
-
-    auto attributes = ClipSpace::attributeDescriptions();
-    //   attributes.push_back({2, 1, VK_FORMAT_R32G32B32A32_SFLOAT, 0});
-
-    auto vertexInputState = initializers::vertexInputState(bindings, attributes);
-
-    auto inputAssemblyState = initializers::inputAssemblyState(ClipSpace::Quad::topology);
-
-    auto viewport = initializers::viewport(swapChain.extent);
-    auto scissor = initializers::scissor(swapChain.extent);
-
-    auto viewportState = initializers::viewportState( viewport, scissor);
-
-    auto rasterState = initializers::rasterizationState();
-    rasterState.polygonMode = VK_POLYGON_MODE_FILL;
-    rasterState.cullMode = VK_CULL_MODE_NONE;
-    rasterState.frontFace = ClipSpace::Quad::frontFace;
-
-    auto multisampleState = initializers::multisampleState();
-    multisampleState.rasterizationSamples = settings.msaaSamples;
-
-    auto depthStencilState = initializers::depthStencilState();
-
-    auto colorBlendAttachment = std::vector<VkPipelineColorBlendAttachmentState>(1);
-    colorBlendAttachment[0].colorWriteMask =
-            VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-
-    auto colorBlendState = initializers::colorBlendState(colorBlendAttachment);
-
-    dispose(canvas.pipelineLayout);
-    canvas.pipelineLayout = device.createPipelineLayout({ canvas.descriptorSetLayout});
-
-
-    VkGraphicsPipelineCreateInfo createInfo = initializers::graphicsPipelineCreateInfo();
-    createInfo.stageCount = COUNT(stages);
-    createInfo.pStages = stages.data();
-    createInfo.pVertexInputState = &vertexInputState;
-    createInfo.pInputAssemblyState = &inputAssemblyState;
-    createInfo.pViewportState = &viewportState;
-    createInfo.pRasterizationState = &rasterState;
-    createInfo.pMultisampleState = &multisampleState;
-    createInfo.pDepthStencilState = &depthStencilState;
-    createInfo.pColorBlendState = &colorBlendState;
-    createInfo.layout = canvas.pipelineLayout;
-    createInfo.renderPass = renderPass;
-    createInfo.subpass = 0;
-
-    canvas.pipeline = device.createGraphicsPipeline(createInfo);
-}
-
-void RayTracerDemo::createVertexBuffer() {
-    VkDeviceSize size = sizeof(glm::vec2) * ClipSpace::Quad::positions.size();
-    auto data = ClipSpace::Quad::positions;
-    vertexBuffer = device.createDeviceLocalBuffer(data.data(), size, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-
-
-    std::vector<glm::vec4> colors{
-            {1, 0, 0, 1},
-            {0, 1, 0, 1},
-            {0, 0, 1, 1},
-            {1, 1, 0, 1}
-    };
-    size = sizeof(glm::vec4) * colors.size();
-    vertexColorBuffer = device.createDeviceLocalBuffer(colors.data(), size, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
 }
 
 void RayTracerDemo::loadSpaceShip() {

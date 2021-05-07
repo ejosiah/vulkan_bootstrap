@@ -75,6 +75,7 @@ using RenderPassInfo = std::tuple<std::vector<VkAttachmentDescription>,
  * @breif Basic interface for interfacing with Vulkan, creates a vulkan swapchain, framebuffer and connects it with a ui window
  */
 class VulkanBaseApp : protected Window, protected InputManager{
+    friend class Canvas;
     friend class Plugin;
 public:
     explicit VulkanBaseApp(std::string_view name, const Settings& settings = {}, std::vector<std::unique_ptr<Plugin>> plugins = {});

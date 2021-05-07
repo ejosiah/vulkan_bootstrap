@@ -132,7 +132,6 @@ void main()
 
   float attenuation = 1.0;
 
-
   if(dot(N, L) > 0){
     isShadow = true;
 

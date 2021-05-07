@@ -139,6 +139,16 @@ struct VulkanSwapChain{
         return static_cast<uint32_t>(images.size());
     }
 
+    [[nodiscard]]
+    uint32_t width() const {
+        return extent.width;
+    }
+
+    [[nodiscard]]
+    uint32_t height() const {
+        return extent.height;
+    }
+
     operator VkSwapchainKHR() const {
         return swapChain;
     }

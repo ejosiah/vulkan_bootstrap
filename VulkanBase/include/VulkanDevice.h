@@ -513,6 +513,10 @@ struct VulkanDevice{
         return commandPools[queueFamilyIndex];
     }
 
+    inline const VulkanCommandPool& graphicsCommandPool() const {
+        return  commandPools[*queueFamilyIndex.graphics];
+    };
+
     [[nodiscard]]
     inline uint32_t getMemoryTypeIndex(uint32_t memoryTypeBitsReq, VkMemoryPropertyFlags requiredProperties) const{
         VkPhysicalDeviceMemoryProperties memoryProperties;

@@ -33,6 +33,11 @@ public:
         return {};
     }
 
+    [[nodiscard]]
+    virtual void* nextChain() const {
+        return nullptr;
+    }
+
     virtual void preInit() {
 
     }

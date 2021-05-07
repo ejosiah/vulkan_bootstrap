@@ -1,17 +1,6 @@
 #include "VulkanBaseApp.h"
 #include "VulkanRayTraceModel.hpp"
-#include <GFSDK_Aftermath.h>
-
-struct RayTracingScratchBuffer{
-    VkDeviceAddress deviceAddress = 0;
-    VulkanBuffer buffer;
-};
-
-struct AccelerationStructure{
-    VkAccelerationStructureKHR handle;
-    VkDeviceAddress deviceAddress = 0;
-    VulkanBuffer buffer;
-};
+#include "Canvas.hpp"
 
 struct ShaderBindingTable{
     VulkanBuffer buffer;
@@ -47,13 +36,7 @@ protected:
 
     void createDescriptorSetLayouts();
 
-    void createCanvasDescriptorSetLayout();
-
     void createDescriptorSets();
-
-    void createCanvasDescriptorSet();
-
-    void createCanvasPipeline();
 
     void createGraphicsPipeline();
 
@@ -75,8 +58,6 @@ protected:
 
     void checkAppInputs() override;
 
-    RayTracingScratchBuffer createScratchBuffer(VkDeviceSize size);
-
     void createBottomLevelAccelerationStructure();
 
     void createTopLevelAccelerationStructure();
@@ -93,8 +74,6 @@ protected:
     void createStorageImage();
 
     void loadTexture();
-
-    void createVertexBuffer();
 
     void rayTraceToCanvasBarrier(VkCommandBuffer commandBuffer) const;
 
@@ -150,16 +129,8 @@ protected:
     } storageImage;
 
     Texture texture;
-    struct {
-        VulkanPipelineLayout pipelineLayout;
-        VulkanPipeline pipeline;
-        VulkanDescriptorSetLayout descriptorSetLayout;
-        VkDescriptorSet descriptorSet;
-    } canvas;
 
-    VulkanBuffer vertexBuffer;
-    VulkanBuffer vertexColorBuffer;
-    VulkanBuffer debugBuffer;
+    Canvas canvas;
 
     VulkanDrawable spaceShip;
     VulkanDrawableInstance spaceShipInstance;
