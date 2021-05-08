@@ -14,7 +14,7 @@ void RayTracerDemo::initApp() {
     loadSpaceShip();
     initCamera();
     createInverseCam();
-    createBottomLevelAccelerationStructure();
+ //   createBottomLevelAccelerationStructure();
     createDescriptorSetLayouts();
     createDescriptorSets();
     createGraphicsPipeline();
@@ -72,7 +72,7 @@ VkCommandBuffer *RayTracerDemo::buildCommandBuffers(uint32_t imageIndex, uint32_
 //        vkCmdDrawIndexed(commandBuffer, 3, 1, 0, 0, 0);
           spaceShip.draw(commandBuffer, graphics.layout);
 
-          camera->push(commandBuffer, graphics.layout, planeInstance.xform);
+          camera->push(commandBuffer, graphics.layout, glm::mat4(1));
           plane.draw(commandBuffer, graphics.layout);
     }else{
         canvas.draw(commandBuffer);
@@ -470,20 +470,20 @@ void RayTracerDemo::createGraphicsPipeline() {
 }
 
 void RayTracerDemo::createBottomLevelAccelerationStructure() {
-    auto res = rtBuilder.buildAs({spaceShipInstance, planeInstance});
-    sceneObjects = std::move(std::get<0>(res));
-    asInstances = std::move(std::get<1>(res));
-    VkDeviceSize size = sizeof(rt::ObjectInstance);
-    auto stagingBuffer = device.createBuffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, size * sceneObjects.size());
-
-    std::vector<rt::ObjectInstance> sceneDesc;
-    sceneDesc.reserve(sceneObjects.size());
-    for(auto& instanceGroup : sceneObjects){
-        for(auto& instance : instanceGroup.objectInstances){
-            sceneDesc.push_back(instance);
-        }
-    }
-    sceneObjectBuffer = device.createDeviceLocalBuffer(sceneDesc.data(), size * sceneDesc.size(), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+//    auto res = rtBuilder.buildAs({spaceShipInstance, planeInstance});
+//    sceneObjects = std::move(std::get<0>(res));
+//    asInstances = std::move(std::get<1>(res));
+//    VkDeviceSize size = sizeof(rt::ObjectInstance);
+//    auto stagingBuffer = device.createBuffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, size * sceneObjects.size());
+//
+//    std::vector<rt::ObjectInstance> sceneDesc;
+//    sceneDesc.reserve(sceneObjects.size());
+//    for(auto& instanceGroup : sceneObjects){
+//        for(auto& instance : instanceGroup.objectInstances){
+//            sceneDesc.push_back(instance);
+//        }
+//    }
+//    sceneObjectBuffer = device.createDeviceLocalBuffer(sceneDesc.data(), size * sceneDesc.size(), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
 }
 
 void RayTracerDemo::cleanup() {
@@ -598,27 +598,27 @@ void RayTracerDemo::loadSpaceShip() {
     std::vector<VulkanDrawableInstance> instances;
   //  VulkanDrawable spaceShip;
     phong::load("../../data/models/bigship1.obj", device, descriptorPool, spaceShip, info, true, 1);
-  //  drawables.insert(std::make_pair("spaceShip", std::move(spaceShip)));
+    drawables.insert(std::make_pair("spaceShip", &spaceShip));
   //  phong::load(R"(C:\Users\Josiah\OneDrive\media\models\ChineseDragon.obj)", device, descriptorPool, spaceShip, info);
    // phong::load(R"(C:\Users\Josiah\OneDrive\media\models\Lucy-statue\metallic-lucy-statue-stanford-scan.obj)", device, descriptorPool, spaceShip, info, true, 1);
    // phong::load(R"(C:\Users\Josiah\OneDrive\media\models\werewolf.obj)", device, descriptorPool, spaceShip, info);
-   // VulkanDrawableInstance spaceShipInstance;
+    VulkanDrawableInstance spaceShipInstance;
     spaceShipInstance.drawable = &spaceShip;  // &drawables["spaceShip"];
     spaceShipInstance.xform = glm::translate(glm::mat4{1}, {0, spaceShip.height() * 0.5f, 0});
     spaceShipInstance.xformIT = glm::inverseTranspose(spaceShipInstance.xform);
     instances.push_back(spaceShipInstance);
 
- //   VulkanDrawable plane;
+   // VulkanDrawable plane;
     phong::load("../../data/models/plane.gltf", device, descriptorPool, plane,  info);
- //   drawables.insert(std::make_pair("plane", std::move(plane)));
+    drawables.insert(std::make_pair("plane", &plane));
 //    phong::load(R"(C:\Users\Josiah\OneDrive\media\models\Lucy-statue\metallic-lucy-statue-stanford-scan.obj)", device, descriptorPool, plane,  info, true, 1);
  //   phong::load("../../data/models/bigship1.obj", device, descriptorPool, plane,  info, true, 1);
- //   VulkanDrawableInstance planeInstance;
+    VulkanDrawableInstance planeInstance;
     planeInstance.drawable = &plane; //&drawables["plane"];
     instances.push_back(planeInstance);
 //    planeInstance.xform = glm::translate(glm::mat4{1}, {0, spaceShip.height() * 0.5f, 0});
 //    planeInstance.xformIT = glm::inverseTranspose(spaceShipInstance.xform);
- //   createAccelerationStructure({spaceShipInstance, planeInstance });
+    createAccelerationStructure(instances);
 }
 
 void RayTracerDemo::CanvasToRayTraceBarrier(VkCommandBuffer commandBuffer) const {

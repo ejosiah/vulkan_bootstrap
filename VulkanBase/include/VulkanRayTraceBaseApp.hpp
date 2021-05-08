@@ -48,5 +48,5 @@ protected:
 
     VulkanBuffer sceneObjectBuffer;
 
-    std::map<std::string, VulkanDrawable> drawables;
+    std::map<std::string, VulkanDrawable*> drawables;
 };
