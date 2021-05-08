@@ -70,10 +70,10 @@ VkCommandBuffer *RayTracerDemo::buildCommandBuffers(uint32_t imageIndex, uint32_
 //        vkCmdBindVertexBuffers(commandBuffer, 0, 1, triangle.vertices, &offset);
 //        vkCmdBindIndexBuffer(commandBuffer, triangle.indices, 0, VK_INDEX_TYPE_UINT16);
 //        vkCmdDrawIndexed(commandBuffer, 3, 1, 0, 0, 0);
-          spaceShip.draw(commandBuffer, graphics.layout);
+          drawables["spaceShip"]->draw(commandBuffer, graphics.layout);
 
           camera->push(commandBuffer, graphics.layout, glm::mat4(1));
-          plane.draw(commandBuffer, graphics.layout);
+          drawables["plane"]->draw(commandBuffer, graphics.layout);
     }else{
         canvas.draw(commandBuffer);
     }
@@ -276,11 +276,11 @@ void RayTracerDemo::createDescriptorSets() {
 
 
     std::array<VkDescriptorBufferInfo, 2> materialBufferInfo{};
-    materialBufferInfo[0].buffer = spaceShip.materialBuffer;
+    materialBufferInfo[0].buffer = drawables["spaceShip"]->materialBuffer;
     materialBufferInfo[0].offset = 0;
     materialBufferInfo[0].range = VK_WHOLE_SIZE;
 
-    materialBufferInfo[1].buffer = plane.materialBuffer;
+    materialBufferInfo[1].buffer = drawables["plane"]->materialBuffer;
     materialBufferInfo[1].offset = 0;
     materialBufferInfo[1].range = VK_WHOLE_SIZE;
 
@@ -292,11 +292,11 @@ void RayTracerDemo::createDescriptorSets() {
 
     // instance descriptorSet
     std::array<VkDescriptorBufferInfo, 2> matIdBufferInfo{};
-    matIdBufferInfo[0].buffer = spaceShip.materialIdBuffer;
+    matIdBufferInfo[0].buffer = drawables["spaceShip"]->materialIdBuffer;
     matIdBufferInfo[0].offset = 0;
     matIdBufferInfo[0].range = VK_WHOLE_SIZE;
 
-    matIdBufferInfo[1].buffer = plane.materialIdBuffer;
+    matIdBufferInfo[1].buffer = drawables["plane"]->materialIdBuffer;
     matIdBufferInfo[1].offset = 0;
     matIdBufferInfo[1].range = VK_WHOLE_SIZE;
 
@@ -319,11 +319,11 @@ void RayTracerDemo::createDescriptorSets() {
 
     // vertex descriptorSet
     std::array<VkDescriptorBufferInfo, 2> vertexBufferInfo{};
-    vertexBufferInfo[0].buffer = spaceShip.vertexBuffer;
+    vertexBufferInfo[0].buffer = drawables["spaceShip"]->vertexBuffer;
     vertexBufferInfo[0].offset = 0;
     vertexBufferInfo[0].range = VK_WHOLE_SIZE;
 
-    vertexBufferInfo[1].buffer = plane.vertexBuffer;
+    vertexBufferInfo[1].buffer = drawables["plane"]->vertexBuffer;
     vertexBufferInfo[1].offset = 0;
     vertexBufferInfo[1].range = VK_WHOLE_SIZE;
 
@@ -334,11 +334,11 @@ void RayTracerDemo::createDescriptorSets() {
     writes[6].pBufferInfo = vertexBufferInfo.data();
 
     std::array<VkDescriptorBufferInfo, 2> indexBufferInfo{};
-    indexBufferInfo[0].buffer = spaceShip.indexBuffer;
+    indexBufferInfo[0].buffer = drawables["spaceShip"]->indexBuffer;
     indexBufferInfo[0].offset = 0;
     indexBufferInfo[0].range = VK_WHOLE_SIZE;
 
-    indexBufferInfo[1].buffer = plane.indexBuffer;
+    indexBufferInfo[1].buffer = drawables["plane"]->indexBuffer;
     indexBufferInfo[1].offset = 0;
     indexBufferInfo[1].range = VK_WHOLE_SIZE;
 
@@ -349,11 +349,11 @@ void RayTracerDemo::createDescriptorSets() {
     writes[7].pBufferInfo = indexBufferInfo.data();
 
     std::array<VkDescriptorBufferInfo, 2> offsetBufferInfo{};
-    offsetBufferInfo[0].buffer = spaceShip.offsetBuffer;
+    offsetBufferInfo[0].buffer = drawables["spaceShip"]->offsetBuffer;
     offsetBufferInfo[0].offset = 0;
     offsetBufferInfo[0].range = VK_WHOLE_SIZE;
 
-    offsetBufferInfo[1].buffer = plane.offsetBuffer;
+    offsetBufferInfo[1].buffer = drawables["plane"]->offsetBuffer;
     offsetBufferInfo[1].offset = 0;
     offsetBufferInfo[1].range = VK_WHOLE_SIZE;
 
@@ -372,7 +372,7 @@ void RayTracerDemo::initCamera() {
     cameraSettings.orbitMinZoom = 0.1;
     cameraSettings.orbitMaxZoom = 512.0f;
     cameraSettings.offsetDistance = 1.0f;
-    cameraSettings.modelHeight = spaceShip.height();
+    cameraSettings.modelHeight = drawables["spaceShip"]->height();
     cameraSettings.fieldOfView = 60.0f;
     cameraSettings.aspectRatio = float(swapChain.extent.width)/float(swapChain.extent.height);
 
@@ -450,7 +450,7 @@ void RayTracerDemo::createGraphicsPipeline() {
     depthStencilState.maxDepthBounds = 1;
 
     dispose(graphics.layout);
-    graphics.layout = device.createPipelineLayout({ spaceShip.descriptorSetLayout }, {Camera::pushConstant()});
+    graphics.layout = device.createPipelineLayout({ drawables["spaceShip"]->descriptorSetLayout }, {Camera::pushConstant()});
 
     auto createInfo = initializers::graphicsPipelineCreateInfo();
     createInfo.stageCount = COUNT(stages);
@@ -604,7 +604,7 @@ void RayTracerDemo::loadSpaceShip() {
    // phong::load(R"(C:\Users\Josiah\OneDrive\media\models\werewolf.obj)", device, descriptorPool, spaceShip, info);
     VulkanDrawableInstance spaceShipInstance;
     spaceShipInstance.drawable = &spaceShip;  // &drawables["spaceShip"];
-    spaceShipInstance.xform = glm::translate(glm::mat4{1}, {0, spaceShip.height() * 0.5f, 0});
+    spaceShipInstance.xform = glm::translate(glm::mat4{1}, {0, drawables["spaceShip"]->height() * 0.5f, 0});
     spaceShipInstance.xformIT = glm::inverseTranspose(spaceShipInstance.xform);
     instances.push_back(spaceShipInstance);
 
