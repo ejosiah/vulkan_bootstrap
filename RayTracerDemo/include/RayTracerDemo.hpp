@@ -100,10 +100,10 @@ protected:
 
     Texture texture;
 
-    VulkanDrawable spaceShip;
+//    VulkanDrawable spaceShip;
 //    VulkanDrawableInstance spaceShipInstance;
 
-    VulkanDrawable plane;
+//    VulkanDrawable plane;
 //    VulkanDrawableInstance planeInstance;
 
     VulkanBuffer inverseCamProj;

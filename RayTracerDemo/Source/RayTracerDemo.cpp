@@ -602,22 +602,20 @@ void RayTracerDemo::loadSpaceShip() {
   //  phong::load(R"(C:\Users\Josiah\OneDrive\media\models\ChineseDragon.obj)", device, descriptorPool, spaceShip, info);
    // phong::load(R"(C:\Users\Josiah\OneDrive\media\models\Lucy-statue\metallic-lucy-statue-stanford-scan.obj)", device, descriptorPool, spaceShip, info, true, 1);
    // phong::load(R"(C:\Users\Josiah\OneDrive\media\models\werewolf.obj)", device, descriptorPool, spaceShip, info);
-    VulkanDrawableInstance spaceShipInstance;
+    VulkanDrawableInstance spaceShipInstance{};
     spaceShipInstance.drawable =  &drawables["spaceShip"];
     spaceShipInstance.xform = glm::translate(glm::mat4{1}, {0, drawables["spaceShip"].height() * 0.5f, 0});
     spaceShipInstance.xformIT = glm::inverseTranspose(spaceShipInstance.xform);
     instances.push_back(spaceShipInstance);
 
-    VulkanDrawable plane;
-    phong::load("../../data/models/plane.gltf", device, descriptorPool, plane,  info);
-    drawables.insert(std::make_pair("plane", std::move(plane)));
+    VulkanDrawable plane_l;
+    phong::load("../../data/models/plane.gltf", device, descriptorPool, plane_l,  info);
+    drawables.insert(std::make_pair("plane", std::move(plane_l)));
 //    phong::load(R"(C:\Users\Josiah\OneDrive\media\models\Lucy-statue\metallic-lucy-statue-stanford-scan.obj)", device, descriptorPool, plane,  info, true, 1);
  //   phong::load("../../data/models/bigship1.obj", device, descriptorPool, plane,  info, true, 1);
-    VulkanDrawableInstance planeInstance;
+    VulkanDrawableInstance planeInstance{};
     planeInstance.drawable = &drawables["plane"];
     instances.push_back(planeInstance);
-//    planeInstance.xform = glm::translate(glm::mat4{1}, {0, spaceShip.height() * 0.5f, 0});
-//    planeInstance.xformIT = glm::inverseTranspose(spaceShipInstance.xform);
     createAccelerationStructure(instances);
 }
 
