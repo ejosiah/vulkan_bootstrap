@@ -52,8 +52,7 @@ rt::AccelerationStructureBuilder::buildAs(const std::vector<VulkanDrawableInstan
 
 
     uint32_t blasId = 0;
-    for(auto i = 0; i < drawableInstances.size(); i++){
-        auto& dInstance = drawableInstances[i];
+    for(const auto & dInstance : drawableInstances){
         auto objId = findObjId(dInstance.drawable);
         assert(objId.has_value());
         InstanceGroup instanceGroup{ dInstance, *objId };
@@ -156,6 +155,7 @@ void rt::AccelerationStructureBuilder::buildTlas(const std::vector<Instance> &in
         return toVkAccStruct(instance);
     });
 
+
     m_instanceBuffer = m_device->createDeviceLocalBuffer(asInstances.data(), sizeof(VkAccelerationStructureInstanceKHR) * numInstances
                                                          , VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR);
 
@@ -213,7 +213,19 @@ void rt::AccelerationStructureBuilder::buildTlas(const std::vector<Instance> &in
     std::vector<VkAccelerationStructureBuildRangeInfoKHR*> accelerationBuildStructureRangeInfos = { &accelerationStructureBuildRangeInfo };
 
     m_device->commandPoolFor(*m_device->queueFamilyIndex.graphics).oneTimeCommand( [&](auto commandBuffer){
+
+        VkBufferMemoryBarrier barrier = initializers::bufferMemoryBarrier();
+        barrier.srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT;
+        barrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+        barrier.buffer = m_instanceBuffer;
+        barrier.offset = 0;
+        barrier.size = VK_WHOLE_SIZE;
+
+        vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT , VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+                             0, 0, VK_NULL_HANDLE, 1, &barrier, 0, VK_NULL_HANDLE);
+
         vkCmdBuildAccelerationStructuresKHR(commandBuffer, 1, &accelerationStructureBuildGeometryInfo, accelerationBuildStructureRangeInfos.data());
+
     });
 
     VkAccelerationStructureDeviceAddressInfoKHR accelerationStructureDeviceAddressInfo{};
