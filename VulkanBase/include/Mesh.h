@@ -48,6 +48,8 @@ namespace mesh {
 
     int load(std::vector<Mesh>& meshes, const std::string& path, uint32_t flags = DEFAULT_PROCESS_FLAGS);
 
+    void transform(std::vector<Mesh>& meshes, glm::mat4 xform);
+
     inline void normalize(std::vector<Mesh>& meshes, float scale = 1.0f){
         primitives::normalize(meshes, scale);
     }

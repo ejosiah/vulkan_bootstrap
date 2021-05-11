@@ -1,0 +1,89 @@
+layout(local_size_x = 10, local_size_y = 10) in;
+
+struct Particle{
+    vec4 position;
+    vec4 color;
+    vec3 normal;
+    vec3 tangent;
+    vec3 bitangent;
+    vec2 uv;
+};
+
+
+layout(set = 0, binding = 0) buffer POINT_MASSES_IN{
+    Particle particleIn[];
+};
+
+layout(set = 1, binding = 0) buffer POINT_MASS_OUT{
+    Particle particleOut[];
+};
+
+layout(set = 2, binding = 0) uniform MODEL_DATA{
+    mat4 xform;
+    mat4 xformIT;
+    int indexCount;
+};
+
+layout(set = 2, binding = 1) buffer TRI_VERTEX_DATA{
+    Particle vertices[];
+};
+
+layout(set = 2, binding = 2) buffer TRI_INDEX_DATA{
+    int indices[];
+};
+
+bool triangleLineTest(vec3 a, vec3 b, vec3 c, vec3 p, vec3 q, out float t){
+    vec3 ab = b - a;
+    vec3 ac = c - a;
+    vec3 qp = p - q;
+
+    vec3 n = cross(ab, ac);
+
+    float d = dot(qp, n);
+    if(d <= 0) return false;
+
+    vec3 ap = p - a;
+    float ood = 1 / d;
+    t = dot(ap, n) * ood;
+    if(t < 0.01) return false;
+    if(t > 0.99) return false;
+
+    vec3 e = cross(qp, ap);
+    float v = dot(ab, e);
+    if(v < 0 || v > d) return false;
+    float w = -dot(ab, e);
+    if(w < 0 || v + w > d) return false;
+
+    return true;
+
+}
+
+void unpackTriangle(int index, out vec3 a, out vec3 b, out vec3 c){
+    int i0 = indices[3 * index + 0];
+    int i1 = indices[3 * index + 1];
+    int i2 = indices[3 * index + 2];
+    a = vertices[i0].position.xyz;
+    b = vertices[i1].position.xyz;
+    c = vertices[i2].position.xyz;
+}
+
+int width = int(gl_WorkGroupSize.x * gl_NumWorkGroups.x);
+int height = int(gl_WorkGroupSize.y * gl_NumWorkGroups.y);
+int id = int(gl_GlobalInvocationID.y * width + gl_GlobalInvocationID.x);
+
+void main(){
+    vec3 prev_pos = particleIn[id].position.xyz;
+    vec3 pos = particleOut[id].position.xyz;
+    int numTriangles = indexCount/3;
+    for(int i = 0; i < numTriangles; i++){
+        vec3 a, b, c;
+        unpackTriangle(i, a, b, c);
+        float t;
+        vec3 uvw;
+        bool collison = triangleLineTest(a, b, c, prev_pos, pos, t, uvw);
+        if(collison){
+            vec3 dir = pos - prev_pos;
+            particleOut[id].position.xyz = prev_pos + dir * t;
+        }
+    }
+}

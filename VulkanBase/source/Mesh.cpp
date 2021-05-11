@@ -175,3 +175,12 @@ int mesh::load(std::vector<Mesh> &meshes, const std::string& path, uint32_t flag
 
     return res;
 }
+
+void mesh::transform(std::vector<Mesh>& meshes, glm::mat4 xform){
+    for(auto& mesh : meshes){
+        for(auto& vertex : mesh.vertices){
+            vertex.position = xform * vertex.position;
+            vertex.normal = glm::mat3(xform) * vertex.normal;
+        }
+    }
+}

@@ -127,6 +127,7 @@ namespace phong{
         drawable.meshes.resize(meshes.size());
         uint32_t firstVertex = 0;
         uint32_t firstIndex = 0;
+        uint32_t materialOffset = 0;
         auto sizeOfInt = sizeof(uint32_t);
         auto offset = 0;
         std::vector<char> indexBuffer(numIndices * sizeof(uint32_t));
@@ -162,20 +163,23 @@ namespace phong{
 //            offset += sizeOfInt;
 //            std::memcpy(offsetBuffer.data() + offset, &primitive.vertexOffset, sizeOfInt);
 //            offset += sizeOfInt;
-            offsetBuffer.emplace_back(firstIndex, primitive.vertexOffset, materialBufferSize * i, 0);
+            offsetBuffer.emplace_back(firstIndex, primitive.vertexOffset, materialOffset, 0);
 
             firstVertex += mesh.vertices.size();
             firstIndex += mesh.indices.size();
+            materialOffset += mesh.indices.size()/3;
             numPrimitives += drawable.meshes[i].numTriangles();
         }
 
         if(info.generateMaterialId){
             std::vector<int> materialIds;
             materialIds.reserve(numPrimitives);
+            int materialId = 0;
             for(phong::Mesh& mesh : drawable.meshes){
                 for(int i = 0; i < mesh.numTriangles(); i++){
-                    materialIds.push_back(0);
+                    materialIds.push_back(materialId);
                 }
+                materialId++;
             }
             drawable.materialIdBuffer = device.createDeviceLocalBuffer(materialIds.data(), numPrimitives * sizeof(int), info.materialIdUsage);
         }

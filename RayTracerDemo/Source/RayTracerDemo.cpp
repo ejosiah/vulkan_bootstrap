@@ -598,6 +598,7 @@ void RayTracerDemo::loadSpaceShip() {
     std::vector<VulkanDrawableInstance> instances;
     VulkanDrawable spaceShip;
     phong::load("../../data/models/bigship1.obj", device, descriptorPool, spaceShip, info, true, 1);
+ //   spaceShip = VulkanDrawable::flatten(device, descriptorPool, spaceShip.descriptorSetLayout, spaceShip, 0, 0, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
     drawables.insert(std::make_pair("spaceShip", std::move(spaceShip)));
   //  phong::load(R"(C:\Users\Josiah\OneDrive\media\models\ChineseDragon.obj)", device, descriptorPool, spaceShip, info);
    // phong::load(R"(C:\Users\Josiah\OneDrive\media\models\Lucy-statue\metallic-lucy-statue-stanford-scan.obj)", device, descriptorPool, spaceShip, info, true, 1);

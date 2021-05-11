@@ -30,11 +30,12 @@ rt::AccelerationStructureBuilder::~AccelerationStructureBuilder() {
 std::tuple<std::vector<rt::InstanceGroup>, std::vector<rt::Instance>>
 rt::AccelerationStructureBuilder::buildAs(const std::vector<VulkanDrawableInstance> &drawableInstances,
                                                VkBuildAccelerationStructureFlagsKHR flags) {
-    std::set<VulkanDrawable*> set;
+    std::vector<VulkanDrawable*> drawables;
     for(auto& dInstance : drawableInstances){
-        set.insert(dInstance.drawable);
+        auto itr = std::find_if(begin(drawables), end(drawables), [&](auto drawable){ return dInstance.drawable == drawable;});
+        if(itr != end(drawables)) continue;
+        drawables.push_back(dInstance.drawable);
     }
-    std::vector<VulkanDrawable*> drawables(begin(set), end(set));
     buildBlas(drawables, flags);
 
     std::vector<InstanceGroup> instanceGroups;
@@ -213,19 +214,7 @@ void rt::AccelerationStructureBuilder::buildTlas(const std::vector<Instance> &in
     std::vector<VkAccelerationStructureBuildRangeInfoKHR*> accelerationBuildStructureRangeInfos = { &accelerationStructureBuildRangeInfo };
 
     m_device->commandPoolFor(*m_device->queueFamilyIndex.graphics).oneTimeCommand( [&](auto commandBuffer){
-
-        VkBufferMemoryBarrier barrier = initializers::bufferMemoryBarrier();
-        barrier.srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT;
-        barrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
-        barrier.buffer = m_instanceBuffer;
-        barrier.offset = 0;
-        barrier.size = VK_WHOLE_SIZE;
-
-        vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT , VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
-                             0, 0, VK_NULL_HANDLE, 1, &barrier, 0, VK_NULL_HANDLE);
-
         vkCmdBuildAccelerationStructuresKHR(commandBuffer, 1, &accelerationStructureBuildGeometryInfo, accelerationBuildStructureRangeInfos.data());
-
     });
 
     VkAccelerationStructureDeviceAddressInfoKHR accelerationStructureDeviceAddressInfo{};

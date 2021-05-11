@@ -1,6 +1,7 @@
 #pragma once
 
 #include "VulkanBaseApp.h"
+#include "VulkanQuery.hpp"
 #include "ImGuiPlugin.hpp"
 
 
@@ -15,11 +16,15 @@ protected:
 
     void initCamera();
 
+    void initQueryPools();
+
     void checkAppInputs() override;
 
     void createCloth();
 
     void createSphere();
+
+    void loadModel();
 
     void createFloor();
 
@@ -41,6 +46,8 @@ protected:
 
     void onSwapChainRecreation() override;
 
+    void newFrame() override;
+
     VkCommandBuffer *buildCommandBuffers(uint32_t imageIndex, uint32_t &numCommandBuffers) override;
 
     void drawWireframe(VkCommandBuffer commandBuffer);
@@ -55,6 +62,8 @@ protected:
 
     void renderUI(VkCommandBuffer commandBuffer);
 
+    void cleanup() override;
+
 private:
     VulkanCommandPool commandPool;
     std::vector<VkCommandBuffer> commandBuffers;
@@ -66,12 +75,14 @@ private:
     VulkanDescriptorSetLayout positionSetLayout;
     VulkanDescriptorPool descriptorPool;
     std::array<VkDescriptorSet, 2> positionDescriptorSets;
+    VkDescriptorSet pointDescriptorSet;
 
 
     struct {
         VulkanPipelineLayout point;
         VulkanPipelineLayout wireframe;
         VulkanPipelineLayout shaded;
+        VulkanPipelineLayout spaceShip;
         VulkanPipelineLayout compute;
         VulkanPipelineLayout normals;
     } pipelineLayouts;
@@ -80,6 +91,8 @@ private:
         VulkanPipeline point;
         VulkanPipeline wireframe;
         VulkanPipeline shaded;
+        VulkanPipeline spaceShip;
+        VulkanPipeline spaceShipWireframe;
         VulkanPipeline compute;
         VulkanPipeline normals;
     } pipelines;
@@ -139,6 +152,16 @@ private:
 
     } sphere;
 
+    VulkanDrawable model;
+    VulkanDrawableInstance modelInstance;
+
+    struct ModelData{
+        glm::mat4 xform;
+        glm::mat4 xformIT;
+        int numTriangles;
+    } modelData;
+    VulkanBuffer modelBuffer;
+
     float frameTime = 0.0005;
     bool startSim = false;
 
@@ -149,4 +172,15 @@ private:
     bool showPoints = false;
     bool showNormals = false;
     float shine = 50;
+
+   // TimestampQueryPool timerQueryPool;
+    VkQueryPool queryPool = VK_NULL_HANDLE;
+    struct TimeQueryResults{
+        uint64_t computeStart;
+        uint64_t computeEnd;
+        uint64_t collisionStart;
+        uint64_t collisionEnd;
+    } timeQueryResults;
+    float computeDuration = 0;
+    float collisionDuration = 0;
 };

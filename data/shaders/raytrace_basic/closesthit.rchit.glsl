@@ -112,26 +112,26 @@ void main()
   //vec3 worldPos = v0.position * u + v1.position * v + v2.position * w;
   vec3 worldPos = gl_WorldRayOriginEXT + gl_HitTEXT * gl_WorldRayDirectionEXT;
   vec3 N = normalize(normal);
-  //vec3 lightPos = eyes;
-  vec3 lightPos = vec3(0, 10, 0);
+  vec3 lightPos = eyes;
+ // vec3 lightPos = vec3(0, 10, 0);
   vec3 lightDir = lightPos - worldPos;
   float lightDistance = length(lightDir);
   vec3 E = normalize(eyes - worldPos);
   vec3 L = normalize(lightDir);
   vec3 H = normalize(E + L);
 //  vec3 L = vec3(0, 1, 0);
-  int matId = matIds[objId].i[gl_PrimitiveID];
+  int matId = matIds[objId].i[gl_PrimitiveID + offset.material];
  // vec3 color = materials[gl_InstanceCustomIndexEXT].m[matId].diffuse;
 
 //  vec3 color = materials[gl_InstanceCustomIndexEXT].m[matId].diffuse;
 //  float shininess = materials[gl_InstanceCustomIndexEXT].m[matId].shininess;
-  Material material = materials[objId].m[gl_InstanceCustomIndexEXT];
+  Material material = materials[objId].m[matId];
   vec3 color = material.diffuse;
   float shininess = material.shininess;
 
 
   float attenuation = 1.0;
-
+  isShadow = false;
   if(dot(N, L) > 0){
     isShadow = true;
 

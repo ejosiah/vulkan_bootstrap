@@ -39,13 +39,23 @@ struct VulkanDrawable{
         }
     }
 
+    [[nodiscard]]
+    uint32_t numTriangles() const {
+        int count = 0;
+        for(auto& mesh : meshes){
+            count += mesh.numTriangles();
+        }
+        return count;
+    }
+
     static VulkanDrawable flatten(VulkanDevice& device, const VulkanDescriptorPool& descriptorPool,
                                   const VulkanDescriptorSetLayout& descriptorSetLayout,
-                                  VulkanDrawable&& drawable, uint32_t materialBinding,
+                                  VulkanDrawable& drawable, uint32_t materialBinding,
                                   uint32_t materialIdBinding, VkBufferUsageFlagBits materialUsage) {
         VulkanDrawable result;
         result.indexBuffer = std::move(drawable.indexBuffer);
         result.vertexBuffer = std::move(drawable.vertexBuffer);
+        result.materialIdBuffer = std::move(drawable.materialIdBuffer);
         result.bounds.min = drawable.bounds.min;
         result.bounds.max = drawable.bounds.max;
 
@@ -72,43 +82,45 @@ struct VulkanDrawable{
         }
 
         // flatten material buffer;
-        mesh.material.materialBuffer = device.createBuffer(materialUsage | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_ONLY, materialSize);
+        result.materialBuffer = device.createBuffer(materialUsage | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_ONLY, materialSize);
         VkDeviceSize dstOffset = 0;
         for(auto& pMesh : meshes){
-            device.copy(pMesh.material.materialBuffer, mesh.material.materialBuffer, pMesh.material.materialBuffer.size, 0, dstOffset);
+            device.copy(pMesh.material.materialBuffer, result.materialBuffer, pMesh.material.materialBuffer.size, 0, dstOffset);
             dstOffset += pMesh.material.materialBuffer.size;
         }
+        glm::ivec4 offsets{0};
+        result.offsetBuffer = device.createDeviceLocalBuffer(&offsets, sizeof(glm::ivec4), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
 
-        result.materialIdBuffer = device.createDeviceLocalBuffer(materialIds.data(), sizeof(int) * materialIds.size(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+     //   result.materialIdBuffer = device.createDeviceLocalBuffer(materialIds.data(), sizeof(int) * materialIds.size(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
 
         // create descriptorSet
-        auto& descriptorSet = mesh.material.descriptorSet;
-        descriptorSet = descriptorPool.allocate({descriptorSetLayout}).front();
-
-        std::vector<VkWriteDescriptorSet> writes;
-        VkDescriptorBufferInfo matIdInfo{};
-        matIdInfo.buffer = result.materialIdBuffer;
-        matIdInfo.offset = 0;
-        matIdInfo.range = VK_WHOLE_SIZE;
-
-        auto write = initializers::writeDescriptorSet(descriptorSet);
-        write.dstBinding = materialIdBinding;
-        write.descriptorCount = 1;
-        write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        write.pBufferInfo = &matIdInfo;
-        writes.push_back(write);
-
-        VkDescriptorBufferInfo materialInfo{};
-        materialInfo.buffer = mesh.material.materialBuffer;
-        materialInfo.offset = 0;
-        materialInfo.range = VK_WHOLE_SIZE;
-
-        write.dstBinding = materialBinding;
-        write.descriptorCount = 1;
-        write.descriptorType = (materialUsage & VK_BUFFER_USAGE_STORAGE_BUFFER_BIT) ? VK_DESCRIPTOR_TYPE_STORAGE_BUFFER : VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        write.pBufferInfo = &materialInfo;
-        writes.push_back(write);
-        device.updateDescriptorSets(writes);
+//        auto& descriptorSet = mesh.material.descriptorSet;
+//        descriptorSet = descriptorPool.allocate({descriptorSetLayout}).front();
+//
+//        std::vector<VkWriteDescriptorSet> writes;
+//        VkDescriptorBufferInfo matIdInfo{};
+//        matIdInfo.buffer = result.materialIdBuffer;
+//        matIdInfo.offset = 0;
+//        matIdInfo.range = VK_WHOLE_SIZE;
+//
+//        auto write = initializers::writeDescriptorSet(descriptorSet);
+//        write.dstBinding = materialIdBinding;
+//        write.descriptorCount = 1;
+//        write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+//        write.pBufferInfo = &matIdInfo;
+//        writes.push_back(write);
+//
+//        VkDescriptorBufferInfo materialInfo{};
+//        materialInfo.buffer = mesh.material.materialBuffer;
+//        materialInfo.offset = 0;
+//        materialInfo.range = VK_WHOLE_SIZE;
+//
+//        write.dstBinding = materialBinding;
+//        write.descriptorCount = 1;
+//        write.descriptorType = (materialUsage & VK_BUFFER_USAGE_STORAGE_BUFFER_BIT) ? VK_DESCRIPTOR_TYPE_STORAGE_BUFFER : VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+//        write.pBufferInfo = &materialInfo;
+//        writes.push_back(write);
+//        device.updateDescriptorSets(writes);
 
         // TODO flatten offset buffer
 
