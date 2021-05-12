@@ -7,14 +7,7 @@ if(CMAKE_GENERATOR STREQUAL "Xcode")
     add_compile_options(-Wno-nullability-completeness)
 endif()
 
-
-
-if(NOT CONAN_EXPORTED) # in user space
-    # Make sure to use conanfile.py to define dependencies, to stay consistent
-    conan_cmake_run(CONANFILE conanfile.txt
-            BASIC_SETUP CMAKE_TARGETS KEEP_RPATHS)
-endif()
-
+message(STATUS "setting up conan")
 include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
 conan_basic_setup()
 
