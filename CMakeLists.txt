@@ -12,6 +12,7 @@ if(NOT EXISTS "${CMAKE_BINARY_DIR}/conan.cmake")
     file(DOWNLOAD "https://raw.githubusercontent.com/conan-io/cmake-conan/master/conan.cmake"
             "${CMAKE_BINARY_DIR}/conan.cmake")
     include(${CMAKE_BINARY_DIR}/conan.cmake)
+    message(STATUS running conan install)
     conan_cmake_run(REQUIRES Catch2/2.6.0@catchorg/stable
             BASIC_SETUP)
 endif()
