@@ -10,11 +10,6 @@ endif()
 
 
 if(NOT CONAN_EXPORTED) # in user space
-    message(STATUS "Downloading conan.cmake from https://github.com/conan-io/cmake-conan")
-    file(DOWNLOAD "https://raw.githubusercontent.com/conan-io/cmake-conan/master/conan.cmake"
-            "${CMAKE_BINARY_DIR}/conan.cmake")
-    include(${CMAKE_BINARY_DIR}/conan.cmake)
-    message(STATUS "running conan install")
     # Make sure to use conanfile.py to define dependencies, to stay consistent
     conan_cmake_run(CONANFILE conanfile.txt
             BASIC_SETUP CMAKE_TARGETS KEEP_RPATHS)
