@@ -1,3 +1,5 @@
+project(ImGuiPlugin VERSION 0.0.0)
+
 include_directories(${CMAKE_CURRENT_LIST_DIR}/include)
 
 add_definitions(-DGLFW_INCLUDE_VULKAN)

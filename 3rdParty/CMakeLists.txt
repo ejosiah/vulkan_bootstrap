@@ -1,4 +1,5 @@
 find_package("Vulkan")
+project(3rdParty VERSION 0.0.0)
 
 message(STATUS "setting up conan")
 include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)

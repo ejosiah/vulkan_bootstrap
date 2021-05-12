@@ -1,3 +1,5 @@
+project(VulkanBase VERSION 0.0.0)
+
 find_package("Vulkan")
 add_definitions(
         -DGLM_FORCE_RADIANS
