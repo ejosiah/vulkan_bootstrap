@@ -103,6 +103,8 @@ conan.lock
 **/CTestTestfile.cmake
 **/_deps
 
+release
+
 cmake-build-debug
 build
 .idea
