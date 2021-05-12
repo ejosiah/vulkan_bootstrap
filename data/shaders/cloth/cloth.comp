@@ -250,7 +250,7 @@ void main(){
     vec3 p = 2 * pos - prev_pos + a * dt * dt;
 
 //    sphereCollisionTest(p);
-    collisionTest(pos, p);
+//    collisionTest(pos, p);
 
     float d = dot(p, vec3(0, 1, 0));
     if(d < 0.01){

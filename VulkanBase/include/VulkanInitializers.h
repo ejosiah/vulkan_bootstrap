@@ -365,4 +365,18 @@ namespace initializers{
         bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
         return bufferInfo;
     }
+
+
+    inline VkRayTracingShaderGroupCreateInfoKHR rayTracingShaderGroupCreateInfo() {
+        VkRayTracingShaderGroupCreateInfoKHR info{};
+        info.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
+        return info;
+    }
+
+
+    inline VkRayTracingPipelineCreateInfoKHR rayTracingPipelineCreateInfo() {
+        VkRayTracingPipelineCreateInfoKHR info{};
+        info.sType = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR;
+        return info;
+    }
 }

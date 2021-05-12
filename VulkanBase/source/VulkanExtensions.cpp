@@ -27,6 +27,8 @@ namespace ext {
         pfn_vkGetAccelerationStructureDeviceAddressKHR = procAddress<PFN_vkGetAccelerationStructureDeviceAddressKHR>(instance, "vkGetAccelerationStructureDeviceAddressKHR");
         pfn_vkDestroyAccelerationStructureKHR = procAddress<PFN_vkDestroyAccelerationStructureKHR>(instance, "vkDestroyAccelerationStructureKHR");
         pfn_vkSetDebugUtilsObjectNameEXT = procAddress<PFN_vkSetDebugUtilsObjectNameEXT>(instance, "vkSetDebugUtilsObjectNameEXT");
+        pfn_vkCreateRayTracingPipelinesKHR = procAddress<PFN_vkCreateRayTracingPipelinesKHR>(instance, "vkCreateRayTracingPipelinesKHR");
+        pfn_vkGetRayTracingShaderGroupHandlesKHR = procAddress<PFN_vkGetRayTracingShaderGroupHandlesKHR>(instance, "vkGetRayTracingShaderGroupHandlesKHR");
     }
 
 }
@@ -100,4 +102,29 @@ VKAPI_ATTR VkResult VKAPI_CALL vkSetDebugUtilsObjectNameEXT(
         const VkDebugUtilsObjectNameInfoEXT*        pNameInfo){
     assert(pfn_vkSetDebugUtilsObjectNameEXT);
     return pfn_vkSetDebugUtilsObjectNameEXT(device, pNameInfo);
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL vkCreateRayTracingPipelinesKHR(
+        VkDevice                                    device,
+        VkDeferredOperationKHR                      deferredOperation,
+        VkPipelineCache                             pipelineCache,
+        uint32_t                                    createInfoCount,
+        const VkRayTracingPipelineCreateInfoKHR*    pCreateInfos,
+        const VkAllocationCallbacks*                pAllocator,
+        VkPipeline*                                 pPipelines){
+    assert(pfn_vkCreateRayTracingPipelinesKHR);
+    return pfn_vkCreateRayTracingPipelinesKHR(device, deferredOperation, pipelineCache, createInfoCount, pCreateInfos, pAllocator, pPipelines);
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL vkGetRayTracingShaderGroupHandlesKHR(
+        VkDevice                                    device,
+        VkPipeline                                  pipeline,
+        uint32_t                                    firstGroup,
+        uint32_t                                    groupCount,
+        size_t                                      dataSize,
+        void*                                       pData){
+
+    assert(pfn_vkGetRayTracingShaderGroupHandlesKHR);
+    return pfn_vkGetRayTracingShaderGroupHandlesKHR(device, pipeline, firstGroup, groupCount, dataSize, pData);
+
 }

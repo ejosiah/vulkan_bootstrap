@@ -1,7 +1,7 @@
 #include "ClothDemo.hpp"
 #include "primitives.h"
 
-ClothDemo::ClothDemo(const Settings &settings) : VulkanBaseApp("Cloth", settings) {
+ClothDemo::ClothDemo(const Settings &settings) : VulkanRayTraceBaseApp("Cloth", settings) {
 
 }
 
@@ -20,6 +20,11 @@ void ClothDemo::initApp() {
     createPositionDescriptorSet();
     createPipelines();
     createComputePipeline();
+
+    createRayTraceDescriptorSetLayout();
+    createRayTraceDescriptorSet();
+    createRayTracePipeline();
+    createShaderBindingTables();
 }
 
 void ClothDemo::createCloth() {
@@ -57,11 +62,12 @@ void ClothDemo::createSphere(){
 
 void ClothDemo::loadModel() {
     phong::VulkanDrawableInfo info{};
-    info.vertexUsage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-    info.indexUsage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
- //   phong::load(R"(C:\Users\Josiah\OneDrive\media\models\werewolf.obj)", device, descriptorPool, model, info, true, 40);
+    info.vertexUsage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
+    info.indexUsage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
+//    phong::load(R"(C:\Users\Josiah\OneDrive\media\models\Nissan FairladyZ 2009\basemeshobj.obj)", device, descriptorPool, model, info, true, 30);
     phong::load(R"(C:\Users\Josiah\OneDrive\media\models\werewolf.obj)", device, descriptorPool, model, info, true, 40);
-//    phong::load("../../data/models/bigship1.obj", device, descriptorPool, model, info, true, 40);
+  //  phong::load(R"(C:\Users\Josiah\OneDrive\media\models\Lucy-statue\metallic-lucy-statue-stanford-scan.obj)",device, descriptorPool, model, info, true, 40);
+ //   phong::load("../../data/models/bigship1.obj", device, descriptorPool, model, info, true, 40);
     modelInstance.drawable = &model;
     modelInstance.xform = glm::translate(glm::mat4(1), {0, model.height() * 0.5f, 0});
     modelInstance.xformIT = glm::inverseTranspose(modelInstance.xform);
@@ -70,7 +76,9 @@ void ClothDemo::loadModel() {
     modelData.numTriangles = model.numTriangles();
 
     modelBuffer = device.createDeviceLocalBuffer(&modelData, sizeof(ModelData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
+    createAccelerationStructure({ modelInstance });
 }
+
 
 void ClothDemo::createFloor() {
     auto xform = glm::rotate(glm::mat4{1}, -glm::half_pi<float>(), {1, 0, 0});
@@ -85,10 +93,15 @@ void ClothDemo::onSwapChainDispose() {
     dispose(pipelines.wireframe);
     dispose(pipelines.point);
     dispose(pipelines.normals);
+    dispose(raytrace.pipeline);
+    descriptorPool.free({raytrace.descriptorSet});
 }
 
 void ClothDemo::onSwapChainRecreation() {
     createPipelines();
+    createRayTraceDescriptorSet();
+    createRayTracePipeline();
+    createShaderBindingTables();
     cameraController->onResize(width, height);
 }
 
@@ -424,12 +437,162 @@ void ClothDemo::createPipelines() {
 
 }
 
+void ClothDemo::createRayTraceDescriptorSetLayout() {
+    std::vector<VkDescriptorSetLayoutBinding> binding(1);
+    binding[0].binding = 0;
+    binding[0].descriptorCount = 1;
+    binding[0].descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
+    binding[0].stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+
+    raytrace.descriptorSetLayout = device.createDescriptorSetLayout(binding);
+
+}
+
+void ClothDemo::createRayTraceDescriptorSet() {
+    raytrace.descriptorSet = descriptorPool.allocate({ raytrace.descriptorSetLayout}).front();
+
+    VkWriteDescriptorSetAccelerationStructureKHR asWrites{};
+    asWrites.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR;
+    asWrites.accelerationStructureCount = 1;
+    asWrites.pAccelerationStructures = rtBuilder.accelerationStructure();
+
+    auto writes = initializers::writeDescriptorSets<1>();
+    writes[0].pNext = &asWrites;
+    writes[0].dstSet = raytrace.descriptorSet;
+    writes[0].dstBinding = 0;
+    writes[0].descriptorCount = 1;
+    writes[0].descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
+
+    vkUpdateDescriptorSets(device, COUNT(writes), writes.data(), 0, VK_NULL_HANDLE );
+}
+
+void ClothDemo::createRayTracePipeline() {
+    auto rayGenShader = ShaderModule{ "../../data/shaders/cloth/raygen.rgen.spv", device};
+    auto missGenShader = ShaderModule{ "../../data/shaders/cloth/miss.rmiss.spv", device};
+    auto hitShader = ShaderModule{ "../../data/shaders/cloth/closesthit.rchit.spv", device};
+
+    auto stages = initializers::vertexShaderStages(
+            {
+                { rayGenShader, VK_SHADER_STAGE_RAYGEN_BIT_KHR},
+                { missGenShader, VK_SHADER_STAGE_MISS_BIT_KHR},
+                {hitShader, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR}
+            });
+
+    shaderGroups.clear();
+    VkRayTracingShaderGroupCreateInfoKHR shaderGroupInfo = initializers::rayTracingShaderGroupCreateInfo();
+    shaderGroupInfo.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
+    shaderGroupInfo.generalShader = shaderGroups.size();
+    shaderGroupInfo.closestHitShader = VK_SHADER_UNUSED_KHR;
+    shaderGroupInfo.anyHitShader = VK_SHADER_UNUSED_KHR;
+    shaderGroupInfo.intersectionShader = VK_SHADER_UNUSED_KHR;
+    shaderGroups.push_back(shaderGroupInfo);
+
+    shaderGroupInfo.generalShader = shaderGroups.size();
+    shaderGroups.push_back(shaderGroupInfo);
+
+    shaderGroupInfo.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR;
+    shaderGroupInfo.generalShader = VK_SHADER_UNUSED_KHR;
+    shaderGroupInfo.closestHitShader = shaderGroups.size();
+    shaderGroups.push_back(shaderGroupInfo);
+
+    dispose(raytrace.layout);
+    raytrace.layout = device.createPipelineLayout({raytrace.descriptorSetLayout, positionSetLayout, positionSetLayout});
+
+    VkRayTracingPipelineCreateInfoKHR createInfo = initializers::rayTracingPipelineCreateInfo();
+    createInfo.stageCount = COUNT(stages);
+    createInfo.pStages = stages.data();
+    createInfo.groupCount = COUNT(shaderGroups);
+    createInfo.pGroups = shaderGroups.data();
+    createInfo.maxPipelineRayRecursionDepth = 1;
+    createInfo.layout = raytrace.layout;
+
+    raytrace.pipeline = device.createRayTracingPipeline(createInfo);
+}
+
+void ClothDemo::createShaderBindingTables() {
+    assert(raytrace.pipeline);
+    const auto [handleSize, handleSizeAligned] = getShaderGroupHandleSizingInfo();
+    const auto groupCount = COUNT(shaderGroups);
+    const auto sbtSize = groupCount * handleSizeAligned;
+
+    std::vector<uint8_t> shaderHandleStorage(sbtSize);
+
+    ext.vkGetRayTracingShaderGroupHandlesKHR(device, raytrace.pipeline, 0, groupCount, sbtSize, shaderHandleStorage.data());
+
+    const VkBufferUsageFlags usageFlags = VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+
+    void* rayGenPtr = shaderHandleStorage.data();
+    void* missPtr = shaderHandleStorage.data() + handleSizeAligned;
+    void* hitPtr = shaderHandleStorage.data() + handleSizeAligned * 2;
+    createShaderBindingTable(shaderBindingTables.rayGen, rayGenPtr, usageFlags, VMA_MEMORY_USAGE_GPU_ONLY, 1);
+    createShaderBindingTable(shaderBindingTables.miss, missPtr, usageFlags, VMA_MEMORY_USAGE_GPU_ONLY, 1);
+    createShaderBindingTable(shaderBindingTables.hit, hitPtr, usageFlags, VMA_MEMORY_USAGE_GPU_ONLY, 1);
+}
+
+void ClothDemo::rayTraceToComputeBarrier(VkCommandBuffer commandBuffer) {
+    VkBufferMemoryBarrier  barrier = initializers::bufferMemoryBarrier();
+    barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    barrier.srcQueueFamilyIndex = *device.queueFamilyIndex.compute;
+    barrier.dstQueueFamilyIndex = *device.queueFamilyIndex.compute;
+    barrier.buffer = cloth.vertices[0];
+    barrier.offset = 0;
+    barrier.size = cloth.vertices[0].size;
+
+    static std::array<VkBufferMemoryBarrier, 2> barriers{};
+    barriers[0] = barrier;
+
+    barrier.buffer = cloth.vertices[1];
+    barriers[1] = barrier;
+
+
+    vkCmdPipelineBarrier(commandBuffer,
+                         VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+                         VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                         0,
+                         0,
+                         nullptr,
+                         COUNT(barriers),
+                         barriers.data(),
+                         0,
+                         nullptr);
+}
+
+void ClothDemo::computeToRayTraceBarrier(VkCommandBuffer commandBuffer) {
+    VkBufferMemoryBarrier  barrier = initializers::bufferMemoryBarrier();
+    barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    barrier.srcQueueFamilyIndex = *device.queueFamilyIndex.compute;
+    barrier.dstQueueFamilyIndex = *device.queueFamilyIndex.compute;
+    barrier.buffer = cloth.vertices[0];
+    barrier.offset = 0;
+    barrier.size = cloth.vertices[0].size;
+
+    static std::array<VkBufferMemoryBarrier, 2> barriers{};
+    barriers[0] = barrier;
+
+    barrier.buffer = cloth.vertices[1];
+    barriers[1] = barrier;
+
+
+    vkCmdPipelineBarrier(commandBuffer,
+                         VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                         VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+                         0,
+                         0,
+                         nullptr,
+                         COUNT(barriers),
+                         barriers.data(),
+                         0,
+                         nullptr);
+}
+
 void ClothDemo::createPositionDescriptorSetLayout() {
     std::vector<VkDescriptorSetLayoutBinding> bindings(1);
     bindings[0].binding = 0;
     bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     bindings[0].descriptorCount = 1;
-    bindings[0].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+    bindings[0].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR;
 
     positionSetLayout = device.createDescriptorSetLayout(bindings);
 
@@ -467,7 +630,7 @@ void ClothDemo::createPositionDescriptorSetLayout() {
 
 void ClothDemo::createDescriptorPool() {
     uint32_t maxSet = 100;
-    std::vector<VkDescriptorPoolSize> poolSizes(4);
+    std::vector<VkDescriptorPoolSize> poolSizes(5);
     poolSizes[0].descriptorCount = 100 * maxSet;
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 
@@ -480,7 +643,10 @@ void ClothDemo::createDescriptorPool() {
     poolSizes[3].descriptorCount = 100 * maxSet;
     poolSizes[3].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 
-    descriptorPool = device.createDescriptorPool(maxSet, poolSizes);
+    poolSizes[4].descriptorCount = 1;
+    poolSizes[4].type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
+
+    descriptorPool = device.createDescriptorPool(maxSet, poolSizes, VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT);
 }
 
 void ClothDemo::createPositionDescriptorSet() {
@@ -600,6 +766,7 @@ VkCommandBuffer ClothDemo::dispatchCompute() {
 
     commandPool.oneTimeCommand( [&](auto commandBuffer){
         static std::array<VkDescriptorSet, 3> descriptors{};
+        static std::array<VkDescriptorSet, 3> rt_descriptors{};
         vkCmdResetQueryPool(commandBuffer, queryPool, 0, 2);
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelines.compute);
         vkCmdPushConstants(commandBuffer, pipelineLayouts.compute, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(constants), &constants);
@@ -608,12 +775,30 @@ VkCommandBuffer ClothDemo::dispatchCompute() {
             descriptors[0] = positionDescriptorSets[input_index];
             descriptors[1] = positionDescriptorSets[output_index];
             descriptors[2] = collision.descriptorSet;
-            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayouts.compute, 0, COUNT(descriptors), descriptors.data(), 0,
-                                    nullptr);
+            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayouts.compute, 0, COUNT(descriptors), descriptors.data(), 0, nullptr);
             vkCmdDispatch(commandBuffer, cloth.gridSize.x/10, cloth.gridSize.y/10, 1);
 
+            computeToRayTraceBarrier(commandBuffer);
+
+            VkStridedDeviceAddressRegionKHR nullShaderSbtEntry{};
+            rt_descriptors[0] = raytrace.descriptorSet;
+            rt_descriptors[1] = positionDescriptorSets[input_index];
+            rt_descriptors[2] = positionDescriptorSets[output_index];
+            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, raytrace.layout, 0, COUNT(rt_descriptors), rt_descriptors.data(), 0, nullptr);
+            vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, raytrace.pipeline);
+            vkCmdTraceRaysKHR(
+                    commandBuffer,
+                    shaderBindingTables.rayGen,
+                    shaderBindingTables.miss,
+                    shaderBindingTables.hit,
+                    &nullShaderSbtEntry,
+                    cloth.gridSize.x * 10,
+                    cloth.gridSize.y * 10,
+                    1);
+
             if(i - 1 < numIterations){
-                computeToComputeBarrier(commandBuffer);
+                rayTraceToComputeBarrier(commandBuffer);
+              //  computeToComputeBarrier(commandBuffer);
             }
             std::swap(input_index, output_index);
 

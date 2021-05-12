@@ -395,6 +395,13 @@ struct VulkanDevice{
         return vkPipelines;
     }
 
+    inline VulkanPipeline createRayTracingPipeline(const VkRayTracingPipelineCreateInfoKHR& createInfo){
+        assert(logicalDevice);
+        VkPipeline pipeline = VK_NULL_HANDLE;
+        vkCreateRayTracingPipelinesKHR(logicalDevice, VK_NULL_HANDLE, VK_NULL_HANDLE, 1, &createInfo, nullptr, &pipeline);
+        return VulkanPipeline{logicalDevice, pipeline};
+    }
+
     [[nodiscard]] inline VulkanPipelineLayout createPipelineLayout(const std::vector<VkDescriptorSetLayout>& layouts = {}
             , const std::vector<VkPushConstantRange>& ranges = {}) const {
         assert(logicalDevice);

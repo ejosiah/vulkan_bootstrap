@@ -1,11 +1,12 @@
 #pragma once
 
 #include "VulkanBaseApp.h"
+#include "VulkanRayTraceBaseApp.hpp"
 #include "VulkanQuery.hpp"
 #include "ImGuiPlugin.hpp"
 
 
-class ClothDemo : public VulkanBaseApp{
+class ClothDemo : public VulkanRayTraceBaseApp{
 public:
     explicit ClothDemo(const Settings& settings);
 
@@ -26,6 +27,7 @@ protected:
 
     void loadModel();
 
+
     void createFloor();
 
     void createPositionDescriptorSetLayout();
@@ -38,7 +40,19 @@ protected:
 
     void createComputePipeline();
 
+    void createRayTraceDescriptorSetLayout();
+
+    void createRayTraceDescriptorSet();
+
+    void createRayTracePipeline();
+
+    void createShaderBindingTables();
+
     void computeToComputeBarrier(VkCommandBuffer commandBuffer);
+
+    void rayTraceToComputeBarrier(VkCommandBuffer commandBuffer);
+
+    void computeToRayTraceBarrier(VkCommandBuffer commandBuffer);
 
     VkCommandBuffer dispatchCompute();
 
@@ -183,4 +197,19 @@ private:
     } timeQueryResults;
     float computeDuration = 0;
     float collisionDuration = 0;
+
+    struct {
+        VulkanPipelineLayout layout;
+        VulkanPipeline pipeline;
+        VulkanDescriptorSetLayout descriptorSetLayout;
+        VkDescriptorSet descriptorSet;
+    } raytrace;
+
+    struct {
+        ShaderBindingTable rayGen;
+        ShaderBindingTable miss;
+        ShaderBindingTable hit;
+    } shaderBindingTables;
+
+    std::vector<VkRayTracingShaderGroupCreateInfoKHR> shaderGroups{};
 };
