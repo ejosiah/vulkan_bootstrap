@@ -10,7 +10,7 @@
 #include <optional>
 #include "container_operations.h"
 #include "primitives.h"
-#include "../../3rdParty/include/vk_mem_alloc.h"
+#include "vk_mem_alloc.h"
 #include "VulkanDevice.h"
 #include "VulkanBuffer.h"
 #include "VulkanSurface.h"
