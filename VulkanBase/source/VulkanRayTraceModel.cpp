@@ -27,8 +27,7 @@ rt::AccelerationStructureBuilder::~AccelerationStructureBuilder() {
     }
 }
 
-std::tuple<std::vector<rt::InstanceGroup>, std::vector<rt::Instance>>
-rt::AccelerationStructureBuilder::buildAs(const std::vector<VulkanDrawableInstance> &drawableInstances,
+std::vector<rt::InstanceGroup> rt::AccelerationStructureBuilder::add(const std::vector<MeshObjectInstance> &drawableInstances,
                                                VkBuildAccelerationStructureFlagsKHR flags) {
     std::vector<VulkanDrawable*> drawables;
     for(auto& dInstance : drawableInstances){
@@ -36,13 +35,10 @@ rt::AccelerationStructureBuilder::buildAs(const std::vector<VulkanDrawableInstan
         if(itr != end(drawables)) continue;
         drawables.push_back(dInstance.drawable);
     }
-    buildBlas(drawables, flags);
+    auto blasIds = buildBlas(drawables, flags);
 
     std::vector<InstanceGroup> instanceGroups;
-    std::vector<Instance> instances;
 
-    instanceGroups.reserve(drawableInstances.size());
-    instances.reserve(drawableInstances.size());    // TODO reserve drawInst.size * drawable.meshes.size
 
     auto findObjId = [&](VulkanDrawable* drawable) -> std::optional<uint32_t> {
         for(int i = 0; i < drawables.size(); i++){
@@ -52,7 +48,7 @@ rt::AccelerationStructureBuilder::buildAs(const std::vector<VulkanDrawableInstan
     };
 
 
-    uint32_t blasId = 0;
+    uint32_t blasIdIndex = 0;
     for(const auto & dInstance : drawableInstances){
         auto objId = findObjId(dInstance.drawable);
         assert(objId.has_value());
@@ -60,25 +56,97 @@ rt::AccelerationStructureBuilder::buildAs(const std::vector<VulkanDrawableInstan
 
 
         auto& meshes = dInstance.drawable->meshes;
-        for(int j = 0; j < meshes.size(); j++, blasId++){
+        for(int j = 0; j < meshes.size(); j++, blasIdIndex++){
             Instance instance;
-            instance.blasId = blasId;
+            instance.blasId = blasIds[blasIdIndex];
             instance.instanceCustomId = j;
             instance.hitGroupId = 0;
             instance.mask = 0xFF;
             instance.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
             instance.xform = dInstance.xform;
-            instances.push_back(instance);
-            instanceGroup.add(&instances.back());
+            m_instances.push_back(instance);
+            instanceGroup.add(&m_instances.back());
         }
         instanceGroups.push_back(std::move(instanceGroup));
     }
-    buildTlas(instances);
 
-    return std::make_tuple( std::move(instanceGroups), std::move(instances));
+    return instanceGroups;
 }
 
-void rt::AccelerationStructureBuilder::buildBlas(const std::vector<VulkanDrawable*>& drawables, VkBuildAccelerationStructureFlagsKHR flags){
+rt::ImplicitObject rt::AccelerationStructureBuilder::add(const std::vector<rt::Sphere>& spheres, uint32_t customInstanceId, uint32_t hitGroup,
+                                           VkBuildAccelerationStructureFlagsKHR flags) {
+
+    uint32_t numSpheres = spheres.size();
+    std::vector<AABB> aabbs;
+    aabbs.reserve(numSpheres);
+    for(auto& sphere : spheres){
+        AABB aabb{};
+        aabb.max = sphere.center + glm::vec3(sphere.radius);
+        aabb.min = sphere.center - glm::vec3(sphere.radius);
+        aabbs.push_back(aabb);
+    }
+
+    return add(aabbs, customInstanceId, hitGroup, flags);
+}
+
+rt::ImplicitObject rt::AccelerationStructureBuilder::add(const std::vector<rt::Cylinder>& cylinders, uint32_t customInstanceId, uint32_t hitGroup,
+                                           VkBuildAccelerationStructureFlagsKHR flags) {
+
+    std::vector<AABB> aabbs;
+    aabbs.reserve(cylinders.size());
+    for(auto& cylinder : cylinders){
+        AABB aabb{};
+        aabb.max = cylinder.center + glm::vec3(cylinder.radius, 0.5 * cylinder.height, cylinder.radius);
+        aabb.min = cylinder.center - glm::vec3(cylinder.radius, 0.5 * cylinder.height, cylinder.radius);
+        aabbs.push_back(aabb);
+    }
+
+    return add(aabbs, customInstanceId, hitGroup, flags);
+}
+
+rt::ImplicitObject rt::AccelerationStructureBuilder::add(const std::vector<rt::Plane>& planes, uint32_t customInstanceId, float length, uint32_t hitGroup,
+                                           VkBuildAccelerationStructureFlagsKHR flags) {
+
+    auto project = [](glm::vec3 q, const Plane& p){
+        float t = glm::dot(p.normal, q) - p.d;
+        return q - t* p.normal;
+    };
+
+    std::vector<AABB> aabbs;
+    auto numPlanes = planes.size();
+    aabbs.reserve(numPlanes);
+    auto h = 0.5f * 1000;
+    for(auto& plane : planes){
+        AABB aabb{};
+        aabb.max = project(glm::vec3{ h }, plane);
+        aabb.min = project(glm::vec3{ -h }, plane);
+        aabbs.push_back(aabb);
+    }
+
+    return add(aabbs, customInstanceId, hitGroup, flags);
+}
+
+rt::ImplicitObject rt::AccelerationStructureBuilder::add(const std::vector<rt::AABB> &aabbs, uint32_t customInstanceId, uint32_t hitGroup,
+                                                     VkBuildAccelerationStructureFlagsKHR flags) {
+
+    rt::ImplicitObject object;
+    object.numObjects = aabbs.size();
+    object.hitGroupId = hitGroup;
+    object.aabbBuffer = m_device->createCpuVisibleBuffer(aabbs.data(), aabbs.size() * sizeof(AABB)
+            , VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR
+              | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT );
+
+    auto blasId = buildBlas({ &object }, flags).front();
+    rt::Instance instance{};
+    instance.blasId = blasId;
+    instance.hitGroupId = hitGroup;
+    instance.instanceCustomId = customInstanceId;
+    m_instances.push_back(instance);
+
+    return object;
+}
+
+std::vector<rt::BlasId> rt::AccelerationStructureBuilder::buildBlas(const std::vector<VulkanDrawable*>& drawables, VkBuildAccelerationStructureFlagsKHR flags){
     std::vector<BlasInput> inputs;
     inputs.reserve(drawables.size());
     for(auto drawable : drawables){
@@ -86,11 +154,25 @@ void rt::AccelerationStructureBuilder::buildBlas(const std::vector<VulkanDrawabl
             inputs.emplace_back(*m_device, *drawable, meshId);
         }
     }
-    buildBlas(inputs, flags);
+    return buildBlas(inputs, flags);
 }
 
-void rt::AccelerationStructureBuilder::buildBlas(const std::vector<BlasInput> &inputs,
+std::vector<rt::BlasId> rt::AccelerationStructureBuilder::buildBlas(const std::vector<ImplicitObject*>& implicits,
                                                  VkBuildAccelerationStructureFlagsKHR flags) {
+    std::vector<BlasInput> inputs;
+    inputs.reserve(implicits.size());
+    for(auto implicit : implicits){
+        inputs.emplace_back(*m_device, *implicit);
+    }
+
+    return buildBlas(inputs, flags);
+}
+
+std::vector<rt::BlasId> rt::AccelerationStructureBuilder::buildBlas(const std::vector<BlasInput> &inputs,
+                                                 VkBuildAccelerationStructureFlagsKHR flags) {
+    std::vector<rt::BlasId> blasIds;
+    blasIds.reserve(inputs.size());
+
     std::vector<rt::ScratchBuffer> scratchBuffers;
     scratchBuffers.reserve(inputs.size());
 
@@ -98,6 +180,8 @@ void rt::AccelerationStructureBuilder::buildBlas(const std::vector<BlasInput> &i
     asBuildGeomInfos.reserve(inputs.size());
 
     std::vector<const VkAccelerationStructureBuildRangeInfoKHR*> buildRangeInfos;
+
+    uint32_t blasIdOffset = m_blas.size();
     for(auto& input : inputs){
         VkAccelerationStructureBuildGeometryInfoKHR buildInfo{};
         buildInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
@@ -130,6 +214,7 @@ void rt::AccelerationStructureBuilder::buildBlas(const std::vector<BlasInput> &i
         buildInfo.scratchData.deviceAddress = scratchBuffer.deviceAddress;
 
         scratchBuffers.push_back(std::move(scratchBuffer));
+        blasIds.push_back(m_blas.size());
         m_blas.push_back(std::move(entry));
         buildRangeInfos.push_back(input.asBuildOffsetInfo.data());
         asBuildGeomInfos.push_back(buildInfo);
@@ -139,20 +224,24 @@ void rt::AccelerationStructureBuilder::buildBlas(const std::vector<BlasInput> &i
        vkCmdBuildAccelerationStructuresKHR(commandBuffer, COUNT(asBuildGeomInfos), asBuildGeomInfos.data(), buildRangeInfos.data());
     });
 
-    for(auto& entry : m_blas){
+    for(auto i = blasIdOffset; i < m_blas.size(); i++){
+        auto& entry = m_blas[i];
         VkAccelerationStructureDeviceAddressInfoKHR asDeviceAddressInfo{};
         asDeviceAddressInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR;
         asDeviceAddressInfo.accelerationStructure = entry.as.handle;
         entry.as.deviceAddress = vkGetAccelerationStructureDeviceAddressKHR(*m_device, &asDeviceAddressInfo);
     }
-
+    return blasIds;
 }
 
-void rt::AccelerationStructureBuilder::buildTlas(const std::vector<Instance> &instances,
-                                                 VkBuildAccelerationStructureFlagsKHR flags, bool update) {
-    uint32_t numInstances = instances.size();
+std::vector<rt::Instance> rt::AccelerationStructureBuilder::buildTlas(VkBuildAccelerationStructureFlagsKHR flags, const std::vector<Instance>& instances) {
+    bool update = !instances.empty();
+    if(update){
+        m_instances = instances;
+    }
+    uint32_t numInstances = m_instances.size();
     std::vector<VkAccelerationStructureInstanceKHR> asInstances(numInstances);
-    std::transform(begin(instances), end(instances), begin(asInstances), [&](auto& instance){
+    std::transform(begin(m_instances), end(m_instances), begin(asInstances), [&](auto& instance){
         return toVkAccStruct(instance);
     });
 
@@ -174,7 +263,7 @@ void rt::AccelerationStructureBuilder::buildTlas(const std::vector<Instance> &in
     VkAccelerationStructureBuildGeometryInfoKHR accelerationStructureBuildGeometryInfo{};
     accelerationStructureBuildGeometryInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
     accelerationStructureBuildGeometryInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
-    accelerationStructureBuildGeometryInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_BUILD_BIT_KHR;
+    accelerationStructureBuildGeometryInfo.flags = flags;
     accelerationStructureBuildGeometryInfo.geometryCount = 1;
     accelerationStructureBuildGeometryInfo.pGeometries = &geometry;
 
@@ -202,7 +291,8 @@ void rt::AccelerationStructureBuilder::buildTlas(const std::vector<Instance> &in
 
     auto scratchBuffer = createScratchBuffer(accelerationStructureBuildSizesInfo.buildScratchSize);
 
-    accelerationStructureBuildGeometryInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
+    accelerationStructureBuildGeometryInfo.mode = update ? VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR : VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
+    accelerationStructureBuildGeometryInfo.srcAccelerationStructure = m_tlas.as.handle;
     accelerationStructureBuildGeometryInfo.dstAccelerationStructure = m_tlas.as.handle;
     accelerationStructureBuildGeometryInfo.scratchData.deviceAddress = scratchBuffer.deviceAddress;
 
@@ -221,6 +311,8 @@ void rt::AccelerationStructureBuilder::buildTlas(const std::vector<Instance> &in
     accelerationStructureDeviceAddressInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR;
     accelerationStructureDeviceAddressInfo.accelerationStructure = m_tlas.as.handle;
     m_tlas.as.deviceAddress = vkGetAccelerationStructureDeviceAddressKHR(*m_device, &accelerationStructureDeviceAddressInfo);
+
+    return std::move(m_instances);
 }
 
 VkAccelerationStructureInstanceKHR rt::AccelerationStructureBuilder::toVkAccStruct(const Instance& instance){

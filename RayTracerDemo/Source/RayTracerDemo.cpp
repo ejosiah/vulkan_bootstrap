@@ -595,7 +595,7 @@ void RayTracerDemo::loadSpaceShip() {
     info.materialIdUsage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
     info.generateMaterialId = true;
 
-    std::vector<VulkanDrawableInstance> instances;
+    std::vector<rt::MeshObjectInstance> instances;
     VulkanDrawable spaceShip;
     phong::load("../../data/models/bigship1.obj", device, descriptorPool, spaceShip, info, true, 1);
  //   spaceShip = VulkanDrawable::flatten(device, descriptorPool, spaceShip.descriptorSetLayout, spaceShip, 0, 0, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
@@ -603,7 +603,7 @@ void RayTracerDemo::loadSpaceShip() {
   //  phong::load(R"(C:\Users\Josiah\OneDrive\media\models\ChineseDragon.obj)", device, descriptorPool, spaceShip, info);
    // phong::load(R"(C:\Users\Josiah\OneDrive\media\models\Lucy-statue\metallic-lucy-statue-stanford-scan.obj)", device, descriptorPool, spaceShip, info, true, 1);
    // phong::load(R"(C:\Users\Josiah\OneDrive\media\models\werewolf.obj)", device, descriptorPool, spaceShip, info);
-    VulkanDrawableInstance spaceShipInstance{};
+    rt::MeshObjectInstance spaceShipInstance{};
     spaceShipInstance.drawable =  &drawables["spaceShip"];
     spaceShipInstance.xform = glm::translate(glm::mat4{1}, {0, drawables["spaceShip"].height() * 0.5f, 0});
     spaceShipInstance.xformIT = glm::inverseTranspose(spaceShipInstance.xform);
@@ -614,7 +614,7 @@ void RayTracerDemo::loadSpaceShip() {
     drawables.insert(std::make_pair("plane", std::move(plane_l)));
 //    phong::load(R"(C:\Users\Josiah\OneDrive\media\models\Lucy-statue\metallic-lucy-statue-stanford-scan.obj)", device, descriptorPool, plane,  info, true, 1);
  //   phong::load("../../data/models/bigship1.obj", device, descriptorPool, plane,  info, true, 1);
-    VulkanDrawableInstance planeInstance{};
+    rt::MeshObjectInstance planeInstance{};
     planeInstance.drawable = &drawables["plane"];
     instances.push_back(planeInstance);
     createAccelerationStructure(instances);

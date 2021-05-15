@@ -1,6 +1,6 @@
 #pragma once
 
-#include <VulkanBaseApp.h>
+#include "VulkanBaseApp.h"
 #include "VulkanRayTraceModel.hpp"
 #include "VulkanDevice.h"
 #include "Canvas.hpp"
@@ -18,13 +18,12 @@ class VulkanRayTraceBaseApp : public VulkanBaseApp{
 public:
     explicit VulkanRayTraceBaseApp(std::string_view name, const Settings& settings = {}, std::vector<std::unique_ptr<Plugin>> plugins = {});
 
-
 protected:
     void postVulkanInit() final;
 
     void loadRayTracingProperties();
 
-    virtual void createAccelerationStructure(const std::vector<VulkanDrawableInstance>& drawableInstances);
+    void createAccelerationStructure(const std::vector<rt::MeshObjectInstance>& drawableInstances);
 
     void createShaderBindingTable(ShaderBindingTable& shaderBindingTable,  void* shaderHandleStoragePtr, VkBufferUsageFlags usageFlags, VmaMemoryUsage memoryUsage, uint32_t handleCount);
 

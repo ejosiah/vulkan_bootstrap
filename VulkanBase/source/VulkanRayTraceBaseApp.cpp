@@ -1,7 +1,5 @@
 #include "VulkanRayTraceBaseApp.hpp"
 
-#include <utility>
-
 VulkanRayTraceBaseApp::VulkanRayTraceBaseApp(std::string_view name, const Settings &settings, std::vector<std::unique_ptr<Plugin>> plugins)
     : VulkanBaseApp(name, settings, std::move(plugins))
 {
@@ -50,12 +48,11 @@ void VulkanRayTraceBaseApp::loadRayTracingProperties() {
     vkGetPhysicalDeviceProperties2(device, &properties);
 }
 
-void VulkanRayTraceBaseApp::createAccelerationStructure(const std::vector<VulkanDrawableInstance>& drawableInstances) {
+void VulkanRayTraceBaseApp::createAccelerationStructure(const std::vector<rt::MeshObjectInstance>& drawableInstances) {
     if(drawableInstances.empty()) return;
 
-    auto res = rtBuilder.buildAs(drawableInstances);
-    sceneObjects = std::move(std::get<0>(res));
-    asInstances = std::move(std::get<1>(res));
+    sceneObjects = rtBuilder.add(drawableInstances);
+    asInstances = rtBuilder.buildTlas();
     VkDeviceSize size = sizeof(rt::ObjectInstance);
     auto stagingBuffer = device.createBuffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, size * sceneObjects.size());
 

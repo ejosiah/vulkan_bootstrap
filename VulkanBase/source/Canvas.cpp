@@ -61,7 +61,7 @@ void Canvas::createDescriptorPool() {
     poolSizes[0].descriptorCount = 1;
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 
-    descriptorPool = app->device.createDescriptorPool(1, poolSizes);
+    descriptorPool = app->device.createDescriptorPool(1, poolSizes, VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT);
 }
 
 void Canvas::createDescriptorSet() {

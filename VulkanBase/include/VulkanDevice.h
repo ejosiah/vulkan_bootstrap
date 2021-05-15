@@ -31,6 +31,8 @@ struct VulkanDevice{
 
     std::set<uint32_t> uniqueQueueIndices;
 
+    DISABLE_COPY(VulkanDevice)
+
     VulkanDevice() = default;
 
     explicit VulkanDevice(VkInstance instance, VkPhysicalDevice pDevice, const Settings& settings)
@@ -40,13 +42,9 @@ struct VulkanDevice{
     {
     }
 
-    VulkanDevice(const VulkanDevice&) = delete;
-
     VulkanDevice(VulkanDevice&& source) noexcept{
         operator=(static_cast<VulkanDevice&&>(source));
     }
-
-    VulkanDevice& operator=(const VulkanDevice&) = delete;
 
     VulkanDevice& operator=(VulkanDevice&& source) noexcept{
         physicalDevice = source.physicalDevice;
@@ -319,7 +317,7 @@ struct VulkanDevice{
         });
     }
 
-    inline VulkanBuffer createCpuVisibleBuffer(void* data, VkDeviceSize size, VkBufferUsageFlags usage, std::set<uint32_t> queueIndices = {}) const {
+    inline VulkanBuffer createCpuVisibleBuffer(const void* data, VkDeviceSize size, VkBufferUsageFlags usage, std::set<uint32_t> queueIndices = {}) const {
 
         VulkanBuffer buffer = createBuffer(usage, VMA_MEMORY_USAGE_CPU_TO_GPU, size, "", queueIndices);
         buffer.copy(data, size);
@@ -376,7 +374,7 @@ struct VulkanDevice{
         return VulkanPipeline { logicalDevice, pipeline};
     }
 
-    inline VulkanPipeline createComputePipeline(const VkComputePipelineCreateInfo& createInfo, VkPipelineCache pipelineCache = VK_NULL_HANDLE){
+    inline VulkanPipeline createComputePipeline(const VkComputePipelineCreateInfo& createInfo, VkPipelineCache pipelineCache = VK_NULL_HANDLE) const {
         assert(logicalDevice);
         VkPipeline pipeline;
         ASSERT(vkCreateComputePipelines(logicalDevice, pipelineCache, 1, &createInfo, nullptr, &pipeline));
@@ -395,10 +393,10 @@ struct VulkanDevice{
         return vkPipelines;
     }
 
-    inline VulkanPipeline createRayTracingPipeline(const VkRayTracingPipelineCreateInfoKHR& createInfo){
+    inline VulkanPipeline createRayTracingPipeline(const VkRayTracingPipelineCreateInfoKHR& createInfo, VkPipelineCache pipelineCache = VK_NULL_HANDLE){
         assert(logicalDevice);
         VkPipeline pipeline = VK_NULL_HANDLE;
-        vkCreateRayTracingPipelinesKHR(logicalDevice, VK_NULL_HANDLE, VK_NULL_HANDLE, 1, &createInfo, nullptr, &pipeline);
+        vkCreateRayTracingPipelinesKHR(logicalDevice, VK_NULL_HANDLE, pipelineCache, 1, &createInfo, nullptr, &pipeline);
         return VulkanPipeline{logicalDevice, pipeline};
     }
 

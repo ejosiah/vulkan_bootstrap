@@ -26,6 +26,16 @@ namespace initializers{
         return createInfos;
     }
 
+    inline VkPipelineShaderStageCreateInfo shaderStage(const ShaderInfo& shaderInfo){
+        VkPipelineShaderStageCreateInfo createInfo{};
+        createInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        createInfo.stage = shaderInfo.stage;
+        createInfo.module = shaderInfo.module;
+        createInfo.pName = shaderInfo.entry;
+
+        return createInfo;
+    }
+
     inline VkPipelineShaderStageCreateInfo computeShaderStage(const ShaderInfo& shaderInfo){
         VkPipelineShaderStageCreateInfo createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;

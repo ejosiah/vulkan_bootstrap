@@ -1,4 +1,6 @@
 #version 460 core
+#extension GL_GOOGLE_include_directive : enable
+#include "triangle_test.glsl"
 
 #define PI 3.1415926535897932384626433832795
 #define TWO_PI 6.283185307179586476925286766559
@@ -187,6 +189,23 @@ void collisionTest(vec3 prev_pos, inout vec3 pos){
     }
 }
 
+void collisionTest2(vec3 prev_pos, inout vec3 pos){
+    vec3 center = (prev_pos + pos) * 0.5;
+    vec3 cp = pos - center;
+    float rSqared = dot(cp, cp);
+    vec3 dir = pos - prev_pos;
+    for(int i = 0; i < numTriangles; i++){
+        vec3 a, b, c;
+        unpackTriangle(i, a, b, c);
+        vec3 closestPoint = closestPointOnTriangle(a, b, c, center);
+        vec3 cc = center - closestPoint;
+        float squaredDist = dot(cc, cc);
+        if(squaredDist <= rSqared){
+            pos = closestPoint - dir * 0.02;
+        }
+    }
+}
+
 vec3 calculateNormal(vec3 position){
     ivec2 coord;
     int nid;
@@ -250,7 +269,7 @@ void main(){
     vec3 p = 2 * pos - prev_pos + a * dt * dt;
 
 //    sphereCollisionTest(p);
-//    collisionTest(pos, p);
+    collisionTest(pos, p);
 
     float d = dot(p, vec3(0, 1, 0));
     if(d < 0.01){

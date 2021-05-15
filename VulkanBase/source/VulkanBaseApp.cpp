@@ -1,7 +1,10 @@
 //
 // Created by Josiah on 1/17/2021.
 //
-
+#ifndef VMA_IMPLEMENTATION
+#define VMA_IMPLEMENTATION
+#include "vk_mem_alloc.h"
+#endif
 #include <set>
 #include <chrono>
 #include <fstream>

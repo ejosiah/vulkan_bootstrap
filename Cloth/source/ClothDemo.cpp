@@ -778,27 +778,27 @@ VkCommandBuffer ClothDemo::dispatchCompute() {
             vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayouts.compute, 0, COUNT(descriptors), descriptors.data(), 0, nullptr);
             vkCmdDispatch(commandBuffer, cloth.gridSize.x/10, cloth.gridSize.y/10, 1);
 
-            computeToRayTraceBarrier(commandBuffer);
+         //   computeToRayTraceBarrier(commandBuffer);
 
-            VkStridedDeviceAddressRegionKHR nullShaderSbtEntry{};
-            rt_descriptors[0] = raytrace.descriptorSet;
-            rt_descriptors[1] = positionDescriptorSets[input_index];
-            rt_descriptors[2] = positionDescriptorSets[output_index];
-            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, raytrace.layout, 0, COUNT(rt_descriptors), rt_descriptors.data(), 0, nullptr);
-            vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, raytrace.pipeline);
-            vkCmdTraceRaysKHR(
-                    commandBuffer,
-                    shaderBindingTables.rayGen,
-                    shaderBindingTables.miss,
-                    shaderBindingTables.hit,
-                    &nullShaderSbtEntry,
-                    cloth.gridSize.x * 10,
-                    cloth.gridSize.y * 10,
-                    1);
+//            VkStridedDeviceAddressRegionKHR nullShaderSbtEntry{};
+//            rt_descriptors[0] = raytrace.descriptorSet;
+//            rt_descriptors[1] = positionDescriptorSets[input_index];
+//            rt_descriptors[2] = positionDescriptorSets[output_index];
+//            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, raytrace.layout, 0, COUNT(rt_descriptors), rt_descriptors.data(), 0, nullptr);
+//            vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, raytrace.pipeline);
+//            vkCmdTraceRaysKHR(
+//                    commandBuffer,
+//                    shaderBindingTables.rayGen,
+//                    shaderBindingTables.miss,
+//                    shaderBindingTables.hit,
+//                    &nullShaderSbtEntry,
+//                    cloth.gridSize.x * 10,
+//                    cloth.gridSize.y * 10,
+//                    1);
 
             if(i - 1 < numIterations){
-                rayTraceToComputeBarrier(commandBuffer);
-              //  computeToComputeBarrier(commandBuffer);
+              //  rayTraceToComputeBarrier(commandBuffer);
+                computeToComputeBarrier(commandBuffer);
             }
             std::swap(input_index, output_index);
 
