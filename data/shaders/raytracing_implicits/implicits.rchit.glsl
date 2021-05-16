@@ -58,5 +58,5 @@ void main(){
         specular = max(0, pow(dot(N, H), shine)) * sColor;
     }
 
-    payload.hitValue = attenumation * (diffuse + specular);
+    payload.hitValue = payload.bgColor * attenumation * (diffuse + specular);
 }

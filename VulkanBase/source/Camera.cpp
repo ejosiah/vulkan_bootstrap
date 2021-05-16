@@ -213,3 +213,11 @@ bool CameraController::isInObitMode() const {
 const glm::quat &CameraController::getOrientation() const {
     return cameras[currentMode]->getOrientation();
 }
+
+void CameraController::newFrame() {
+    cameras[currentMode]->newFrame();
+}
+
+bool CameraController::moved() const {
+    return cameras[currentMode]->moved();
+}

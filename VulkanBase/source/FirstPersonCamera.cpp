@@ -15,6 +15,9 @@ void SpectatorCameraController::update(float elapsedTime) {
 
 
 void SpectatorCameraController::rotate(float headingDegrees, float pitchDegrees, float rollDegrees) {
+    if(headingDegrees == 0 && pitchDegrees == 0 && rollDegrees == 0){
+        return;
+    }
     // Implements the rotation logic for the first person style and
     // spectator style Camera modes. Roll is ignored.
     accumPitchDegrees += pitchDegrees;
@@ -57,6 +60,7 @@ FirstPersonCameraController::FirstPersonCameraController(const VulkanDevice& dev
 {}
 
 void FirstPersonCameraController::move(float dx, float dy, float dz) {
+    if(dx == 0 && dy == 0 && dz == 0) return;
     glm::vec3 eyes = this->eyes;
 
     // Calculate the forwards direction. Can't just use the Camera's local

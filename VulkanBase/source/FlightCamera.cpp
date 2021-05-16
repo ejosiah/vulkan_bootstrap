@@ -23,6 +23,10 @@ void FlightCameraController::update(float elapsedTime) {
 }
 
 void FlightCameraController::rotate(float headingDegrees, float pitchDegrees, float rollDegrees) {
+    if(headingDegrees == 0 && pitchDegrees == 0 && rollDegrees == 0){
+        return;
+    }
+
     accumPitchDegrees += pitchDegrees;
 
     if (accumPitchDegrees > 360.0f)

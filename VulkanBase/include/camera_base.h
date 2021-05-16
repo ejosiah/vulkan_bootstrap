@@ -107,6 +107,10 @@ public:
 
     virtual void updateVelocity(const glm::vec3 &direction, float elapsedTimeSec);
 
+    void newFrame() override;
+
+    bool moved() const override;
+
 
     float fov;
     float aspectRatio;
@@ -151,4 +155,5 @@ public:
     const VulkanDevice& device;
     uint32_t swapChainImageCount;
     const uint32_t& currentImageIndex;
+    bool _moved;
 };

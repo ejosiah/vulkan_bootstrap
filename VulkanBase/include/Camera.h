@@ -85,6 +85,10 @@ public:
 
     const glm::quat &getOrientation() const final;
 
+    void newFrame() override;
+
+    bool moved() const override;
+
 private:
     CameraMode currentMode;
     mutable std::map<CameraMode, std::unique_ptr<BaseCameraController>> cameras;

@@ -70,6 +70,10 @@ void OrbitingCameraController::zoom(float zoom, float minZoom, float maxZoom) {
 }
 
 void OrbitingCameraController::rotate(float headingDegrees, float pitchDegrees, float rollDegrees) {
+    if(headingDegrees == 0 && pitchDegrees == 0 && rollDegrees == 0){
+        return;
+    }
+
     // Implements the rotation logic for the orbit style Camera mode.
     // Roll is ignored for target Y axis orbiting.
     //

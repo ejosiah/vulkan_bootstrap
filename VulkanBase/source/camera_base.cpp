@@ -149,7 +149,7 @@ void BaseCameraController::perspective(float fov, float aspect, float znear, flo
     aspectRatio = aspect;
     this->znear = znear;
     this->zfar = zfar;
-
+    _moved = true;
 }
 
 void BaseCameraController::rotateSmoothly(float headingDegrees, float pitchDegrees, float rollDegrees) {
@@ -170,6 +170,8 @@ void BaseCameraController::zoom(float zoom, float minZoom, float maxZoom) {
 }
 
 void BaseCameraController::move(float dx, float dy, float dz) {
+    if(dx == 0 && dy == 0 && dz == 0) return;   // TODO use close enough
+
     glm::vec3 eyes = this->eyes;
     glm::vec3 forwards = viewDir;
 
@@ -260,6 +262,7 @@ void BaseCameraController::updateViewMatrix() {
     view[3][0] = -dot(xAxis, eyes);
     view[3][1] = -dot(yAxis, eyes);
     view[3][2] =  -dot(zAxis, eyes);
+    _moved = true;
 }
 
 void BaseCameraController::updateVelocity(const glm::vec3 &direction, float elapsedTimeSec) {
@@ -391,5 +394,13 @@ void BaseCameraController::setTargetYAxis(const glm::vec3& axis) {
 
 const glm::vec3 &BaseCameraController::getYAxis() {
     return yAxis;
+}
+
+void BaseCameraController::newFrame() {
+    _moved = false;
+}
+
+bool BaseCameraController::moved() const {
+    return _moved;
 }
 

@@ -65,4 +65,9 @@ public:
 
     [[nodiscard]]
     virtual const Camera& cam() const = 0;
+
+    virtual void newFrame() = 0;
+
+    [[nodiscard]]
+    virtual bool moved() const = 0;
 };
