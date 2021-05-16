@@ -1,7 +1,7 @@
 #include "RayTracingImplicits.hpp"
 
 RayTracingImplicits::RayTracingImplicits(const Settings& settings)
-        : VulkanRayTraceBaseApp("Ray tracing in a weekend", settings)
+        : VulkanRayTraceBaseApp("Implicit Objects", settings)
 {
 
 }
@@ -34,12 +34,12 @@ void RayTracingImplicits::createPlanes() {
 }
 
 void RayTracingImplicits::createSpheres() {
-    int numSpheres = 100;
+    int maxSpheres = 100;
     auto randomCenter = []{
         static std::random_device rnd{};
         static std::default_random_engine engine{rnd()};
         static std::uniform_real_distribution<float> dist{-3.0f, 3.0f};
-
+//        static std::normal_distribution<float> dist{-0.3f, 3.0f};
         return glm::vec3(dist(engine), dist(engine), dist(engine));
     };
     auto randomRadius = []{
@@ -50,13 +50,23 @@ void RayTracingImplicits::createSpheres() {
         return dist(engine);
     };
 
-    spheres.spheres.reserve(numSpheres);
-    for(auto i = 0; i < numSpheres; i++){
+    spheres.spheres.reserve(maxSpheres);
+    int numSpheres = 0;
+
+    while(numSpheres < maxSpheres){
         rt::Sphere sphere{};
         sphere.center = randomCenter();
         sphere.radius = randomRadius();
+        auto collision = std::any_of(begin(spheres.spheres), end(spheres.spheres), [&](auto& s){
+            auto d = s.center - sphere.center;
+            auto dd = glm::dot(d, d);
+            return dd - pow(s.radius + sphere.radius, 2) <= 0;
+        });
+        if(collision) continue;
         spheres.spheres.push_back(sphere);
+        numSpheres = spheres.spheres.size();
     }
+
     spheres.buffer = device.createDeviceLocalBuffer(spheres.spheres.data(),
                                                     spheres.spheres.size() * sizeof(rt::Sphere),
                                                     VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
@@ -228,7 +238,7 @@ void RayTracingImplicits::createDescriptorSetLayout() {
     bindings[0].binding = 0;
     bindings[0].descriptorCount = 1;
     bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
-    bindings[0].stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+    bindings[0].stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
 
     bindings[1].binding = 1;
     bindings[1].descriptorCount = 1;
@@ -325,11 +335,17 @@ void RayTracingImplicits::createPipeline() {
     shaderGroups.push_back(shaderGroupInfo);
     stages.push_back(initializers::shaderStage({ rayGenShader, VK_SHADER_STAGE_RAYGEN_BIT_KHR}));
 
-    // miss group;
+    // miss group 0;
     auto missShader = ShaderModule{ "../../data/shaders/raytracing_implicits/implicits.rmiss.spv", device};
     shaderGroupInfo.generalShader = stages.size();
     shaderGroups.push_back(shaderGroupInfo);
     stages.push_back(initializers::shaderStage({ missShader, VK_SHADER_STAGE_MISS_BIT_KHR}));
+
+    // miss group 1
+    auto shadowShader = ShaderModule{ "../../data/shaders/raytracing_implicits/shadow.rmiss.spv", device};
+    shaderGroupInfo.generalShader = stages.size();
+    shaderGroups.push_back(shaderGroupInfo);
+    stages.push_back(initializers::shaderStage({ shadowShader, VK_SHADER_STAGE_MISS_BIT_KHR}));
 
     // hit group 0;
     auto hitShader = ShaderModule{ "../../data/shaders/raytracing_implicits/implicits.rchit.spv", device};
@@ -371,9 +387,9 @@ void RayTracingImplicits::createBindingTables() {
     createShaderBindingTable(bindingTables.rayGen, ptr, usageFlags, VMA_MEMORY_USAGE_GPU_ONLY, 1);
 
     ptr = sbtGroupHandles.data() + handleSizeAligned;
-    createShaderBindingTable(bindingTables.miss, ptr, usageFlags, VMA_MEMORY_USAGE_GPU_ONLY, 1);
+    createShaderBindingTable(bindingTables.miss, ptr, usageFlags, VMA_MEMORY_USAGE_GPU_ONLY, 2);
 
-    ptr = sbtGroupHandles.data() + handleSizeAligned * 2;
+    ptr = sbtGroupHandles.data() + handleSizeAligned * 3;
     createShaderBindingTable(bindingTables.hit, ptr, usageFlags, VMA_MEMORY_USAGE_GPU_ONLY, 1);
 }
 

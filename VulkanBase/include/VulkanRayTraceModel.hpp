@@ -41,9 +41,9 @@ namespace rt{
     };
 
     struct Cylinder{
-        alignas(16) glm::vec3 center{0};
+        alignas(16) glm::vec3 bottom{0};
+        alignas(16) glm::vec3 top{0};
         float radius;
-        float height;
     };
 
     enum class ImplicitType : uint32_t {

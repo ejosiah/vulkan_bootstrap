@@ -96,8 +96,10 @@ rt::ImplicitObject rt::AccelerationStructureBuilder::add(const std::vector<rt::C
     aabbs.reserve(cylinders.size());
     for(auto& cylinder : cylinders){
         AABB aabb{};
-        aabb.max = cylinder.center + glm::vec3(cylinder.radius, 0.5 * cylinder.height, cylinder.radius);
-        aabb.min = cylinder.center - glm::vec3(cylinder.radius, 0.5 * cylinder.height, cylinder.radius);
+        auto center = (cylinder.top + cylinder.bottom) * 0.5f;
+        auto height = glm::distance(cylinder.top, cylinder.bottom);
+        aabb.max = center + glm::vec3(cylinder.radius, 0.5 * height, cylinder.radius);
+        aabb.min = center - glm::vec3(cylinder.radius, 0.5 * height, cylinder.radius);
         aabbs.push_back(aabb);
     }
 
