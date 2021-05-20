@@ -26,6 +26,12 @@ protected:
 
     void checkAppInputs() override;
 
+    void createDescriptorPool();
+
+    void createDescriptorSetLayout();
+
+    void createDescriptorSet();
+
     void onSwapChainDispose() override;
 
     void onSwapChainRecreation() override;
@@ -40,6 +46,9 @@ protected:
 
 private:
     VulkanCommandPool commandPool;
+    VulkanDescriptorPool descriptorPool;
+    VulkanDescriptorSetLayout setLayout;
+    VkDescriptorSet descriptorSet;
     std::vector<VkCommandBuffer> commandBuffers;
     std::vector<Object> objects;
     int currentPrimitiveIndex = 0;
@@ -47,5 +56,9 @@ private:
     Pipelines pipelines;
     VulkanPipelineLayout layout;
     std::unique_ptr<OrbitingCameraController> cameraController;
+    struct {
+        int useTexture = 0;
+        float shine = 50;
+    } lightParams;
 };
 

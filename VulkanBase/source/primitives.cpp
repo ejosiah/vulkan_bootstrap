@@ -47,7 +47,7 @@ Vertices primitives::cube(const glm::vec4& color){
     return mesh;
 }
 
-Vertices primitives::sphere(int rows, int columns, float radius, glm::mat4 xform, const glm::vec4 &color) {
+Vertices primitives::sphere(int rows, int columns, float radius, glm::mat4 xform, const glm::vec4 &color, VkPrimitiveTopology topology) {
     const auto p = columns;
     const auto q = rows;
     const auto r = radius;
@@ -68,10 +68,10 @@ Vertices primitives::sphere(int rows, int columns, float radius, glm::mat4 xform
        return std::make_tuple(glm::vec3(x, y, z), glm::vec3(nx, ny, nz));
     };
 
-    return surface(p, q, f, color, xform);
+    return surface(p, q, f, color, xform, topology);
 }
 
-Vertices primitives::hemisphere(int rows, int columns, float radius, const glm::vec4 &color) {
+Vertices primitives::hemisphere(int rows, int columns, float radius, const glm::vec4 &color, VkPrimitiveTopology topology) {
     auto p = columns;
     auto q = rows;
 
@@ -91,10 +91,10 @@ Vertices primitives::hemisphere(int rows, int columns, float radius, const glm::
         return std::make_tuple(glm::vec3(x, y, z), glm::vec3(nx, ny, nz));
     };
 
-    return surface(p, q, f, color);
+    return surface(p, q, f, color, glm::mat4{1}, topology);
 }
 
-Vertices primitives::cone(int rows, int columns, float radius, float height, const glm::vec4 &color) {
+Vertices primitives::cone(int rows, int columns, float radius, float height, const glm::vec4 &color, VkPrimitiveTopology topology) {
     const auto p = columns;
     const auto q = rows;
     const auto h = height;
@@ -115,10 +115,10 @@ Vertices primitives::cone(int rows, int columns, float radius, float height, con
         return std::make_tuple(glm::vec3(x, y, z), glm::vec3(nx, ny, nz));
     };
 
-    return surface(p, q, f, color);
+    return surface(p, q, f, color, glm::mat4{1}, topology);
 }
 
-Vertices primitives::cylinder(int rows, int columns, float radius, float height, const glm::vec4 &color) {
+Vertices primitives::cylinder(int rows, int columns, float radius, float height, const glm::vec4 &color, VkPrimitiveTopology topology) {
     const auto p = columns;
     const auto q = rows;
     const auto h = height;
@@ -138,10 +138,10 @@ Vertices primitives::cylinder(int rows, int columns, float radius, float height,
         return std::make_tuple(glm::vec3(x, y, z), glm::vec3(nx, ny, nz));
     };
 
-    return surface(p, q, f, color);
+    return surface(p, q, f, color, glm::mat4{1}, topology);
 }
 
-Vertices primitives::torus(int rows, int columns, float innerRadius, float outerRadius, const glm::vec4 &color) {
+Vertices primitives::torus(int rows, int columns, float innerRadius, float outerRadius, const glm::vec4 &color, VkPrimitiveTopology topology) {
     auto p = columns;
     auto q = rows;
     auto R = innerRadius;
@@ -164,10 +164,10 @@ Vertices primitives::torus(int rows, int columns, float innerRadius, float outer
     };
 
 
-    return surface(p, q, f, color);
+    return surface(p, q, f, color, glm::mat4{1}, topology);
 }
 
-Vertices primitives::plane(int rows, int columns, float width, float height, const glm::mat4& xform, const glm::vec4 &color) {
+Vertices primitives::plane(int rows, int columns, float width, float height, const glm::mat4& xform, const glm::vec4 &color, VkPrimitiveTopology topology) {
 
     const auto p = columns;
     const auto q = rows;
@@ -191,15 +191,15 @@ Vertices primitives::plane(int rows, int columns, float width, float height, con
         return std::make_tuple(glm::vec3(x, y, z), glm::vec3(nx, ny, nz));
     };
 
-    return surface(p, q, f, color, xform);
+    return surface(p, q, f, color, xform, topology);
 }
 
 
 
 template<typename SurfaceFunction>
-Vertices primitives::surface(int p, int q, SurfaceFunction &&f, const glm::vec4 &color, const glm::mat4& xform) {
+Vertices primitives::surface(int p, int q, SurfaceFunction &&f, const glm::vec4 &color, const glm::mat4& xform, VkPrimitiveTopology topology) {
     Vertices vertices;
-    vertices.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
+    vertices.topology = topology;
     auto nXform = glm::inverseTranspose(glm::mat3(xform));
     for (int j = 0; j <= q; j++) {
         for (int i = 0; i <= p; i++) {
@@ -214,12 +214,27 @@ Vertices primitives::surface(int p, int q, SurfaceFunction &&f, const glm::vec4 
         }
     }
 
-    for (int j = 0; j < q; j++) {
-        for (int i = 0; i <= p; i++) {
-            vertices.indices.push_back((j + 1)*(p + 1) + i);
-            vertices.indices.push_back(j*(p + 1) + i);
+    if(topology == VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST){
+        for (int j = 0; j < q; j++) {
+            for (int i = 0; i < p; i++) {
+                vertices.indices.push_back((j + 1) * (p + 1) + i);
+                vertices.indices.push_back(j * (p + 1) + i);
+                vertices.indices.push_back((j + 1) * (p + 1) + i + 1);
+
+                vertices.indices.push_back((j + 1) * (p + 1) + i + 1);
+                vertices.indices.push_back(j * (p + 1) + i);
+                vertices.indices.push_back(j * (p + 1) + i + 1);
+
+            }
         }
-        vertices.indices.push_back(RESTART_PRIMITIVE);
+    }else {
+        for (int j = 0; j < q; j++) {
+            for (int i = 0; i <= p; i++) {
+                vertices.indices.push_back((j + 1) * (p + 1) + i);
+                vertices.indices.push_back(j * (p + 1) + i);
+            }
+            vertices.indices.push_back(RESTART_PRIMITIVE);
+        }
     }
 
     return vertices;

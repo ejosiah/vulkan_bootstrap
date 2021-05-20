@@ -609,6 +609,19 @@ void RayTracerDemo::loadSpaceShip() {
     spaceShipInstance.xformIT = glm::inverseTranspose(spaceShipInstance.xform);
     instances.push_back(spaceShipInstance);
 
+    spaceShipInstance.xform = glm::translate(glm::mat4(1), {-2, drawables["spaceShip"].height() * 0.5f, 0});
+    instances.push_back(spaceShipInstance);
+
+    spaceShipInstance.xform = glm::translate(glm::mat4(1), {2, drawables["spaceShip"].height() * 0.5f, 0});
+    instances.push_back(spaceShipInstance);
+
+    spaceShipInstance.xform = glm::translate(glm::mat4(1), {0, drawables["spaceShip"].height() * 0.5f, 2});
+    instances.push_back(spaceShipInstance);
+
+    spaceShipInstance.xform = glm::translate(glm::mat4(1), {0, drawables["spaceShip"].height() * 0.5f, -2});
+    instances.push_back(spaceShipInstance);
+
+
     VulkanDrawable plane_l;
     phong::load("../../data/models/plane.gltf", device, descriptorPool, plane_l,  info);
     drawables.insert(std::make_pair("plane", std::move(plane_l)));

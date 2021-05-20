@@ -9,8 +9,11 @@ void PrimitivesApp::initApp() {
     nextPrimitive = &mapToMouse(static_cast<int>(MouseEvent::Button::LEFT), "Next primitive", Action::detectInitialPressOnly());
     commandPool = device.createCommandPool(*device.queueFamilyIndex.graphics, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
     commandBuffers = commandPool.allocate(swapChainImageCount);
+    createDescriptorPool();
     createPrimitives();
     initCamera();
+    createDescriptorSetLayout();
+    createDescriptorSet();
     createPipeline();
 }
 
@@ -51,7 +54,9 @@ VkCommandBuffer *PrimitivesApp::buildCommandBuffers(uint32_t imageIndex, uint32_
     }else{
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.trianglePipeline);
     }
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, 1, &descriptorSet, 0, VK_NULL_HANDLE);
     cameraController->push(commandBuffer, layout);
+    vkCmdPushConstants(commandBuffer, layout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(Camera), sizeof(lightParams), &lightParams);
     VkDeviceSize offset = 0;
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, object.vertices, &offset);
     vkCmdBindIndexBuffer(commandBuffer, object.indices, offset, VK_INDEX_TYPE_UINT32);
@@ -84,7 +89,7 @@ struct Mesh{
 void PrimitivesApp::createPrimitives() {
     glm::vec4 v{0};
     auto cube = primitives::cube();
-    auto sphere = primitives::sphere(50, 50, 1.0);
+    auto sphere = primitives::sphere(50, 50, 1.0, glm::mat4{1}, randomColor(), VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
     auto hemisphere = primitives::hemisphere(50, 50, 0.5);
     auto cone = primitives::cone(50, 50, 0.5, 1.0);
     auto cylinder = primitives::cylinder(50, 50, 0.5, 1.0);
@@ -193,7 +198,7 @@ void PrimitivesApp::createPipeline() {
     VkPipelineDynamicStateCreateInfo dynamicState = initializers::dynamicState();
 
 
-    layout = device.createPipelineLayout({ }, { Camera::pushConstant() });
+    layout = device.createPipelineLayout({ setLayout }, { Camera::pushConstant(), {VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(Camera), sizeof(lightParams)} });
 
     VkGraphicsPipelineCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
@@ -236,6 +241,28 @@ void PrimitivesApp::initCamera() {
     settings.modelHeight = 0;
     settings.aspectRatio = static_cast<float>(swapChain.extent.width)/static_cast<float>(swapChain.extent.height);
     cameraController = std::make_unique<OrbitingCameraController>(device, swapChain.imageCount(), currentImageIndex, dynamic_cast<InputManager&>(*this), settings);
+}
+
+void PrimitivesApp::createDescriptorPool() {
+    std::vector<VkDescriptorPoolSize> poolSizes(1);
+    poolSizes[0].descriptorCount = 1;
+    poolSizes[0].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+
+    descriptorPool = device.createDescriptorPool(1, poolSizes, VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT);
+}
+
+void PrimitivesApp::createDescriptorSetLayout() {
+    std::vector<VkDescriptorSetLayoutBinding> binding(1);
+    binding[0].binding = 0;
+    binding[0].descriptorCount = 1;
+    binding[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    binding[0].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+    setLayout = device.createDescriptorSetLayout(binding);
+}
+
+void PrimitivesApp::createDescriptorSet() {
+    descriptorSet = descriptorPool.allocate({setLayout}).front();
 }
 
 

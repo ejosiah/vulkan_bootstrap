@@ -20,6 +20,9 @@ namespace primitives{
      */
     Vertices cube(const glm::vec4& color = randomColor());
 
+
+    Vertices teapot(glm::mat4 xform = glm::mat4{1}, glm::mat4 lidXform = glm::mat4{1}, const glm::vec4& color = randomColor());
+
     /**
      * Generates Vertices for a sphere
      * @param rows number of rows on the sphere
@@ -28,7 +31,7 @@ namespace primitives{
      * @param color color of sphere
      * @return vertices defining a sphere
      */
-    Vertices sphere(int rows, int columns, float radius = 1.0f, glm::mat4 xform = glm::mat4{1}, const glm::vec4& color = randomColor());
+    Vertices sphere(int rows, int columns, float radius = 1.0f, glm::mat4 xform = glm::mat4{1}, const glm::vec4& color = randomColor(), VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP);
 
     /**
      *
@@ -39,7 +42,7 @@ namespace primitives{
      * @param color color of hemisphere
      * @return vertices defining a hemisphere
      */
-    Vertices hemisphere(int rows, int columns, float radius = 1.0f, const glm::vec4& color = randomColor());
+    Vertices hemisphere(int rows, int columns, float radius = 1.0f, const glm::vec4& color = randomColor(), VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP);
 
     /**
      * Generates Vertices for a cone
@@ -50,7 +53,7 @@ namespace primitives{
      * @param color color of the cone
      * @return vertices defining a cone
      */
-    Vertices cone(int rows, int columns, float radius = 1.0f, float height = 1.0f, const glm::vec4& color = randomColor());
+    Vertices cone(int rows, int columns, float radius = 1.0f, float height = 1.0f, const glm::vec4& color = randomColor(), VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP);
 
     /**
      * @brief Generates Vertices for a cylinder
@@ -61,9 +64,9 @@ namespace primitives{
      * @param color color of the cylinder
      * @return vertices defining a cylinder
      */
-    Vertices cylinder(int rows, int columns, float radius = 1.0f, float height = 1.0f,  const glm::vec4& color = randomColor());
+    Vertices cylinder(int rows, int columns, float radius = 1.0f, float height = 1.0f,  const glm::vec4& color = randomColor(), VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP);
 
-    Vertices plane(int rows, int columns, float width, float height, const glm::mat4& xform = glm::mat4(1), const glm::vec4& color = randomColor());
+    Vertices plane(int rows, int columns, float width, float height, const glm::mat4& xform = glm::mat4(1), const glm::vec4& color = randomColor(), VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP);
 
     /**
      * @brief Generates Vertices for a torus
@@ -74,7 +77,7 @@ namespace primitives{
      * @param color color of the torus
      * @return vertices defining a torus
      */
-    Vertices torus(int rows, int columns, float innerRadius = 0.5f, float outerRadius = 1.0f, const glm::vec4& color = randomColor());
+    Vertices torus(int rows, int columns, float innerRadius = 0.5f, float outerRadius = 1.0f, const glm::vec4& color = randomColor(), VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP);
 
     /**
      * Generates a parametric surface
@@ -86,7 +89,12 @@ namespace primitives{
      * @return  returns a surface defined by the parametric function f
      */
     template<typename SurfaceFunction>
-    Vertices surface(int p, int q, SurfaceFunction&& f, const glm::vec4& color, const glm::mat4& xform = glm::mat4(1));
+    Vertices surface(int p,
+                     int q,
+                     SurfaceFunction&& f,
+                     const glm::vec4& color,
+                     const glm::mat4& xform = glm::mat4(1),
+                     VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP);
 
 
     Vertices triangleStripToTriangleList(const Vertices& vertices);

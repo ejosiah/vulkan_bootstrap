@@ -5,6 +5,8 @@
 #include "VulkanCommandBuffer.h"
 #include "VulkanRAII.h"
 
+static const VkImageSubresourceRange DEFAULT_SUB_RANGE{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+
 struct VulkanImage : public Copyable{
     
     DISABLE_COPY(VulkanImage)
@@ -66,7 +68,7 @@ struct VulkanImage : public Copyable{
         return allocation;
     }
 
-    void transitionLayout(const VulkanCommandPool& pool, VkQueue queue, VkImageLayout newLayout) {
+    void transitionLayout(const VulkanCommandPool& pool, VkQueue queue, VkImageLayout newLayout, const VkImageSubresourceRange& subresourceRange = DEFAULT_SUB_RANGE) {
         pool.oneTimeCommand([&](VkCommandBuffer commandBuffer) {
 
             VkImageMemoryBarrier barrier{};
@@ -76,11 +78,7 @@ struct VulkanImage : public Copyable{
             barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
             barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
             barrier.image = image;
-            barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-            barrier.subresourceRange.baseMipLevel = 0;
-            barrier.subresourceRange.levelCount = 1;
-            barrier.subresourceRange.baseArrayLayer = 0;
-            barrier.subresourceRange.layerCount = 1;
+            barrier.subresourceRange = subresourceRange;
 
             if(newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL){
                 barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;

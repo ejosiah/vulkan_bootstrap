@@ -117,19 +117,11 @@ void textures::create(const VulkanDevice &device, Texture &texture, VkImageType 
     }
 }
 
+
 void textures::checkerboard(const VulkanDevice &device, Texture &texture, const glm::vec3 &colorA, const glm::vec3 &colorB) {
     auto data = new unsigned char[256 * 256 * 4];
-    for(int i = 0; i < 256; i++){
-        for(int j = 0; j < 256; j++){
-            auto color = (((i / 8) % 2) && ((j / 8) % 2)) || (!((i / 8) % 2) && !((j / 8) % 2)) ? colorB : colorA;
-            auto idx = (i * 256 + j) * 4;
-            data[idx + 0]  = static_cast<unsigned char>(color.r * 255);
-            data[idx + 1]  = static_cast<unsigned char>(color.b * 255);
-            data[idx + 2]  = static_cast<unsigned char>(color.g * 255);
-            data[idx + 3] = 255;
-        }
-    }
-    create(device, texture, VK_IMAGE_TYPE_2D, VK_FORMAT_R8G8B8A8_SRGB, data, {256, 256, 1}, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
+    checkerboard(data, {256, 256 });
+    create(device, texture, VK_IMAGE_TYPE_2D, VK_FORMAT_R8G8B8A8_UNORM, data, {256, 256, 1}, VK_SAMPLER_ADDRESS_MODE_REPEAT);
     delete[] data;
 }
 
@@ -141,6 +133,26 @@ void textures::normalMap(const VulkanDevice &device, Texture &texture, const Dim
 
 void textures::color(const VulkanDevice &device, Texture &texture, const glm::vec3 &color, const Dimension2D<uint32_t>& dimensions) {
     auto data = new unsigned char[dimensions.x * dimensions.y * 4];
+    textures::color(data, dimensions, color);
+    create(device, texture, VK_IMAGE_TYPE_2D, VK_FORMAT_R8G8B8A8_UNORM, data, Dimension3D<uint32_t>{dimensions, 1u}, VK_SAMPLER_ADDRESS_MODE_REPEAT);
+    delete[] data;
+}
+
+
+void textures::checkerboard(unsigned char* data, const Dimension2D<uint32_t>& dimensions, const glm::vec3& colorA, const glm::vec3& colorB){
+    for(int i = 0; i < 256; i++){
+        for(int j = 0; j < 256; j++){
+            auto color = (((i / 8) % 2) && ((j / 8) % 2)) || (!((i / 8) % 2) && !((j / 8) % 2)) ? colorB : colorA;
+            auto idx = (i * 256 + j) * 4;
+            data[idx + 0]  = static_cast<unsigned char>(color.r * 255);
+            data[idx + 1]  = static_cast<unsigned char>(color.b * 255);
+            data[idx + 2]  = static_cast<unsigned char>(color.g * 255);
+            data[idx + 3] = 255;
+        }
+    }
+}
+
+void textures::color(unsigned char* data, const Dimension2D<uint32_t>& dimensions, const glm::vec3& color){
     for(auto i = 0; i < dimensions.y; i++){
         for(auto j = 0; j < dimensions.x; j++){
             auto idx = (i * dimensions.x + j) * 4;
@@ -150,7 +162,8 @@ void textures::color(const VulkanDevice &device, Texture &texture, const glm::ve
             data[idx + 3] = 255;
         }
     }
-    create(device, texture, VK_IMAGE_TYPE_2D, VK_FORMAT_R8G8B8A8_SRGB, data, Dimension3D<uint32_t>{dimensions, 1u}, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
-    delete[] data;
 }
 
+void textures::normalMap(unsigned char* data, const Dimension2D<uint32_t>& dimensions){
+    color(data, dimensions, glm::vec3{0.5, 0.5, 1});
+}

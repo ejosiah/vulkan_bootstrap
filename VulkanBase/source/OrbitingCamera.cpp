@@ -132,6 +132,7 @@ void OrbitingCameraController::updateViewMatrix() {
     view[3][0] = -dot(xAxis, eyes);
     view[3][1] = -dot(yAxis, eyes);
     view[3][2] =  -dot(zAxis, eyes);
+    _moved = true;
 }
 
 void OrbitingCameraController::onPositionChanged() {

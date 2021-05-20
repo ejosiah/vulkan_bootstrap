@@ -32,4 +32,10 @@ namespace textures{
     void normalMap(const VulkanDevice& device, Texture& texture, const Dimension2D<uint32_t>& dimensions);
 
     void color(const VulkanDevice& device, Texture& texture, const glm::vec3& color, const Dimension2D<uint32_t>& dimensions);
+
+    void checkerboard(unsigned char* data, const Dimension2D<uint32_t>& dimensions, const glm::vec3& colorA = glm::vec3(1), const glm::vec3& colorB = glm::vec3(0));
+
+    void color(unsigned char* data, const Dimension2D<uint32_t>& dimensions, const glm::vec3& color);
+
+    void normalMap(unsigned char* data, const Dimension2D<uint32_t>& dimensions);
 }

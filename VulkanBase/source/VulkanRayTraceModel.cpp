@@ -35,7 +35,7 @@ std::vector<rt::InstanceGroup> rt::AccelerationStructureBuilder::add(const std::
         if(itr != end(drawables)) continue;
         drawables.push_back(dInstance.drawable);
     }
-    auto blasIds = buildBlas(drawables, flags);
+    auto [offsets, blasIds] = buildBlas(drawables, flags);
 
     std::vector<InstanceGroup> instanceGroups;
 
@@ -48,7 +48,6 @@ std::vector<rt::InstanceGroup> rt::AccelerationStructureBuilder::add(const std::
     };
 
 
-    uint32_t blasIdIndex = 0;
     for(const auto & dInstance : drawableInstances){
         auto objId = findObjId(dInstance.drawable);
         assert(objId.has_value());
@@ -56,12 +55,12 @@ std::vector<rt::InstanceGroup> rt::AccelerationStructureBuilder::add(const std::
 
 
         auto& meshes = dInstance.drawable->meshes;
-        for(int j = 0; j < meshes.size(); j++, blasIdIndex++){
+        for(int j = 0; j < meshes.size(); j++){
             Instance instance;
-            instance.blasId = blasIds[blasIdIndex];
+            instance.blasId = blasIds[offsets[*objId] + j];
             instance.instanceCustomId = j;
-            instance.hitGroupId = 0;
-            instance.mask = 0xFF;
+            instance.hitGroupId = dInstance.hitGroupId;
+            instance.mask = dInstance.mask;
             instance.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
             instance.xform = dInstance.xform;
             m_instances.push_back(instance);
@@ -117,11 +116,10 @@ rt::ImplicitObject rt::AccelerationStructureBuilder::add(const std::vector<rt::P
     std::vector<AABB> aabbs;
     auto numPlanes = planes.size();
     aabbs.reserve(numPlanes);
-    auto h = 0.5f * 1000;
     for(auto& plane : planes){
         AABB aabb{};
-        aabb.max = project(glm::vec3{ h }, plane);
-        aabb.min = project(glm::vec3{ -h }, plane);
+        aabb.max = project(glm::vec3{ length }, plane);
+        aabb.min = project(glm::vec3{ -length }, plane);
         aabbs.push_back(aabb);
     }
 
@@ -148,15 +146,21 @@ rt::ImplicitObject rt::AccelerationStructureBuilder::add(const std::vector<rt::A
     return object;
 }
 
-std::vector<rt::BlasId> rt::AccelerationStructureBuilder::buildBlas(const std::vector<VulkanDrawable*>& drawables, VkBuildAccelerationStructureFlagsKHR flags){
+std::tuple<std::vector<uint32_t>, std::vector<rt::BlasId>> rt::AccelerationStructureBuilder::buildBlas(const std::vector<VulkanDrawable*>& drawables, VkBuildAccelerationStructureFlagsKHR flags){
     std::vector<BlasInput> inputs;
     inputs.reserve(drawables.size());
+    std::vector<uint32_t> offsets;
+    offsets.reserve(drawables.size());
+    uint32_t offset = 0;
     for(auto drawable : drawables){
         for(int meshId = 0; meshId < drawable->meshes.size(); meshId++){
             inputs.emplace_back(*m_device, *drawable, meshId);
         }
+        offsets.push_back(offset);
+        offset = drawable->meshes.size();
     }
-    return buildBlas(inputs, flags);
+    auto blasIds = buildBlas(inputs, flags);
+    return std::make_tuple(offsets, blasIds);
 }
 
 std::vector<rt::BlasId> rt::AccelerationStructureBuilder::buildBlas(const std::vector<ImplicitObject*>& implicits,
@@ -208,7 +212,7 @@ std::vector<rt::BlasId> rt::AccelerationStructureBuilder::buildBlas(const std::v
         createInfo.buffer = entry.as.buffer;
         createInfo.size = sizeInfo.accelerationStructureSize;
         createInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
-        vkCreateAccelerationStructureKHR(*m_device, &createInfo, nullptr, &entry.as.handle);
+        ASSERT(vkCreateAccelerationStructureKHR(*m_device, &createInfo, nullptr, &entry.as.handle));
 
         auto scratchBuffer = createScratchBuffer(sizeInfo.buildScratchSize);
         buildInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
@@ -322,7 +326,7 @@ VkAccelerationStructureInstanceKHR rt::AccelerationStructureBuilder::toVkAccStru
     VkAccelerationStructureInstanceKHR asInstance{};
     asInstance.instanceCustomIndex = instance.instanceCustomId;
     asInstance.mask = instance.mask;
-    asInstance.instanceShaderBindingTableRecordOffset = 0;
+    asInstance.instanceShaderBindingTableRecordOffset = instance.hitGroupId;
     asInstance.flags = instance.flags;
     asInstance.accelerationStructureReference = m_blas[instance.blasId].as.deviceAddress;
 

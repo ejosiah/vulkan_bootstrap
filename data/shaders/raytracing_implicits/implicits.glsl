@@ -104,14 +104,26 @@ bool cylinder_ray_test(Cylinder cylinder, Ray r, out float t){
     return true;
 }
 
+float remap(float value, float oldMin, float oldMax, float newMin, float newMax){
+    return (((value - oldMin) / (oldMax - oldMin)) * (newMax - newMin)) + newMin;
+}
+
+vec3 remap(vec3 value, vec3 oldMin, vec3 oldMax, vec3 newMin, vec3 newMax){
+    return (((value - oldMin) / (oldMax - oldMin)) * (newMax - newMin)) + newMin;
+}
+
+vec2 remap(vec2 value, vec2 oldMin, vec2 oldMax, vec2 newMin, vec2 newMax){
+    return (((value - oldMin) / (oldMax - oldMin)) * (newMax - newMin)) + newMin;
+}
+
 vec2 getUV(Sphere s, Ray r, float t){
     vec3 x = r.origin + r.direction * t;
     vec3 p = x - s.center;
     float u = acos(p.y/s.radius);
     float v = atan(p.x, p.z);
     vec2 uv;
-    uv.x = u * 5 / (TWO_PI);
-    uv.y = v * 5 / (PI);
+    uv.x = u / (TWO_PI);
+    uv.y = remap(v, -PI, PI, 0, 1);;
 
     return uv;
 }

@@ -18,6 +18,8 @@ class VulkanRayTraceBaseApp : public VulkanBaseApp{
 public:
     explicit VulkanRayTraceBaseApp(std::string_view name, const Settings& settings = {}, std::vector<std::unique_ptr<Plugin>> plugins = {});
 
+    virtual ~VulkanRayTraceBaseApp();
+
 protected:
     void postVulkanInit() final;
 

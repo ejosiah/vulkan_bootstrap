@@ -8,7 +8,17 @@
 
 namespace rt{
 
+    enum CurlFlags : uint32_t {
+        PLANE = 0x00000001,
+        SPHERE = 0x00000002,
+        CYLINDER = 0x00000004,
+        BOX = 0x00000008,
+        TRIANGLE = 0x00000010,
+        ALL = 0x000000FF
+    };
+
     using BlasId = uint32_t;
+    using Normal = glm::vec3;
 
     struct AccelerationStructure{
         VkAccelerationStructureKHR handle = VK_NULL_HANDLE;
@@ -20,7 +30,7 @@ namespace rt{
         uint32_t blasId{0};
         uint32_t instanceCustomId{0};
         uint32_t hitGroupId{0};
-        uint32_t mask{0xFF};
+        uint32_t mask{CurlFlags::ALL};
         VkGeometryInstanceFlagsKHR flags{0};
         glm::mat4 xform{1};
     };
@@ -57,14 +67,14 @@ namespace rt{
     struct ImplicitObject{
         uint32_t numObjects{0};
         uint32_t hitGroupId{0};
-        uint32_t mask{0xFF};
+        uint32_t mask{CurlFlags::ALL};
         VulkanBuffer aabbBuffer;
     };
 
     struct MeshObjectInstance{
         VulkanDrawable* drawable{ nullptr };
         uint32_t hitGroupId{0};
-        uint32_t mask{0xFF};
+        uint32_t mask{CurlFlags::ALL};
         glm::mat4 xform{ 1 };
         glm::mat4 xformIT{ 1 };
     };
@@ -123,7 +133,7 @@ namespace rt{
         std::vector<Instance*> instances;
         std::vector<ObjectInstance> objectInstances;
         uint32_t objectId = 0;
-        uint32_t mask{0xFF};
+        uint32_t mask{CurlFlags::ALL};
 
     };
 
@@ -243,11 +253,11 @@ namespace rt{
 
         ImplicitObject add(const std::vector<Cylinder>& cyliners, uint32_t customInstanceId = static_cast<uint32_t>(ImplicitType::CYLINDER), uint32_t hitGroup = 0, VkBuildAccelerationStructureFlagsKHR flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR);
 
-        ImplicitObject add(const std::vector<Plane>& planes, uint32_t customInstanceId = static_cast<uint32_t>(ImplicitType::PLANE), float length = 1.0, uint32_t hitGroup = 0, VkBuildAccelerationStructureFlagsKHR flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR);
+        ImplicitObject add(const std::vector<Plane>& planes, uint32_t customInstanceId = static_cast<uint32_t>(ImplicitType::PLANE), float length = 1000, uint32_t hitGroup = 0, VkBuildAccelerationStructureFlagsKHR flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR);
 
         ImplicitObject add(const std::vector<AABB>& aabbs, uint32_t customInstanceId = static_cast<uint32_t>(ImplicitType::BOX), uint32_t hitGroup = 0, VkBuildAccelerationStructureFlagsKHR flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR);
 
-        std::vector<rt::BlasId> buildBlas(const std::vector<VulkanDrawable*>& drawables, VkBuildAccelerationStructureFlagsKHR flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR);
+        std::tuple<std::vector<uint32_t>, std::vector<rt::BlasId>> buildBlas(const std::vector<VulkanDrawable*>& drawables, VkBuildAccelerationStructureFlagsKHR flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR);
 
         std::vector<rt::BlasId> buildBlas(const std::vector<ImplicitObject*>& implicits, VkBuildAccelerationStructureFlagsKHR flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR);
 

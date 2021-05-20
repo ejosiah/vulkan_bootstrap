@@ -27,6 +27,7 @@ VulkanRayTraceBaseApp::VulkanRayTraceBaseApp(std::string_view name, const Settin
     enabledDescriptorIndexingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
     enabledDescriptorIndexingFeatures.pNext = &enabledAccelerationStructureFeatures;
     enabledDescriptorIndexingFeatures.runtimeDescriptorArray = VK_TRUE;
+    enabledDescriptorIndexingFeatures.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
 
     deviceCreateNextChain = &enabledDescriptorIndexingFeatures;
 }
@@ -99,4 +100,8 @@ std::tuple<uint32_t, uint32_t> VulkanRayTraceBaseApp::getShaderGroupHandleSizing
     const uint32_t handleSizeAligned = alignedSize(handleSize, rayTracingPipelineProperties.shaderGroupHandleAlignment);
 
     return std::make_tuple(handleSize, handleSizeAligned);
+}
+
+VulkanRayTraceBaseApp::~VulkanRayTraceBaseApp() {
+
 }
