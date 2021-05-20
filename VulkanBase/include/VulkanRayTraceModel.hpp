@@ -8,15 +8,6 @@
 
 namespace rt{
 
-    enum CurlFlags : uint32_t {
-        PLANE = 0x00000001,
-        SPHERE = 0x00000002,
-        CYLINDER = 0x00000004,
-        BOX = 0x00000008,
-        TRIANGLE = 0x00000010,
-        ALL = 0x000000FF
-    };
-
     using BlasId = uint32_t;
     using Normal = glm::vec3;
 
@@ -30,7 +21,7 @@ namespace rt{
         uint32_t blasId{0};
         uint32_t instanceCustomId{0};
         uint32_t hitGroupId{0};
-        uint32_t mask{CurlFlags::ALL};
+        uint32_t mask{0xFF};
         VkGeometryInstanceFlagsKHR flags{0};
         glm::mat4 xform{1};
     };
@@ -67,14 +58,14 @@ namespace rt{
     struct ImplicitObject{
         uint32_t numObjects{0};
         uint32_t hitGroupId{0};
-        uint32_t mask{CurlFlags::ALL};
+        uint32_t mask{0xFF};
         VulkanBuffer aabbBuffer;
     };
 
     struct MeshObjectInstance{
         VulkanDrawable* drawable{ nullptr };
         uint32_t hitGroupId{0};
-        uint32_t mask{CurlFlags::ALL};
+        uint32_t mask{0xFF};
         glm::mat4 xform{ 1 };
         glm::mat4 xformIT{ 1 };
     };
@@ -133,7 +124,7 @@ namespace rt{
         std::vector<Instance*> instances;
         std::vector<ObjectInstance> objectInstances;
         uint32_t objectId = 0;
-        uint32_t mask{CurlFlags::ALL};
+        uint32_t mask{0xFF};
 
     };
 
