@@ -73,7 +73,7 @@ std::vector<rt::InstanceGroup> rt::AccelerationStructureBuilder::add(const std::
 }
 
 rt::ImplicitObject rt::AccelerationStructureBuilder::add(const std::vector<rt::Sphere>& spheres, uint32_t customInstanceId, uint32_t hitGroup,
-                                           VkBuildAccelerationStructureFlagsKHR flags) {
+                                                         uint32_t cullMask, VkBuildAccelerationStructureFlagsKHR flags) {
 
     uint32_t numSpheres = spheres.size();
     std::vector<AABB> aabbs;
@@ -85,11 +85,11 @@ rt::ImplicitObject rt::AccelerationStructureBuilder::add(const std::vector<rt::S
         aabbs.push_back(aabb);
     }
 
-    return add(aabbs, customInstanceId, hitGroup, flags);
+    return add(aabbs, customInstanceId, hitGroup, cullMask, flags);
 }
 
 rt::ImplicitObject rt::AccelerationStructureBuilder::add(const std::vector<rt::Cylinder>& cylinders, uint32_t customInstanceId, uint32_t hitGroup,
-                                           VkBuildAccelerationStructureFlagsKHR flags) {
+                                                         uint32_t cullMask, VkBuildAccelerationStructureFlagsKHR flags) {
 
     std::vector<AABB> aabbs;
     aabbs.reserve(cylinders.size());
@@ -102,11 +102,11 @@ rt::ImplicitObject rt::AccelerationStructureBuilder::add(const std::vector<rt::C
         aabbs.push_back(aabb);
     }
 
-    return add(aabbs, customInstanceId, hitGroup, flags);
+    return add(aabbs, customInstanceId, hitGroup, cullMask, flags);
 }
 
 rt::ImplicitObject rt::AccelerationStructureBuilder::add(const std::vector<rt::Plane>& planes, uint32_t customInstanceId, float length, uint32_t hitGroup,
-                                           VkBuildAccelerationStructureFlagsKHR flags) {
+                                                         uint32_t cullMask, VkBuildAccelerationStructureFlagsKHR flags) {
 
     auto project = [](glm::vec3 q, const Plane& p){
         float t = glm::dot(p.normal, q) - p.d;
@@ -123,11 +123,11 @@ rt::ImplicitObject rt::AccelerationStructureBuilder::add(const std::vector<rt::P
         aabbs.push_back(aabb);
     }
 
-    return add(aabbs, customInstanceId, hitGroup, flags);
+    return add(aabbs, customInstanceId, hitGroup, cullMask, flags);
 }
 
 rt::ImplicitObject rt::AccelerationStructureBuilder::add(const std::vector<rt::AABB> &aabbs, uint32_t customInstanceId, uint32_t hitGroup,
-                                                     VkBuildAccelerationStructureFlagsKHR flags) {
+                                                         uint32_t  cullMask, VkBuildAccelerationStructureFlagsKHR flags) {
 
     rt::ImplicitObject object;
     object.numObjects = aabbs.size();
@@ -140,6 +140,7 @@ rt::ImplicitObject rt::AccelerationStructureBuilder::add(const std::vector<rt::A
     rt::Instance instance{};
     instance.blasId = blasId;
     instance.hitGroupId = hitGroup;
+    instance.mask = cullMask;
     instance.instanceCustomId = customInstanceId;
     m_instances.push_back(instance);
 

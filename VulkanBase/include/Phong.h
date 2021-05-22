@@ -135,7 +135,12 @@ namespace phong{
         std::vector<glm::ivec4> offsetBuffer;
 
         VkDeviceSize materialBufferSize = (sizeof(meshes[0].material) - offsetof(mesh::Material, diffuse));
-        drawable.materialBuffer = device.createBuffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_ONLY, materialBufferSize * meshes.size());
+        drawable.materialBuffer = device.createBuffer(
+                                        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+                                        | VK_BUFFER_USAGE_TRANSFER_DST_BIT
+                                        | VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                                        VMA_MEMORY_USAGE_GPU_ONLY,
+                                        materialBufferSize * meshes.size());
         uint32_t numPrimitives = 0;
         for(int i = 0; i < meshes.size(); i++){
             auto& mesh = meshes[i];

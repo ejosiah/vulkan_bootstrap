@@ -42,9 +42,7 @@ struct SceneObject{
 
 layout(binding = 0, set = 0) uniform accelerationStructureEXT topLevelAS;
 
-layout(binding = 0, set = 1) buffer MATERIALS {
-  Material m[];
-} materials [];
+
 
 layout(binding = 1, set = 1) buffer MATERIAL_ID {
   int i[];
