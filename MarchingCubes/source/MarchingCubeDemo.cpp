@@ -32,8 +32,9 @@ VkCommandBuffer *MarchingCubeDemo::buildCommandBuffers(uint32_t imageIndex, uint
     VkCommandBufferBeginInfo beginInfo = initializers::commandBufferBeginInfo();
     vkBeginCommandBuffer(commandBuffer, &beginInfo);
 
-    static std::array<VkClearValue, 1> clearValues;
+    static std::array<VkClearValue, 2> clearValues;
     clearValues[0].color = {0, 0, 0, 1};
+    clearValues[1].depthStencil = {1.0, 0u};
 
     VkRenderPassBeginInfo rPassInfo = initializers::renderPassBeginInfo();
     rPassInfo.clearValueCount = COUNT(clearValues);
@@ -90,7 +91,7 @@ void MarchingCubeDemo::cleanup() {
 }
 
 void MarchingCubeDemo::initVertexBuffer() {
-    vertexBuffer = device.createBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, sizeof(glm::vec3) * 16, "vertices");
+    vertexBuffer = device.createBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, sizeof(mVertex) * 16, "vertices");
     drawCommandBuffer = device.createBuffer(VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, sizeof(VkDrawIndirectCommand), "draw_command_buffer");
 
     drawCommandBuffer.map<VkDrawIndirectCommand>([&](auto drawCmd){
@@ -155,6 +156,11 @@ void MarchingCubeDemo::createPipeline() {
 
     auto multisampleState = initializers::multisampleState();
     auto depthStencilState = initializers::depthStencilState();
+    depthStencilState.depthTestEnable = VK_TRUE;
+    depthStencilState.depthWriteEnable = VK_TRUE;
+    depthStencilState.depthCompareOp = VK_COMPARE_OP_LESS;
+    depthStencilState.minDepthBounds = 0.0;
+    depthStencilState.maxDepthBounds = 1.0;
 
     auto colorBlendAttachment = initializers::colorBlendStateAttachmentStates();
     auto colorBlendState = initializers::colorBlendState(colorBlendAttachment);
@@ -209,11 +215,22 @@ void MarchingCubeDemo::createPipeline() {
                          {triFragModule, VK_SHADER_STAGE_FRAGMENT_BIT}
                  });
 
+    std::array<VkVertexInputBindingDescription, 1> triBindings{
+            {0, sizeof(mVertex), VK_VERTEX_INPUT_RATE_VERTEX}
+    };
+    std::array<VkVertexInputAttributeDescription , 2> triAttribs {{
+           {0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetOf(mVertex, position)},
+           {1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetOf(mVertex, normal)}
+    }};
+
+    vertexInputState = initializers::vertexInputState(triBindings, triAttribs);
+
     inputAssemblyState.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
     pipelineLayout.triangles = device.createPipelineLayout({}, {Camera::pushConstant()});
 
     createInfo.stageCount = COUNT(triStages);
     createInfo.pStages = triStages.data();
+    createInfo.pVertexInputState = &vertexInputState;
     createInfo.pInputAssemblyState = &inputAssemblyState;
     createInfo.layout = pipelineLayout.triangles;
     createInfo.basePipelineIndex = -1;
@@ -259,14 +276,22 @@ void MarchingCubeDemo::generateTriangles() {
             vertexList[edge] = getVertex(edge);
         }
     }
-    std::vector<glm::vec3> triVertices{};
+    std::vector<mVertex> triVertices{};
+    std::vector<glm::vec3> normals;
     for(auto i = config * 16; triTable[i] != -1; i+= 3){
-        triVertices.push_back(vertexList[triTable[i]]);
-        triVertices.push_back(vertexList[triTable[i + 1]]);
-        triVertices.push_back(vertexList[triTable[i + 2]]);
+        glm::vec3 p0 = vertexList[triTable[i]];
+        glm::vec3 p1 = vertexList[triTable[i + 1]];
+        glm::vec3 p2 = vertexList[triTable[i + 2]];
+
+        glm::vec3 a = p1 - p0;
+        glm::vec3 b = p2 - p0;
+        auto normal = glm::normalize(glm::cross(a, b));
+        triVertices.push_back({p0, normal});
+        triVertices.push_back({p1, normal});
+        triVertices.push_back({p2, normal});
     }
 
-    vertexBuffer.map<glm::vec3>([&](auto ptr){
+    vertexBuffer.map<mVertex>([&](auto ptr){
        for(int i = 0; i < triVertices.size(); i++){
            ptr[i] = triVertices[i];
        }
@@ -284,6 +309,7 @@ void MarchingCubeDemo::generateTriangles() {
 int main(){
     Settings settings;
     settings.enabledFeatures.wideLines = VK_TRUE;
+    settings.depthTest = true;
     try{
         auto scene = MarchingCubeDemo{ settings };
         scene.run();

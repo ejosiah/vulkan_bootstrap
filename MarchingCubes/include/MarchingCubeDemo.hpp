@@ -2,6 +2,11 @@
 
 #include "VulkanBaseApp.h"
 
+struct mVertex{
+    glm::vec3 position;
+    glm::vec3 normal;
+};
+
 class MarchingCubeDemo : public VulkanBaseApp{
 public:
     MarchingCubeDemo(Settings settings);
