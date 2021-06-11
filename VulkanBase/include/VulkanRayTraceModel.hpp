@@ -1,5 +1,7 @@
 #pragma once
 
+#include <utility>
+
 #include "common.h"
 #include "VulkanDrawable.hpp"
 #include "VulkanDevice.h"
@@ -63,8 +65,30 @@ namespace rt{
         VulkanBuffer aabbBuffer;
     };
 
-    struct MeshObjectInstance{
+    struct TriangleMesh{
+        struct MetaData {
+            uint32_t hitGroupId{0};
+            uint32_t mask{0xFF};
+        };
+
+        TriangleMesh() = default;
+
+        TriangleMesh(VulkanDrawable* drawable, std::vector<MetaData> meta = {})
+            : drawable{ drawable }
+            , metaData{std::move(meta)}
+        {
+            if(metaData.empty()){
+               metaData.resize(drawable->meshes.size());
+            }
+        }
+
         VulkanDrawable* drawable{ nullptr };
+        std::vector<MetaData> metaData;
+    };
+
+
+    struct MeshObjectInstance{
+        TriangleMesh object;
         uint32_t hitGroupId{0};
         uint32_t mask{0xFF};
         glm::mat4 xform{ 1 };
@@ -121,8 +145,14 @@ namespace rt{
             objectInstances.push_back(objInst);
         }
 
+        uint32_t getInstanceId(const std::string& name)  {
+            assert(instanceIds.find(name) != end(instanceIds));
+            return instanceIds[name];
+        }
+
         std::variant<MeshObjectInstance, ImplicitObjectInstance> sceneInstances{};
         std::vector<Instance*> instances;
+        std::map<std::string, uint32_t> instanceIds;
         std::vector<ObjectInstance> objectInstances;
         uint32_t objectId = 0;
         uint32_t mask{0xFF};
@@ -275,7 +305,6 @@ namespace rt{
         };
 
         std::vector<Instance> m_instances;
-
         std::vector<BlasEntry> m_blas;
 
         Tlas m_tlas;

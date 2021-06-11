@@ -201,39 +201,54 @@ void cleanup(){
     vkDestroyInstance(g_instance, nullptr);
 }
 
+using uint = uint32_t;
+
+glm::vec2 hammersleySquare(uint i, const uint N) {
+    glm::vec2 P;
+    P.x = float(i) * (1.0 / float(N));
+
+    i = (i << 16u) | (i >> 16u);
+    i = ((i & 0x55555555u) << 1u) | ((i & 0xAAAAAAAAu) >> 1u);
+    i = ((i & 0x33333333u) << 2u) | ((i & 0xCCCCCCCCu) >> 2u);
+    i = ((i & 0x0F0F0F0Fu) << 4u) | ((i & 0xF0F0F0F0u) >> 4u);
+    i = ((i & 0x00FF00FFu) << 8u) | ((i & 0xFF00FF00u) >> 8u);
+    P.y = float(i) * 2.3283064365386963e-10; // / 0x100000000
+
+    return P;
+}
+
+using namespace glm;
+
+void computeOrthonormalBasis(vec3 N, vec3& Nt, vec3& Nb)
+{
+
+    Nt = normalize(((abs(N.z) > 0.99999f) ? vec3(-N.x * N.y, 1.0f - N.y * N.y, -N.y * N.z) :
+                    vec3(-N.x * N.z, -N.y * N.z, 1.0f - N.z * N.z)));
+    Nb = cross(Nt, N);
+}
+
+void othonormalBasis(vec3& normal, vec3& tangent, vec3& binormal){
+    normal = normalize(normal);
+    vec3 a;
+    if(abs(normal.x) > 0.9){
+        a = vec3(0, 1, 0);
+    }else {
+        a = vec3(1, 0, 0);
+    }
+    binormal = normalize(cross(normal, a));
+    tangent = cross(normal, binormal);
+}
+
 int main() {
-    printf("running example test\n");
-    initDebugInfo();
-    initInstance();
-    createDebugMessenger();
-    createDevice();
-    createCommandPool();
-    createComputePipeline();
+    glm::vec3 normal{-0.0445, 0.4977, -0.6337};
+    glm::vec3 tangent;
+    glm::vec3 binormal;
+    glm::vec3 dir{-0.3852, 0.5011, 0.7749};
+    othonormalBasis(normal, tangent, binormal);
+    fmt::print("N: {}, Nt: {}, Nb: {}\n", normal, tangent, binormal);
 
-    VkCommandBuffer commandBuffer;
-    VkCommandBufferAllocateInfo allocInfo{};
-    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    allocInfo.commandPool = g_commandPool;
-    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocInfo.commandBufferCount = 1;
-    vkAllocateCommandBuffers(g_device, &allocInfo, &commandBuffer);
-
-    VkCommandBufferBeginInfo beginInfo{};
-    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-    vkBeginCommandBuffer(commandBuffer, &beginInfo);
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, g_Pipeline);
-    vkCmdDispatch(commandBuffer, 1, 1, 1);
-    vkEndCommandBuffer(commandBuffer);
-
-    VkSubmitInfo submitInfo{};
-    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &commandBuffer;
-
-    ASSERT(vkQueueSubmit(g_queue, 1, &submitInfo, VK_NULL_HANDLE));
-    ASSERT(vkQueueWaitIdle(g_queue));
-    printf("All looks good");
-    cleanup();
+    computeOrthonormalBasis(normal, tangent, binormal);
+    fmt::print("N: {}, Nt: {}, Nb: {}\n", normal, tangent, binormal);
+    float pdf = dot(normal, dir)/pi<float>();
+    fmt::print("pdf: {}\n", pdf);
 }

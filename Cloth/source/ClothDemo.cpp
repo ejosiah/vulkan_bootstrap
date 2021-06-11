@@ -68,7 +68,7 @@ void ClothDemo::loadModel() {
     phong::load(R"(C:\Users\Josiah\OneDrive\media\models\werewolf.obj)", device, descriptorPool, model, info, true, 40);
   //  phong::load(R"(C:\Users\Josiah\OneDrive\media\models\Lucy-statue\metallic-lucy-statue-stanford-scan.obj)",device, descriptorPool, model, info, true, 40);
  //   phong::load("../../data/models/bigship1.obj", device, descriptorPool, model, info, true, 40);
-    modelInstance.drawable = &model;
+    modelInstance.object = rt::TriangleMesh{&model};
     modelInstance.xform = glm::translate(glm::mat4(1), {0, model.height() * 0.5f, 0});
     modelInstance.xformIT = glm::inverseTranspose(modelInstance.xform);
     modelData.xform = modelInstance.xform;
@@ -191,7 +191,7 @@ void ClothDemo::drawWireframe(VkCommandBuffer commandBuffer) {
 
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.spaceShip);
     cameraController->push(commandBuffer, pipelineLayouts.spaceShip, modelInstance.xform);
-    modelInstance.drawable->draw(commandBuffer, pipelineLayouts.spaceShip);
+    modelInstance.object.drawable->draw(commandBuffer, pipelineLayouts.spaceShip);
 }
 
 void ClothDemo::drawShaded(VkCommandBuffer commandBuffer) {
@@ -227,7 +227,7 @@ void ClothDemo::drawShaded(VkCommandBuffer commandBuffer) {
 
       vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.spaceShip);
       cameraController->push(commandBuffer, pipelineLayouts.spaceShip, modelInstance.xform);
-      modelInstance.drawable->draw(commandBuffer, pipelineLayouts.spaceShip);
+      modelInstance.object.drawable->draw(commandBuffer, pipelineLayouts.spaceShip);
 
 //    if(showPoints) {
 //        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.point);

@@ -178,15 +178,15 @@ namespace primitives{
                 max = glm::max(max, glm::vec3(vertex.position));
             }
         }
-//        else{
-//           for(const auto& mesh : meshes){
-//               const std::vector<Vertices>& vertices = mesh.vertices;
-//               for (const auto &vertex : vertices) {
-//                   min = glm::min(min, glm::vec3(vertex.position));
-//                   max = glm::max(max, glm::vec3(vertex.position));
-//               }
-//           }
-//        }
+        else{
+           for(const auto& mesh : meshes){
+               const std::vector<Vertices>& vertices = mesh.vertices;
+               for (const auto &vertex : vertices) {
+                   min = glm::min(min, glm::vec3(vertex.position));
+                   max = glm::max(max, glm::vec3(vertex.position));
+               }
+           }
+        }
 
         return std::make_tuple(min, max);
     }

@@ -31,9 +31,9 @@ std::vector<rt::InstanceGroup> rt::AccelerationStructureBuilder::add(const std::
                                                VkBuildAccelerationStructureFlagsKHR flags) {
     std::vector<VulkanDrawable*> drawables;
     for(auto& dInstance : drawableInstances){
-        auto itr = std::find_if(begin(drawables), end(drawables), [&](auto drawable){ return dInstance.drawable == drawable;});
+        auto itr = std::find_if(begin(drawables), end(drawables), [&](auto drawable){ return dInstance.object.drawable == drawable;});
         if(itr != end(drawables)) continue;
-        drawables.push_back(dInstance.drawable);
+        drawables.push_back(dInstance.object.drawable);
     }
     auto [offsets, blasIds] = buildBlas(drawables, flags);
 
@@ -49,22 +49,24 @@ std::vector<rt::InstanceGroup> rt::AccelerationStructureBuilder::add(const std::
 
 
     for(const auto & dInstance : drawableInstances){
-        auto objId = findObjId(dInstance.drawable);
+        auto objId = findObjId(dInstance.object.drawable);
         assert(objId.has_value());
         InstanceGroup instanceGroup{ dInstance, *objId };
 
 
-        auto& meshes = dInstance.drawable->meshes;
+        auto& meshes = dInstance.object.drawable->meshes;
         for(int j = 0; j < meshes.size(); j++){
             Instance instance;
             instance.blasId = blasIds[offsets[*objId] + j];
             instance.instanceCustomId = j;
-            instance.hitGroupId = dInstance.hitGroupId;
-            instance.mask = dInstance.mask;
+            instance.hitGroupId = dInstance.object.metaData[j].hitGroupId;
+            instance.mask = dInstance.object.metaData[j].mask;
             instance.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
             instance.xform = dInstance.xform;
+            instanceGroup.instanceIds[meshes[j].name] = m_instances.size();
             m_instances.push_back(instance);
             instanceGroup.add(&m_instances.back());
+
         }
         instanceGroups.push_back(std::move(instanceGroup));
     }

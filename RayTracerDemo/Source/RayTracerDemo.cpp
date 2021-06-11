@@ -604,7 +604,7 @@ void RayTracerDemo::loadSpaceShip() {
    // phong::load(R"(C:\Users\Josiah\OneDrive\media\models\Lucy-statue\metallic-lucy-statue-stanford-scan.obj)", device, descriptorPool, spaceShip, info, true, 1);
    // phong::load(R"(C:\Users\Josiah\OneDrive\media\models\werewolf.obj)", device, descriptorPool, spaceShip, info);
     rt::MeshObjectInstance spaceShipInstance{};
-    spaceShipInstance.drawable =  &drawables["spaceShip"];
+    spaceShipInstance.object =  rt::TriangleMesh{ &drawables["spaceShip"] };
     spaceShipInstance.xform = glm::translate(glm::mat4{1}, {0, drawables["spaceShip"].height() * 0.5f, 0});
     spaceShipInstance.xformIT = glm::inverseTranspose(spaceShipInstance.xform);
     instances.push_back(spaceShipInstance);
@@ -628,7 +628,7 @@ void RayTracerDemo::loadSpaceShip() {
 //    phong::load(R"(C:\Users\Josiah\OneDrive\media\models\Lucy-statue\metallic-lucy-statue-stanford-scan.obj)", device, descriptorPool, plane,  info, true, 1);
  //   phong::load("../../data/models/bigship1.obj", device, descriptorPool, plane,  info, true, 1);
     rt::MeshObjectInstance planeInstance{};
-    planeInstance.drawable = &drawables["plane"];
+    planeInstance.object = rt::TriangleMesh{ &drawables["plane"] };
     instances.push_back(planeInstance);
     createAccelerationStructure(instances);
 }

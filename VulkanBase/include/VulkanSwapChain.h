@@ -145,6 +145,11 @@ struct VulkanSwapChain{
     }
 
     [[nodiscard]]
+    float aspectRatio() const {
+        return float(extent.width)/float(extent.height);
+    };
+
+    [[nodiscard]]
     uint32_t height() const {
         return extent.height;
     }

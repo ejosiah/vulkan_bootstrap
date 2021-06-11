@@ -167,7 +167,7 @@ private:
     } sphere;
 
     VulkanDrawable model;
-    VulkanDrawableInstance modelInstance;
+    rt::MeshObjectInstance modelInstance;
 
     struct ModelData{
         glm::mat4 xform;

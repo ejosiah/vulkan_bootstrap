@@ -103,6 +103,7 @@ namespace phong{
 
         std::vector<mesh::Mesh> meshes;
         mesh::load(meshes, path);
+
         if(normalize) {
             mesh::normalize(meshes, size);
         }
@@ -113,11 +114,13 @@ namespace phong{
         glm::vec3 max{MIN_FLOAT};
 
         // get Drawable bounds
-        for(const auto& mesh : meshes){
+        for(auto& mesh : meshes){
             numIndices += mesh.indices.size();
             numVertices += mesh.vertices.size();
 
             for(const auto& vertex : mesh.vertices){
+                mesh.bounds.min = glm::min(glm::vec3(vertex.position), mesh.bounds.min);
+                mesh.bounds.max = glm::max(glm::vec3(vertex.position), mesh.bounds.max);
                 drawable.bounds.min = glm::min(glm::vec3(vertex.position), drawable.bounds.min);
                 drawable.bounds.max = glm::max(glm::vec3(vertex.position), drawable.bounds.max);
             }

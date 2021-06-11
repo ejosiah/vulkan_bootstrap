@@ -24,7 +24,7 @@ void RayTracingImplicits::createModel() {
 }
 
 void RayTracingImplicits::createPlanes() {
-    rt::Plane plane{{0, 0, 1}, -3};
+    rt::Plane plane{{0, 1, 0}, 0};
     planes.planes.push_back(plane);
     planes.planeBuffer = device.createDeviceLocalBuffer(planes.planes.data(),
                                                         planes.planes.size() * sizeof(rt::Plane),
