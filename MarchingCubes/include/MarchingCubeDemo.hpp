@@ -36,6 +36,8 @@ protected:
 
     void generateTriangles();
 
+    void renderText(VkCommandBuffer commandBuffer);
+
 private:
     VulkanCommandPool commandPool;
     std::vector<VkCommandBuffer> commandBuffers;

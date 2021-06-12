@@ -1,5 +1,6 @@
 #include "MarchingCubeDemo.hpp"
 #include "MarchingCube.hpp"
+#include "ImGuiPlugin.hpp"
 
 MarchingCubeDemo::MarchingCubeDemo(Settings settings) : VulkanBaseApp("Marching Cubes", settings) {
 
@@ -64,6 +65,8 @@ VkCommandBuffer *MarchingCubeDemo::buildCommandBuffers(uint32_t imageIndex, uint
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffer, &offset);
     camera->push(commandBuffer, pipelineLayout.triangles, VK_SHADER_STAGE_VERTEX_BIT);
     vkCmdDrawIndirect(commandBuffer, drawCommandBuffer, 0, 1, sizeof(VkDrawIndirectCommand));
+
+    renderText(commandBuffer);
 
     vkCmdEndRenderPass(commandBuffer);
 
@@ -305,13 +308,26 @@ void MarchingCubeDemo::generateTriangles() {
     });
 }
 
+void MarchingCubeDemo::renderText(VkCommandBuffer commandBuffer) {
+    auto& imgui = plugin<ImGuiPlugin>(IM_GUI_PLUGIN);
+    ImGui::Begin("Menu", nullptr, IMGUI_NO_WINDOW);
+    ImGui::SetWindowSize({ 500, float(height)});
+    ImGui::TextColored({1, 1, 0, 1}, "configuration: %d", config);
+    ImGui::End();
+    imgui.draw(commandBuffer);
+}
+
 
 int main(){
     Settings settings;
     settings.enabledFeatures.wideLines = VK_TRUE;
     settings.depthTest = true;
+
+    std::unique_ptr<Plugin> imGui = std::make_unique<ImGuiPlugin>();
+
     try{
         auto scene = MarchingCubeDemo{ settings };
+        scene.addPlugin(imGui);
         scene.run();
     }catch (std::runtime_error& err){
         spdlog::error(err.what());
