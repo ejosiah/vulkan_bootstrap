@@ -269,7 +269,7 @@ struct VulkanDevice{
     }
 
 
-    inline VulkanBuffer createDeviceLocalBuffer(void* data, VkDeviceSize size, VkBufferUsageFlags usage, std::set<uint32_t> queueIndices = {}) const {
+    inline VulkanBuffer createDeviceLocalBuffer(const void* data, VkDeviceSize size, VkBufferUsageFlags usage, std::set<uint32_t> queueIndices = {}) const {
         // TODO use transfer queue and then transfer ownership
         VulkanBuffer stagingBuffer = createBuffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, size, "", queueIndices);
         stagingBuffer.copy(data, size);

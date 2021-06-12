@@ -28,6 +28,8 @@ protected:
 
     void createDescriptorSetLayout();
 
+    void initMarchingCubeBuffers();
+
     void createMarchingCubeDescriptorSetLayout();
 
     void createMarchingCubeDescriptorSet();
@@ -85,10 +87,11 @@ private:
         VkDescriptorSet descriptorSet;
         VulkanPipelineLayout layout;
         VulkanPipeline pipeline;
-        VulkanBuffer vertexCountBuffer;
-        VulkanBuffer nextVertexIdBuffer;
+        Texture vertexCountBuffer;
+        Texture nextVertexIdBuffer;
         VulkanBuffer edgeTableBuffer;
         VulkanBuffer triTableBuffer;
+        VulkanBuffer vertexBuffer;
 
         struct {
             float isoLevel = 0.0;
