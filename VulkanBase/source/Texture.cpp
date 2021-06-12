@@ -72,7 +72,7 @@ void textures::create(const VulkanDevice &device, Texture &texture, VkImageType 
     auto& commandPool = device.commandPoolFor(*device.queueFamilyIndex.graphics);
 
     texture.image = device.createImage(imageCreateInfo, VMA_MEMORY_USAGE_GPU_ONLY);
-    texture.image.transitionLayout(commandPool, device.queues.graphics, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    texture.image.transitionLayout(commandPool, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
     commandPool.oneTimeCommand([&](auto cmdBuffer) {
         VkBufferImageCopy region{};
@@ -91,7 +91,7 @@ void textures::create(const VulkanDevice &device, Texture &texture, VkImageType 
                                &region);
     });
 
-    texture.image.transitionLayout(commandPool, device.queues.graphics, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    texture.image.transitionLayout(commandPool, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
     VkImageSubresourceRange subresourceRange;
     subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;

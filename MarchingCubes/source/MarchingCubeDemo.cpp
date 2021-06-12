@@ -12,9 +12,14 @@ void MarchingCubeDemo::initApp() {
     commandPool = device.createCommandPool(*device.queueFamilyIndex.graphics, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
     commandBuffers = commandPool.allocate(swapChainImageCount);
     initCamera();
+    initSdf();
     initVertexBuffer();
     createCellBuffer();
+    createDescriptorPool();
+    createDescriptorSetLayout();
+    createDescriptorSet();
     createPipeline();
+    createSdf();
 }
 
 void MarchingCubeDemo::onSwapChainDispose() {
@@ -62,6 +67,7 @@ VkCommandBuffer *MarchingCubeDemo::buildCommandBuffers(uint32_t imageIndex, uint
     vkCmdDraw(commandBuffer, cellBuffer.size/sizeof(glm::vec3), 1, 0, 0);
 
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.triangles);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout.triangles, 0, 1, &renderDescriptorSet, 0, nullptr);
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffer, &offset);
     camera->push(commandBuffer, pipelineLayout.triangles, VK_SHADER_STAGE_VERTEX_BIT);
     vkCmdDrawIndirect(commandBuffer, drawCommandBuffer, 0, 1, sizeof(VkDrawIndirectCommand));
@@ -229,7 +235,7 @@ void MarchingCubeDemo::createPipeline() {
     vertexInputState = initializers::vertexInputState(triBindings, triAttribs);
 
     inputAssemblyState.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-    pipelineLayout.triangles = device.createPipelineLayout({}, {Camera::pushConstant()});
+    pipelineLayout.triangles = device.createPipelineLayout({ renderDescriptorSetLayout }, {Camera::pushConstant()});
 
     createInfo.stageCount = COUNT(triStages);
     createInfo.pStages = triStages.data();
@@ -240,6 +246,17 @@ void MarchingCubeDemo::createPipeline() {
     createInfo.basePipelineHandle = pipelines.lines;
 
     pipelines.triangles = device.createGraphicsPipeline(createInfo);
+
+    auto sdfComputeModule = ShaderModule{ "../../data/shaders/marching_cubes/sdf.comp.spv", device};
+    auto stage = initializers::shaderStage({ sdfComputeModule, VK_SHADER_STAGE_COMPUTE_BIT});
+
+    pipelineLayout.sdf = device.createPipelineLayout({computeDescriptorSetLayout});
+
+    auto computeCreateInfo = initializers::computePipelineCreateInfo();
+    computeCreateInfo.stage = stage;
+    computeCreateInfo.layout = pipelineLayout.sdf;
+
+    pipelines.sdf = device.createComputePipeline(computeCreateInfo);
 }
 
 void MarchingCubeDemo::initCamera() {
@@ -315,6 +332,93 @@ void MarchingCubeDemo::renderText(VkCommandBuffer commandBuffer) {
     ImGui::TextColored({1, 1, 0, 1}, "configuration: %d", config);
     ImGui::End();
     imgui.draw(commandBuffer);
+}
+
+void MarchingCubeDemo::initSdf() {
+    VkImageCreateInfo imageCreateInfo = initializers::imageCreateInfo(VK_IMAGE_TYPE_3D, VK_FORMAT_R32G32B32A32_SFLOAT
+                                                                      , VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, 512, 512, 256);
+    sdf.image = device.createImage(imageCreateInfo);
+    VkImageSubresourceRange subresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+    sdf.image.transitionLayout(device.graphicsCommandPool(), VK_IMAGE_LAYOUT_GENERAL, subresourceRange, 0,
+                               VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+    
+    sdf.imageView = sdf.image.createView(VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_VIEW_TYPE_3D, subresourceRange);
+
+
+    VkSamplerCreateInfo samplerCreateInfo = initializers::samplerCreateInfo();
+    samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    samplerCreateInfo.magFilter = VK_FILTER_LINEAR;
+    samplerCreateInfo.minFilter = VK_FILTER_LINEAR;
+    samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    samplerCreateInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+    samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+
+
+    sdf.sampler = device.createSampler(samplerCreateInfo);
+}
+
+void MarchingCubeDemo::createDescriptorPool() {
+    std::array<VkDescriptorPoolSize, 3> poolSizes{
+            {
+                    {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2},
+                    {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 3},
+                    {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 3},
+            }
+    };
+
+    descriptorPool = device.createDescriptorPool(2, poolSizes, VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT);
+}
+
+void MarchingCubeDemo::createDescriptorSetLayout() {
+    std::vector<VkDescriptorSetLayoutBinding> bindings(1);
+    bindings[0].binding = 0;
+    bindings[0].descriptorCount = 1;
+    bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    bindings[0].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+    renderDescriptorSetLayout = device.createDescriptorSetLayout(bindings);
+
+    bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    bindings[0].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    computeDescriptorSetLayout = device.createDescriptorSetLayout(bindings);
+}
+
+void MarchingCubeDemo::createDescriptorSet() {
+    auto sets = descriptorPool.allocate({ renderDescriptorSetLayout, computeDescriptorSetLayout});
+    renderDescriptorSet = sets.front();
+    computeDescriptorSet = sets.back();
+    
+   std::array<VkWriteDescriptorSet, 2> writes = initializers::writeDescriptorSets<2>();
+   
+   VkDescriptorImageInfo imageInfo;
+   imageInfo.imageView = sdf.imageView;
+   imageInfo.sampler = sdf.sampler;
+   imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+   
+   writes[0].dstSet = renderDescriptorSet;
+   writes[0].dstBinding = 0;
+   writes[0].descriptorCount = 1;
+   writes[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+   writes[0].pImageInfo = &imageInfo;   
+   
+   writes[1].dstSet = computeDescriptorSet;
+   writes[1].dstBinding = 0;
+   writes[1].descriptorCount = 1;
+   writes[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+   writes[1].pImageInfo = &imageInfo;
+
+   device.updateDescriptorSets(writes);
+}
+
+void MarchingCubeDemo::createSdf() {
+    device.graphicsCommandPool().oneTimeCommand([&](auto commandBuffer){
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelines.sdf);
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout.sdf, 0, 1, &computeDescriptorSet, 0, VK_NULL_HANDLE);
+        vkCmdDispatch(commandBuffer, 512/8, 512/8, 256/4);
+    });
 }
 
 

@@ -16,9 +16,25 @@ protected:
 
     void initCamera();
 
+    void initSdf();
+
+    void createSdf();
+
     void initVertexBuffer();
 
     void createCellBuffer();
+
+    void createDescriptorPool();
+
+    void createDescriptorSetLayout();
+
+    void createMarchingCubeDescriptorSetLayout();
+
+    void createMarchingCubeDescriptorSet();
+
+    void createMarchingCubePipeline();
+
+    void createDescriptorSet();
 
     void createPipeline();
 
@@ -54,13 +70,39 @@ private:
         VulkanPipeline points;
         VulkanPipeline lines;
         VulkanPipeline triangles;
+        VulkanPipeline sdf;
     } pipelines;
 
     struct {
         VulkanPipelineLayout lines;
         VulkanPipelineLayout points;
         VulkanPipelineLayout triangles;
+        VulkanPipelineLayout sdf;
     } pipelineLayout;
+
+    struct {
+        VulkanDescriptorSetLayout descriptorSetLayout;
+        VkDescriptorSet descriptorSet;
+        VulkanPipelineLayout layout;
+        VulkanPipeline pipeline;
+        VulkanBuffer vertexCountBuffer;
+        VulkanBuffer nextVertexIdBuffer;
+        VulkanBuffer edgeTableBuffer;
+        VulkanBuffer triTableBuffer;
+
+        struct {
+            float isoLevel = 0.0;
+            int pass = 0;
+        } constants;
+    } marchingCube;
+
+    Texture sdf;
+
+    VulkanDescriptorSetLayout renderDescriptorSetLayout;
+    VulkanDescriptorSetLayout computeDescriptorSetLayout;
+    VkDescriptorSet renderDescriptorSet;
+    VkDescriptorSet computeDescriptorSet;
+    VulkanDescriptorPool descriptorPool;
 
     std::unique_ptr<OrbitingCameraController> camera;
 };

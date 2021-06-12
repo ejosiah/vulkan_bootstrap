@@ -68,7 +68,7 @@ struct VulkanImage : public Copyable{
         return allocation;
     }
 
-    void transitionLayout(const VulkanCommandPool& pool, VkQueue queue, VkImageLayout newLayout, const VkImageSubresourceRange& subresourceRange = DEFAULT_SUB_RANGE) {
+    void transitionLayout(const VulkanCommandPool& pool, VkImageLayout newLayout, const VkImageSubresourceRange& subresourceRange = DEFAULT_SUB_RANGE) {
         pool.oneTimeCommand([&](VkCommandBuffer commandBuffer) {
 
             VkImageMemoryBarrier barrier{};
@@ -115,6 +115,27 @@ struct VulkanImage : public Copyable{
             }
 
             vkCmdPipelineBarrier(commandBuffer, sourceStage, destinationStage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+            currentLayout = newLayout;
+        });
+    }
+
+    void transitionLayout(const VulkanCommandPool& pool, VkImageLayout newLayout, const VkImageSubresourceRange& subresourceRange,
+                          VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask){
+
+        pool.oneTimeCommand( [&](auto commandBuffer) {
+            VkImageMemoryBarrier barrier{};
+            barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+            barrier.srcAccessMask = srcAccessMask;
+            barrier.dstAccessMask = dstAccessMask;
+            barrier.oldLayout = currentLayout;
+            barrier.newLayout = newLayout;
+            barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            barrier.image = image;
+            barrier.subresourceRange = subresourceRange;
+
+            vkCmdPipelineBarrier(commandBuffer, srcStageMask, dstStageMask, 0,
+                                 0, nullptr, 0, nullptr, 1, &barrier);
             currentLayout = newLayout;
         });
     }
