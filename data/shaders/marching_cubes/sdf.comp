@@ -9,5 +9,5 @@ void main(){
     p = 2.0 * p - 1.0;
 
     float d = length(p) - 0.8;
-    imageStore(image, ivec3(gl_GlobalInvocationID), vec4(d, d, d, 1));
+    imageStore(image, ivec3(gl_GlobalInvocationID), vec4(d, 0, 0, 1));
 }

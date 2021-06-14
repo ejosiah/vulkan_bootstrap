@@ -1,9 +1,12 @@
 #version 460 core
 #extension GL_EXT_scalar_block_layout : enable
+#extension GL_GOOGLE_include_directive : enable
 
 #define NUM_VERTICES 8
 #define NUM_EDGES 12
 #define MAX_TRIANGLE_VERTICES 16
+
+#include "sdf_model.glsl"
 
 struct Vertex{
     vec3 position;
@@ -13,21 +16,25 @@ struct Vertex{
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
 
 layout(set = 0, binding = 0) uniform sampler3D sdf;
-layout(set = 0, binding = 1, r32ui) uniform uimageBuffer vertex_count;
-layout(set = 0, binding = 2, r32ui) uniform uimageBuffer next_vertex_id;
 
-layout(set = 0, binding = 3, scalar) buffer EDGE_TABLE{
+layout(set = 0, binding = 1, scalar) buffer ATOMIC_COUNTERS{
+    uint vertex_count;
+    uint next_vertex_id;
+};
+
+layout(set = 0, binding = 2, scalar) buffer EDGE_TABLE{
     uint edgeTable[256];
 };
-layout(set = 0, binding = 4, scalar) buffer TRI_TABLE{
+layout(set = 0, binding = 3, scalar) buffer TRI_TABLE{
     int triTable[4096];
 };
 
-layout(set = 0, binding = 5, scalar) buffer VERTICES{
+layout(set = 0, binding = 4) buffer VERTICES{
     Vertex vertices[];
 };
 
 layout(push_constant) uniform Constants{
+    layout(offset = 192)
     float isoLevel;
     int pass;
 };
@@ -46,7 +53,7 @@ const vec3 CubeVertices[NUM_VERTICES] = {
 const ivec2 cubeEdges[NUM_EDGES] = {
     ivec2(0, 1), ivec2(1, 2), ivec2(2, 3), ivec2(3, 0),
     ivec2(4, 5), ivec2(5, 6), ivec2(6, 7), ivec2(7, 4),
-    ivec2(4, 0), ivec2(5, 1), ivec2(6, 2), ivec2(7, 3)
+    ivec2(0, 4), ivec2(1, 5), ivec2(2, 6), ivec2(3, 7)
 };
 
 vec3 vertexList[NUM_EDGES];
@@ -55,34 +62,44 @@ Vertex triangles[MAX_TRIANGLE_VERTICES];
 
 vec3 getVertex(vec3 center, vec3 gridSize, int edgeIndex){
     ivec2 edge = cubeEdges[edgeIndex];
-    vec3 p0 = CubeVertices[edge[0]] * gridSize + center;
-    vec3 p1 = CubeVertices[edge[1]] * gridSize + center;
+    vec3 p0 = center + CubeVertices[edge[0]] * gridSize;
+    vec3 p1 = center + CubeVertices[edge[1]] * gridSize;
 
     float isoVal0 = isoValues[edge[0]];
     float isoVal1 = isoValues[edge[1]];
-    float t = (isoLevel - isoVal0)/(isoVal1 - isoVal1);
-    
+    float t = (isoLevel - isoVal0)/(isoVal1 - isoVal0);
+
     return mix(p0, p1, t);
 }
 
 float getIsoValue(vec3 center, vec3 gridSize, int index){
-    vec3 p = CubeVertices[index] * gridSize + center;
-    return texture(sdf, p).r;
+    vec3 p = center + CubeVertices[index] * gridSize;
+//
+//    return length(p) - 0.8;
+//    vec3 coord = 0.5 * p + 0.5;
+//    return texture(sdf, coord).r;
+//    vec3 q = abs(p) - vec3(0.8);
+//    return length(max(q,0.0)) + min(max(q.x,max(q.y,q.z)),0.0);
+    return sceneSDF(p);
 }
 
 void main(){
-    vec3 gridSize = vec3(1)/vec3(gl_WorkGroupSize * gl_NumWorkGroups);
-    vec3 cellCenter =  (vec3(gl_GlobalInvocationID) + vec3(0.5, 0.5, 0.5)) * gridSize;
+    uvec3 size = gl_WorkGroupSize * gl_NumWorkGroups;
+    vec3 invSize = vec3(1)/vec3(gl_WorkGroupSize * gl_NumWorkGroups);
+    vec3 gridSize = 2.0 * invSize;
+    vec3 p = 2.0 * vec3(gl_GlobalInvocationID) * invSize - 1.0; // [0, 1] -> [-1, 1]
+    vec3 cellCenter = p + gridSize * 0.5;
     int config = 0;
 
     for(int i = 0; i < 8; i++){
-        isoValues[i] = getIsoValue(cellCenter, gridSize, i); 
+        isoValues[i] = getIsoValue(cellCenter, gridSize, i);
         if(isoValues[i] < isoLevel){
             config |= (1 << i);
         }
     }
+
     if(edgeTable[config] == 0) return;
-    
+
     for(int edge = 0; edge < NUM_EDGES; edge++){
         if((edgeTable[config] & (1 << edge)) != 0){
             vertexList[edge] = getVertex(cellCenter, gridSize, edge);
@@ -95,22 +112,32 @@ void main(){
         vec3 p1 = vertexList[triTable[i + 1]];
         vec3 p2 = vertexList[triTable[i + 2]];
 
-        vec3 a = p1 - p0;
-        vec3 b = p2 - p0;
-        vec3 normal = normalize(cross(a, b));
+//        vec3 a = p1 - p0;
+//        vec3 b = p2 - p0;
+//        vec3 normal = normalize(cross(a, b));
+        vec3 n0 = estimateNormal(p0);
+        vec3 n1 = estimateNormal(p1);
+        vec3 n2 = estimateNormal(p2);
 
-        triangles[numVertices++] = Vertex(p0, normal);
-        triangles[numVertices++] = Vertex(p1, normal);
-        triangles[numVertices++] = Vertex(p2, normal);
+        triangles[numVertices++] = Vertex(p0, n0);
+        triangles[numVertices++] = Vertex(p1, n1);
+        triangles[numVertices++] = Vertex(p2, n2);
     }
 
-    imageAtomicAdd(vertex_count, 0, numVertices);
+//    triangles[numVertices++] = Vertex(cellCenter, vec3(0));
+//    for(int v = 0; v < NUM_VERTICES; v++){
+//        vec3 p = cellCenter + CubeVertices[v] * gridSize;
+//        vec3 iso = vec3(isoValues[v]);
+//        triangles[numVertices++] = Vertex(p, vec3(isoLevel));
+//    }
+
+    atomicAdd(vertex_count, numVertices);
 
     if(pass == 0) return;
 
+    uint offset = atomicAdd(next_vertex_id, numVertices);
     for(int i = 0; i < numVertices; i++){
-        uint id = imageAtomicAdd(next_vertex_id, 0, 1);
-        vertices[id] = triangles[i];
+        vertices[i + offset] = triangles[i];
     }
 
 }

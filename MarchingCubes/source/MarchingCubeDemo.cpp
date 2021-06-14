@@ -19,6 +19,7 @@ void MarchingCubeDemo::initApp() {
     createDescriptorSetLayout();
     createDescriptorSet();
     createPipeline();
+
     initMarchingCubeBuffers();
     createMarchingCubeDescriptorSetLayout();
     createMarchingCubeDescriptorSet();
@@ -35,6 +36,8 @@ void MarchingCubeDemo::onSwapChainRecreation() {
 }
 
 VkCommandBuffer *MarchingCubeDemo::buildCommandBuffers(uint32_t imageIndex, uint32_t &numCommandBuffers) {
+
+//    createSdf();
     
     numCommandBuffers = 1;
     auto& commandBuffer = commandBuffers[imageIndex];
@@ -72,9 +75,12 @@ VkCommandBuffer *MarchingCubeDemo::buildCommandBuffers(uint32_t imageIndex, uint
 
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.triangles);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout.triangles, 0, 1, &renderDescriptorSet, 0, nullptr);
-    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffer, &offset);
     camera->push(commandBuffer, pipelineLayout.triangles, VK_SHADER_STAGE_VERTEX_BIT);
-    vkCmdDrawIndirect(commandBuffer, drawCommandBuffer, 0, 1, sizeof(VkDrawIndirectCommand));
+
+//    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffer, &offset);
+//    vkCmdDrawIndirect(commandBuffer, drawCommandBuffer, 0, 1, sizeof(VkDrawIndirectCommand));
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, marchingCube.vertexBuffer, &offset);
+    vkCmdDraw(commandBuffer, marchingCube.numVertices, 1, 0, 0);
 
     renderText(commandBuffer);
 
@@ -93,8 +99,8 @@ void MarchingCubeDemo::checkAppInputs() {
     if(nextConfig->isPressed()){
         config += 1;
         config %= 256;
-        generateTriangles();
-        spdlog::info("config: {}", config);
+     //   generateTriangles();
+        createSdf();
     }
     camera->processInput();
 }
@@ -267,6 +273,8 @@ void MarchingCubeDemo::initCamera() {
     OrbitingCameraSettings settings;
     settings.modelHeight = 1.0;
     settings.offsetDistance = 1.5;
+    settings.orbitMinZoom = 0.001;
+    settings.orbitMaxZoom = 10;
     settings.aspectRatio = swapChain.aspectRatio();
     camera = std::make_unique<OrbitingCameraController>(device, swapChainImageCount, currentImageIndex, dynamic_cast<InputManager&>(*this), settings);
 }
@@ -310,9 +318,9 @@ void MarchingCubeDemo::generateTriangles() {
         glm::vec3 a = p1 - p0;
         glm::vec3 b = p2 - p0;
         auto normal = glm::normalize(glm::cross(a, b));
-        triVertices.push_back({p0, normal});
-        triVertices.push_back({p1, normal});
-        triVertices.push_back({p2, normal});
+        triVertices.push_back({glm::vec4(p0, 0), glm::vec4(normal, 0)});
+        triVertices.push_back({glm::vec4(p1, 0), glm::vec4(normal, 0)});
+        triVertices.push_back({glm::vec4(p2, 0), glm::vec4(normal, 0)});
     }
 
     vertexBuffer.map<mVertex>([&](auto ptr){
@@ -334,13 +342,14 @@ void MarchingCubeDemo::renderText(VkCommandBuffer commandBuffer) {
     ImGui::Begin("Menu", nullptr, IMGUI_NO_WINDOW);
     ImGui::SetWindowSize({ 500, float(height)});
     ImGui::TextColored({1, 1, 0, 1}, "configuration: %d", config);
+    ImGui::TextColored({1, 1, 0, 1}, "FPS: %u", framePerSecond);
     ImGui::End();
     imgui.draw(commandBuffer);
 }
 
 void MarchingCubeDemo::initSdf() {
     VkImageCreateInfo imageCreateInfo = initializers::imageCreateInfo(VK_IMAGE_TYPE_3D, VK_FORMAT_R32G32B32A32_SFLOAT
-                                                                      , VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, 512, 512, 256);
+                                                                      , VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, 128, 128, 128);
     sdf.image = device.createImage(imageCreateInfo);
     VkImageSubresourceRange subresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
     sdf.image.transitionLayout(device.graphicsCommandPool(), VK_IMAGE_LAYOUT_GENERAL, subresourceRange, 0,
@@ -351,13 +360,13 @@ void MarchingCubeDemo::initSdf() {
 
     VkSamplerCreateInfo samplerCreateInfo = initializers::samplerCreateInfo();
     samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-    samplerCreateInfo.magFilter = VK_FILTER_LINEAR;
-    samplerCreateInfo.minFilter = VK_FILTER_LINEAR;
-    samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    samplerCreateInfo.magFilter = VK_FILTER_NEAREST;
+    samplerCreateInfo.minFilter = VK_FILTER_NEAREST;
+    samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     samplerCreateInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
-    samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
 
 
     sdf.sampler = device.createSampler(samplerCreateInfo);
@@ -372,7 +381,7 @@ void MarchingCubeDemo::createDescriptorPool() {
             }
     };
 
-    descriptorPool = device.createDescriptorPool(2, poolSizes, VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT);
+    descriptorPool = device.createDescriptorPool(3, poolSizes, VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT);
 }
 
 void MarchingCubeDemo::createDescriptorSetLayout() {
@@ -421,12 +430,71 @@ void MarchingCubeDemo::createSdf() {
     device.graphicsCommandPool().oneTimeCommand([&](auto commandBuffer){
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelines.sdf);
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout.sdf, 0, 1, &computeDescriptorSet, 0, VK_NULL_HANDLE);
-        vkCmdDispatch(commandBuffer, 512/8, 512/8, 256/4);
+//        vkCmdDispatch(commandBuffer, 512/8, 512/8, 256/4);
+        vkCmdDispatch(commandBuffer, 128/8, 128/8, 128/8);
     });
+
+    marchingCube.atomicCounterBuffers.map<uint32_t>([&](auto ptr){ ptr[0] = ptr[1] = 0; });
+
+    device.graphicsCommandPool().oneTimeCommand([&](auto commandBuffer){
+        marchingCube.constants.pass = 0;
+//        marchingCube.constants.config = config;
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, marchingCube.pipeline);
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, marchingCube.layout, 0, 1, &marchingCube.descriptorSet, 0, VK_NULL_HANDLE);
+        vkCmdPushConstants(commandBuffer, marchingCube.layout, VK_SHADER_STAGE_COMPUTE_BIT, sizeof(Camera), sizeof(marchingCube.constants), &marchingCube.constants);
+        vkCmdDispatch(commandBuffer, 16, 16, 16);
+    });
+
+    uint32_t numVertex = 0;
+    uint32_t vertexWrites = 0;
+    marchingCube.atomicCounterBuffers.map<uint32_t>([&](auto ptr){ numVertex = *ptr; *ptr = 0; vertexWrites = ptr[1]; ptr[1] = 0; });
+    spdlog::info("num vertices: {}, vertexWrites: {}", numVertex, vertexWrites);
+
+    if(numVertex ==  0){
+        spdlog::info("No primitives generated");
+        return;
+    }
+    marchingCube.vertexBuffer = device.createBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, sizeof(mVertex) * numVertex);
+
+    std::array<VkWriteDescriptorSet, 1> writes = initializers::writeDescriptorSets<1>(marchingCube.descriptorSet);
+
+    VkDescriptorBufferInfo vertexInfo;
+    vertexInfo.buffer = marchingCube.vertexBuffer;
+    vertexInfo.offset = 0;
+    vertexInfo.range = VK_WHOLE_SIZE;
+
+    writes[0].dstBinding = 4;
+    writes[0].descriptorCount = 1;
+    writes[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    writes[0].pBufferInfo = &vertexInfo;
+
+    device.updateDescriptorSets(writes);
+
+    device.graphicsCommandPool().oneTimeCommand([&](auto commandBuffer){
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, marchingCube.pipeline);
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, marchingCube.layout, 0, 1, &marchingCube.descriptorSet, 0, VK_NULL_HANDLE);
+
+        marchingCube.constants.pass = 1;
+//        marchingCube.constants.config = config;
+        vkCmdPushConstants(commandBuffer, marchingCube.layout, VK_SHADER_STAGE_COMPUTE_BIT, sizeof(Camera), sizeof(marchingCube.constants), &marchingCube.constants);
+        vkCmdDispatch(commandBuffer, 16, 16, 16);
+    });
+
+    marchingCube.atomicCounterBuffers.map<uint32_t>([&](auto ptr){ numVertex = *ptr; vertexWrites = ptr[1]; });
+    marchingCube.numVertices = vertexWrites;
+    spdlog::info("num vertices: {}, vertexWrites: {}", numVertex, vertexWrites);
+
+//    marchingCube.vertexBuffer.map<mVertex>([&](auto ptr){
+//        for(int i = 0; i < numVertex; i++){
+//            mVertex v = ptr[i];
+//            spdlog::info("vertex: {}, normal: {}", v.position, v.normal);
+//        }
+//    });
+
 }
 
 void MarchingCubeDemo::createMarchingCubeDescriptorSetLayout() {
-    std::array<VkDescriptorSetLayoutBinding, 6> bindings;
+    std::array<VkDescriptorSetLayoutBinding, 5> bindings{};
 
     bindings[0].binding = 0;
     bindings[0].descriptorCount = 1;
@@ -435,12 +503,12 @@ void MarchingCubeDemo::createMarchingCubeDescriptorSetLayout() {
 
     bindings[1].binding = 1;
     bindings[1].descriptorCount = 1;
-    bindings[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    bindings[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     bindings[1].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
     bindings[2].binding = 2;
     bindings[2].descriptorCount = 1;
-    bindings[2].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    bindings[2].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     bindings[2].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
     bindings[3].binding = 3;
@@ -453,18 +521,13 @@ void MarchingCubeDemo::createMarchingCubeDescriptorSetLayout() {
     bindings[4].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     bindings[4].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
-    bindings[5].binding = 5;
-    bindings[5].descriptorCount = 1;
-    bindings[5].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    bindings[5].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-
     marchingCube.descriptorSetLayout = device.createDescriptorSetLayout(bindings);
 }
 
 void MarchingCubeDemo::createMarchingCubeDescriptorSet() {
     marchingCube.descriptorSet = descriptorPool.allocate({ marchingCube.descriptorSetLayout }).front();
 
-    auto writes = initializers::writeDescriptorSets<6>(marchingCube.descriptorSet);
+     auto writes = initializers::writeDescriptorSets<5>(marchingCube.descriptorSet);
 
     VkDescriptorImageInfo imageInfo;
     imageInfo.imageView = sdf.imageView;
@@ -476,9 +539,47 @@ void MarchingCubeDemo::createMarchingCubeDescriptorSet() {
     writes[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     writes[0].pImageInfo = &imageInfo;
 
-    VkDescriptorImageInfo vcImageInfo;
-    vcImageInfo.imageView =
+    VkDescriptorBufferInfo counterInfo;
+    counterInfo.buffer = marchingCube.atomicCounterBuffers;
+    counterInfo.offset = 0;
+    counterInfo.range = VK_WHOLE_SIZE;
 
+    writes[1].dstBinding = 1;
+    writes[1].descriptorCount = 1;
+    writes[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    writes[1].pBufferInfo = &counterInfo;
+
+    VkDescriptorBufferInfo edgeTableInfo;
+    edgeTableInfo.buffer = marchingCube.edgeTableBuffer;
+    edgeTableInfo.offset = 0;
+    edgeTableInfo.range = VK_WHOLE_SIZE;
+
+    writes[2].dstBinding = 2;
+    writes[2].descriptorCount = 1;
+    writes[2].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    writes[2].pBufferInfo = &edgeTableInfo;
+
+    VkDescriptorBufferInfo triTableInfo;
+    triTableInfo.buffer = marchingCube.triTableBuffer;
+    triTableInfo.offset = 0;
+    triTableInfo.range = VK_WHOLE_SIZE;
+
+    writes[3].dstBinding = 3;
+    writes[3].descriptorCount = 1;
+    writes[3].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    writes[3].pBufferInfo = &triTableInfo;
+
+    VkDescriptorBufferInfo vertexInfo;
+    vertexInfo.buffer = marchingCube.vertexBuffer;
+    vertexInfo.offset = 0;
+    vertexInfo.range = VK_WHOLE_SIZE;
+
+    writes[4].dstBinding = 4;
+    writes[4].descriptorCount = 1;
+    writes[4].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    writes[4].pBufferInfo = &vertexInfo;
+
+    device.updateDescriptorSets(writes);
 }
 
 void MarchingCubeDemo::initMarchingCubeBuffers() {
@@ -488,17 +589,29 @@ void MarchingCubeDemo::initMarchingCubeBuffers() {
     constexpr auto triTable = marching_cube::triTable();
     marchingCube.triTableBuffer = device.createDeviceLocalBuffer(triTable.data(), sizeof(int) * triTable.size(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
 
-    marchingCube.vertexCountBuffer = device.createBuffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, sizeof(uint32_t));
-    marchingCube.nextVertexIdBuffer = device.createBuffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, sizeof(uint32_t));
-    marchingCube.vertexBuffer = device.createBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY, sizeof(glm::vec3));
+    marchingCube.atomicCounterBuffers = device.createBuffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, sizeof(uint32_t) * 2);
+    marchingCube.vertexBuffer = device.createBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY, sizeof(glm::vec3));
 
 }
 
+void MarchingCubeDemo::createMarchingCubePipeline() {
+    auto marchingCubeModule = ShaderModule{ "../../data/shaders/marching_cubes/march.comp.spv", device};
+    auto stage = initializers::shaderStage({ marchingCubeModule, VK_SHADER_STAGE_COMPUTE_BIT});
+
+    marchingCube.layout = device.createPipelineLayout({marchingCube.descriptorSetLayout}, { { VK_SHADER_STAGE_COMPUTE_BIT, sizeof(Camera), sizeof(decltype(marchingCube.constants)) } });
+
+    auto computeCreateInfo = initializers::computePipelineCreateInfo();
+    computeCreateInfo.stage = stage;
+    computeCreateInfo.layout = marchingCube.layout;
+
+    marchingCube.pipeline = device.createComputePipeline(computeCreateInfo);
+}
 
 int main(){
     Settings settings;
     settings.enabledFeatures.wideLines = VK_TRUE;
     settings.depthTest = true;
+    settings.queueFlags |= VK_QUEUE_COMPUTE_BIT;
 
     std::unique_ptr<Plugin> imGui = std::make_unique<ImGuiPlugin>();
 

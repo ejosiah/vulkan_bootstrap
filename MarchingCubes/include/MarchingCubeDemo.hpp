@@ -3,8 +3,8 @@
 #include "VulkanBaseApp.h"
 
 struct mVertex{
-    glm::vec3 position;
-    glm::vec3 normal;
+    glm::vec4 position;
+    glm::vec4 normal;
 };
 
 class MarchingCubeDemo : public VulkanBaseApp{
@@ -87,15 +87,16 @@ private:
         VkDescriptorSet descriptorSet;
         VulkanPipelineLayout layout;
         VulkanPipeline pipeline;
-        Texture vertexCountBuffer;
-        Texture nextVertexIdBuffer;
+        VulkanBuffer atomicCounterBuffers;
         VulkanBuffer edgeTableBuffer;
         VulkanBuffer triTableBuffer;
         VulkanBuffer vertexBuffer;
+        int numVertices;
 
         struct {
-            float isoLevel = 0.0;
+            float isoLevel = 1E-8;
             int pass = 0;
+//            int config = 0;
         } constants;
     } marchingCube;
 

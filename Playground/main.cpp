@@ -239,16 +239,17 @@ void othonormalBasis(vec3& normal, vec3& tangent, vec3& binormal){
     tangent = cross(normal, binormal);
 }
 
-int main() {
-    glm::vec3 normal{-0.0445, 0.4977, -0.6337};
-    glm::vec3 tangent;
-    glm::vec3 binormal;
-    glm::vec3 dir{-0.3852, 0.5011, 0.7749};
-    othonormalBasis(normal, tangent, binormal);
-    fmt::print("N: {}, Nt: {}, Nb: {}\n", normal, tangent, binormal);
+vec3 remap(vec3 value, vec3 oldMin, vec3 oldMax, vec3 newMin, vec3 newMax){
+    return (((value - oldMin) / (oldMax - oldMin)) * (newMax - newMin)) + newMin;
+}
 
-    computeOrthonormalBasis(normal, tangent, binormal);
-    fmt::print("N: {}, Nt: {}, Nb: {}\n", normal, tangent, binormal);
-    float pdf = dot(normal, dir)/pi<float>();
-    fmt::print("pdf: {}\n", pdf);
+int main() {
+    vec3 size = vec3(4);
+
+    vec3 gridSize = 2.0f * (1.0f/size);
+    vec3 p = remap(vec3(0), vec3(0), vec3(4), vec3(-1), vec3(1));
+    vec3 center = p + gridSize * 0.5f;
+
+    fmt::print("gridSize: {}\n, p: {}\n, center: {}\n", gridSize, p, center);
+
 }
