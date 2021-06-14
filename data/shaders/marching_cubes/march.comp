@@ -15,19 +15,19 @@ layout(local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
 
 layout(set = 0, binding = 0) uniform sampler3D sdf;
 
-layout(set = 0, binding = 1, scalar) buffer ATOMIC_COUNTERS{
+layout(set = 1, binding = 0, scalar) buffer ATOMIC_COUNTERS{
     uint vertex_count;
     uint next_vertex_id;
 };
 
-layout(set = 0, binding = 2, scalar) buffer EDGE_TABLE{
+layout(set = 1, binding = 1, scalar) buffer EDGE_TABLE{
     uint edgeTable[256];
 };
-layout(set = 0, binding = 3, scalar) buffer TRI_TABLE{
+layout(set = 1, binding = 2, scalar) buffer TRI_TABLE{
     int triTable[4096];
 };
 
-layout(set = 0, binding = 4) buffer VERTICES{
+layout(set = 1, binding = 3) buffer VERTICES{
     Vertex vertices[];
 };
 

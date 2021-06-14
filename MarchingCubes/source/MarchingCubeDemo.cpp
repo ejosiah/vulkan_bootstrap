@@ -74,7 +74,7 @@ VkCommandBuffer *MarchingCubeDemo::buildCommandBuffers(uint32_t imageIndex, uint
     vkCmdDraw(commandBuffer, cellBuffer.size/sizeof(glm::vec3), 1, 0, 0);
 
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.triangles);
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout.triangles, 0, 1, &renderDescriptorSet, 0, nullptr);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout.triangles, 0, 1, &sdfDescriptorSet, 0, nullptr);
     camera->push(commandBuffer, pipelineLayout.triangles, VK_SHADER_STAGE_VERTEX_BIT);
 
 //    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffer, &offset);
@@ -245,7 +245,7 @@ void MarchingCubeDemo::createPipeline() {
     vertexInputState = initializers::vertexInputState(triBindings, triAttribs);
 
     inputAssemblyState.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-    pipelineLayout.triangles = device.createPipelineLayout({ renderDescriptorSetLayout }, {Camera::pushConstant()});
+    pipelineLayout.triangles = device.createPipelineLayout({sdfDescriptorSetLayout }, {Camera::pushConstant()});
 
     createInfo.stageCount = COUNT(triStages);
     createInfo.pStages = triStages.data();
@@ -389,9 +389,9 @@ void MarchingCubeDemo::createDescriptorSetLayout() {
     bindings[0].binding = 0;
     bindings[0].descriptorCount = 1;
     bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    bindings[0].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    bindings[0].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT;
 
-    renderDescriptorSetLayout = device.createDescriptorSetLayout(bindings);
+    sdfDescriptorSetLayout = device.createDescriptorSetLayout(bindings);
 
     bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
     bindings[0].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
@@ -400,8 +400,8 @@ void MarchingCubeDemo::createDescriptorSetLayout() {
 }
 
 void MarchingCubeDemo::createDescriptorSet() {
-    auto sets = descriptorPool.allocate({ renderDescriptorSetLayout, computeDescriptorSetLayout});
-    renderDescriptorSet = sets.front();
+    auto sets = descriptorPool.allocate({sdfDescriptorSetLayout, computeDescriptorSetLayout});
+    sdfDescriptorSet = sets.front();
     computeDescriptorSet = sets.back();
     
    std::array<VkWriteDescriptorSet, 2> writes = initializers::writeDescriptorSets<2>();
@@ -411,7 +411,7 @@ void MarchingCubeDemo::createDescriptorSet() {
    imageInfo.sampler = sdf.sampler;
    imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
    
-   writes[0].dstSet = renderDescriptorSet;
+   writes[0].dstSet = sdfDescriptorSet;
    writes[0].dstBinding = 0;
    writes[0].descriptorCount = 1;
    writes[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
@@ -434,16 +434,8 @@ void MarchingCubeDemo::createSdf() {
         vkCmdDispatch(commandBuffer, 128/8, 128/8, 128/8);
     });
 
-    marchingCube.atomicCounterBuffers.map<uint32_t>([&](auto ptr){ ptr[0] = ptr[1] = 0; });
 
-    device.graphicsCommandPool().oneTimeCommand([&](auto commandBuffer){
-        marchingCube.constants.pass = 0;
-//        marchingCube.constants.config = config;
-        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, marchingCube.pipeline);
-        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, marchingCube.layout, 0, 1, &marchingCube.descriptorSet, 0, VK_NULL_HANDLE);
-        vkCmdPushConstants(commandBuffer, marchingCube.layout, VK_SHADER_STAGE_COMPUTE_BIT, sizeof(Camera), sizeof(marchingCube.constants), &marchingCube.constants);
-        vkCmdDispatch(commandBuffer, 16, 16, 16);
-    });
+    march(0);
 
     uint32_t numVertex = 0;
     uint32_t vertexWrites = 0;
@@ -463,22 +455,14 @@ void MarchingCubeDemo::createSdf() {
     vertexInfo.offset = 0;
     vertexInfo.range = VK_WHOLE_SIZE;
 
-    writes[0].dstBinding = 4;
+    writes[0].dstBinding = 3;
     writes[0].descriptorCount = 1;
     writes[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     writes[0].pBufferInfo = &vertexInfo;
 
     device.updateDescriptorSets(writes);
 
-    device.graphicsCommandPool().oneTimeCommand([&](auto commandBuffer){
-        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, marchingCube.pipeline);
-        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, marchingCube.layout, 0, 1, &marchingCube.descriptorSet, 0, VK_NULL_HANDLE);
-
-        marchingCube.constants.pass = 1;
-//        marchingCube.constants.config = config;
-        vkCmdPushConstants(commandBuffer, marchingCube.layout, VK_SHADER_STAGE_COMPUTE_BIT, sizeof(Camera), sizeof(marchingCube.constants), &marchingCube.constants);
-        vkCmdDispatch(commandBuffer, 16, 16, 16);
-    });
+    march(1);
 
     marchingCube.atomicCounterBuffers.map<uint32_t>([&](auto ptr){ numVertex = *ptr; vertexWrites = ptr[1]; });
     marchingCube.numVertices = vertexWrites;
@@ -494,11 +478,11 @@ void MarchingCubeDemo::createSdf() {
 }
 
 void MarchingCubeDemo::createMarchingCubeDescriptorSetLayout() {
-    std::array<VkDescriptorSetLayoutBinding, 5> bindings{};
+    std::array<VkDescriptorSetLayoutBinding, 4> bindings{};
 
     bindings[0].binding = 0;
     bindings[0].descriptorCount = 1;
-    bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     bindings[0].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
     bindings[1].binding = 1;
@@ -516,68 +500,53 @@ void MarchingCubeDemo::createMarchingCubeDescriptorSetLayout() {
     bindings[3].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     bindings[3].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
-    bindings[4].binding = 4;
-    bindings[4].descriptorCount = 1;
-    bindings[4].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    bindings[4].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-
     marchingCube.descriptorSetLayout = device.createDescriptorSetLayout(bindings);
 }
 
 void MarchingCubeDemo::createMarchingCubeDescriptorSet() {
     marchingCube.descriptorSet = descriptorPool.allocate({ marchingCube.descriptorSetLayout }).front();
 
-     auto writes = initializers::writeDescriptorSets<5>(marchingCube.descriptorSet);
-
-    VkDescriptorImageInfo imageInfo;
-    imageInfo.imageView = sdf.imageView;
-    imageInfo.sampler = sdf.sampler;
-    imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-
-    writes[0].dstBinding = 0;
-    writes[0].descriptorCount = 1;
-    writes[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    writes[0].pImageInfo = &imageInfo;
+     auto writes = initializers::writeDescriptorSets<4>(marchingCube.descriptorSet);
 
     VkDescriptorBufferInfo counterInfo;
     counterInfo.buffer = marchingCube.atomicCounterBuffers;
     counterInfo.offset = 0;
     counterInfo.range = VK_WHOLE_SIZE;
 
-    writes[1].dstBinding = 1;
-    writes[1].descriptorCount = 1;
-    writes[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    writes[1].pBufferInfo = &counterInfo;
+    writes[0].dstBinding = 0;
+    writes[0].descriptorCount = 1;
+    writes[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    writes[0].pBufferInfo = &counterInfo;
 
     VkDescriptorBufferInfo edgeTableInfo;
     edgeTableInfo.buffer = marchingCube.edgeTableBuffer;
     edgeTableInfo.offset = 0;
     edgeTableInfo.range = VK_WHOLE_SIZE;
 
-    writes[2].dstBinding = 2;
-    writes[2].descriptorCount = 1;
-    writes[2].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    writes[2].pBufferInfo = &edgeTableInfo;
+    writes[1].dstBinding = 1;
+    writes[1].descriptorCount = 1;
+    writes[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    writes[1].pBufferInfo = &edgeTableInfo;
 
     VkDescriptorBufferInfo triTableInfo;
     triTableInfo.buffer = marchingCube.triTableBuffer;
     triTableInfo.offset = 0;
     triTableInfo.range = VK_WHOLE_SIZE;
 
-    writes[3].dstBinding = 3;
-    writes[3].descriptorCount = 1;
-    writes[3].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    writes[3].pBufferInfo = &triTableInfo;
+    writes[2].dstBinding = 2;
+    writes[2].descriptorCount = 1;
+    writes[2].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    writes[2].pBufferInfo = &triTableInfo;
 
     VkDescriptorBufferInfo vertexInfo;
     vertexInfo.buffer = marchingCube.vertexBuffer;
     vertexInfo.offset = 0;
     vertexInfo.range = VK_WHOLE_SIZE;
 
-    writes[4].dstBinding = 4;
-    writes[4].descriptorCount = 1;
-    writes[4].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    writes[4].pBufferInfo = &vertexInfo;
+    writes[3].dstBinding = 3;
+    writes[3].descriptorCount = 1;
+    writes[3].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    writes[3].pBufferInfo = &vertexInfo;
 
     device.updateDescriptorSets(writes);
 }
@@ -598,13 +567,30 @@ void MarchingCubeDemo::createMarchingCubePipeline() {
     auto marchingCubeModule = ShaderModule{ "../../data/shaders/marching_cubes/march.comp.spv", device};
     auto stage = initializers::shaderStage({ marchingCubeModule, VK_SHADER_STAGE_COMPUTE_BIT});
 
-    marchingCube.layout = device.createPipelineLayout({marchingCube.descriptorSetLayout}, { { VK_SHADER_STAGE_COMPUTE_BIT, sizeof(Camera), sizeof(decltype(marchingCube.constants)) } });
+    marchingCube.layout = device.createPipelineLayout({sdfDescriptorSetLayout, marchingCube.descriptorSetLayout}, { { VK_SHADER_STAGE_COMPUTE_BIT, sizeof(Camera), sizeof(decltype(marchingCube.constants)) } });
 
     auto computeCreateInfo = initializers::computePipelineCreateInfo();
     computeCreateInfo.stage = stage;
     computeCreateInfo.layout = marchingCube.layout;
 
     marchingCube.pipeline = device.createComputePipeline(computeCreateInfo);
+}
+
+void MarchingCubeDemo::march(int pass) {
+    static std::array<VkDescriptorSet, 2> sets;
+    sets[0] = sdfDescriptorSet;
+    sets[1] = marchingCube.descriptorSet;
+
+    marchingCube.atomicCounterBuffers.map<uint32_t>([&](auto ptr){ ptr[0] = ptr[1] = 0; });
+    device.graphicsCommandPool().oneTimeCommand([&](auto commandBuffer){
+        marchingCube.constants.pass = pass;
+//        marchingCube.constants.config = config;
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, marchingCube.pipeline);
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, marchingCube.layout, 0, COUNT(sets), sets.data(), 0, VK_NULL_HANDLE);
+        vkCmdPushConstants(commandBuffer, marchingCube.layout, VK_SHADER_STAGE_COMPUTE_BIT, sizeof(Camera), sizeof(marchingCube.constants), &marchingCube.constants);
+        vkCmdDispatch(commandBuffer, 16, 16, 16);
+    });
+
 }
 
 int main(){

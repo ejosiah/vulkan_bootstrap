@@ -20,6 +20,8 @@ protected:
 
     void createSdf();
 
+    void march(int pass);
+
     void initVertexBuffer();
 
     void createCellBuffer();
@@ -102,9 +104,9 @@ private:
 
     Texture sdf;
 
-    VulkanDescriptorSetLayout renderDescriptorSetLayout;
+    VulkanDescriptorSetLayout sdfDescriptorSetLayout;
     VulkanDescriptorSetLayout computeDescriptorSetLayout;
-    VkDescriptorSet renderDescriptorSet;
+    VkDescriptorSet sdfDescriptorSet;
     VkDescriptorSet computeDescriptorSet;
     VulkanDescriptorPool descriptorPool;
 
