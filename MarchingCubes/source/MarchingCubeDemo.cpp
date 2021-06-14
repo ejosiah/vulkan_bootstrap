@@ -625,6 +625,44 @@ int MarchingCubeDemo::march(int pass) {
     return numVertex;
 }
 
+void MarchingCubeDemo::generateIndex(VulkanBuffer &source, VulkanBuffer &vBuffer, VulkanBuffer &iBuffer) {
+    auto similar = [](const mVertex& a, const mVertex& b){
+        return closeEnough(a.position.x, b.position.x)
+                && closeEnough(a.position.y, b.position.y)
+                && closeEnough(a.position.z, b.position.z);
+    };
+
+    std::map<mVertex, uint32_t> visited;
+    auto findSimilar = [&](const mVertex& v) -> std::optional<mVertex> {
+        auto itr = std::find_if(begin(visited), end(visited), [&](auto v0){
+            return closeEnough(v, v0);
+        });
+        if(itr != end(visited)) return itr->first;
+        return {};
+    };
+
+
+    std::vector<uint32_t> indices;
+    std::vector<mVertex> vertices;
+
+    source.map<mVertex>([&](auto ptr){
+       for(int i = 0; i < source.size/sizeof(mVertex); i++) {
+           mVertex vertex = ptr[i];
+           auto opt = findSimilar(vertex);
+           if(opt.has_value()){
+               indices.push_back(visited[opt.value()]);
+           }else{
+               visited[vertex] = vertices.size();
+               indices.push_back(vertices.size());
+               vertices.push_back(vertex);
+           }
+       }
+    });
+
+    vBuffer = device.createDeviceLocalBuffer(vertices.data(), sizeof(mVertex) * vertices.size(), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+    iBuffer = device.createDeviceLocalBuffer(indices.data(), sizeof(uint32_t) * indices.size(), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+}
+
 int main(){
     Settings settings;
     settings.enabledFeatures.wideLines = VK_TRUE;

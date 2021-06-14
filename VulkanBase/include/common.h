@@ -63,7 +63,9 @@ constexpr std::chrono::seconds ONE_SECOND = std::chrono::seconds(1);
 
 using cstring = const char*;
 
-inline bool closeEnough(float x, float y) { return abs(x - y) <= EPSILON * (abs(x) + abs(y) + 1.0f); }
+inline bool closeEnough(float x, float y, float epsilon = 1E-3) {
+    return fabs(x - y) <= epsilon * (abs(x) + abs(y) + 1.0f);
+}
 
 inline glm::quat fromAxisAngle(const glm::vec3& axis, const float angle) {
     float w = cos(glm::radians(angle) / 2);

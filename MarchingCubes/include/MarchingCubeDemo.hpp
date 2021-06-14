@@ -7,6 +7,16 @@ struct mVertex{
     glm::vec4 normal;
 };
 
+template<>
+struct std::less<mVertex>{
+
+    bool operator()(const mVertex& a, const mVertex& b) const {
+        return a.position.x < b.position.x
+                && a.position.y < b.position.y
+                && a.position.z < b.position.z;
+    }
+};
+
 class MarchingCubeDemo : public VulkanBaseApp{
 public:
     MarchingCubeDemo(Settings settings);
@@ -58,6 +68,8 @@ protected:
 
     void renderText(VkCommandBuffer commandBuffer);
 
+    void generateIndex(VulkanBuffer& source, VulkanBuffer& vertices, VulkanBuffer& indices);
+
 private:
     VulkanCommandPool commandPool;
     std::vector<VkCommandBuffer> commandBuffers;
@@ -93,6 +105,7 @@ private:
         VulkanBuffer edgeTableBuffer;
         VulkanBuffer triTableBuffer;
         VulkanBuffer vertexBuffer;
+        VulkanBuffer indexBuffer;
         int numVertices;
 
         struct {
