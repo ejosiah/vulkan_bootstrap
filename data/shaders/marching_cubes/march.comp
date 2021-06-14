@@ -1,12 +1,10 @@
 #version 460 core
 #extension GL_EXT_scalar_block_layout : enable
-#extension GL_GOOGLE_include_directive : enable
 
 #define NUM_VERTICES 8
 #define NUM_EDGES 12
 #define MAX_TRIANGLE_VERTICES 16
 
-#include "sdf_model.glsl"
 
 struct Vertex{
     vec3 position;
@@ -74,13 +72,10 @@ vec3 getVertex(vec3 center, vec3 gridSize, int edgeIndex){
 
 float getIsoValue(vec3 center, vec3 gridSize, int index){
     vec3 p = center + CubeVertices[index] * gridSize;
-//
-//    return length(p) - 0.8;
-//    vec3 coord = 0.5 * p + 0.5;
-//    return texture(sdf, coord).r;
-//    vec3 q = abs(p) - vec3(0.8);
-//    return length(max(q,0.0)) + min(max(q.x,max(q.y,q.z)),0.0);
-    return sceneSDF(p);
+
+    vec3 coord = 0.5 * p + 0.5;
+    return texture(sdf, coord).r;
+
 }
 
 void main(){
@@ -112,24 +107,14 @@ void main(){
         vec3 p1 = vertexList[triTable[i + 1]];
         vec3 p2 = vertexList[triTable[i + 2]];
 
-//        vec3 a = p1 - p0;
-//        vec3 b = p2 - p0;
-//        vec3 normal = normalize(cross(a, b));
-        vec3 n0 = estimateNormal(p0);
-        vec3 n1 = estimateNormal(p1);
-        vec3 n2 = estimateNormal(p2);
+        vec3 a = p1 - p0;
+        vec3 b = p2 - p0;
+        vec3 normal = normalize(cross(a, b));
 
-        triangles[numVertices++] = Vertex(p0, n0);
-        triangles[numVertices++] = Vertex(p1, n1);
-        triangles[numVertices++] = Vertex(p2, n2);
+        triangles[numVertices++] = Vertex(p0, normal);
+        triangles[numVertices++] = Vertex(p1, normal);
+        triangles[numVertices++] = Vertex(p2, normal);
     }
-
-//    triangles[numVertices++] = Vertex(cellCenter, vec3(0));
-//    for(int v = 0; v < NUM_VERTICES; v++){
-//        vec3 p = cellCenter + CubeVertices[v] * gridSize;
-//        vec3 iso = vec3(isoValues[v]);
-//        triangles[numVertices++] = Vertex(p, vec3(isoLevel));
-//    }
 
     atomicAdd(vertex_count, numVertices);
 
