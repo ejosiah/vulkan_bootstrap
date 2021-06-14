@@ -103,6 +103,8 @@ private:
     } marchingCube;
 
     Texture sdf;
+    uint32_t sdfSize = 256;
+    Texture normalMap;
 
     VulkanDescriptorSetLayout sdfDescriptorSetLayout;
     VulkanDescriptorSetLayout computeDescriptorSetLayout;

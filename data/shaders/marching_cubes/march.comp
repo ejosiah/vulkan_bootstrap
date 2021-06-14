@@ -14,6 +14,8 @@ struct Vertex{
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
 
 layout(set = 0, binding = 0) uniform sampler3D sdf;
+layout(set = 0, binding = 1) uniform sampler3D normalMap;
+//layout(set = 0, binding = 2) uniform sampler3D colorMap;
 
 layout(set = 1, binding = 0, scalar) buffer ATOMIC_COUNTERS{
     uint vertex_count;
@@ -69,6 +71,14 @@ vec3 getVertex(vec3 center, vec3 gridSize, int edgeIndex){
 
     return mix(p0, p1, t);
 }
+
+vec3 getNormal(vec3 position){
+    return normalize(2.0 * texture(normalMap, position).xyz - 1);
+}
+
+//vec3 getColor(vec3 position){
+//    return texture(colorMap, position).rgb;
+//}
 
 float getIsoValue(vec3 center, vec3 gridSize, int index){
     vec3 p = center + CubeVertices[index] * gridSize;
