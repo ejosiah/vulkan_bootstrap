@@ -430,17 +430,12 @@ void MarchingCubeDemo::createSdf() {
     device.graphicsCommandPool().oneTimeCommand([&](auto commandBuffer){
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelines.sdf);
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout.sdf, 0, 1, &computeDescriptorSet, 0, VK_NULL_HANDLE);
-//        vkCmdDispatch(commandBuffer, 512/8, 512/8, 256/4);
         vkCmdDispatch(commandBuffer, 128/8, 128/8, 128/8);
     });
 
 
-    march(0);
+    auto numVertex = march(0);
 
-    uint32_t numVertex = 0;
-    uint32_t vertexWrites = 0;
-    marchingCube.atomicCounterBuffers.map<uint32_t>([&](auto ptr){ numVertex = *ptr; *ptr = 0; vertexWrites = ptr[1]; ptr[1] = 0; });
-    spdlog::info("num vertices: {}, vertexWrites: {}", numVertex, vertexWrites);
 
     if(numVertex ==  0){
         spdlog::info("No primitives generated");
@@ -462,11 +457,7 @@ void MarchingCubeDemo::createSdf() {
 
     device.updateDescriptorSets(writes);
 
-    march(1);
-
-    marchingCube.atomicCounterBuffers.map<uint32_t>([&](auto ptr){ numVertex = *ptr; vertexWrites = ptr[1]; });
-    marchingCube.numVertices = vertexWrites;
-    spdlog::info("num vertices: {}, vertexWrites: {}", numVertex, vertexWrites);
+    marchingCube.numVertices = march(1);
 
 //    marchingCube.vertexBuffer.map<mVertex>([&](auto ptr){
 //        for(int i = 0; i < numVertex; i++){
@@ -576,7 +567,7 @@ void MarchingCubeDemo::createMarchingCubePipeline() {
     marchingCube.pipeline = device.createComputePipeline(computeCreateInfo);
 }
 
-void MarchingCubeDemo::march(int pass) {
+int MarchingCubeDemo::march(int pass) {
     static std::array<VkDescriptorSet, 2> sets;
     sets[0] = sdfDescriptorSet;
     sets[1] = marchingCube.descriptorSet;
@@ -590,7 +581,11 @@ void MarchingCubeDemo::march(int pass) {
         vkCmdPushConstants(commandBuffer, marchingCube.layout, VK_SHADER_STAGE_COMPUTE_BIT, sizeof(Camera), sizeof(marchingCube.constants), &marchingCube.constants);
         vkCmdDispatch(commandBuffer, 16, 16, 16);
     });
-
+    uint32_t numVertex = 0;
+    uint32_t vertexWrites = 0;
+    marchingCube.atomicCounterBuffers.map<uint32_t>([&](auto ptr){ numVertex = *ptr; *ptr = 0; vertexWrites = ptr[1]; ptr[1] = 0; });
+    spdlog::info("num vertices: {}, vertexWrites: {}", numVertex, vertexWrites);
+    return numVertex;
 }
 
 int main(){

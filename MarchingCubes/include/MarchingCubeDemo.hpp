@@ -20,7 +20,7 @@ protected:
 
     void createSdf();
 
-    void march(int pass);
+    int march(int pass);
 
     void initVertexBuffer();
 
