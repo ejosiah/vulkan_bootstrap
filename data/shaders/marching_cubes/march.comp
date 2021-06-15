@@ -5,6 +5,8 @@
 #define NUM_EDGES 12
 #define MAX_TRIANGLE_VERTICES 16
 
+#include "sdf_common.glsl"
+
 
 struct Vertex{
     vec3 position;
@@ -80,9 +82,13 @@ vec3 getNormal(vec3 position){
 //    return texture(colorMap, position).rgb;
 //}
 
+float map(vec3 p){
+    return length(p) - 0.8;
+}
+
 float getIsoValue(vec3 center, vec3 gridSize, int index){
     vec3 p = center + CubeVertices[index] * gridSize;
-
+//    return map(p);
     vec3 coord = 0.5 * p + 0.5;
     return texture(sdf, coord).r;
 
@@ -121,9 +127,9 @@ void main(){
         vec3 b = p2 - p0;
         vec3 normal = normalize(cross(a, b));
 
-        triangles[numVertices++] = Vertex(p0, normal);
-        triangles[numVertices++] = Vertex(p1, normal);
-        triangles[numVertices++] = Vertex(p2, normal);
+        triangles[numVertices++] = Vertex(p0, getNormal(p0));
+        triangles[numVertices++] = Vertex(p1, getNormal(p1));
+        triangles[numVertices++] = Vertex(p2, getNormal(p2));
     }
 
     atomicAdd(vertex_count, numVertices);

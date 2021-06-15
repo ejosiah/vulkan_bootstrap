@@ -2,9 +2,17 @@
 
 #include "VulkanBaseApp.h"
 
+
+
 struct mVertex{
     glm::vec4 position;
     glm::vec4 normal;
+};
+
+inline bool similar(const mVertex& a, const mVertex& b, float epsilon = 1E-7){
+    return closeEnough(a.position.x, b.position.x, epsilon)
+           && closeEnough(a.position.y, b.position.y, epsilon)
+           && closeEnough(a.position.z, b.position.z, epsilon);
 };
 
 template<>
@@ -14,6 +22,25 @@ struct std::less<mVertex>{
         return a.position.x < b.position.x
                 && a.position.y < b.position.y
                 && a.position.z < b.position.z;
+    }
+};
+
+template<>
+struct std::hash<mVertex>{
+
+    size_t operator()(const mVertex& a) const noexcept {
+        size_t h = std::hash<float>{}(a.position.x);
+               h ^= (std::hash<float>{}(a.position.y) << 1);
+               h ^= (std::hash<float>{}(a.position.z) << 1);
+        return h;
+    }
+};
+
+template<>
+struct std::equal_to<mVertex>{
+
+    bool operator()(const mVertex& a, const mVertex& b) const {
+        return  similar(a, b);
     }
 };
 
@@ -31,6 +58,8 @@ protected:
     void createSdf();
 
     int march(int pass);
+
+    void updateMarchingCubeVertexDescriptorSet();
 
     void initVertexBuffer();
 
@@ -117,6 +146,7 @@ private:
 
     Texture sdf;
     uint32_t sdfSize = 256;
+    uint32_t numGrids = 4;
     Texture normalMap;
 
     VulkanDescriptorSetLayout sdfDescriptorSetLayout;

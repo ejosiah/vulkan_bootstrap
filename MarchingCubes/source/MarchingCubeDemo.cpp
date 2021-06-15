@@ -80,7 +80,9 @@ VkCommandBuffer *MarchingCubeDemo::buildCommandBuffers(uint32_t imageIndex, uint
 //    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffer, &offset);
 //    vkCmdDrawIndirect(commandBuffer, drawCommandBuffer, 0, 1, sizeof(VkDrawIndirectCommand));
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, marchingCube.vertexBuffer, &offset);
-    vkCmdDraw(commandBuffer, marchingCube.numVertices, 1, 0, 0);
+    vkCmdBindIndexBuffer(commandBuffer, marchingCube.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+//    vkCmdDraw(commandBuffer, marchingCube.numVertices, 1, 0, 0);
+    vkCmdDrawIndexed(commandBuffer, marchingCube.indexBuffer.size/sizeof(uint32_t), 1, 0, 0, 0);
 
     renderText(commandBuffer);
 
@@ -479,30 +481,37 @@ void MarchingCubeDemo::createSdf() {
         return;
     }
     marchingCube.vertexBuffer = device.createBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, sizeof(mVertex) * numVertex);
-
-    std::array<VkWriteDescriptorSet, 1> writes = initializers::writeDescriptorSets<1>(marchingCube.descriptorSet);
-
-    VkDescriptorBufferInfo vertexInfo;
-    vertexInfo.buffer = marchingCube.vertexBuffer;
-    vertexInfo.offset = 0;
-    vertexInfo.range = VK_WHOLE_SIZE;
-
-    writes[0].dstBinding = 3;
-    writes[0].descriptorCount = 1;
-    writes[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    writes[0].pBufferInfo = &vertexInfo;
-
-    device.updateDescriptorSets(writes);
+    updateMarchingCubeVertexDescriptorSet();
 
     marchingCube.numVertices = march(1);
+    spdlog::info("size: {}, {}, {}", numVertex, marchingCube.numVertices, marchingCube.vertexBuffer.size/sizeof(mVertex));
 
-//    marchingCube.vertexBuffer.map<mVertex>([&](auto ptr){
-//        for(int i = 0; i < numVertex; i++){
+    marchingCube.vertexBuffer.map<mVertex>([&](auto ptr){
+//        std::vector<mVertex> visitedSet;
+//        auto findSimilar = [&](const mVertex& v) -> std::optional<mVertex> {
+//            auto itr = std::find_if(begin(visitedSet), end(visitedSet), [&](auto v1){
+//                return similar(v, v1);
+//            });
+//            if(itr != end(visitedSet)) return *itr;
+//            return {};
+//        };
+//
+//        int totalSimilar = 0;
+//        for(int i = 0; i < marchingCube.vertexBuffer.size/sizeof(mVertex); i++){
 //            mVertex v = ptr[i];
-//            spdlog::info("vertex: {}, normal: {}", v.position, v.normal);
+//            auto visited = findSimilar(v);
+//            if(visited.has_value()){
+//                auto v1 = *visited;
+//                totalSimilar++;
+//                spdlog::info("v0: {}, v1: {}, diff: {}%", v.position, v1.position, fabs(v.position.x - v1.position.x) * 100.0f);
+//            }else{
+//                visitedSet.push_back(v);
+//            }
 //        }
-//    });
+//        spdlog::info("total visited: {}, total similar: {}", visitedSet.size(), totalSimilar);
+    });
 
+    generateIndex(marchingCube.vertexBuffer, marchingCube.vertexBuffer, marchingCube.indexBuffer);
 }
 
 void MarchingCubeDemo::createMarchingCubeDescriptorSetLayout() {
@@ -616,7 +625,7 @@ int MarchingCubeDemo::march(int pass) {
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, marchingCube.pipeline);
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, marchingCube.layout, 0, COUNT(sets), sets.data(), 0, VK_NULL_HANDLE);
         vkCmdPushConstants(commandBuffer, marchingCube.layout, VK_SHADER_STAGE_COMPUTE_BIT, sizeof(Camera), sizeof(marchingCube.constants), &marchingCube.constants);
-        vkCmdDispatch(commandBuffer, 32, 32, 32);
+        vkCmdDispatch(commandBuffer, numGrids, numGrids, numGrids);
     });
     uint32_t numVertex = 0;
     uint32_t vertexWrites = 0;
@@ -626,41 +635,69 @@ int MarchingCubeDemo::march(int pass) {
 }
 
 void MarchingCubeDemo::generateIndex(VulkanBuffer &source, VulkanBuffer &vBuffer, VulkanBuffer &iBuffer) {
-    auto similar = [](const mVertex& a, const mVertex& b){
-        return closeEnough(a.position.x, b.position.x)
-                && closeEnough(a.position.y, b.position.y)
-                && closeEnough(a.position.z, b.position.z);
-    };
-
-    std::map<mVertex, uint32_t> visited;
+    auto start = chrono::steady_clock::now();
+    std::vector<uint32_t> indices;
+    std::vector<mVertex> vertices;
+    auto prevNumVertices = source.size/sizeof(mVertex);
     auto findSimilar = [&](const mVertex& v) -> std::optional<mVertex> {
-        auto itr = std::find_if(begin(visited), end(visited), [&](auto v0){
-            return closeEnough(v, v0);
+        auto itr = std::find_if(begin(vertices), end(vertices), [&](auto v1){
+            return similar(v, v1);
         });
-        if(itr != end(visited)) return itr->first;
+        if(itr != end(vertices)) return *itr;
         return {};
     };
 
+    auto findIndex = [&](const mVertex& v){
+        for(int i = 0; i < vertices.size(); i++){
+            if(similar(v, vertices[i])){
+                return i;
+            }
+        }
+        return -1;
+    };
 
-    std::vector<uint32_t> indices;
-    std::vector<mVertex> vertices;
 
+
+    int similar = 0;
     source.map<mVertex>([&](auto ptr){
        for(int i = 0; i < source.size/sizeof(mVertex); i++) {
            mVertex vertex = ptr[i];
            auto opt = findSimilar(vertex);
            if(opt.has_value()){
-               indices.push_back(visited[opt.value()]);
+               auto index = findIndex(vertex);
+//               vertices[index].normal = (vertices[index].normal + vertex.normal) * 0.5f;
+               indices.push_back(index);
+               similar++;
            }else{
-               visited[vertex] = vertices.size();
                indices.push_back(vertices.size());
                vertices.push_back(vertex);
            }
        }
     });
+    auto end = chrono::steady_clock::now();
+    auto duration = chrono::duration_cast<chrono::milliseconds>(end - start);
 
-    vBuffer = device.createDeviceLocalBuffer(vertices.data(), sizeof(mVertex) * vertices.size(), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+    spdlog::info("previous num vertices: {}, new num vertices: {}, similar vertices {}, diff {}, num indices: {}, duration: {} ms"
+                 , prevNumVertices, vertices.size(),  similar, prevNumVertices - vertices.size(), indices.size(), duration);
+
+    vBuffer = device.createDeviceLocalBuffer(vertices.data(), sizeof(mVertex) * vertices.size(), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
     iBuffer = device.createDeviceLocalBuffer(indices.data(), sizeof(uint32_t) * indices.size(), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+}
+
+void MarchingCubeDemo::updateMarchingCubeVertexDescriptorSet() {
+    std::array<VkWriteDescriptorSet, 1> writes = initializers::writeDescriptorSets<1>(marchingCube.descriptorSet);
+
+    VkDescriptorBufferInfo vertexInfo;
+    vertexInfo.buffer = marchingCube.vertexBuffer;
+    vertexInfo.offset = 0;
+    vertexInfo.range = VK_WHOLE_SIZE;
+
+    writes[0].dstBinding = 3;
+    writes[0].descriptorCount = 1;
+    writes[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    writes[0].pBufferInfo = &vertexInfo;
+
+    device.updateDescriptorSets(writes);
 }
 
 int main(){
