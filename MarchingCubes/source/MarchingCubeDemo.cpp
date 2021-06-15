@@ -637,23 +637,17 @@ int MarchingCubeDemo::march(int pass) {
 void MarchingCubeDemo::generateIndex(VulkanBuffer &source, VulkanBuffer &vBuffer, VulkanBuffer &iBuffer) {
     auto start = chrono::steady_clock::now();
     std::vector<uint32_t> indices;
+    std::unordered_map<mVertex, uint32_t> vertexMap;
     std::vector<mVertex> vertices;
     auto prevNumVertices = source.size/sizeof(mVertex);
     auto findSimilar = [&](const mVertex& v) -> std::optional<mVertex> {
-        auto itr = std::find_if(begin(vertices), end(vertices), [&](auto v1){
-            return similar(v, v1);
-        });
-        if(itr != end(vertices)) return *itr;
+        auto itr = vertexMap.find(v);
+        if(itr != end(vertexMap)) return itr->first;
         return {};
     };
 
     auto findIndex = [&](const mVertex& v){
-        for(int i = 0; i < vertices.size(); i++){
-            if(similar(v, vertices[i])){
-                return i;
-            }
-        }
-        return -1;
+        return vertexMap[v];
     };
 
 
@@ -669,6 +663,7 @@ void MarchingCubeDemo::generateIndex(VulkanBuffer &source, VulkanBuffer &vBuffer
                indices.push_back(index);
                similar++;
            }else{
+               vertexMap[vertex] = vertices.size();
                indices.push_back(vertices.size());
                vertices.push_back(vertex);
            }
@@ -677,7 +672,7 @@ void MarchingCubeDemo::generateIndex(VulkanBuffer &source, VulkanBuffer &vBuffer
     auto end = chrono::steady_clock::now();
     auto duration = chrono::duration_cast<chrono::milliseconds>(end - start);
 
-    spdlog::info("previous num vertices: {}, new num vertices: {}, similar vertices {}, diff {}, num indices: {}, duration: {} ms"
+    spdlog::info("previous num vertices: {}, new num vertices: {}, similar vertices {}, diff {}, num indices: {}, duration: {}"
                  , prevNumVertices, vertices.size(),  similar, prevNumVertices - vertices.size(), indices.size(), duration);
 
     vBuffer = device.createDeviceLocalBuffer(vertices.data(), sizeof(mVertex) * vertices.size(), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
