@@ -1,10 +1,10 @@
-#include "$classname$.hpp"
+#include "SPHFluidSimulation.hpp"
 
-$classname$::$classname$(const Settings& settings) : VulkanBaseApp("$title$", settings) {
+SPHFluidSimulation::SPHFluidSimulation(const Settings& settings) : VulkanBaseApp("SPH Fluid Simulation", settings) {
 
 }
 
-void $classname$::initApp() {
+void SPHFluidSimulation::initApp() {
     createDescriptorPool();
     createCommandPool();
     createPipelineCache();
@@ -12,7 +12,7 @@ void $classname$::initApp() {
     createComputePipeline();
 }
 
-void $classname$::createDescriptorPool() {
+void SPHFluidSimulation::createDescriptorPool() {
     constexpr uint32_t maxSets = 100;
     std::array<VkDescriptorPoolSize, 17> poolSizes{
             {
@@ -40,17 +40,17 @@ void $classname$::createDescriptorPool() {
 
 }
 
-void $classname$::createCommandPool() {
+void SPHFluidSimulation::createCommandPool() {
     commandPool = device.createCommandPool(*device.queueFamilyIndex.graphics, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
     commandBuffers = commandPool.allocate(swapChainImageCount);
 }
 
-void $classname$::createPipelineCache() {
+void SPHFluidSimulation::createPipelineCache() {
     pipelineCache = device.createPipelineCache();
 }
 
 
-void $classname$::createRenderPipeline() {
+void SPHFluidSimulation::createRenderPipeline() {
     auto vertModule = ShaderModule{ "../../data/shaders/pass_through.vert.spv", device};
     auto fragModule = ShaderModule{"../../data/shaders/pass_through.frag.spv", device};
 
@@ -107,7 +107,7 @@ void $classname$::createRenderPipeline() {
     render.pipeline = device.createGraphicsPipeline(createInfo, pipelineCache);
 }
 
-void $classname$::createComputePipeline() {
+void SPHFluidSimulation::createComputePipeline() {
     auto module = ShaderModule{ "../../data/shaders/pass_through.comp.spv", device};
     auto stage = initializers::shaderStage({ module, VK_SHADER_STAGE_COMPUTE_BIT});
 
@@ -121,17 +121,17 @@ void $classname$::createComputePipeline() {
 }
 
 
-void $classname$::onSwapChainDispose() {
+void SPHFluidSimulation::onSwapChainDispose() {
     dispose(render.pipeline);
     dispose(compute.pipeline);
 }
 
-void $classname$::onSwapChainRecreation() {
+void SPHFluidSimulation::onSwapChainRecreation() {
     createRenderPipeline();
     createComputePipeline();
 }
 
-VkCommandBuffer *$classname$::buildCommandBuffers(uint32_t imageIndex, uint32_t &numCommandBuffers) {
+VkCommandBuffer *SPHFluidSimulation::buildCommandBuffers(uint32_t imageIndex, uint32_t &numCommandBuffers) {
     numCommandBuffers = 1;
     auto& commandBuffer = commandBuffers[imageIndex];
 
@@ -161,20 +161,20 @@ VkCommandBuffer *$classname$::buildCommandBuffers(uint32_t imageIndex, uint32_t 
     return &commandBuffer;
 }
 
-void $classname$::update(float time) {
+void SPHFluidSimulation::update(float time) {
     VulkanBaseApp::update(time);
 }
 
-void $classname$::checkAppInputs() {
+void SPHFluidSimulation::checkAppInputs() {
     VulkanBaseApp::checkAppInputs();
 }
 
-void $classname$::cleanup() {
+void SPHFluidSimulation::cleanup() {
     // TODO save pipeline cache
     VulkanBaseApp::cleanup();
 }
 
-void $classname$::onPause() {
+void SPHFluidSimulation::onPause() {
     VulkanBaseApp::onPause();
 }
 
@@ -185,7 +185,7 @@ int main(){
         Settings settings;
         settings.depthTest = true;
 
-        auto app = $classname${ settings };
+        auto app = SPHFluidSimulation{ settings };
         app.run();
     }catch(std::runtime_error& err){
         spdlog::error(err.what());
