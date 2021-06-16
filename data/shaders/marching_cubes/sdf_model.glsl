@@ -1,6 +1,8 @@
 #ifndef SDF_MODEl_GLSL
 #define SDF_MODEl_GLSL
 
+#include "sdf_common.glsl"
+
 const float EPSILON = 0.000001;
 
 float intersectSDF(float distA, float distB){
@@ -26,11 +28,11 @@ float sphereSDF(vec3 p, float r){
 
 float sceneSDF(vec3 p){
     float d0 = sphereSDF(p/1.2, 1.0) * 1.2;
-    float d1 = min(min(sphereSDF(vec3(p.xy, 0), 0.5), sphereSDF(vec3(p.xz, 0), 0.5)), sphereSDF(vec3(p.yz, 0), 0.5));
+    float d1 = smin(smin(sphereSDF(vec3(p.xy, 0), 0.5), sphereSDF(vec3(p.xz, 0), 0.5)), sphereSDF(vec3(p.yz, 0), 0.5));
     float d2 = cubeSDF(p, vec3(.8)) - 0.05;
 
 
-    float d =  max(max(d0, d2), -d1);
+    float d =  smax(smax(d0, d2, 0.03), -d1, 0.03);
 
     float d3 = sphereSDF(abs(p) - vec3(.8, 0, 0), 0.3);
     d = min(d, d3);

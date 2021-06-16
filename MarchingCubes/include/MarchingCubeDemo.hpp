@@ -57,7 +57,7 @@ protected:
 
     void createSdf();
 
-    int march(int pass);
+    uint32_t march(int pass);
 
     void updateMarchingCubeVertexDescriptorSet();
 
@@ -135,18 +135,19 @@ private:
         VulkanBuffer triTableBuffer;
         VulkanBuffer vertexBuffer;
         VulkanBuffer indexBuffer;
-        int numVertices;
+        uint32_t numVertices;
 
         struct {
             float isoLevel = 1E-8;
-            int pass = 0;
-//            int config = 0;
+            uint32_t pass = 0;
+            uint32_t frameCount;
+            float time;
         } constants;
     } marchingCube;
 
     Texture sdf;
     uint32_t sdfSize = 256;
-    uint32_t numGrids = 4;
+    uint32_t numGrids = 16;
     Texture normalMap;
 
     VulkanDescriptorSetLayout sdfDescriptorSetLayout;

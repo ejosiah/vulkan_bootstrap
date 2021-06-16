@@ -37,8 +37,6 @@ void MarchingCubeDemo::onSwapChainRecreation() {
 
 VkCommandBuffer *MarchingCubeDemo::buildCommandBuffers(uint32_t imageIndex, uint32_t &numCommandBuffers) {
 
-//    createSdf();
-    
     numCommandBuffers = 1;
     auto& commandBuffer = commandBuffers[imageIndex];
 
@@ -80,8 +78,8 @@ VkCommandBuffer *MarchingCubeDemo::buildCommandBuffers(uint32_t imageIndex, uint
 //    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffer, &offset);
 //    vkCmdDrawIndirect(commandBuffer, drawCommandBuffer, 0, 1, sizeof(VkDrawIndirectCommand));
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, marchingCube.vertexBuffer, &offset);
-    vkCmdBindIndexBuffer(commandBuffer, marchingCube.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-//    vkCmdDraw(commandBuffer, marchingCube.numVertices, 1, 0, 0);
+//    vkCmdBindIndexBuffer(commandBuffer, marchingCube.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+    vkCmdDraw(commandBuffer, marchingCube.numVertices, 1, 0, 0);
     vkCmdDrawIndexed(commandBuffer, marchingCube.indexBuffer.size/sizeof(uint32_t), 1, 0, 0, 0);
 
     renderText(commandBuffer);
@@ -95,6 +93,8 @@ VkCommandBuffer *MarchingCubeDemo::buildCommandBuffers(uint32_t imageIndex, uint
 
 void MarchingCubeDemo::update(float time) {
     camera->update(time);
+    marchingCube.constants.time = elapsedTime;
+    createSdf();
 }
 
 void MarchingCubeDemo::checkAppInputs() {
@@ -466,15 +466,13 @@ void MarchingCubeDemo::createDescriptorSet() {
 }
 
 void MarchingCubeDemo::createSdf() {
-    device.graphicsCommandPool().oneTimeCommand([&](auto commandBuffer){
-        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelines.sdf);
-        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout.sdf, 0, 1, &computeDescriptorSet, 0, VK_NULL_HANDLE);
-        vkCmdDispatch(commandBuffer, sdfSize/8, sdfSize/8, sdfSize/8);
-    });
-
+//    device.graphicsCommandPool().oneTimeCommand([&](auto commandBuffer){
+//        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelines.sdf);
+//        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout.sdf, 0, 1, &computeDescriptorSet, 0, VK_NULL_HANDLE);
+//        vkCmdDispatch(commandBuffer, sdfSize/8, sdfSize/8, sdfSize/8);
+//    });
 
     auto numVertex = march(0);
-
 
     if(numVertex ==  0){
         spdlog::info("No primitives generated");
@@ -484,34 +482,9 @@ void MarchingCubeDemo::createSdf() {
     updateMarchingCubeVertexDescriptorSet();
 
     marchingCube.numVertices = march(1);
-    spdlog::info("size: {}, {}, {}", numVertex, marchingCube.numVertices, marchingCube.vertexBuffer.size/sizeof(mVertex));
+//    spdlog::info("size: {}, {}, {}", numVertex, marchingCube.numVertices, marchingCube.vertexBuffer.size/sizeof(mVertex));
 
-    marchingCube.vertexBuffer.map<mVertex>([&](auto ptr){
-//        std::vector<mVertex> visitedSet;
-//        auto findSimilar = [&](const mVertex& v) -> std::optional<mVertex> {
-//            auto itr = std::find_if(begin(visitedSet), end(visitedSet), [&](auto v1){
-//                return similar(v, v1);
-//            });
-//            if(itr != end(visitedSet)) return *itr;
-//            return {};
-//        };
-//
-//        int totalSimilar = 0;
-//        for(int i = 0; i < marchingCube.vertexBuffer.size/sizeof(mVertex); i++){
-//            mVertex v = ptr[i];
-//            auto visited = findSimilar(v);
-//            if(visited.has_value()){
-//                auto v1 = *visited;
-//                totalSimilar++;
-//                spdlog::info("v0: {}, v1: {}, diff: {}%", v.position, v1.position, fabs(v.position.x - v1.position.x) * 100.0f);
-//            }else{
-//                visitedSet.push_back(v);
-//            }
-//        }
-//        spdlog::info("total visited: {}, total similar: {}", visitedSet.size(), totalSimilar);
-    });
-
-    generateIndex(marchingCube.vertexBuffer, marchingCube.vertexBuffer, marchingCube.indexBuffer);
+//    generateIndex(marchingCube.vertexBuffer, marchingCube.vertexBuffer, marchingCube.indexBuffer);
 }
 
 void MarchingCubeDemo::createMarchingCubeDescriptorSetLayout() {
@@ -613,7 +586,7 @@ void MarchingCubeDemo::createMarchingCubePipeline() {
     marchingCube.pipeline = device.createComputePipeline(computeCreateInfo);
 }
 
-int MarchingCubeDemo::march(int pass) {
+uint32_t MarchingCubeDemo::march(int pass) {
     static std::array<VkDescriptorSet, 2> sets;
     sets[0] = sdfDescriptorSet;
     sets[1] = marchingCube.descriptorSet;
@@ -621,7 +594,7 @@ int MarchingCubeDemo::march(int pass) {
     marchingCube.atomicCounterBuffers.map<uint32_t>([&](auto ptr){ ptr[0] = ptr[1] = 0; });
     device.graphicsCommandPool().oneTimeCommand([&](auto commandBuffer){
         marchingCube.constants.pass = pass;
-//        marchingCube.constants.config = config;
+        marchingCube.constants.frameCount = frameCount;
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, marchingCube.pipeline);
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, marchingCube.layout, 0, COUNT(sets), sets.data(), 0, VK_NULL_HANDLE);
         vkCmdPushConstants(commandBuffer, marchingCube.layout, VK_SHADER_STAGE_COMPUTE_BIT, sizeof(Camera), sizeof(marchingCube.constants), &marchingCube.constants);
@@ -630,7 +603,7 @@ int MarchingCubeDemo::march(int pass) {
     uint32_t numVertex = 0;
     uint32_t vertexWrites = 0;
     marchingCube.atomicCounterBuffers.map<uint32_t>([&](auto ptr){ numVertex = *ptr; *ptr = 0; vertexWrites = ptr[1]; ptr[1] = 0; });
-    spdlog::info("num vertices: {}, vertexWrites: {}", numVertex, vertexWrites);
+//    spdlog::info("num vertices: {}, vertexWrites: {}", numVertex, vertexWrites);
     return numVertex;
 }
 
@@ -640,26 +613,14 @@ void MarchingCubeDemo::generateIndex(VulkanBuffer &source, VulkanBuffer &vBuffer
     std::unordered_map<mVertex, uint32_t> vertexMap;
     std::vector<mVertex> vertices;
     auto prevNumVertices = source.size/sizeof(mVertex);
-    auto findSimilar = [&](const mVertex& v) -> std::optional<mVertex> {
-        auto itr = vertexMap.find(v);
-        if(itr != end(vertexMap)) return itr->first;
-        return {};
-    };
-
-    auto findIndex = [&](const mVertex& v){
-        return vertexMap[v];
-    };
-
 
 
     int similar = 0;
     source.map<mVertex>([&](auto ptr){
        for(int i = 0; i < source.size/sizeof(mVertex); i++) {
            mVertex vertex = ptr[i];
-           auto opt = findSimilar(vertex);
-           if(opt.has_value()){
-               auto index = findIndex(vertex);
-//               vertices[index].normal = (vertices[index].normal + vertex.normal) * 0.5f;
+           if(vertexMap.find(vertex) != end(vertexMap)){
+               auto index = vertexMap[vertex];
                indices.push_back(index);
                similar++;
            }else{

@@ -30,7 +30,7 @@ void main(){
 
     vec3 origin = prev_pos;
     vec3 dir = pos - prev_pos;
-    float tmin = 0.0;
+    float tmin = 0.001;
     float tmax = 1.0;
 
     traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT, 0xFF, 0, 0, 0, origin, tmin, dir, tmax, 0);
