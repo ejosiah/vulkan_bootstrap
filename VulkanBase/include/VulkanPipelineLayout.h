@@ -37,6 +37,10 @@ struct VulkanPipelineLayout{
 
     VulkanPipelineLayout& operator=(VulkanPipelineLayout&& source) noexcept {
         if(this == &source) return *this;
+
+        // destroy old pipeline
+        this->~VulkanPipelineLayout();
+
         this->pipelineLayout = source.pipelineLayout;
         this->device = source.device;
 
