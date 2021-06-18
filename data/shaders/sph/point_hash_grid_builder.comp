@@ -1,0 +1,82 @@
+#version 460 core
+#extension GL_EXT_scalar_block_layout : enable
+#extension GL_GOOGLE_include_directive : enable
+
+#include "../hash.glsl"
+
+struct Particle{
+    vec4 position;
+    vec4 color;
+    vec3 velocity;
+    float invMass;
+};
+
+layout(local_size_x = 1024) in;
+
+layout(push_constant) uniform Constants {
+    layout(offset = 224)
+    ivec3 resolution;
+    float gridSpacing;
+    int pass;
+    int numParticles;
+};
+
+layout(set = 0, binding = 0) buffer POINTS {
+    Particle points[];
+};
+
+layout(set = 1, binding = 0, scalar) buffer BUCKETS {
+    int buckets[];
+};
+
+layout(set = 1, binding = 1, scalar) buffer BUCKET_SIZES {
+    int bucketSize[];
+};
+
+layout(set = 1, binding = 2, scalar) buffer NEXT_BUCKET_INDEX {
+    int nextBucketIndex[];
+};
+
+ivec3 getBucketIndex(vec3 point){
+    ivec3 bucketIndex;
+
+    bucketIndex.x = int(floor(point.x/gridSpacing));
+    bucketIndex.y = int(floor(point.y/gridSpacing));
+    bucketIndex.z = int(floor(point.z/gridSpacing));
+
+    return bucketIndex;
+}
+
+int toHashKey(ivec3 bucketIndex){
+    ivec3 wrapped = ivec3(mod(bucketIndex, resolution));
+
+    if(wrapped.x < 0) wrapped.x += resolution.x;
+    if(wrapped.y < 0) wrapped.y += resolution.y;
+    if(wrapped.z < 0) wrapped.z += resolution.z;
+
+    return (wrapped.z * resolution.y + wrapped.y) * resolution.x + wrapped.x;
+}
+
+int getHashKey(vec3 point){
+    ivec3 bucketIndex = getBucketIndex(point);
+    return toHashKey(bucketIndex);
+}
+
+void main(){
+//    uvec3 size = gl_WorkGroupSize/gl_NumWorkGroups;
+    int id = int(gl_GlobalInvocationID.x);
+
+    if(id >= numParticles) return;
+
+    vec3 point = points[id].position.xyz;
+    int key = getHashKey(point);
+    if(pass == 0){
+        atomicAdd(bucketSize[key], 1);  // TODO use different buffer for this
+        return;
+    }
+    int index = key * bucketSize[key] + atomicAdd(nextBucketIndex[key], 1);
+    buckets[index] = id;
+
+    ivec3 bucketIndex = getBucketIndex(point);
+    ivec3 wrapped = ivec3(mod(bucketIndex, resolution));
+}

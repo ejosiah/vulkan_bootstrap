@@ -46,6 +46,7 @@ constexpr bool debugMode = false;
 #include "xforms.h"
 #include "glm_format.h"
 #include <filesystem>
+#include <fstream>
 
 namespace chrono = std::chrono;
 namespace fs = std::filesystem;
@@ -128,3 +129,15 @@ constexpr uint32_t alignedSize(uint32_t value, uint32_t alignment){
 template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
 // explicit deduction guide (not needed as of C++20)
 template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
+
+inline std::vector<char> loadFile(const std::string& path) {
+    std::ifstream fin(path.data(), std::ios::binary | std::ios::ate);
+    if(!fin.good()) throw std::runtime_error{"Failed to open file: " + path};
+
+    auto size = fin.tellg();
+    fin.seekg(0);
+    std::vector<char> data(size);
+    fin.read(data.data(), size);
+
+    return data;
+}

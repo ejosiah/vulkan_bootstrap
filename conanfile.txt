@@ -7,6 +7,7 @@ spdlog/1.8.2
 freetype/2.10.4
 imgui/1.82
 boost/1.75.0
+gtest/1.11.0
 
 [generators]
 cmake

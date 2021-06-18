@@ -18,38 +18,12 @@
 
 namespace chrono = std::chrono;
 
-ShaderModule::ShaderModule(const std::string& path, VkDevice device)
-    :device(device) {
-    auto data = VulkanBaseApp::loadFile(path);
-    VkShaderModuleCreateInfo createInfo{};
-    createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-    createInfo.codeSize = data.size();
-    createInfo.pCode = reinterpret_cast<uint32_t*>(data.data());
-
-    REPORT_ERROR(vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule), "Failed to create shader module: " + path);
-}
-
-ShaderModule::ShaderModule(const std::vector<uint32_t>& data, VkDevice device) : device(device) {
-    VkShaderModuleCreateInfo createInfo{};
-    createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-    createInfo.codeSize = data.size() * sizeof(uint32_t);
-    createInfo.pCode = data.data();
-
-    REPORT_ERROR(vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule), "Failed to create shader module");
-}
-
-
-ShaderModule::~ShaderModule() {
-    vkDestroyShaderModule(device, shaderModule, nullptr);
-}
-
-
 VulkanBaseApp::VulkanBaseApp(std::string_view name, const Settings& settings, std::vector<std::unique_ptr<Plugin>> plugins)
-: Window(name, settings.width, settings.height, settings.fullscreen)
-, InputManager(settings.relativeMouseMode)
-, enabledFeatures(settings.enabledFeatures)
-, settings(settings)
-, plugins(std::move(plugins))
+        : Window(name, settings.width, settings.height, settings.fullscreen)
+        , InputManager(settings.relativeMouseMode)
+        , enabledFeatures(settings.enabledFeatures)
+        , settings(settings)
+        , plugins(std::move(plugins))
 {
     appInstance = this;
     this->settings.deviceExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);

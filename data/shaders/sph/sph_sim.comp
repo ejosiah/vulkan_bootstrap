@@ -15,6 +15,7 @@ layout(push_constant) uniform Constants{
     layout(offset = 192)
     vec3 gravity;
     uint numParticles;
+    float drag;
     float time;
 };
 
@@ -26,6 +27,8 @@ layout(set = 1, binding = 0) buffer PARTICLE_OUT{
     Particle particleOut[];
 };
 
+layout(set = 3, binding = 0) uniform sampler3D wind;
+
 void main(){
     uvec3 size = gl_WorkGroupSize/gl_NumWorkGroups;
     uint id = gl_GlobalInvocationID.x;
@@ -33,6 +36,8 @@ void main(){
     if(id > numParticles) return;
     Particle particle = particleIn[id];
     vec3 force = vec3(0);
+//    force += -drag * (particle.velocity - texture(wind, particle.position)).xyz;
+    force += -drag * (particle.velocity - vec3(0)); // TODO replace with wind vector field
     vec3 acceleration = gravity;
 
     vec3 velocity = particle.velocity + acceleration * time;

@@ -18,6 +18,8 @@ protected:
 
     void createParticles();
 
+    void initGridBuilder();
+
     void createDescriptorPool();
 
     void createDescriptorSetLayouts();
@@ -48,6 +50,16 @@ protected:
 
     void onPause() override;
 
+    void createGridBuilderDescriptorSetLayout();
+
+    void createGridBuilderDescriptorSet(VkDeviceSize offset, VkDeviceSize range);
+
+    void createGridBuilderPipeline();
+
+    void buildPointHashGrid();
+
+    void GeneratePointHashGrid(int pass = 0);
+
 protected:
     struct {
         VulkanPipelineLayout layout;
@@ -67,6 +79,7 @@ protected:
             glm::mat4 projection = glm::mat4(1);
         } xforms;
         uint32_t numCells = 100;
+        float size = 2.0f;
     } grid;
 
     struct {
@@ -79,14 +92,29 @@ protected:
         struct {
             glm::vec3 gravity{0, -9.8, 0};
             uint32_t numParticles{ 1024 };
+            float drag = 1e-4;
             float time;
         } constants;
 
     } particles;
 
+    struct {
+        VulkanPipelineLayout layout;
+        VulkanPipeline pipeline;
+        VulkanDescriptorSetLayout descriptorSetLayout;
+        VkDescriptorSet descriptorSet;
+        VulkanBuffer buffer;
+
+        struct {
+            glm::ivec3 resolution{1};
+            float gridSpacing{1};
+            uint32_t pass{0};
+            uint32_t numParticles{0};
+        } constants;
+    } gridBuilder;
+
     VulkanDescriptorPool descriptorPool;
     VulkanCommandPool commandPool;
     std::vector<VkCommandBuffer> commandBuffers;
     VulkanPipelineCache pipelineCache;
-
 };

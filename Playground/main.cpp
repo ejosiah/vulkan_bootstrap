@@ -4,10 +4,6 @@
 #include <VulkanDebug.h>
 #include <VulkanShaderModule.h>
 #include <mutex>
-#include <GFSDK_Aftermath_Defines.h>
-#include <GFSDK_Aftermath.h>
-#include <GFSDK_Aftermath_GpuCrashDump.h>
-#include <GFSDK_Aftermath_GpuCrashDumpDecoding.h>
 
 std::mutex g_mutex;
 VkInstance g_instance = VK_NULL_HANDLE;
@@ -243,13 +239,56 @@ vec3 remap(vec3 value, vec3 oldMin, vec3 oldMax, vec3 newMin, vec3 newMax){
     return (((value - oldMin) / (oldMax - oldMin)) * (newMax - newMin)) + newMin;
 }
 
+const float gridSpacing = 0.2;
+const ivec3 resolution = ivec3(10, 10, 1);
+
+ivec3 getBucketIndex(vec3 point){
+    ivec3 bucketIndex;
+
+    bucketIndex.x = int(floor(point.x/gridSpacing));
+    bucketIndex.y = int(floor(point.y/gridSpacing));
+    bucketIndex.z = int(floor(point.z/gridSpacing));
+
+    return bucketIndex;
+}
+
+ivec3 wrapAround(ivec3 bucketIndex){
+    auto wrapped = ivec3(mod(vec3(bucketIndex), vec3(resolution)));
+
+    if(wrapped.x < 0) wrapped.x += resolution.x;
+    if(wrapped.y < 0) wrapped.y += resolution.y;
+    if(wrapped.z < 0) wrapped.z += resolution.z;
+
+    return wrapped;
+}
+
+int toHashKey(ivec3 bucketIndex){
+    auto wrapped = ivec3(mod(vec3(bucketIndex), vec3(resolution)));
+
+    if(wrapped.x < 0) wrapped.x += resolution.x;
+    if(wrapped.y < 0) wrapped.y += resolution.y;
+    if(wrapped.z < 0) wrapped.z += resolution.z;
+
+    return (wrapped.z * resolution.y + wrapped.y) * resolution.x + wrapped.x;
+//    return (wrapped.y * resolution.x + wrapped.x) * resolution.y + wrapped.z;
+}
+
+
 int main() {
-    vec3 size = vec3(4);
+    std::array<std::tuple<vec3, vec3, vec3>, 100> buckets;
+    for(float r = -0.9; r < 1; r += 0.2 ){
+        for(float c = -0.9; c < 1; c += 0.2 ){
+            vec3 point{c, r, 0};
+            auto bucketIndex = getBucketIndex(point);
+            auto wrappedIndex = wrapAround(bucketIndex);
+            auto key = toHashKey(bucketIndex);
+            buckets[key] = std::make_tuple(point, vec3(bucketIndex), vec3(wrappedIndex));
+        }
+    }
 
-    vec3 gridSize = 2.0f * (1.0f/size);
-    vec3 p = remap(vec3(0), vec3(0), vec3(4), vec3(-1), vec3(1));
-    vec3 center = p + gridSize * 0.5f;
-
-    fmt::print("gridSize: {}\n, p: {}\n, center: {}\n", gridSize, p, center);
+    for(int i = 0; i < 100; i++){
+        auto [point, bucketIndex, wrappedIndex] = buckets[i];
+        fmt::print("key: {} -> point{}, bucketIndex{}, wrappedIndex{}\n", i, point, bucketIndex, wrappedIndex);
+    }
 
 }
