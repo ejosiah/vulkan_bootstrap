@@ -326,7 +326,7 @@ protected:
     std::vector<Particle> particles;
     std::map<int, std::vector<Particle>> expectedHashGrid;
     VulkanDescriptorPool descriptorPool;
-    uint32_t pushConstantOffset = 0; //alignedSize(sizeof(Camera) + particlePushConstantsSize, 16);
+    uint32_t pushConstantOffset = alignedSize(sizeof(Camera) + particlePushConstantsSize, 16);
 };
 
 TEST_F(PointHashGridBuilderTest, OnePointPerGrid2d){
