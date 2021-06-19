@@ -49,6 +49,9 @@ protected:
         createDescriptorSetLayouts();
         createDescriptorSets();
         createPipeline();
+
+        particles.clear();
+        expectedHashGrid.clear();
     }
 
     void createDescriptorPool(){
@@ -174,18 +177,30 @@ protected:
     template<typename Generate, typename Hash>
     void createParticles(Generate&& generate, Hash&& hash){
         auto res = gridBuilder.constants.resolution;
+        auto gridSpacing = gridBuilder.constants.gridSpacing;
         for(int z = 0; z < res.z; z++){
             for(int y = 0; y < res.y; y++){
                 for(int x = 0; x < res.x; x++){
                     std::vector<Particle> particles = generate(x, y, z);
-                    int index = hash(x, y, z, res);
-                    expectedHashGrid[index] = particles;
-                    this->particles.insert(this->particles.end(), particles.begin(), particles.end());
+                    int index = hash(particles.front().position.xyz(), res, gridSpacing);
+                    add(index, particles);
                 }
             }
         }
         createParticleBuffer(this->particles);
+        gridBuilder.particleBuffer.map<Particle>([&](auto ptr){
+           for(int i = 0; i < this->particles.size(); i++){
+           }
+        });
         gridBuilder.constants.numParticles = particles.size();
+    }
+
+    void add(int index, const std::vector<Particle>& vParticles){
+        if(expectedHashGrid.find(index) == end(expectedHashGrid)){
+            expectedHashGrid[index] = std::vector<Particle>{};
+        }
+        expectedHashGrid[index].insert(begin(expectedHashGrid[index]), begin(vParticles), end(vParticles));
+        particles.insert(begin(particles), begin(vParticles), end(vParticles));
     }
 
     bool BucketContainsParticle(int index, const Particle& expected){
@@ -197,13 +212,23 @@ protected:
     }
 
     std::vector<Particle> getParticleFromBucket(int key){
+//        key = 1;
         std::vector<Particle> particles;
         gridBuilder.bucketBuffer.map<int>([&](auto bucketPtr){
             gridBuilder.bucketSizeBuffer.map<int>([&](auto bucketSizePtr){
                 gridBuilder.particleBuffer.map<Particle>([&](auto particlePtr){
+
+                    auto getOffset = [&](){
+                        int offset = 0;
+                        for(int i = key - 1; i >= 0; i--){
+                            offset += bucketSizePtr[i];
+                        };
+                        return offset;
+                    };
+
                     auto numParticles = bucketSizePtr[key];
                     for(int i = 0; i < numParticles; i++){
-                        int particleId = bucketPtr[key * numParticles + i];
+                        int particleId = bucketPtr[getOffset() + i];
                         auto particle = particlePtr[particleId];
                         particles.push_back(particle);
                     }
@@ -229,6 +254,7 @@ protected:
             for(int i = 0; i < end; i++ ){
                 auto bucketSize = *(itr + i);
                 size += bucketSize;
+                spdlog::error("bucket: {}, size: {}", i, bucketSize);
             }
         });
         updateGridBuffer(size * sizeof(int));
@@ -266,8 +292,14 @@ protected:
         }
     }
 
-    static int defaultHash(int x, int y, int z, glm::ivec3 size){
-        return (z * size.y + y) * size.x + x;
+    static int defaultHash(glm::vec3 point, glm::vec3 size, float gridSpacing){
+        glm::vec3 bucketIndex = glm::floor(point/gridSpacing);
+        bucketIndex = mod(bucketIndex, size);
+        if(bucketIndex.x < 0) bucketIndex.x += bucketIndex.x;
+        if(bucketIndex.y < 0) bucketIndex.y += bucketIndex.y;
+        if(bucketIndex.z < 0) bucketIndex.z += bucketIndex.z;
+
+        return int(bucketIndex.z * size.y + bucketIndex.y) * size.x + bucketIndex.x;
     }
 
     struct {
@@ -283,7 +315,7 @@ protected:
         VulkanBuffer nextBufferIndexBuffer;
 
         struct {
-            glm::ivec3 resolution{1};
+            glm::vec3 resolution{1};
             float gridSpacing{1};
             uint32_t pass{0};
             uint32_t numParticles{0};
@@ -299,7 +331,7 @@ protected:
 
 TEST_F(PointHashGridBuilderTest, OnePointPerGrid2d){
     float gridSpacing = 0.1;
-    glm::ivec3 resolution{4, 4, 1};
+    glm::vec3 resolution{10, 10, 1};
     auto generateParticle = [&](int x, int y, int _) -> std::vector<Particle> {
         Particle particle;
         particle.position.x = (float(x) + 0.5f) * gridSpacing;
@@ -309,8 +341,69 @@ TEST_F(PointHashGridBuilderTest, OnePointPerGrid2d){
     };
     gridBuilder.constants.resolution = resolution;
     gridBuilder.constants.gridSpacing = gridSpacing;
-    createParticles(generateParticle, defaultHash);
 
+    createParticles(generateParticle, defaultHash);
+    buildHashGrid();
+    AssertGrid();
+}
+
+TEST_F(PointHashGridBuilderTest, OnePointPerGrid3d){
+    float gridSpacing = 0.1;
+    glm::vec3 resolution{10, 10, 10};
+    auto generateParticle = [&](int x, int y, int z) -> std::vector<Particle> {
+
+        Particle particle;
+        particle.position.x = (float(x) + 0.5f) * gridSpacing; // range [0, 1]
+        particle.position.y = (float(y) + 0.5f) * gridSpacing; // range [0, 1]
+        particle.position.z = (float(z) + 0.5f) * gridSpacing; // range [0, 1]
+        return { particle };
+    };
+    gridBuilder.constants.resolution = resolution;
+    gridBuilder.constants.gridSpacing = gridSpacing;
+
+    createParticles(generateParticle, defaultHash);
+    buildHashGrid();
+    AssertGrid();
+}
+
+TEST_F(PointHashGridBuilderTest, generateGridWithPointsInNegativeAndPositiveSpace){
+    float gridSpacing = 0.2;
+    glm::vec3 resolution{10, 10, 1};
+    auto generateParticle = [&](int x, int y, int z) -> std::vector<Particle> {
+        Particle particle;
+        particle.position.x = (float(x) + 0.5f) * gridSpacing - 1; // [-1, 1]
+        particle.position.y = (float(y) + 0.5f) * gridSpacing - 1;  // [-1, 1]
+        particle.position.z = (float(z) + 0.5f) * gridSpacing - 1;  // [-1, 1]
+        particle.position.z = 0;
+        return { particle };
+    };
+    gridBuilder.constants.resolution = resolution;
+    gridBuilder.constants.gridSpacing = gridSpacing;
+
+    createParticles(generateParticle, defaultHash);
+    buildHashGrid();
+    AssertGrid();
+}
+
+TEST_F(PointHashGridBuilderTest, PointRandomlyScatteredInSpace){
+    std::default_random_engine engine{ 1 << 20};
+    std::uniform_real_distribution<float> dist(0, 0.9);
+    auto rng = std::bind(dist, engine);
+    glm::vec3 resolution{10, 10, 10};
+    float gridSpacing = 1/float(resolution.x);
+
+    auto generateParticle = [&](int x, int y, int z) -> std::vector<Particle> {
+
+        Particle particle;
+        particle.position.x = rng();
+        particle.position.y = rng();
+        particle.position.z = rng();
+        return { particle };
+    };
+    gridBuilder.constants.resolution = resolution;
+    gridBuilder.constants.gridSpacing = gridSpacing;
+
+    createParticles(generateParticle, defaultHash);
     buildHashGrid();
     AssertGrid();
 }

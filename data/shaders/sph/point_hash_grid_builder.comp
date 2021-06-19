@@ -11,11 +11,11 @@ struct Particle{
     float invMass;
 };
 
-layout(local_size_x = 1024) in;
+layout(local_size_x = 1024, local_size_y = 1, local_size_z = 1) in;
 
 layout(push_constant) uniform Constants {
     layout(offset = 224)
-    ivec3 resolution;
+    vec3 resolution;
     float gridSpacing;
     int pass;
     int numParticles;
@@ -37,33 +37,29 @@ layout(set = 1, binding = 2, scalar) buffer NEXT_BUCKET_INDEX {
     int nextBucketIndex[];
 };
 
-ivec3 getBucketIndex(vec3 point){
-    ivec3 bucketIndex;
-
-    bucketIndex.x = int(floor(point.x/gridSpacing));
-    bucketIndex.y = int(floor(point.y/gridSpacing));
-    bucketIndex.z = int(floor(point.z/gridSpacing));
-
-    return bucketIndex;
+vec3 wrap(vec3 bucketIndex){
+    return bucketIndex + (1 - step(0, bucketIndex)) * resolution;
 }
 
-int toHashKey(ivec3 bucketIndex){
-    ivec3 wrapped = ivec3(mod(bucketIndex, resolution));
-
-    if(wrapped.x < 0) wrapped.x += resolution.x;
-    if(wrapped.y < 0) wrapped.y += resolution.y;
-    if(wrapped.z < 0) wrapped.z += resolution.z;
-
-    return (wrapped.z * resolution.y + wrapped.y) * resolution.x + wrapped.x;
+int toHashKey(vec3 bucketIndex){
+    return int((bucketIndex.z * resolution.y + bucketIndex.y) * resolution.x + bucketIndex.x);
 }
 
 int getHashKey(vec3 point){
-    ivec3 bucketIndex = getBucketIndex(point);
+    vec3 bucketIndex = floor(point/gridSpacing);
+    bucketIndex = wrap(mod(bucketIndex, resolution));
     return toHashKey(bucketIndex);
 }
 
+int getOffset(int key){
+    int offset = 0;
+    for(int i = key - 1; i >= 0; i--){
+        offset += bucketSize[i];
+    };
+    return offset;
+}
+
 void main(){
-//    uvec3 size = gl_WorkGroupSize/gl_NumWorkGroups;
     int id = int(gl_GlobalInvocationID.x);
 
     if(id >= numParticles) return;
@@ -74,9 +70,7 @@ void main(){
         atomicAdd(bucketSize[key], 1);  // TODO use different buffer for this
         return;
     }
-    int index = key * bucketSize[key] + atomicAdd(nextBucketIndex[key], 1);
+    int offset = getOffset(key);    // TODO maybe run prefix scan if grid is big
+    int index = offset + atomicAdd(nextBucketIndex[key], 1);
     buckets[index] = id;
-
-    ivec3 bucketIndex = getBucketIndex(point);
-    ivec3 wrapped = ivec3(mod(bucketIndex, resolution));
 }
