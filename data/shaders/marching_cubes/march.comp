@@ -87,7 +87,7 @@ vec3 getNormal(vec3 position){
 
 float map(vec3 p){
    // return map(p, iTime).x;
-    return p.y - perlin(p.xz + iTime);
+    return p.y - perlin(p);
 }
 
 // http://iquilezles.org/www/articles/normalsSDF/normalsSDF.htm

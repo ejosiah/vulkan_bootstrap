@@ -33,6 +33,8 @@ protected:
     void SetUp() override {
         spdlog::set_level(spdlog::level::warn);
         initVulkan();
+        postVulkanInit();
+        createPipelines();
     }
 
     void initVulkan(){
@@ -40,6 +42,7 @@ protected:
         createInstance();
         debug = VulkanDebug{ instance };
         createDevice();
+        createPipelines();
     }
 
     void createInstance(){
@@ -77,10 +80,6 @@ protected:
         device.graphicsCommandPool().oneTimeCommand(func);
     }
 
-    virtual std::vector<PipelineMetaData> pipelineMetaData() {
-        return {};
-    }
-
     void createPipelines(){
         for(auto& metaData : pipelineMetaData()){
             auto shaderModule = VulkanShaderModule{ metaData.shadePath, device};
@@ -97,4 +96,10 @@ protected:
             pipelines.insert(std::make_pair(metaData.name, std::move(pipeline)));
         }
     }
+
+    virtual std::vector<PipelineMetaData> pipelineMetaData() {
+        return {};
+    }
+
+    virtual void postVulkanInit() {}
 };
