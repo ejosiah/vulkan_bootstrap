@@ -2,14 +2,13 @@
 
 #include <vulkan/vulkan.h>
 
+struct ShaderInfo{
+    VkShaderModule module;
+    VkShaderStageFlagBits stage;
+    const char*  entry = "main";
+};
+
 namespace initializers{
-
-    struct ShaderInfo{
-        VkShaderModule module;
-        VkShaderStageFlagBits stage;
-        const char*  entry = "main";
-    };
-
     inline std::vector<VkPipelineShaderStageCreateInfo> vertexShaderStages(const std::vector<ShaderInfo>& shaderInfos){
         std::vector<VkPipelineShaderStageCreateInfo> createInfos;
 
