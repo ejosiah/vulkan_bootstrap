@@ -78,8 +78,8 @@ VkCommandBuffer *MarchingCubeDemo::buildCommandBuffers(uint32_t imageIndex, uint
 //    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffer, &offset);
 //    vkCmdDrawIndirect(commandBuffer, drawCommandBuffer, 0, 1, sizeof(VkDrawIndirectCommand));
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, marchingCube.vertexBuffer, &offset);
-//    vkCmdBindIndexBuffer(commandBuffer, marchingCube.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-    vkCmdDraw(commandBuffer, marchingCube.numVertices, 1, 0, 0);
+    vkCmdBindIndexBuffer(commandBuffer, marchingCube.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+//    vkCmdDraw(commandBuffer, marchingCube.numVertices, 1, 0, 0);
     vkCmdDrawIndexed(commandBuffer, marchingCube.indexBuffer.size/sizeof(uint32_t), 1, 0, 0, 0);
 
     renderText(commandBuffer);
@@ -94,7 +94,7 @@ VkCommandBuffer *MarchingCubeDemo::buildCommandBuffers(uint32_t imageIndex, uint
 void MarchingCubeDemo::update(float time) {
     camera->update(time);
     marchingCube.constants.time = elapsedTime;
-    createSdf();
+//    createSdf();
 }
 
 void MarchingCubeDemo::checkAppInputs() {
@@ -248,11 +248,12 @@ void MarchingCubeDemo::createPipeline() {
 
     inputAssemblyState.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
     pipelineLayout.triangles = device.createPipelineLayout({sdfDescriptorSetLayout }, {Camera::pushConstant()});
-
+    rasterizationState.polygonMode = VK_POLYGON_MODE_LINE;
     createInfo.stageCount = COUNT(triStages);
     createInfo.pStages = triStages.data();
     createInfo.pVertexInputState = &vertexInputState;
     createInfo.pInputAssemblyState = &inputAssemblyState;
+    createInfo.pRasterizationState = &rasterizationState;
     createInfo.layout = pipelineLayout.triangles;
     createInfo.basePipelineIndex = -1;
     createInfo.basePipelineHandle = pipelines.lines;
@@ -484,7 +485,7 @@ void MarchingCubeDemo::createSdf() {
     marchingCube.numVertices = march(1);
 //    spdlog::info("size: {}, {}, {}", numVertex, marchingCube.numVertices, marchingCube.vertexBuffer.size/sizeof(mVertex));
 
-//    generateIndex(marchingCube.vertexBuffer, marchingCube.vertexBuffer, marchingCube.indexBuffer);
+    generateIndex(marchingCube.vertexBuffer, marchingCube.vertexBuffer, marchingCube.indexBuffer);
 }
 
 void MarchingCubeDemo::createMarchingCubeDescriptorSetLayout() {
@@ -659,6 +660,7 @@ void MarchingCubeDemo::updateMarchingCubeVertexDescriptorSet() {
 int main(){
     Settings settings;
     settings.enabledFeatures.wideLines = VK_TRUE;
+    settings.enabledFeatures.fillModeNonSolid = VK_TRUE;
     settings.depthTest = true;
     settings.queueFlags |= VK_QUEUE_COMPUTE_BIT;
 

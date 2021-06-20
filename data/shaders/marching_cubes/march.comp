@@ -87,7 +87,14 @@ vec3 getNormal(vec3 position){
 
 float map(vec3 p){
    // return map(p, iTime).x;
-    return p.y - perlin(p);
+    //  noiseVol1.Sample(TrilinearRepeat, ws*4.03).x*0.25;
+    //density += noiseVol2.Sample(TrilinearRepeat, ws*1.96).x*0.50;
+    // density += noiseVol3.Sample(TrilinearRepeat, ws*1.01).x*1.00;
+    float d =  p.y;
+    d -= perlin(p * 4.03) * 0.25;
+    d -= perlin(p * 1.96) * 0.50;
+    d -= perlin(p * 1.01) * 1.00;
+    return d;
 }
 
 // http://iquilezles.org/www/articles/normalsSDF/normalsSDF.htm
