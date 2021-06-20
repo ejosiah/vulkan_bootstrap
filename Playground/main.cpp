@@ -164,7 +164,7 @@ void createCommandPool(){
 }
 
 void createComputePipeline(){
-    auto source = ShaderModule{ "../../data/shaders/crash.comp.spv", g_device};
+    auto source = VulkanShaderModule{"../../data/shaders/crash.comp.spv", g_device};
     VkPipelineShaderStageCreateInfo stageInfo{};
     stageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     stageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;

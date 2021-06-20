@@ -129,8 +129,8 @@ void Demo::createFloorDescriptors() {
 }
 
 void Demo::createPipelines() {
-    ShaderModule vertexShaderModule{ "../../data/shaders/demo/floor.vert.spv", device};
-    ShaderModule fragmentShaderModule{ "../../data/shaders/demo/floor.frag.spv", device};
+    VulkanShaderModule vertexShaderModule{"../../data/shaders/demo/floor.vert.spv", device};
+    VulkanShaderModule fragmentShaderModule{"../../data/shaders/demo/floor.frag.spv", device};
 
     auto shaderStages = initializers::vertexShaderStages(
             {
@@ -200,8 +200,8 @@ void Demo::createPipelines() {
 
     pipelines.floor = device.createGraphicsPipeline(createInfo);
 
-    ShaderModule vertexShaderModule1 = ShaderModule{ "../../data/shaders/demo/spaceship.vert.spv", device};
-    ShaderModule fragmentShaderModule1 = ShaderModule{ "../../data/shaders/demo/spaceship.frag.spv", device};
+    VulkanShaderModule vertexShaderModule1 = VulkanShaderModule{"../../data/shaders/demo/spaceship.vert.spv", device};
+    VulkanShaderModule fragmentShaderModule1 = VulkanShaderModule{"../../data/shaders/demo/spaceship.frag.spv", device};
 
     shaderStages = initializers::vertexShaderStages(
             {

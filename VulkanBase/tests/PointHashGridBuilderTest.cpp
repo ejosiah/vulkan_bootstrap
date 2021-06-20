@@ -3,30 +3,6 @@
 #include "VulkanShaderModule.h"
 #include "VulkanFixture.hpp"
 
-ShaderModule::ShaderModule(const std::string& path, VkDevice device)
-        :device(device) {
-    auto data = loadFile(path);
-    VkShaderModuleCreateInfo createInfo{};
-    createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-    createInfo.codeSize = data.size();
-    createInfo.pCode = reinterpret_cast<uint32_t*>(data.data());
-
-    REPORT_ERROR(vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule), "Failed to create shader module: " + path);
-}
-
-ShaderModule::ShaderModule(const std::vector<uint32_t>& data, VkDevice device) : device(device) {
-    VkShaderModuleCreateInfo createInfo{};
-    createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-    createInfo.codeSize = data.size() * sizeof(uint32_t);
-    createInfo.pCode = data.data();
-
-    REPORT_ERROR(vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule), "Failed to create shader module");
-}
-
-
-ShaderModule::~ShaderModule() {
-    vkDestroyShaderModule(device, shaderModule, nullptr);
-}
 struct Particle{
     glm::vec4 position{0};
     glm::vec4 color{0};
@@ -140,7 +116,7 @@ protected:
     }
 
     void createPipeline() {
-        auto gridBuilderModule = ShaderModule{ "../../data/shaders/sph/point_hash_grid_builder.comp.spv", device};
+        auto gridBuilderModule = VulkanShaderModule{"../../data/shaders/sph/point_hash_grid_builder.comp.spv", device};
         auto stage = initializers::shaderStage({gridBuilderModule, VK_SHADER_STAGE_COMPUTE_BIT});
         std::vector<VkPushConstantRange> ranges{{VK_SHADER_STAGE_COMPUTE_BIT, pushConstantOffset, sizeof(gridBuilder.constants)}};
         gridBuilder.layout = device.createPipelineLayout({ gridBuilder.particleDescriptorSetLayout, gridBuilder.gridDescriptorSetLayout }, ranges);
@@ -161,7 +137,7 @@ protected:
             gridBuilder.bucketSizeBuffer = device.createBuffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, gridSize);
             gridBuilder.bucketBuffer = device.createBuffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU,sizeof(uint32_t));
 
-            device.commandPoolFor(*device.queueFamilyIndex.compute).oneTimeCommand([&](auto commandBuffer){
+            execute([&](auto commandBuffer){
                 vkCmdFillBuffer(commandBuffer, gridBuilder.nextBufferIndexBuffer, 0, gridSize, 0);
                 vkCmdFillBuffer(commandBuffer, gridBuilder.bucketSizeBuffer, 0, gridSize, 0);
             });
@@ -257,7 +233,7 @@ protected:
     }
 
     void generateHashGrid(int pass){
-        device.graphicsCommandPool().oneTimeCommand([&](auto commandBuffer){
+        execute([&](auto commandBuffer){
             vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, gridBuilder.pipeline);
 
             gridBuilder.constants.pass = pass;

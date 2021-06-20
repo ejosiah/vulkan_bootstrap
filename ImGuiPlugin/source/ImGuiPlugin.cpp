@@ -86,9 +86,9 @@ void ImGuiPlugin::createDescriptorSet() {
 }
 
 void ImGuiPlugin::createPipeline() {
-    ShaderModule vertexShaderModule{
+    VulkanShaderModule vertexShaderModule{
         std::vector<uint32_t>{std::begin(__glsl_shader_vert_spv), std::end(__glsl_shader_vert_spv)}, data.device->logicalDevice};
-    ShaderModule fragShaderModule{
+    VulkanShaderModule fragShaderModule{
         std::vector<uint32_t>{std::begin(__glsl_shader_frag_spv), std::end(__glsl_shader_frag_spv)}, data.device->logicalDevice};
 
     auto stage = initializers::vertexShaderStages({

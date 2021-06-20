@@ -148,8 +148,8 @@ void PrimitivesApp::createPrimitives() {
 }
 
 void PrimitivesApp::createPipeline() {
-    auto vertexShaderModule = ShaderModule{"../../data/shaders/phong/phong.vert.spv", device};
-    auto fragmentShaderModule = ShaderModule{"../../data/shaders/phong/phong.frag.spv", device};
+    auto vertexShaderModule = VulkanShaderModule{"../../data/shaders/phong/phong.vert.spv", device};
+    auto fragmentShaderModule = VulkanShaderModule{"../../data/shaders/phong/phong.frag.spv", device};
 
     std::vector<VkPipelineShaderStageCreateInfo> stages = initializers::vertexShaderStages(
             {

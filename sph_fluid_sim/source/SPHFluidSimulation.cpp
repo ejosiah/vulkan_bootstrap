@@ -93,8 +93,8 @@ void SPHFluidSimulation::createPipelineCache() {
 
 
 void SPHFluidSimulation::createRenderPipeline() {
-    auto vertModule = ShaderModule{ "../../data/shaders/sph/grid.vert.spv", device};
-    auto fragModule = ShaderModule{"../../data/shaders/sph/grid.frag.spv", device};
+    auto vertModule = VulkanShaderModule{"../../data/shaders/sph/grid.vert.spv", device};
+    auto fragModule = VulkanShaderModule{"../../data/shaders/sph/grid.frag.spv", device};
 
     auto shaderStages = initializers::vertexShaderStages({
              { vertModule, VK_SHADER_STAGE_VERTEX_BIT },
@@ -154,8 +154,8 @@ void SPHFluidSimulation::createRenderPipeline() {
     render.pipeline = device.createGraphicsPipeline(createInfo, pipelineCache);
 
     // particle pipeline
-    auto particleVertModule = ShaderModule{ "../../data/shaders/sph/particle.vert.spv", device};
-    auto particleFragModule = ShaderModule{"../../data/shaders/sph/particle.frag.spv", device};
+    auto particleVertModule = VulkanShaderModule{"../../data/shaders/sph/particle.vert.spv", device};
+    auto particleFragModule = VulkanShaderModule{"../../data/shaders/sph/particle.frag.spv", device};
     shaderStages = initializers::vertexShaderStages({
              { particleVertModule, VK_SHADER_STAGE_VERTEX_BIT },
              {particleFragModule, VK_SHADER_STAGE_FRAGMENT_BIT}
@@ -187,7 +187,7 @@ void SPHFluidSimulation::createRenderPipeline() {
 }
 
 void SPHFluidSimulation::createComputePipeline() {
-    auto module = ShaderModule{ "../../data/shaders/sph/sph_sim.comp.spv", device};
+    auto module = VulkanShaderModule{"../../data/shaders/sph/sph_sim.comp.spv", device};
     auto stage = initializers::shaderStage({ module, VK_SHADER_STAGE_COMPUTE_BIT});
 
     compute.layout = device.createPipelineLayout({particles.descriptorSetLayout, particles.descriptorSetLayout}, { { VK_SHADER_STAGE_COMPUTE_BIT, sizeof(Camera), sizeof(decltype(particles.constants)) } });
@@ -411,7 +411,7 @@ void SPHFluidSimulation::createGridBuilderDescriptorSet(VkDeviceSize offset, VkD
 }
 
 void SPHFluidSimulation::createGridBuilderPipeline() {
-    auto gridBuilderModule = ShaderModule{ "../../data/shaders/sph/point_hash_grid_builder.comp.spv", device};
+    auto gridBuilderModule = VulkanShaderModule{"../../data/shaders/sph/point_hash_grid_builder.comp.spv", device};
     auto stage = initializers::shaderStage({gridBuilderModule, VK_SHADER_STAGE_COMPUTE_BIT});
     auto offset = alignedSize(sizeof(Camera) + sizeof(particles.constants), 16);
     std::vector<VkPushConstantRange> ranges{{VK_SHADER_STAGE_COMPUTE_BIT, offset, sizeof(gridBuilder.constants)}};

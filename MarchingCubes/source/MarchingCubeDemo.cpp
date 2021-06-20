@@ -146,8 +146,8 @@ void MarchingCubeDemo::createCellBuffer() {
 }
 
 void MarchingCubeDemo::createPipeline() {
-    auto cellVertModule = ShaderModule{ "../../data/shaders/marching_cubes/cell.vert.spv", device};
-    auto cellFragModule = ShaderModule{"../../data/shaders/marching_cubes/cell.frag.spv", device};
+    auto cellVertModule = VulkanShaderModule{"../../data/shaders/marching_cubes/cell.vert.spv", device};
+    auto cellFragModule = VulkanShaderModule{"../../data/shaders/marching_cubes/cell.frag.spv", device};
 
     auto shaderStages = initializers::vertexShaderStages({
         { cellVertModule, VK_SHADER_STAGE_VERTEX_BIT },
@@ -205,8 +205,8 @@ void MarchingCubeDemo::createPipeline() {
 
     pipelines.lines = device.createGraphicsPipeline(createInfo);
 
-    auto pointVertModule = ShaderModule{ "../../data/shaders/marching_cubes/point.vert.spv", device};
-    auto pointfragtModule = ShaderModule{ "../../data/shaders/marching_cubes/point.frag.spv", device};
+    auto pointVertModule = VulkanShaderModule{"../../data/shaders/marching_cubes/point.vert.spv", device};
+    auto pointfragtModule = VulkanShaderModule{"../../data/shaders/marching_cubes/point.frag.spv", device};
 
     auto pointStages = initializers::vertexShaderStages(
             {
@@ -228,8 +228,8 @@ void MarchingCubeDemo::createPipeline() {
 
     pipelines.points = device.createGraphicsPipeline(createInfo);
 
-    auto triVertModule = ShaderModule{ "../../data/shaders/marching_cubes/triangle.vert.spv", device};
-    auto triFragModule = ShaderModule{"../../data/shaders/marching_cubes/triangle.frag.spv", device};
+    auto triVertModule = VulkanShaderModule{"../../data/shaders/marching_cubes/triangle.vert.spv", device};
+    auto triFragModule = VulkanShaderModule{"../../data/shaders/marching_cubes/triangle.frag.spv", device};
 
     auto triStages = initializers::vertexShaderStages({
                          { triVertModule, VK_SHADER_STAGE_VERTEX_BIT },
@@ -259,7 +259,7 @@ void MarchingCubeDemo::createPipeline() {
 
     pipelines.triangles = device.createGraphicsPipeline(createInfo);
 
-    auto sdfComputeModule = ShaderModule{ "../../data/shaders/marching_cubes/sdf.comp.spv", device};
+    auto sdfComputeModule = VulkanShaderModule{"../../data/shaders/marching_cubes/sdf.comp.spv", device};
     auto stage = initializers::shaderStage({ sdfComputeModule, VK_SHADER_STAGE_COMPUTE_BIT});
 
     pipelineLayout.sdf = device.createPipelineLayout({computeDescriptorSetLayout});
@@ -574,7 +574,7 @@ void MarchingCubeDemo::initMarchingCubeBuffers() {
 }
 
 void MarchingCubeDemo::createMarchingCubePipeline() {
-    auto marchingCubeModule = ShaderModule{ "../../data/shaders/marching_cubes/march.comp.spv", device};
+    auto marchingCubeModule = VulkanShaderModule{"../../data/shaders/marching_cubes/march.comp.spv", device};
     auto stage = initializers::shaderStage({ marchingCubeModule, VK_SHADER_STAGE_COMPUTE_BIT});
 
     marchingCube.layout = device.createPipelineLayout({sdfDescriptorSetLayout, marchingCube.descriptorSetLayout}, { { VK_SHADER_STAGE_COMPUTE_BIT, sizeof(Camera), sizeof(decltype(marchingCube.constants)) } });

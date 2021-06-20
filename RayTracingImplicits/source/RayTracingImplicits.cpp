@@ -324,7 +324,7 @@ void RayTracingImplicits::createPipeline() {
     std::vector<VkPipelineShaderStageCreateInfo> stages;
 
     // Ray generation group
-    auto rayGenShader = ShaderModule{ "../../data/shaders/raytracing_implicits/implicits.rgen.spv", device};
+    auto rayGenShader = VulkanShaderModule{"../../data/shaders/raytracing_implicits/implicits.rgen.spv", device};
     VkRayTracingShaderGroupCreateInfoKHR shaderGroupInfo{};
     shaderGroupInfo.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
     shaderGroupInfo.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
@@ -336,20 +336,20 @@ void RayTracingImplicits::createPipeline() {
     stages.push_back(initializers::shaderStage({ rayGenShader, VK_SHADER_STAGE_RAYGEN_BIT_KHR}));
 
     // miss group 0;
-    auto missShader = ShaderModule{ "../../data/shaders/raytracing_implicits/implicits.rmiss.spv", device};
+    auto missShader = VulkanShaderModule{"../../data/shaders/raytracing_implicits/implicits.rmiss.spv", device};
     shaderGroupInfo.generalShader = stages.size();
     shaderGroups.push_back(shaderGroupInfo);
     stages.push_back(initializers::shaderStage({ missShader, VK_SHADER_STAGE_MISS_BIT_KHR}));
 
     // miss group 1
-    auto shadowShader = ShaderModule{ "../../data/shaders/raytracing_implicits/shadow.rmiss.spv", device};
+    auto shadowShader = VulkanShaderModule{"../../data/shaders/raytracing_implicits/shadow.rmiss.spv", device};
     shaderGroupInfo.generalShader = stages.size();
     shaderGroups.push_back(shaderGroupInfo);
     stages.push_back(initializers::shaderStage({ shadowShader, VK_SHADER_STAGE_MISS_BIT_KHR}));
 
     // hit group 0;
-    auto hitShader = ShaderModule{ "../../data/shaders/raytracing_implicits/implicits.rchit.spv", device};
-    auto intersectShader = ShaderModule{ "../../data/shaders/raytracing_implicits/implicits.rint.spv", device};
+    auto hitShader = VulkanShaderModule{"../../data/shaders/raytracing_implicits/implicits.rchit.spv", device};
+    auto intersectShader = VulkanShaderModule{"../../data/shaders/raytracing_implicits/implicits.rint.spv", device};
     shaderGroupInfo.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_PROCEDURAL_HIT_GROUP_KHR;
     shaderGroupInfo.generalShader = VK_SHADER_UNUSED_KHR;
     shaderGroupInfo.closestHitShader = stages.size();

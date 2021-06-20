@@ -85,8 +85,8 @@ void Canvas::createDescriptorSet() {
 }
 
 void Canvas::createPipeline() {
-    auto vertexShaderModule = ShaderModule{ "../../data/shaders/quad.vert.spv", app->device };
-    auto fragmentShaderModule = ShaderModule{ "../../data/shaders/quad.frag.spv", app->device };
+    auto vertexShaderModule = VulkanShaderModule{"../../data/shaders/quad.vert.spv", app->device };
+    auto fragmentShaderModule = VulkanShaderModule{"../../data/shaders/quad.frag.spv", app->device };
 
     auto stages = initializers::vertexShaderStages({
                                                              { vertexShaderModule, VK_SHADER_STAGE_VERTEX_BIT}

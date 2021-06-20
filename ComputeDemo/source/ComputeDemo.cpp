@@ -81,8 +81,8 @@ void ComputeDemo::checkAppInputs() {
 }
 
 void ComputeDemo::createGraphicsPipeline() {
-    auto vertexShaderModule = ShaderModule{ "../../data/shaders/quad.vert.spv", device };
-    auto fragmentShaderModule = ShaderModule{ "../../data/shaders/quad.frag.spv", device };
+    auto vertexShaderModule = VulkanShaderModule{"../../data/shaders/quad.vert.spv", device };
+    auto fragmentShaderModule = VulkanShaderModule{"../../data/shaders/quad.frag.spv", device };
 
     auto stages = initializers::vertexShaderStages({
         { vertexShaderModule, VK_SHADER_STAGE_VERTEX_BIT}
@@ -230,7 +230,7 @@ void ComputeDemo::createComputeDescriptorSetLayout() {
 
 
 void ComputeDemo::createComputePipeline() {
-    auto computeShaderModule = ShaderModule{"../../data/shaders/compute.comp.spv", device};
+    auto computeShaderModule = VulkanShaderModule{"../../data/shaders/compute.comp.spv", device};
     auto stage = initializers::computeShaderStage({ computeShaderModule, VK_SHADER_STAGE_COMPUTE_BIT});
     compute.pipelineLayout = device.createPipelineLayout({compute.descriptorSetLayout});
 

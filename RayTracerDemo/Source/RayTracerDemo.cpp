@@ -399,11 +399,11 @@ void RayTracerDemo::createModel() {
 }
 
 void RayTracerDemo::createGraphicsPipeline() {
-//    auto vertexShaderModule = ShaderModule{"../../data/shaders/barycenter.vert.spv", device};
-//    auto fragmentShaderModule = ShaderModule{"../../data/shaders/barycenter.frag.spv", device};
+//    auto vertexShaderModule = VulkanShaderModule{"../../data/shaders/barycenter.vert.spv", device};
+//    auto fragmentShaderModule = VulkanShaderModule{"../../data/shaders/barycenter.frag.spv", device};
 
-    ShaderModule vertexShaderModule = ShaderModule{ "../../data/shaders/demo/spaceship.vert.spv", device};
-    ShaderModule fragmentShaderModule = ShaderModule{ "../../data/shaders/demo/spaceship.frag.spv", device};
+    VulkanShaderModule vertexShaderModule = VulkanShaderModule{"../../data/shaders/demo/spaceship.vert.spv", device};
+    VulkanShaderModule fragmentShaderModule = VulkanShaderModule{"../../data/shaders/demo/spaceship.frag.spv", device};
 
     auto stages = initializers::vertexShaderStages({
         { vertexShaderModule, VK_SHADER_STAGE_VERTEX_BIT},
@@ -512,10 +512,10 @@ void RayTracerDemo::createShaderbindingTables() {
 }
 
 void RayTracerDemo::createRayTracePipeline() {
-    auto rayGenShaderModule = ShaderModule{ "../../data/shaders/raytrace_basic/raygen.rgen.spv", device };
-    auto missShaderModule = ShaderModule{ "../../data/shaders/raytrace_basic/miss.rmiss.spv", device };
-    auto shadowMissShaderModule = ShaderModule{ "../../data/shaders/raytrace_basic/shadow.rmiss.spv", device };
-    auto closestHitModule = ShaderModule{ "../../data/shaders/raytrace_basic/closesthit.rchit.spv", device };
+    auto rayGenShaderModule = VulkanShaderModule{"../../data/shaders/raytrace_basic/raygen.rgen.spv", device };
+    auto missShaderModule = VulkanShaderModule{"../../data/shaders/raytrace_basic/miss.rmiss.spv", device };
+    auto shadowMissShaderModule = VulkanShaderModule{"../../data/shaders/raytrace_basic/shadow.rmiss.spv", device };
+    auto closestHitModule = VulkanShaderModule{"../../data/shaders/raytrace_basic/closesthit.rchit.spv", device };
 
     auto stages = initializers::vertexShaderStages({
         {rayGenShaderModule, VK_SHADER_STAGE_RAYGEN_BIT_KHR},

@@ -54,8 +54,8 @@ void VulkanCube::onSwapChainRecreation() {
 void VulkanCube::
 createGraphicsPipeline() {
     assert(renderPass != VK_NULL_HANDLE);
-    auto vertexShaderModule = ShaderModule{"../../data/shaders/triangle.vert.spv", device};
-    auto fragmentShaderModule = ShaderModule{"../../data/shaders/triangle.frag.spv", device};
+    auto vertexShaderModule = VulkanShaderModule{"../../data/shaders/triangle.vert.spv", device};
+    auto fragmentShaderModule = VulkanShaderModule{"../../data/shaders/triangle.frag.spv", device};
 
     std::vector<VkPipelineShaderStageCreateInfo> stages = initializers::vertexShaderStages(
             {

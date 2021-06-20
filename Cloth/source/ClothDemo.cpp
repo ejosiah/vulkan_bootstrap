@@ -274,8 +274,8 @@ void ClothDemo::initCamera() {
 }
 
 void ClothDemo::createPipelines() {
-    auto flatVertexModule = ShaderModule{ "../../data/shaders/flat.vert.spv", device};
-    auto flatFragmentModule = ShaderModule{ "../../data/shaders/flat.frag.spv", device};
+    auto flatVertexModule = VulkanShaderModule{"../../data/shaders/flat.vert.spv", device};
+    auto flatFragmentModule = VulkanShaderModule{"../../data/shaders/flat.frag.spv", device};
 
     auto wireFrameStages = initializers::vertexShaderStages({
         {flatVertexModule, VK_SHADER_STAGE_VERTEX_BIT},
@@ -334,8 +334,8 @@ void ClothDemo::createPipelines() {
     pipelines.wireframe = device.createGraphicsPipeline(createInfo);
 
 
-    auto pointVertexShaderModule = ShaderModule{ "../../data/shaders/point.vert.spv", device };
-    auto pointFragShaderModule = ShaderModule{ "../../data/shaders/point.frag.spv", device };
+    auto pointVertexShaderModule = VulkanShaderModule{"../../data/shaders/point.vert.spv", device };
+    auto pointFragShaderModule = VulkanShaderModule{"../../data/shaders/point.frag.spv", device };
     auto pointStages = initializers::vertexShaderStages({
         {pointVertexShaderModule, VK_SHADER_STAGE_VERTEX_BIT},
         {pointFragShaderModule, VK_SHADER_STAGE_FRAGMENT_BIT}
@@ -367,8 +367,8 @@ void ClothDemo::createPipelines() {
 
     pipelines.point = device.createGraphicsPipeline(createInfo);
 
-    auto normalVertexShaderModule = ShaderModule{ "../../data/shaders/draw_normals.vert.spv", device};
-    auto normalGeometryShaderModule = ShaderModule{"../../data/shaders/draw_normals.geom.spv", device};
+    auto normalVertexShaderModule = VulkanShaderModule{"../../data/shaders/draw_normals.vert.spv", device};
+    auto normalGeometryShaderModule = VulkanShaderModule{"../../data/shaders/draw_normals.geom.spv", device};
 
     auto drawNormalStages = initializers::vertexShaderStages({
         {normalVertexShaderModule, VK_SHADER_STAGE_VERTEX_BIT},
@@ -387,8 +387,8 @@ void ClothDemo::createPipelines() {
 
     pipelines.normals = device.createGraphicsPipeline(createInfo);
 
-    auto shadedVertexShaderModule = ShaderModule{ "../../data/shaders/phong/phong.vert.spv", device};
-    auto shadedFragmentShaderModule = ShaderModule{ "../../data/shaders/phong/phong.frag.spv", device};
+    auto shadedVertexShaderModule = VulkanShaderModule{"../../data/shaders/phong/phong.vert.spv", device};
+    auto shadedFragmentShaderModule = VulkanShaderModule{"../../data/shaders/phong/phong.frag.spv", device};
     auto shadedStages = initializers::vertexShaderStages({
         {shadedVertexShaderModule, VK_SHADER_STAGE_VERTEX_BIT},
         {shadedFragmentShaderModule, VK_SHADER_STAGE_FRAGMENT_BIT}
@@ -410,8 +410,8 @@ void ClothDemo::createPipelines() {
 
     pipelines.shaded = device.createGraphicsPipeline(createInfo);
 
-    ShaderModule vertexShaderModule = ShaderModule{ "../../data/shaders/demo/spaceship.vert.spv", device};
-    ShaderModule fragmentShaderModule = ShaderModule{ "../../data/shaders/demo/spaceship.frag.spv", device};
+    VulkanShaderModule vertexShaderModule = VulkanShaderModule{"../../data/shaders/demo/spaceship.vert.spv", device};
+    VulkanShaderModule fragmentShaderModule = VulkanShaderModule{"../../data/shaders/demo/spaceship.frag.spv", device};
 
     auto spaceShipStages = initializers::vertexShaderStages({
          {vertexShaderModule, VK_SHADER_STAGE_VERTEX_BIT},
@@ -467,9 +467,9 @@ void ClothDemo::createRayTraceDescriptorSet() {
 }
 
 void ClothDemo::createRayTracePipeline() {
-    auto rayGenShader = ShaderModule{ "../../data/shaders/cloth/raygen.rgen.spv", device};
-    auto missGenShader = ShaderModule{ "../../data/shaders/cloth/miss.rmiss.spv", device};
-    auto hitShader = ShaderModule{ "../../data/shaders/cloth/closesthit.rchit.spv", device};
+    auto rayGenShader = VulkanShaderModule{"../../data/shaders/cloth/raygen.rgen.spv", device};
+    auto missGenShader = VulkanShaderModule{"../../data/shaders/cloth/miss.rmiss.spv", device};
+    auto hitShader = VulkanShaderModule{"../../data/shaders/cloth/closesthit.rchit.spv", device};
 
     auto stages = initializers::vertexShaderStages(
             {
@@ -735,7 +735,7 @@ void ClothDemo::createPositionDescriptorSet() {
 }
 
 void ClothDemo::createComputePipeline() {
-    auto computeModule = ShaderModule{ "../../data/shaders/cloth/cloth.comp.spv", device };
+    auto computeModule = VulkanShaderModule{"../../data/shaders/cloth/cloth.comp.spv", device };
 
     auto stage = initializers::vertexShaderStages({{computeModule, VK_SHADER_STAGE_COMPUTE_BIT}}).front();
 

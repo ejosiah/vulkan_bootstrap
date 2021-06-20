@@ -22,9 +22,8 @@ target_link_libraries(VulkanBase Vulkan::Vulkan ${CONAN_LIBS})
 include(GoogleTest)
 
 add_executable(VulkanBaseTest ${HPP_FILES} ${TEST_FILES})
-#add_executable( ${HPP_FILES} ${TEST_FILES})
 
-target_link_libraries(VulkanBaseTest PRIVATE ${VulkanBase} Vulkan::Vulkan  ${GTEST_LIBS} ${CONAN_LIBS})
+target_link_libraries(VulkanBaseTest PRIVATE VulkanBase Vulkan::Vulkan ${GTEST_LIBS} ${CONAN_LIBS})
 message(STATUS  "GTEST: ${CONAN_LIB_DIRS_GTEST}")
 
 

@@ -2,13 +2,13 @@
 
 #include "common.h"
 
-struct ShaderModule{
+struct VulkanShaderModule{
 
-    ShaderModule(const std::string& path, VkDevice device);
+    VulkanShaderModule(const std::string& path, VkDevice device);
 
-    ShaderModule(const std::vector<uint32_t>& data, VkDevice device);
+    VulkanShaderModule(const std::vector<uint32_t>& data, VkDevice device);
 
-    ~ShaderModule();
+    ~VulkanShaderModule();
 
     VkShaderModule shaderModule = VK_NULL_HANDLE;
 
