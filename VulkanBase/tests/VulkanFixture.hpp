@@ -57,7 +57,4 @@ protected:
         device = VulkanDevice{ instance, pDevice, settings};
         device.createLogicalDevice({}, deviceExtensions, validationLayers, VK_NULL_HANDLE, VK_QUEUE_COMPUTE_BIT);
     }
-
-
-
 };

@@ -352,7 +352,7 @@ void SPHFluidSimulation::runPhysics() {
 void SPHFluidSimulation::initGridBuilder() {
     float n = std::sqrtf(float(grid.numCells));
     gridBuilder.constants.resolution = glm::uvec3(n, n, 1);
-    gridBuilder.constants.gridSpacing = glm::vec3{grid.size/n};
+    gridBuilder.constants.gridSpacing = grid.size/n;
     gridBuilder.constants.numParticles = particles.constants.numParticles;
 
     // allocate buffer for bucketSize, nextBucketIndex and single value for buckets for pass 0

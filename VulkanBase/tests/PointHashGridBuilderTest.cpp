@@ -204,17 +204,8 @@ protected:
         particles.insert(begin(particles), begin(vParticles), end(vParticles));
     }
 
-    bool BucketContainsParticle(int index, const Particle& expected){
-        bool result = false;
-        gridBuilder.bucketBuffer.map<Particle>([&](auto actual){
-           result = similar(expected, actual[index]);
-        });
-        return result;
-    }
-
-    std::vector<Particle> getParticleFromBucket(int key){
-//        key = 1;
-        std::vector<Particle> particles;
+    bool bucketContainsPoint(int key, const Particle& particle){
+        bool contains = false;
         gridBuilder.bucketBuffer.map<int>([&](auto bucketPtr){
             gridBuilder.bucketSizeBuffer.map<int>([&](auto bucketSizePtr){
                 gridBuilder.particleBuffer.map<Particle>([&](auto particlePtr){
@@ -230,13 +221,16 @@ protected:
                     auto numParticles = bucketSizePtr[key];
                     for(int i = 0; i < numParticles; i++){
                         int particleId = bucketPtr[getOffset() + i];
-                        auto particle = particlePtr[particleId];
-                        particles.push_back(particle);
+                        Particle bParticle = particlePtr[particleId];
+                        contains = similar(particle, bParticle);
+                        if(contains){
+                            break;
+                        }
                     }
                 });
             });
         });
-        return particles;
+        return contains;
     }
 
     void buildHashGrid(){
@@ -281,14 +275,10 @@ protected:
 
     void AssertGrid(){
         ASSERT_FALSE(particles.empty()) << "Empty grid, you need to generate particles first";
-        for(const auto& [index, particles] : expectedHashGrid){
+        for(const auto& [bucket, particles] : expectedHashGrid){
             for(const auto& expected : particles) {
-                auto actualParticles = getParticleFromBucket(index);
-                bool bucketContainsPoint = std::any_of(begin(actualParticles), end(actualParticles), [&](const auto actual){
-                    return similar(actual, expected);
-                });
-                ASSERT_TRUE(bucketContainsPoint)
-                    << fmt::format("expected {} not found in bucket : {}", expected.position, index);
+                ASSERT_TRUE(bucketContainsPoint(bucket, expected))
+                    << fmt::format("expected {} not found in bucket : {}", expected.position, bucket);
             }
         }
     }
@@ -346,7 +336,7 @@ TEST_F(PointHashGridBuilderTest, OnePointPerGrid2d){
 
 TEST_F(PointHashGridBuilderTest, OnePointPerGrid3d){
     float gridSpacing{0.1};
-    glm::vec3 resolution{4, 4, 4};
+    glm::vec3 resolution{10, 10, 10};
     auto generateParticle = [&](int x, int y, int z) -> std::vector<Particle> {
 
         Particle particle;
