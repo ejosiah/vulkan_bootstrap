@@ -255,7 +255,7 @@ VkCommandBuffer *SPHFluidSimulation::buildCommandBuffers(uint32_t imageIndex, ui
 
 void SPHFluidSimulation::update(float time) {
     particles.constants.time = time;
-//    runPhysics();
+    runPhysics();
 }
 
 void SPHFluidSimulation::checkAppInputs() {
@@ -303,7 +303,7 @@ void SPHFluidSimulation::createParticles() {
 
     auto rngVelocity = [&]{
         static std::default_random_engine engine{ rnd() };
-        static std::uniform_real_distribution<float> dist{-0.5, 0.5};
+        static std::uniform_real_distribution<float> dist{-1, 1};
         static std::uniform_real_distribution<float> dist1{0, 2};
 
         return glm::vec3{dist(engine), dist1(engine), 0};
@@ -352,7 +352,7 @@ void SPHFluidSimulation::runPhysics() {
 void SPHFluidSimulation::initGridBuilder() {
     float n = std::sqrtf(float(grid.numCells));
     gridBuilder.constants.resolution = glm::uvec3(n, n, 1);
-    gridBuilder.constants.gridSpacing = grid.size/n;
+    gridBuilder.constants.gridSpacing = glm::vec3{grid.size/n};
     gridBuilder.constants.numParticles = particles.constants.numParticles;
 
     // allocate buffer for bucketSize, nextBucketIndex and single value for buckets for pass 0
@@ -433,7 +433,6 @@ void SPHFluidSimulation::buildPointHashGrid() {
         for(int i = 0; i < end; i++ ){
             auto gridSize = *(itr + i);
             size += gridSize;
-            spdlog::info("bucketSize : {}", gridSize);
         }
     });
     gridBuilder.buffer = device.createBuffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, size + 2 * sizeof(int) * grid.numCells);
