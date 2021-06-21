@@ -1,0 +1,15 @@
+#version 460 core
+
+layout(local_size_x = 1024) in;
+
+layout(set = 0, binding = 0) buffer DATA {
+    int g_data[];
+};
+
+layout(set = 0, binding = 1) buffer SUMS {
+    int g_sums[];
+};
+
+void main(){
+    g_data[gl_GlobalInvocationID.x] += g_sums[gl_WorkGroupID.x];
+}

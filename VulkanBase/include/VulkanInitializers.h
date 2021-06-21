@@ -357,6 +357,13 @@ namespace initializers{
         return barrier;
     }
 
+    template<size_t Size = 1 >
+    inline std::array<VkBufferMemoryBarrier, Size> bufferMemoryBarriers(){
+        std::array<VkBufferMemoryBarrier, Size> barriers{};
+        barriers.fill(bufferMemoryBarrier());
+        return barriers;
+    }
+
 
     inline VkApplicationInfo AppInfo() {
         VkApplicationInfo appInfo{};

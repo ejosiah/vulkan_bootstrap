@@ -1,6 +1,3 @@
-#include "common.h"
-#include "VulkanBaseApp.h"
-#include "VulkanShaderModule.h"
 #include "VulkanFixture.hpp"
 
 struct Particle{
@@ -344,9 +341,9 @@ TEST_F(PointHashGridBuilderTest, generateGridWithPointsInNegativeAndPositiveSpac
 }
 
 TEST_F(PointHashGridBuilderTest, PointRandomlyScatteredInSpace){
-    std::default_random_engine engine{ 1 << 20};
-    std::uniform_real_distribution<float> dist(0, 0.9);
-    auto rng = std::bind(dist, engine);
+//    std::default_random_engine engine{ 1 << 20};
+//    std::uniform_real_distribution<float> dist(0, 0.9);
+    auto rng = rngFunc<float>(0, 0.9, 1 << 20);
     glm::vec3 resolution{4, 4, 4};
     float gridSpacing = 0.25;
 

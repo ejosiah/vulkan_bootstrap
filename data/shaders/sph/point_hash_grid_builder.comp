@@ -61,6 +61,5 @@ void main(){
     int offset = getOffset(key);    // TODO maybe run prefix scan if grid is big
     int index = offset + atomicAdd(nextBucketIndex[key], 1);
 
-    int keys[8];
     buckets[index] = id;
 }

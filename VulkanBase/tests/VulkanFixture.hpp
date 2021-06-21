@@ -13,7 +13,7 @@ static std::vector<const char*> deviceExtensions{ };
 struct PipelineMetaData{
     std::string name;
     std::string shadePath;
-    std::vector<VulkanDescriptorSetLayout> layouts;
+    std::vector<VulkanDescriptorSetLayout*> layouts;
     std::vector<VkPushConstantRange> ranges;
 };
 
@@ -27,8 +27,10 @@ protected:
     VulkanInstance instance;
     VulkanDevice device;
     VulkanDebug debug;
+    VulkanDescriptorPool descriptorPool;
     Settings settings;
     std::map<std::string, Pipeline> pipelines;
+    uint32_t maxSets = 100;
 
     void SetUp() override {
         spdlog::set_level(spdlog::level::warn);
@@ -42,7 +44,34 @@ protected:
         createInstance();
         debug = VulkanDebug{ instance };
         createDevice();
-        createPipelines();
+        createDescriptorPool();
+    }
+
+    void createDescriptorPool(){
+        std::array<VkDescriptorPoolSize, 17> poolSizes{
+                {
+                        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 100 * maxSets},
+                        {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 100 * maxSets},
+                        {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 100 * maxSets},
+                        { VK_DESCRIPTOR_TYPE_SAMPLER, 100 * maxSets },
+                        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 100 * maxSets },
+                        { VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 100 * maxSets },
+                        { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 100 * maxSets },
+                        { VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 100 * maxSets },
+                        { VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 100 * maxSets },
+                        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 100 * maxSets },
+                        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 100 * maxSets },
+                        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 100 * maxSets },
+                        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 100 * maxSets },
+                        { VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 100 * maxSets },
+                        { VK_DESCRIPTOR_TYPE_INLINE_UNIFORM_BLOCK_EXT, 100 * maxSets },
+                        { VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 100 * maxSets },
+                        { VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_NV, 100 * maxSets },
+
+                }
+        };
+        descriptorPool = device.createDescriptorPool(maxSets, poolSizes, VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT);
+
     }
 
     void createInstance(){
@@ -72,7 +101,8 @@ protected:
             return vkEnumeratePhysicalDevices(instance, size, pDevice);
         }).front();
         device = VulkanDevice{ instance, pDevice, settings};
-        device.createLogicalDevice({}, deviceExtensions, validationLayers, VK_NULL_HANDLE, VK_QUEUE_COMPUTE_BIT);
+        VkPhysicalDeviceFeatures enabledFeatures{};
+        device.createLogicalDevice(enabledFeatures, deviceExtensions, validationLayers, VK_NULL_HANDLE, VK_QUEUE_COMPUTE_BIT);
     }
 
     template<typename Func>
@@ -85,7 +115,10 @@ protected:
             auto shaderModule = VulkanShaderModule{ metaData.shadePath, device};
             auto stage = initializers::shaderStage({ shaderModule, VK_SHADER_STAGE_COMPUTE_BIT});
             Pipeline pipeline;
-            std::vector<VkDescriptorSetLayout> setLayouts(metaData.layouts.begin(), metaData.layouts.end());
+            std::vector<VkDescriptorSetLayout> setLayouts;
+            for(auto& layout : metaData.layouts){
+                setLayouts.push_back(layout->handle);
+            }
             pipeline.layout = device.createPipelineLayout(setLayouts, metaData.ranges);
 
             auto createInfo = initializers::computePipelineCreateInfo();
@@ -97,9 +130,31 @@ protected:
         }
     }
 
+    VkPipeline pipeline(const std::string& name){
+        assert(pipelines.find(name) != end(pipelines));
+        return pipelines[name].pipeline;
+    }
+
+    VkPipelineLayout layout(const std::string& name){
+        assert(pipelines.find(name) != end(pipelines));
+        return pipelines[name].layout;
+    }
+
     virtual std::vector<PipelineMetaData> pipelineMetaData() {
         return {};
     }
 
     virtual void postVulkanInit() {}
+
+    template<typename T>
+    std::function<T()> rngFunc(T lower, T upper, uint32_t seed = std::random_device{}()) {
+        std::default_random_engine engine{ seed };
+        if constexpr(std::is_same_v<T, int>){
+            std::uniform_int_distribution<T> dist{lower, upper};
+            return std::bind(dist, engine);
+        }else {
+            std::uniform_real_distribution<T> dist{lower, upper};
+            return std::bind(dist, engine);
+        }
+    }
 };
