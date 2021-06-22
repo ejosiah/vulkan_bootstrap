@@ -1,0 +1,50 @@
+#version 460 core
+
+layout(local_size_x = 1024) in;
+
+layout(set = 0, binding = 0) buffer DATA {
+  int g_data[];
+};
+
+layout(set = 0, binding = 1) buffer SUMS {
+  int g_sums[];
+};
+
+void main(){
+  // TODO FIXME offset load/store index by workGroupID
+  int thid  = int(gl_LocalInvocationIndex);
+
+  int offset = 1;
+  int n = int(gl_WorkGroupSize.x);
+  int gOffset = int(gl_WorkGroupID.x) * n;
+
+  for(int d = (n >> 1); d > 0; d >>= 1){
+    barrier();
+    if(thid < d){
+      int ai = offset * (2 * thid + 1) - 1 + gOffset;
+      int bi = offset * (2 * thid + 2) - 1 + gOffset;
+
+      g_data[bi] += g_data[ai];
+    }
+    offset *= 2;
+  }
+
+  if(thid == 0){
+    int temp = g_data[gOffset + n - 1];
+    g_data[gOffset + n-1] = 0;
+    g_sums[gl_WorkGroupID.x] = temp;
+  }
+
+  for(int d = 1; d < n; d *= 2){
+    offset >>= 1;
+    barrier();
+    if(thid < d){
+      int ai = offset * (2 * thid + 1) - 1 + gOffset;
+      int bi = offset * (2 * thid + 2) - 1 + gOffset;
+
+      int temp = g_data[bi];
+      g_data[bi] = temp + g_data[ai];
+      g_data[ai] = temp;
+    }
+  }
+}

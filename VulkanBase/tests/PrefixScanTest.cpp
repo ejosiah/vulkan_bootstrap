@@ -1,7 +1,15 @@
 #include "VulkanFixture.hpp"
 
+constexpr int ITEMS_PER_WORKGROUP = 8 << 10;
+
 class PrefixScanTest : public VulkanFixture{
 protected:
+
+    struct {
+        int itemsPerWorkGroup = ITEMS_PER_WORKGROUP;
+        int N = 0;
+    } constants;
+
     VkDescriptorSet descriptorSet;
     VkDescriptorSet sumScanDescriptorSet;
     VulkanDescriptorSetLayout setLayout;
@@ -19,7 +27,7 @@ protected:
         sumScanDescriptorSet = sets.back();
     }
 
-    std::vector<PipelineMetaData> pipelineMetaData() override {
+    std::vector<PipelineMetaData> pipelineMetaData() final {
         std::array<VkDescriptorSetLayoutBinding, 2> bindings{};
 
         bindings[0].binding = 0;
@@ -50,7 +58,8 @@ protected:
         metaData = {
                 "add",
                 "../../data/shaders/prefix_scan/add.comp.spv",
-                { &setLayout }
+                { &setLayout },
+                { { VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(constants)} }
         };
 
         metas.push_back(metaData);
@@ -60,10 +69,10 @@ protected:
     template<typename T>
     void fillBuffer(std::vector<T> data){
         buffer = device.createCpuVisibleBuffer(data.data(), sizeof(T) * data.size(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-        VkDeviceSize sumsSize = (std::abs(int(data.size() - 1))/1024 + 1) * sizeof(T);  // FIXME
+        VkDeviceSize sumsSize = (std::abs(int(data.size() - 1))/ITEMS_PER_WORKGROUP + 1) * sizeof(T);  // FIXME
         sumsSize = alignedSize(sumsSize, bufferOffsetAlignment) + sizeof(T);
         sumsBuffer = device.createBuffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, sumsSize);
-
+        constants.N = data.size();
         updateDescriptorSet();
     }
 
@@ -118,23 +127,22 @@ protected:
     }
 
     void gpuScan(){
+        int size = buffer.size/sizeof(int);
+        int numWorkGroups = std::abs(size - 1)/ITEMS_PER_WORKGROUP + 1;
         execute([&](auto commandBuffer){
-            int size = buffer.size/sizeof(int);
-            int numWorkGroups = std::abs(size - 1)/1024 + 1;
 
             vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline("prefix_scan"));
             vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, layout("prefix_scan"), 0, 1, &descriptorSet, 0, nullptr);
             vkCmdDispatch(commandBuffer, numWorkGroups, 1, 1);
 
             if(numWorkGroups > 1){
-
                 addBufferMemoryBarriers(commandBuffer, {&buffer, &sumsBuffer});
                 vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, layout("prefix_scan"), 0, 1, &sumScanDescriptorSet, 0, nullptr);
                 vkCmdDispatch(commandBuffer, 1, 1, 1);
-
                 addBufferMemoryBarriers(commandBuffer, { &buffer, &sumsBuffer });
                 vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline("add"));
                 vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, layout("add"), 0, 1, &descriptorSet, 0, nullptr);
+                vkCmdPushConstants(commandBuffer, layout("add"), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(constants), &constants);
                 vkCmdDispatch(commandBuffer, numWorkGroups, 1, 1);
             }
         });
@@ -151,7 +159,7 @@ protected:
 
 
 TEST_F(PrefixScanTest, ScanWithSingleWorkGroup){
-    std::vector<int> data(1 << 10);
+    std::vector<int> data(ITEMS_PER_WORKGROUP);
     auto rng = rngFunc<int>(0, 100, 1 << 20);
 
     std::generate(begin(data), end(data), [&]{ return rng(); });
@@ -164,7 +172,7 @@ TEST_F(PrefixScanTest, ScanWithSingleWorkGroup){
 }
 
 TEST_F(PrefixScanTest, ScanDataLessThanWorkGroupSize){
-    std::vector<int> data(1 << 8);
+    std::vector<int> data(ITEMS_PER_WORKGROUP/2);
     auto rng = rngFunc<int>(0, 100, 1 << 20);
     std::generate(begin(data), end(data), [&]{ return rng(); });
     fillBuffer(data);
@@ -175,10 +183,9 @@ TEST_F(PrefixScanTest, ScanDataLessThanWorkGroupSize){
 }
 
 TEST_F(PrefixScanTest, ScanWithMutipleWorkGroups){
-    std::vector<int> data(1 << 14);
+    std::vector<int> data(ITEMS_PER_WORKGROUP * 16);
     auto rng = rngFunc<int>(0, 100, 1 << 20);
     std::generate(begin(data), end(data), [&]{ return rng(); });
-
 
     fillBuffer(data);
     std::exclusive_scan(begin(data), end(data), begin(data), 0);
