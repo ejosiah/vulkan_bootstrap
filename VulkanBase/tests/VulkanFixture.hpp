@@ -102,6 +102,7 @@ protected:
         }).front();
         device = VulkanDevice{ instance, pDevice, settings};
         VkPhysicalDeviceFeatures enabledFeatures{};
+        enabledFeatures.robustBufferAccess = VK_TRUE;
         device.createLogicalDevice(enabledFeatures, deviceExtensions, validationLayers, VK_NULL_HANDLE, VK_QUEUE_COMPUTE_BIT);
     }
 

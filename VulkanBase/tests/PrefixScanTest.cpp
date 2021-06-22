@@ -139,12 +139,18 @@ protected:
                 addBufferMemoryBarriers(commandBuffer, {&buffer, &sumsBuffer});
                 vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, layout("prefix_scan"), 0, 1, &sumScanDescriptorSet, 0, nullptr);
                 vkCmdDispatch(commandBuffer, 1, 1, 1);
+
                 addBufferMemoryBarriers(commandBuffer, { &buffer, &sumsBuffer });
                 vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline("add"));
                 vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, layout("add"), 0, 1, &descriptorSet, 0, nullptr);
                 vkCmdPushConstants(commandBuffer, layout("add"), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(constants), &constants);
                 vkCmdDispatch(commandBuffer, numWorkGroups, 1, 1);
             }
+        });
+        sumsBuffer.map<int>([&](auto ptr){
+           for(int i = 0; i < numWorkGroups; i++){
+               spdlog::error("sum[i] => {}", ptr[i]);
+           }
         });
     }
 
@@ -171,7 +177,7 @@ TEST_F(PrefixScanTest, ScanWithSingleWorkGroup){
 
 }
 
-TEST_F(PrefixScanTest, ScanDataLessThanWorkGroupSize){
+TEST_F(PrefixScanTest, ScanDataItemsLessThanWorkGroupSize){
     std::vector<int> data(ITEMS_PER_WORKGROUP/2);
     auto rng = rngFunc<int>(0, 100, 1 << 20);
     std::generate(begin(data), end(data), [&]{ return rng(); });
@@ -182,8 +188,19 @@ TEST_F(PrefixScanTest, ScanDataLessThanWorkGroupSize){
     assertScan(data);
 }
 
+TEST_F(PrefixScanTest, ScanNonPowerOfDataItems){
+    std::vector<int> data(55555);
+    auto rng = rngFunc<int>(0, 100, 1 << 20);
+    std::generate(begin(data), end(data), [&]{ return rng(); });
+    fillBuffer(data);
+    std::exclusive_scan(begin(data), end(data), begin(data), 0);
+
+    gpuScan();
+    assertScan(data);
+}
+
 TEST_F(PrefixScanTest, ScanWithMutipleWorkGroups){
-    std::vector<int> data(ITEMS_PER_WORKGROUP * 16);
+    std::vector<int> data(ITEMS_PER_WORKGROUP + 1);
     auto rng = rngFunc<int>(0, 100, 1 << 20);
     std::generate(begin(data), end(data), [&]{ return rng(); });
 
