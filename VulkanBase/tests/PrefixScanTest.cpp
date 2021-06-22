@@ -147,11 +147,6 @@ protected:
                 vkCmdDispatch(commandBuffer, numWorkGroups, 1, 1);
             }
         });
-        sumsBuffer.map<int>([&](auto ptr){
-           for(int i = 0; i < numWorkGroups; i++){
-               spdlog::error("sum[i] => {}", ptr[i]);
-           }
-        });
     }
 
     void assertScan(const std::vector<int>& expected){
