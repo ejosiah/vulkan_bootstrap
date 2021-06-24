@@ -30,22 +30,14 @@ layout(set = 1, binding = 0, scalar) buffer BUCKETS {
     int buckets[];
 };
 
-layout(set = 1, binding = 1, scalar) buffer BUCKET_SIZES {
-    int bucketSize[];
-};
-
-layout(set = 1, binding = 2, scalar) buffer NEXT_BUCKET_INDEX {
+layout(set = 1, binding = 1, scalar) buffer NEXT_BUCKET_INDEX {
     int nextBucketIndex[];
 };
 
+layout(set = 2, binding = 0, scalar) buffer BUCKET_SIZES {
+    int bucketSize[];
+};
 
-int getOffset(int key){
-    int offset = 0;
-    for(int i = key - 1; i >= 0; i--){
-        offset += bucketSize[i];
-    };
-    return offset;
-}
 
 void main(){
     int id = int(gl_GlobalInvocationID.x);
@@ -58,7 +50,7 @@ void main(){
         atomicAdd(bucketSize[key], 1);  // TODO use different buffer for this
         return;
     }
-    int offset = getOffset(key);    // TODO maybe run prefix scan if grid is big
+    int offset = bucketSize[key];
     int index = offset + atomicAdd(nextBucketIndex[key], 1);
 
     buckets[index] = id;

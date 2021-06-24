@@ -35,8 +35,8 @@ protected:
     void SetUp() override {
         spdlog::set_level(spdlog::level::warn);
         initVulkan();
-        postVulkanInit();
         createPipelines();
+        postVulkanInit();
     }
 
     void initVulkan(){

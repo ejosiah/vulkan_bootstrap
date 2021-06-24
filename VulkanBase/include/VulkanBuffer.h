@@ -81,6 +81,16 @@ struct VulkanBuffer{
         return &buffer;
     }
 
+    template<typename T>
+    T get(int index){
+        // TODO check if mappable & bounds
+        T res;
+        map<T>([&](auto ptr){
+            res = ptr[index];
+        });
+        return res;
+    }
+
     VmaAllocator allocator = VK_NULL_HANDLE;
     VkBuffer buffer = VK_NULL_HANDLE;
     VmaAllocation allocation = VK_NULL_HANDLE;

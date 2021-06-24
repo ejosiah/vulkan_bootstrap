@@ -44,26 +44,19 @@ protected:
         setLayout = device.createDescriptorSetLayout(bindings);
         createDescriptorSet(setLayout);
 
-
-        PipelineMetaData metaData{
-                "prefix_scan",
-                "../../data/shaders/prefix_scan/scan.comp.spv",
-                { &setLayout }
+        return {
+            {
+                    "prefix_scan",
+                    "../../data/shaders/prefix_scan/scan.comp.spv",
+                    { &setLayout }
+            },
+            {
+                    "add",
+                    "../../data/shaders/prefix_scan/add.comp.spv",
+                    { &setLayout },
+                    { { VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(constants)} }
+            }
         };
-
-
-        std::vector<PipelineMetaData> metas;
-        metas.push_back(metaData);
-
-        metaData = {
-                "add",
-                "../../data/shaders/prefix_scan/add.comp.spv",
-                { &setLayout },
-                { { VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(constants)} }
-        };
-
-        metas.push_back(metaData);
-        return metas;
     }
 
     template<typename T>
@@ -79,14 +72,12 @@ protected:
     void updateDescriptorSet(){
         VkDescriptorBufferInfo info{ buffer, 0, VK_WHOLE_SIZE};
         auto writes = initializers::writeDescriptorSets<4>(descriptorSet);
-        writes[0].dstSet = descriptorSet;
         writes[0].dstBinding = 0;
         writes[0].descriptorCount = 1;
         writes[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
         writes[0].pBufferInfo = &info;
 
         VkDescriptorBufferInfo sumsInfo{ sumsBuffer, 0, sumsBuffer.size - sizeof(int)}; // TODO FIXME
-        writes[1].dstSet = descriptorSet;
         writes[1].dstBinding = 1;
         writes[1].descriptorCount = 1;
         writes[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
