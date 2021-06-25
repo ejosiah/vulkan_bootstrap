@@ -1,6 +1,7 @@
 #pragma once
 
 #include <gtest/gtest.h>
+#include <gmock/gmock.h>
 #include "VulkanInstance.h"
 #include "VulkanDevice.h"
 #include "VulkanShaderModule.h"

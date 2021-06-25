@@ -47,7 +47,7 @@ void main(){
     vec3 point = points[id].position.xyz;
     int key = getHashKey(point, resolution, gridSpacing);
     if(pass == 0){
-        atomicAdd(bucketSize[key], 1);  // TODO use different buffer for this
+        atomicAdd(bucketSize[key], 1);
         return;
     }
     int offset = bucketSize[key];

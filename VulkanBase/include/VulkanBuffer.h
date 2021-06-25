@@ -51,9 +51,8 @@ struct VulkanBuffer{
 
     template<typename T>
     void map(std::function<void(T*)> use){
-        void* data;
-        vmaMapMemory(allocator, allocation, &data);
-        use(reinterpret_cast<T*>(data));
+        vmaMapMemory(allocator, allocation, &mapped);
+        use(reinterpret_cast<T*>(mapped));
         vmaUnmapMemory(allocator, allocation);
     }
 
@@ -81,6 +80,15 @@ struct VulkanBuffer{
         return &buffer;
     }
 
+    void* map(){
+        vmaMapMemory(allocator, allocation, &mapped);
+        return mapped;
+    }
+
+    void unmap(){
+        vmaUnmapMemory(allocator, allocation);
+    }
+
     template<typename T>
     T get(int index){
         // TODO check if mappable & bounds
@@ -96,5 +104,6 @@ struct VulkanBuffer{
     VmaAllocation allocation = VK_NULL_HANDLE;
     VkDeviceSize  size = 0;
     std::string name;
+    void* mapped;
     bool mappable = false;
 };
