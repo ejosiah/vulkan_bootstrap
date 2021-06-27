@@ -6,22 +6,11 @@
 #include "VulkanDevice.h"
 #include "VulkanShaderModule.h"
 #include "VulkanBaseApp.h"
+#include "ComputePipelins.hpp"
 
 static std::vector<const char*> instanceExtensions{VK_EXT_DEBUG_UTILS_EXTENSION_NAME};
 static std::vector<const char*> validationLayers{"VK_LAYER_KHRONOS_validation"};
 static std::vector<const char*> deviceExtensions{ };
-
-struct PipelineMetaData{
-    std::string name;
-    std::string shadePath;
-    std::vector<VulkanDescriptorSetLayout*> layouts;
-    std::vector<VkPushConstantRange> ranges;
-};
-
-struct Pipeline{
-    VulkanPipeline pipeline;
-    VulkanPipelineLayout layout;
-};
 
 class VulkanFixture : public ::testing::Test{
 protected:

@@ -5,7 +5,7 @@ layout(location = 1) in vec4 color;
 
 layout (constant_id = 0) const float pointSize = 5.0;
 
-layout(push_constant) uniform Constants{
+layout(set = 0, binding = 0) uniform MVP{
     mat4 model;
     mat4 view;
     mat4 projection;

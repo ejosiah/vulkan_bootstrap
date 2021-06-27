@@ -9,16 +9,17 @@ void SPHFluidSimulation::initApp() {
     createCommandPool();
     initGrid();
     createParticles();
-    initGridBuilder();
+//    initGridBuilder();
     createDescriptorSetLayouts();
     createDescriptorSets();
+    createRenderDescriptorSet();
     createPipelineCache();
     createRenderPipeline();
     createComputePipeline();
-    createGridBuilderDescriptorSetLayout();
-    createGridBuilderDescriptorSet(gridBuilder.buffer.size - sizeof(uint32_t), sizeof(uint32_t));
-    createGridBuilderPipeline();
-    buildPointHashGrid();
+//    createGridBuilderDescriptorSetLayout();
+//    createGridBuilderDescriptorSet(gridBuilder.buffer.size - sizeof(uint32_t), sizeof(uint32_t));
+//    createGridBuilderPipeline();
+//    buildPointHashGrid();
 }
 
 void SPHFluidSimulation::createDescriptorPool() {
@@ -58,6 +59,10 @@ void SPHFluidSimulation::createDescriptorSetLayouts() {
     bindings[0].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
     particles.descriptorSetLayout = device.createDescriptorSetLayout(bindings);
+    
+    bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    bindings[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    render.setLayout = device.createDescriptorSetLayout(bindings);
 }
 
 void SPHFluidSimulation::createDescriptorSets() {
@@ -79,6 +84,21 @@ void SPHFluidSimulation::createDescriptorSets() {
     writes[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     writes[1].pBufferInfo = &info1;
 
+    device.updateDescriptorSets(writes);
+}
+
+void SPHFluidSimulation::createRenderDescriptorSet() {
+    render.descriptorSet = descriptorPool.allocate({ render.setLayout}).front();
+    
+    auto writes = initializers::writeDescriptorSets<1>(render.descriptorSet);
+
+
+    VkDescriptorBufferInfo info = {render.mvpBuffer, 0, VK_WHOLE_SIZE};
+    writes[0].dstBinding = 0;
+    writes[0].descriptorCount = 1;
+    writes[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    writes[0].pBufferInfo = &info;
+    
     device.updateDescriptorSets(writes);
 }
 
@@ -134,7 +154,7 @@ void SPHFluidSimulation::createRenderPipeline() {
     auto colorBlendAttachment = initializers::colorBlendStateAttachmentStates();
     auto colorBlendState = initializers::colorBlendState(colorBlendAttachment);
 
-    render.layout = device.createPipelineLayout({}, { Camera::pushConstant() });
+    render.layout = device.createPipelineLayout({ render.setLayout}, {});
 
     auto createInfo = initializers::graphicsPipelineCreateInfo();
     createInfo.flags = VK_PIPELINE_CREATE_ALLOW_DERIVATIVES_BIT;
@@ -172,7 +192,7 @@ void SPHFluidSimulation::createRenderPipeline() {
     vertexInputState = initializers::vertexInputState(bindings, attribs);
     inputAssemblyState = initializers::inputAssemblyState(VK_PRIMITIVE_TOPOLOGY_POINT_LIST);
 
-    particles.layout = device.createPipelineLayout({}, { Camera::pushConstant() });
+    particles.layout = device.createPipelineLayout({ render.setLayout }, { });
 
     createInfo.flags = VK_PIPELINE_CREATE_DERIVATIVE_BIT;
     createInfo.stageCount = COUNT(shaderStages);
@@ -236,13 +256,13 @@ VkCommandBuffer *SPHFluidSimulation::buildCommandBuffers(uint32_t imageIndex, ui
     // render grid
     VkDeviceSize offset = 0;
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, render.pipeline);
-    vkCmdPushConstants(commandBuffer, render.layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(grid.xforms), &grid.xforms);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, render.layout, 0, 1, &render.descriptorSet, 0, nullptr);
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, grid.vertexBuffer, &offset);
     vkCmdDraw(commandBuffer, grid.vertexBuffer.size/sizeof(glm::vec3), 1, 0, 0);
 
     // render particles
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, particles.pipeline);
-    vkCmdPushConstants(commandBuffer, particles.layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(grid.xforms), &grid.xforms);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, render.layout, 0, 1, &render.descriptorSet, 0, nullptr);
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, particles.buffers[0], &offset);
     vkCmdDraw(commandBuffer, particles.buffers[0].size/sizeof(Particle), 1, 0, 0);
 
@@ -290,6 +310,8 @@ void SPHFluidSimulation::initGrid() {
     grid.vertexBuffer = device.createDeviceLocalBuffer(vertices.data(), sizeof(glm::vec3) * vertices.size(), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
     grid.xforms.model = glm::scale(glm::mat4{1}, {1/swapChain.aspectRatio(), 1, 1});
     grid.xforms.projection = vkn::ortho(-1.01, 1.01, -1.01, 1.01, -1, 1);
+
+    render.mvpBuffer = device.createCpuVisibleBuffer(&grid.xforms, sizeof(grid.xforms), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
 }
 
 void SPHFluidSimulation::createParticles() {
@@ -345,7 +367,7 @@ void SPHFluidSimulation::runPhysics() {
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, compute.pipeline);
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, compute.layout, 0, COUNT(sets), sets.data(), 0, nullptr);
         vkCmdPushConstants(commandBuffer, compute.layout, VK_SHADER_STAGE_COMPUTE_BIT, sizeof(Camera), sizeof(particles.constants), &particles.constants);
-        vkCmdDispatch(commandBuffer, particles.constants.numParticles/1024 + 1, 1, 1);
+        vkCmdDispatch(commandBuffer, (particles.constants.numParticles - 1)/1024 + 1, 1, 1);
     });
 }
 

@@ -12,7 +12,6 @@ struct Particle{
 layout(local_size_x = 1024) in;
 
 layout(push_constant) uniform Constants{
-    layout(offset = 192)
     vec3 gravity;
     uint numParticles;
     float drag;

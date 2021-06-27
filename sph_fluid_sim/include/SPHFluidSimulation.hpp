@@ -26,6 +26,8 @@ protected:
 
     void createDescriptorSets();
 
+    void createRenderDescriptorSet();
+
     void createCommandPool();
 
     void createPipelineCache();
@@ -64,6 +66,9 @@ protected:
     struct {
         VulkanPipelineLayout layout;
         VulkanPipeline pipeline;
+        VulkanDescriptorSetLayout setLayout;
+        VkDescriptorSet descriptorSet;
+        VulkanBuffer mvpBuffer;
     } render;
 
     struct {
