@@ -1,10 +1,17 @@
 #include "VulkanFixture.hpp"
 #include "PointHashGrid.hpp"
+#include "sampling.hpp"
 
 inline bool similar(const Particle& a, const Particle& b, float epsilon = 1E-7){
     return closeEnough(a.position.x, b.position.x, epsilon)
            && closeEnough(a.position.y, b.position.y, epsilon)
            && closeEnough(a.position.z, b.position.z, epsilon);
+};
+
+inline bool similar(const glm::vec3& a, const glm::vec3& b, float epsilon = 1E-7){
+    return closeEnough(a.x, b.x, epsilon)
+           && closeEnough(a.y, b.y, epsilon)
+           && closeEnough(a.z, b.z, epsilon);
 };
 
 class PointHashGridBuilderTest : public VulkanFixture{
@@ -128,7 +135,7 @@ protected:
     std::function<bool(int, int, int, int)> containsNearbyKey = [&](int key0, int key1, int key2, int key3){
         std::array<bool, 4> predicates{};
         grid.nearByKeys.map<int>([&](auto ptr){
-            for(int i = 0; i < 8; i++){
+            for(int i = 0; i < 4; i++){
                 if(key0 == ptr[i]){
                     predicates[i] = true;
                 }
@@ -166,6 +173,107 @@ protected:
             vkCmdDispatch(commandBuffer, 1, 1, 1);
 
         });
+    }
+
+    void generateNeighbourList(){
+        grid = PointHashGrid{&device, &descriptorPool, &particleBuffer, resolution, gridSpacing};
+        execute([&](auto commandBuffer){
+            grid.buildHashGrid(commandBuffer);
+            grid.generateNeighbourList(commandBuffer);
+        });
+    }
+
+    void logGrid(){
+        grid.bucketBuffer.map<int>([&](auto bucketPtr){
+            grid.bucketSizeOffsetBuffer.map<int>([&](auto bucketOffsetPtr){
+            grid.bucketSizeBuffer.map<int>([&](auto bucketSizePtr){
+                particleBuffer.map<Particle>([&](auto particlePtr){
+                    int numBuckets = resolution.x * resolution.y * resolution.y;
+                    for(int bucket = 0; bucket < numBuckets; bucket++){
+                        int size = bucketSizePtr[bucket];
+                        int offset = bucketOffsetPtr[bucket];
+                        spdlog::error("bucket: {}, offset: {}, size: {}", bucket, offset, size);
+                        for(auto i = 0; i < size; i++){
+                            auto entry = i + offset;
+                            auto pIndex = bucketPtr[entry];
+                            auto point = particlePtr[pIndex].position.xyz();
+                            spdlog::error("\tpoint[{}] => {}", pIndex, point);
+                        }
+                    }
+                });
+            });
+        });
+        });
+    }
+
+    void assertNeighbourList(int index, const std::vector<glm::vec3>& neighbourList){
+        std::vector<bool> foundNeighbours(neighbourList.size(), false);
+        grid.neighbourList.neighbourSizeBuffer.map<int>([&](auto sizePtr){
+           grid.neighbourList.neighbourOffsetsBuffer.map<int>([&](auto offsetPtr){
+               auto size = sizePtr[index];
+               ASSERT_EQ(neighbourList.size(), size) << "neighbour list size did not match" ;
+                grid.neighbourList.neighbourListBuffer.map<int>([&](auto listPtr){
+                    grid.particleBuffer->map<Particle>([&](auto particlePtr){
+                        int offset = offsetPtr[index];
+                        int prevIndex = -1;
+                        for(int i = 0; i < size; i++){
+                            int particleIndex = listPtr[i + offset];
+                            glm::vec3 actual = particlePtr[particleIndex].position.xyz();
+
+                            ASSERT_NE(prevIndex, particleIndex) << fmt::format("duplicate particle found {} at iteration: {}", particleIndex, i);
+                            auto found = std::find_if(begin(neighbourList), end(neighbourList), [&](auto expected){ return similar(expected, actual); });
+
+                            foundNeighbours[i] = found != end(neighbourList);
+                            prevIndex = particleIndex;
+                        }
+                        auto foundAllNeighbours = std::all_of(begin(foundNeighbours), end(foundNeighbours), [](auto res){ return res; });
+                        ASSERT_TRUE(foundAllNeighbours) << fmt::format("neighbours missing {}", foundAllNeighbours);
+                    });
+                });
+           });
+        });
+    }
+
+    template<typename Rng, size_t Amount>
+    std::vector<glm::vec3> generatePointsAround(const Rng& rng, glm::vec3 origin, float maxDist){
+        std::vector<glm::vec3> points;
+        for(int i = 0; i < Amount; i++) {
+            glm::vec2 uv { rng(), rng()};
+            auto point = glm::vec3(origin.xy() + maxDist * sampling::uniformSampleDisk(uv), 0);
+            points.push_back(point);
+            addParticleAt(point);
+        }
+        return points;
+    }
+
+    template<size_t Amount>
+    std::vector<glm::vec3> generateRandomPointsInGrid(float lower, float upper){
+        std::vector<glm::vec3> points;
+        auto rng = rngFunc(lower, upper, 1 << 20);
+        for(int i = 0; i < Amount; i++){
+            glm::vec3 point{ rng(), rng(), 0};
+            points.push_back(point);
+            addParticleAt(point);
+        }
+        return points;
+    }
+
+    std::map<int, std::vector<glm::vec3>> getExpectedNeighbourList(){
+        std::map<int, std::vector<glm::vec3>> list;
+        float radius = gridSpacing * 0.5;
+        float radiusSqr = radius * radius;
+        for(auto i = 0; i < particles.size(); i++){
+            auto origin = particles[i].position.xyz();
+            std::vector<glm::vec3> neighbours;
+            for(auto& point : particles){
+                glm::vec3 d = point.position.xyz() - origin;
+                if(dot(d, d) <= radiusSqr){
+                    neighbours.push_back(point.position.xyz());
+                }
+            }
+            list[i] = neighbours;
+        }
+        return list;
     }
 };
 
@@ -276,7 +384,7 @@ TEST_F(PointHashGridBuilderTest, getNearByKeys2dOriginInBottomLeftCorner){
     ASSERT_PRED4(containsNearbyKey, 4, 5, 8, 9) << "Near by keys did not match 4, 5, 8 & 9";
 }
 TEST_F(PointHashGridBuilderTest, getNearByKeys2dOriginInBottomRightCorner){
-    resolution = glm::vec3{4, 4, 4};
+    resolution = glm::vec3{4, 4, 1};
     gridSpacing = 0.25;
 
     glm::vec3 position = glm::vec3(1, 2, 0) * gridSpacing;
@@ -305,4 +413,59 @@ TEST_F(PointHashGridBuilderTest, getNearByKeys2dOriginInTopRightCorner){
     buildHashGrid();
     getNearByKeys();
     ASSERT_PRED4(containsNearbyKey, 9, 10, 13, 14) << "Near by keys did not match 9, 10, 13, 14";
+}
+
+TEST_F(PointHashGridBuilderTest, getNearByKeys2dOfPointInBottomCornerofCellZero){
+    resolution = glm::vec3{4, 4, 1};
+    gridSpacing = 0.25;
+
+    addParticleAt(glm::vec3{0});
+
+    createParticles();
+    buildHashGrid();
+    getNearByKeys();
+    ASSERT_PRED4(containsNearbyKey, 0, 3, 12, 15) << "Near by keys did not match 0, 3, 12, 15";
+}
+
+TEST_F(PointHashGridBuilderTest, generateNeighbourList){
+    resolution = glm::vec3{4, 4, 1};
+    gridSpacing = 0.25;
+
+    glm::vec3 origin = glm::vec3(0, 0, 0) * gridSpacing;
+    origin.x += gridSpacing * 0.8f;
+    origin.y += gridSpacing * 0.2f;
+    addParticleAt(origin);
+
+    std::vector<glm::vec3> expectedNeighbourList;
+
+    auto rng = canonicalRng(1 << 20);
+    expectedNeighbourList = generatePointsAround< decltype(rng), 10>(rng, origin, gridSpacing * 0.5f);
+    expectedNeighbourList.push_back(origin);
+
+    for(int i = 0; i < 5; i++){
+        float theta = float(i)/5.0f * glm::two_pi<float>();
+        auto position = glm::vec3(origin.xy() +  gridSpacing * glm::vec2(std::cos(theta), std::sin(theta)), 0);
+        addParticleAt(position);
+    }
+
+
+    createParticles();
+    generateNeighbourList();
+    assertNeighbourList(0, expectedNeighbourList);
+}
+
+TEST_F(PointHashGridBuilderTest, generateNeighbourListOfRandomPoints){
+    resolution = glm::vec3{4, 4, 1};
+    gridSpacing = 0.25;
+
+    generateRandomPointsInGrid<100>(0.0f, 1.0f);
+    createParticles();
+
+    generateNeighbourList();
+
+    auto expected = getExpectedNeighbourList();
+    for(auto& [index, expectedNeighbourList] : expected){
+        assertNeighbourList(index, expectedNeighbourList);
+    }
+
 }

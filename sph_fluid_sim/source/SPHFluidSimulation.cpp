@@ -1,4 +1,5 @@
 #include "SPHFluidSimulation.hpp"
+#include "sampling.hpp"
 
 SPHFluidSimulation::SPHFluidSimulation(const Settings& settings) : VulkanBaseApp("SPH Fluid Simulation", settings) {
 
@@ -275,7 +276,7 @@ VkCommandBuffer *SPHFluidSimulation::buildCommandBuffers(uint32_t imageIndex, ui
 
 void SPHFluidSimulation::update(float time) {
     particles.constants.time = time;
-    runPhysics();
+//    runPhysics();
 }
 
 void SPHFluidSimulation::checkAppInputs() {
@@ -339,15 +340,50 @@ void SPHFluidSimulation::createParticles() {
     };
 
     std::vector<Particle> vertices;
-    for(auto i = 0; i < particles.constants.numParticles; i++){
+//    for(auto i = 0; i < particles.constants.numParticles; i++){
+//        Particle p{};
+//        p.position = rngPosition();
+////        p.position = glm::vec4(0, -1 ,0, 1);
+//        p.color = rngColor();
+//        p.velocity = rngVelocity();
+//        p.invMass = 0.1;
+//        vertices.push_back(p);
+//    }
+
+    float gridSpacing = float(grid.size)/std::sqrt(float(grid.numCells));
+//    glm::vec3 origin = glm::vec3(1, 2, 0) * gridSpacing;
+//    origin.x += gridSpacing * 0.8f;
+//    origin.y += gridSpacing * 0.2f;
+
+    std::vector<glm::vec3> expectedNeighbourList;
+    auto rng = rngFunc(0.0f, 1.0f, 1 << 20);
+    for(int i = 0; i < 100; i++){
+        glm::vec3 point{ rng(), rng(), 0};
+        expectedNeighbourList.push_back(point);
+    }
+//    auto rng = canonicalRng(1 << 20);
+//    for(int i = 0; i < 1; i++) {
+//        glm::vec2 uv { rng(), rng()};
+//        auto neighbour = glm::vec3(origin.xy() + gridSpacing * 0.45f * sampling::uniformSampleDisk(uv), 0);
+//        expectedNeighbourList.push_back(neighbour);
+//    }
+//
+//    for(int i = 0; i < 100; i++){
+//        float theta = float(i)/100.0f * glm::two_pi<float>();
+//        auto position = glm::vec3(origin.xy() +  gridSpacing * glm::vec2(std::cos(theta), std::sin(theta)), 0);
+//        expectedNeighbourList.push_back(position);
+//    }
+
+    for(auto& position : expectedNeighbourList){
         Particle p{};
-        p.position = rngPosition();
-//        p.position = glm::vec4(0, -1 ,0, 1);
+        p.position = glm::vec4( 2.0f * position - 1.0f , 1);
+        p.position.z = 0;
         p.color = rngColor();
         p.velocity = rngVelocity();
         p.invMass = 0.1;
         vertices.push_back(p);
     }
+    vertices.front().color = glm::vec4(1);
 
     particles.buffers[0] = device.createDeviceLocalBuffer(vertices.data(), sizeof(Particle) * vertices.size()
                                                           , VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);

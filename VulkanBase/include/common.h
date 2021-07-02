@@ -51,6 +51,8 @@ constexpr bool debugMode = false;
 namespace chrono = std::chrono;
 namespace fs = std::filesystem;
 
+using Real = float;
+
 using Flags = unsigned int;
 
 constexpr float EPSILON = 0.000001;
@@ -140,4 +142,25 @@ inline std::vector<char> loadFile(const std::string& path) {
     fin.read(data.data(), size);
 
     return data;
+}
+
+template<typename T>
+inline std::function<T()> rngFunc(T lower, T upper, uint32_t seed = std::random_device{}()) {
+    std::default_random_engine engine{ seed };
+    if constexpr(std::is_same_v<T, int>){
+        std::uniform_int_distribution<T> dist{lower, upper};
+        return std::bind(dist, engine);
+    }else {
+        std::uniform_real_distribution<T> dist{lower, upper};
+        return std::bind(dist, engine);
+    }
+}
+
+/**
+ * Returns a random float within the range [0, 1)
+ * @param seed used to initialize the random number generator
+ * @return random float within the range [0, 1)
+ */
+inline std::function<float()> canonicalRng(uint32_t seed = std::random_device{}()){
+    return rngFunc<float>(0.0f, 1.0f, seed);
 }

@@ -40,7 +40,8 @@ void getNearByKeys(vec3 position, float gridSpacing, vec3 resolution, out int ke
     }
 
     for (int i = 0; i < 4; i++) {
-        keys[i] = toHashKey(nearByBucketIndices[i], resolution);
+        vec3 wrappedIndex = wrap(nearByBucketIndices[i], resolution);
+        keys[i] = toHashKey(wrappedIndex, resolution);
     }
 }
 

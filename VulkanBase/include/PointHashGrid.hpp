@@ -1,16 +1,22 @@
 #pragma once
 
-#include "common.h"
 #include "VulkanDevice.h"
 #include "ComputePipelins.hpp"
+#include "particle_model.hpp"
 
-constexpr int ITEMS_PER_WORKGROUP = 8 << 10;
+constexpr VkDeviceSize LIST_HEAP_SIZE = (1 << 20) * 50; // 50MB
 
-struct Particle{
-    glm::vec4 position{0};
-    glm::vec4 color{0};
-    glm::vec3 velocity{0};
-    float invMass{0};
+struct PrefixScan{
+    VkDescriptorSet descriptorSet{};
+    VkDescriptorSet sumScanDescriptorSet{};
+    VulkanDescriptorSetLayout setLayout{};
+    VulkanBuffer sumsBuffer{};
+    struct {
+        int itemsPerWorkGroup = 8 << 10;
+        int N = 0;
+    } constants{};
+
+    void scan(VkCommandBuffer commandBuffer, VulkanBuffer& buffer, VkPipeline pipeline, VkPipelineLayout layout);
 };
 
 class PointHashGrid : public ComputePipelines{
@@ -21,11 +27,19 @@ public:
 
     void init();
 
+    void initNeighbourList();
+
+    void initNeighbourListBuffers();
+
     void createDescriptorSetLayouts();
+
+    void createNeighbourListSetLayout();
 
     void createPrefixScanDescriptorSetLayouts();
 
     void createDescriptorSets();
+
+    void createNeighbourListDescriptorSets();
 
     void updateDescriptorSet();
 
@@ -37,11 +51,19 @@ public:
 
     void updateScanDescriptorSet();
 
+    void updateNeighbourListScanDescriptorSet();
+
     void scan(VkCommandBuffer commandBuffer);
+
+    void scanNeighbourList(VkCommandBuffer commandBuffer);
 
     void buildHashGrid(VkCommandBuffer commandBuffer);
 
     void generateHashGrid(VkCommandBuffer commandBuffer, int pass);
+
+    void generateNeighbourList(VkCommandBuffer commandBuffer);
+
+    void generateNeighbourList(VkCommandBuffer commandBuffer, int pass);
 
     std::vector<PipelineMetaData> pipelineMetaData() override;
 
@@ -70,6 +92,13 @@ public:
     VulkanBuffer nearByKeys{};
     uint32_t bufferOffsetAlignment{};
 
+    PrefixScan prefixScan;
+
+    struct {
+        VulkanDescriptorSetLayout setLayout;
+        VkDescriptorSet descriptorSet;
+    } bucket;
+
     struct {
         glm::vec3 resolution{1};
         float gridSpacing{1};
@@ -78,13 +107,14 @@ public:
     } constants{};
 
     struct {
-        VkDescriptorSet descriptorSet{};
-        VkDescriptorSet sumScanDescriptorSet{};
+        VkDescriptorSet neighbourSizeDescriptorSet{};
+        VkDescriptorSet neighbourSizeOffsetDescriptorSet{};
+        VkDescriptorSet descriptorSet;
+        VulkanDescriptorSetLayout neighbourSizeSetLayout{};
         VulkanDescriptorSetLayout setLayout{};
-        VulkanBuffer sumsBuffer{};
-        struct {
-            int itemsPerWorkGroup = 8 << 10;
-            int N = 0;
-        } constants{};
-    } prefixScan{};
+        VulkanBuffer neighbourListBuffer;
+        VulkanBuffer neighbourSizeBuffer;
+        VulkanBuffer neighbourOffsetsBuffer;
+        PrefixScan prefixScan;
+    } neighbourList;
 };

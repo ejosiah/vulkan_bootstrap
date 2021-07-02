@@ -136,16 +136,4 @@ protected:
     }
 
     virtual void postVulkanInit() {}
-
-    template<typename T>
-    std::function<T()> rngFunc(T lower, T upper, uint32_t seed = std::random_device{}()) {
-        std::default_random_engine engine{ seed };
-        if constexpr(std::is_same_v<T, int>){
-            std::uniform_int_distribution<T> dist{lower, upper};
-            return std::bind(dist, engine);
-        }else {
-            std::uniform_real_distribution<T> dist{lower, upper};
-            return std::bind(dist, engine);
-        }
-    }
 };

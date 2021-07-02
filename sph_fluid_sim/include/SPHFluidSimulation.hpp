@@ -83,8 +83,8 @@ protected:
             glm::mat4 view  = glm::mat4(1);
             glm::mat4 projection = glm::mat4(1);
         } xforms;
-        uint32_t numCells = 100;
-        float size = 2.0f;
+        uint32_t numCells = 16;
+        float size = 1;
     } grid;
 
     struct {
