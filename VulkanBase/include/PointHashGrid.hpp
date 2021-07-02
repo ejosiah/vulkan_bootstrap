@@ -23,7 +23,7 @@ class PointHashGrid : public ComputePipelines{
 public:
     PointHashGrid() = default;
 
-    PointHashGrid(VulkanDevice* device, VulkanDescriptorPool* descriptorPool, VulkanBuffer* particleBuffer, glm::vec3 resolution, float gridSpacing);
+    PointHashGrid(VulkanDevice* device, VulkanDescriptorPool* descriptorPool, VulkanDescriptorSetLayout* particleDescriptorSetLayout, int numParticles, glm::vec3 resolution, float gridSpacing);
 
     void init();
 
@@ -57,7 +57,7 @@ public:
 
     void scanNeighbourList(VkCommandBuffer commandBuffer);
 
-    void buildHashGrid(VkCommandBuffer commandBuffer);
+    void buildHashGrid(VkCommandBuffer commandBuffer, VkDescriptorSet particleDescriptorSet);
 
     void generateHashGrid(VkCommandBuffer commandBuffer, int pass);
 
@@ -67,6 +67,8 @@ public:
 
     std::vector<PipelineMetaData> pipelineMetaData() override;
 
+    void updateParticleDescriptorSet(VkDescriptorSet newDescriptorSet);
+
 public:
 
 
@@ -74,23 +76,18 @@ public:
 
     VulkanDevice* device{};
     VulkanDescriptorPool* descriptorPool{};
-
+    VulkanDescriptorSetLayout* particleDescriptorSetLayout;
     VulkanDescriptorSetLayout gridDescriptorSetLayout{};
     VulkanDescriptorSetLayout bucketSizeSetLayout{};
-    VulkanDescriptorSetLayout particleDescriptorSetLayout{};
-    VulkanDescriptorSetLayout unitTestDescriptorSetLayout{};
     VkDescriptorSet gridDescriptorSet{};
     VkDescriptorSet bucketSizeDescriptorSet{};
     VkDescriptorSet bucketSizeOffsetDescriptorSet{};
-    VkDescriptorSet particleDescriptorSet{};
-    VkDescriptorSet unitTestDescriptorSet{};
     VulkanBuffer bucketSizeBuffer{};
     VulkanBuffer bucketSizeOffsetBuffer{};
     VulkanBuffer bucketBuffer{};
-    VulkanBuffer* particleBuffer{};
     VulkanBuffer nextBufferIndexBuffer{};
-    VulkanBuffer nearByKeys{};
     uint32_t bufferOffsetAlignment{};
+    VkDescriptorSet particleDescriptorSet;
 
     PrefixScan prefixScan;
 

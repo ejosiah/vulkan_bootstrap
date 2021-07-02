@@ -12,7 +12,7 @@ static std::vector<const char*> instanceExtensions{VK_EXT_DEBUG_UTILS_EXTENSION_
 static std::vector<const char*> validationLayers{"VK_LAYER_KHRONOS_validation"};
 static std::vector<const char*> deviceExtensions{ };
 
-class VulkanFixture : public ::testing::Test{
+class VulkanFixture : public ::testing::Test, public ComputePipelines{
 protected:
     VulkanInstance instance;
     VulkanDevice device;
@@ -25,8 +25,8 @@ protected:
     void SetUp() override {
         spdlog::set_level(spdlog::level::warn);
         initVulkan();
-        createPipelines();
         postVulkanInit();
+        createPipelines();
     }
 
     void initVulkan(){

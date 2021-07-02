@@ -17,6 +17,11 @@ inline bool similar(const glm::vec3& a, const glm::vec3& b, float epsilon = 1E-7
 class PointHashGridBuilderTest : public VulkanFixture{
 protected:
     VulkanBuffer particleBuffer;
+    VulkanDescriptorSetLayout particleDescriptorSetLayout{};
+    VulkanDescriptorSetLayout unitTestDescriptorSetLayout{};
+    VkDescriptorSet particleDescriptorSet;
+    VkDescriptorSet unitTestDescriptorSet;
+    VulkanBuffer nearByKeys{};
     PointHashGrid grid;
     glm::vec3 resolution{1};
     float gridSpacing = 1;
@@ -33,14 +38,85 @@ protected:
 //        spdlog::set_level(spdlog::level::off);
     }
 
+    std::vector<PipelineMetaData> pipelineMetaData() override {
+        return
+        {
+                {
+                        "point_hash_grid_unit_test",
+                        "../../data/shaders/test/point_hash_grid_test.comp.spv",
+                        { &unitTestDescriptorSetLayout},
+                        {{VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(grid.constants)}}
+                }
+        };
+    }
+
     void postVulkanInit() override {
         bufferOffsetAlignment = device.getLimits().minStorageBufferOffsetAlignment;
         particles.clear();
         expectedHashGrid.clear();
+        createDescriptorSetLayouts();
     }
 
-    void createParticleBuffer(const std::vector<Particle> particles){
+    void createDescriptorSetLayouts(){
+        std::vector<VkDescriptorSetLayoutBinding> bindings(1);
+        bindings[0].binding = 0;
+        bindings[0].descriptorCount = 1;
+        bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        bindings[0].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+        particleDescriptorSetLayout = device.createDescriptorSetLayout(bindings);
+
+        // unit test layout
+        bindings.resize(2);
+        bindings[0].binding = 0;
+        bindings[0].descriptorCount = 1;
+        bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        bindings[0].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+        bindings[1].binding = 1;
+        bindings[1].descriptorCount = 1;
+        bindings[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        bindings[1].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+        unitTestDescriptorSetLayout = device.createDescriptorSetLayout(bindings);
+    }
+
+    void createParticleBuffer(const std::vector<Particle>& particles){
         particleBuffer = device.createCpuVisibleBuffer(particles.data(), sizeof(Particle) * particles.size(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+        nearByKeys = device.createBuffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, sizeof(int) * 8);
+        updateDescriptorSet();
+    }
+
+    void updateDescriptorSet(){
+        auto sets = descriptorPool.allocate({particleDescriptorSetLayout, unitTestDescriptorSetLayout});
+        particleDescriptorSet = sets[0];
+        unitTestDescriptorSet = sets[1];
+
+        auto writes = initializers::writeDescriptorSets<3>();
+
+        // particle descriptor set
+        VkDescriptorBufferInfo info0{particleBuffer, 0, VK_WHOLE_SIZE};
+        writes[0].dstSet = particleDescriptorSet;
+        writes[0].dstBinding = 0;
+        writes[0].descriptorCount = 1;
+        writes[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        writes[0].pBufferInfo = &info0;
+
+        // unit test writes
+        writes[1].dstSet = unitTestDescriptorSet;
+        writes[1].dstBinding = 0;
+        writes[1].descriptorCount = 1;
+        writes[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        writes[1].pBufferInfo = &info0;
+
+        VkDescriptorBufferInfo  nearByKeysInfo{nearByKeys, 0, VK_WHOLE_SIZE };
+        writes[2].dstSet = unitTestDescriptorSet;
+        writes[2].dstBinding = 1;
+        writes[2].descriptorCount = 1;
+        writes[2].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        writes[2].pBufferInfo = &nearByKeysInfo;
+
+        device.updateDescriptorSets(writes);
     }
 
 
@@ -108,9 +184,9 @@ protected:
 
 
     void buildHashGrid(){
-        grid = PointHashGrid{&device, &descriptorPool, &particleBuffer, resolution, gridSpacing};
+        grid = PointHashGrid{&device, &descriptorPool, &particleDescriptorSetLayout, int(particles.size()), resolution, gridSpacing};
         execute([&](auto commandBuffer){
-            grid.buildHashGrid(commandBuffer);
+            grid.buildHashGrid(commandBuffer, particleDescriptorSet);
         });
     }
 
@@ -134,7 +210,7 @@ protected:
 
     std::function<bool(int, int, int, int)> containsNearbyKey = [&](int key0, int key1, int key2, int key3){
         std::array<bool, 4> predicates{};
-        grid.nearByKeys.map<int>([&](auto ptr){
+        nearByKeys.map<int>([&](auto ptr){
             for(int i = 0; i < 4; i++){
                 if(key0 == ptr[i]){
                     predicates[i] = true;
@@ -165,20 +241,20 @@ protected:
 
     void getNearByKeys(){
         execute([&](auto commandBuffer){
-            vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, grid.pipeline("point_hash_grid_unit_test"));
-            vkCmdPushConstants(commandBuffer, grid.layout("point_hash_grid_unit_test"), VK_SHADER_STAGE_COMPUTE_BIT, 0,
+            vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline("point_hash_grid_unit_test"));
+            vkCmdPushConstants(commandBuffer, layout("point_hash_grid_unit_test"), VK_SHADER_STAGE_COMPUTE_BIT, 0,
                                sizeof(grid.constants), &grid.constants);
 
-            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, grid.layout("point_hash_grid_unit_test"), 0, 1, &grid.unitTestDescriptorSet, 0, nullptr);
+            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, layout("point_hash_grid_unit_test"), 0, 1, &unitTestDescriptorSet, 0, nullptr);
             vkCmdDispatch(commandBuffer, 1, 1, 1);
 
         });
     }
 
     void generateNeighbourList(){
-        grid = PointHashGrid{&device, &descriptorPool, &particleBuffer, resolution, gridSpacing};
+        grid = PointHashGrid{&device, &descriptorPool, &particleDescriptorSetLayout, int(particles.size()), resolution, gridSpacing};
         execute([&](auto commandBuffer){
-            grid.buildHashGrid(commandBuffer);
+            grid.buildHashGrid(commandBuffer, particleDescriptorSet);
             grid.generateNeighbourList(commandBuffer);
         });
     }
@@ -213,7 +289,7 @@ protected:
                auto size = sizePtr[index];
                ASSERT_EQ(neighbourList.size(), size) << "neighbour list size did not match" ;
                 grid.neighbourList.neighbourListBuffer.map<int>([&](auto listPtr){
-                    grid.particleBuffer->map<Particle>([&](auto particlePtr){
+                    particleBuffer.map<Particle>([&](auto particlePtr){
                         int offset = offsetPtr[index];
                         int prevIndex = -1;
                         for(int i = 0; i < size; i++){
