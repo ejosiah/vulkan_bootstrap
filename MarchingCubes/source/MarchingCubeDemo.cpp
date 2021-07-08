@@ -248,7 +248,7 @@ void MarchingCubeDemo::createPipeline() {
 
     inputAssemblyState.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
     pipelineLayout.triangles = device.createPipelineLayout({sdfDescriptorSetLayout }, {Camera::pushConstant()});
-    rasterizationState.polygonMode = VK_POLYGON_MODE_LINE;
+//    rasterizationState.polygonMode = VK_POLYGON_MODE_LINE;
     createInfo.stageCount = COUNT(triStages);
     createInfo.pStages = triStages.data();
     createInfo.pVertexInputState = &vertexInputState;
@@ -467,11 +467,11 @@ void MarchingCubeDemo::createDescriptorSet() {
 }
 
 void MarchingCubeDemo::createSdf() {
-//    device.graphicsCommandPool().oneTimeCommand([&](auto commandBuffer){
-//        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelines.sdf);
-//        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout.sdf, 0, 1, &computeDescriptorSet, 0, VK_NULL_HANDLE);
-//        vkCmdDispatch(commandBuffer, sdfSize/8, sdfSize/8, sdfSize/8);
-//    });
+    device.graphicsCommandPool().oneTimeCommand([&](auto commandBuffer){
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelines.sdf);
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout.sdf, 0, 1, &computeDescriptorSet, 0, VK_NULL_HANDLE);
+        vkCmdDispatch(commandBuffer, sdfSize/8 , sdfSize/8 , sdfSize/8 );
+    });
 
     auto numVertex = march(0);
 
@@ -483,7 +483,7 @@ void MarchingCubeDemo::createSdf() {
     updateMarchingCubeVertexDescriptorSet();
 
     marchingCube.numVertices = march(1);
-//    spdlog::info("size: {}, {}, {}", numVertex, marchingCube.numVertices, marchingCube.vertexBuffer.size/sizeof(mVertex));
+    spdlog::info("size: {}, {}, {}", numVertex, marchingCube.numVertices, marchingCube.vertexBuffer.size/sizeof(mVertex));
 
     generateIndex(marchingCube.vertexBuffer, marchingCube.vertexBuffer, marchingCube.indexBuffer);
 }

@@ -54,34 +54,4 @@ float smin( float a, float b )
     return smin(a, b, 0.03);
 }
 
-    #if 1
-// http://research.microsoft.com/en-us/um/people/hoppe/ravg.pdf
-// { dist, t, y (above the plane of the curve, x (away from curve in the plane of the curve))
-vec4 sdBezier( vec3 p, vec3 va, vec3 vb, vec3 vc )
-{
-    vec3 w = normalize( cross( vc-vb, va-vb ) );
-    vec3 u = normalize( vc-vb );
-    vec3 v =          ( cross( w, u ) );
-    //----
-    vec2 m = vec2( dot(va-vb,u), dot(va-vb,v) );
-    vec2 n = vec2( dot(vc-vb,u), dot(vc-vb,v) );
-    vec3 q = vec3( dot( p-vb,u), dot( p-vb,v), dot(p-vb,w) );
-    //----
-    float mn = det(m,n);
-    float mq = det(m,q.xy);
-    float nq = det(n,q.xy);
-    //----
-    vec2  g = (nq+mq+mn)*n + (nq+mq-mn)*m;
-    float f = (nq-mq+mn)*(nq-mq+mn) + 4.0*mq*nq;
-    vec2  z = 0.5*f*vec2(-g.y,g.x)/dot(g,g);
-    //float t = clamp(0.5+0.5*(det(z,m+n)+mq+nq)/mn, 0.0 ,1.0 );
-    float t = clamp(0.5+0.5*(det(z-q.xy,m+n))/mn, 0.0 ,1.0 );
-    vec2 cp = m*(1.0-t)*(1.0-t) + n*t*t - q.xy;
-    //----
-    float d2 = dot(cp,cp);
-    return vec4(sqrt(d2+q.z*q.z), t, q.z, -sign(f)*sqrt(d2) );
-}
-#else
-float det( vec3 a, vec3 b, in vec3 v ) { return dot(v,cross(a,b)); }
-
 #endif // SDF_COMMON_GLSL

@@ -49,8 +49,12 @@ float fbm(vec2 p){
 }
 
 float map(vec3 p){
-    const float e = 1E-6;
-    return length(p) - 0.8;
+//    const float e = 1E-6;
+//    return length(p) - 0.8;
+ //   return sceneSDF(p);
+    float d = length(p) - 0.5;
+    float d1 = p.y + 0.9;
+    return smin(d, d1, 0.03);
 }
 
 void main(){
@@ -58,8 +62,8 @@ void main(){
     p = 2.0 * p - 1.0;
 
     float d = map(p);
-    vec3 normal = 0.5 * calcNormal(p) + 0.5;
+//    vec3 normal = 0.5 * calcNormal(p) + 0.5;
     imageStore(image, ivec3(gl_GlobalInvocationID), vec4(d, 0, 0, 1));
 
-    imageStore(normalMap, ivec3(gl_GlobalInvocationID), vec4(normal, 0));
+//    imageStore(normalMap, ivec3(gl_GlobalInvocationID), vec4(normal, 0));
 }

@@ -1,10 +1,12 @@
-#include "$classname$.hpp"
+#include "FluidSimPlayback.hpp"
 
-$classname$::$classname$(const Settings& settings) : VulkanBaseApp("$title$", settings) {
+FluidSimPlayback::FluidSimPlayback(const Settings& settings) : VulkanBaseApp("fluid sim playback", settings) {
 
 }
 
-void $classname$::initApp() {
+void FluidSimPlayback::initApp() {
+    loadAnimation();
+    initCamera();
     createDescriptorPool();
     createCommandPool();
     createPipelineCache();
@@ -12,7 +14,14 @@ void $classname$::initApp() {
     createComputePipeline();
 }
 
-void $classname$::createDescriptorPool() {
+void FluidSimPlayback::loadAnimation() {
+    animation = buildAnimation(R"(C:\Users\Josiah\OneDrive\media\water_drop_pcs\)", numFrames, numPoints, fps);
+//    animation = buildAnimation(R"(C:\Users\Josiah\OneDrive\media\dam_break\)", numFrames, numPoints, fps);
+    vertexBuffer = device.createBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                                 VMA_MEMORY_USAGE_CPU_TO_GPU, numPoints * sizeof(glm::vec4));
+}
+
+void FluidSimPlayback::createDescriptorPool() {
     constexpr uint32_t maxSets = 100;
     std::array<VkDescriptorPoolSize, 17> poolSizes{
             {
@@ -40,19 +49,19 @@ void $classname$::createDescriptorPool() {
 
 }
 
-void $classname$::createCommandPool() {
+void FluidSimPlayback::createCommandPool() {
     commandPool = device.createCommandPool(*device.queueFamilyIndex.graphics, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
     commandBuffers = commandPool.allocate(swapChainImageCount);
 }
 
-void $classname$::createPipelineCache() {
+void FluidSimPlayback::createPipelineCache() {
     pipelineCache = device.createPipelineCache();
 }
 
 
-void $classname$::createRenderPipeline() {
-    auto vertModule = VulkanShaderModule{ "../../data/shaders/pass_through.vert.spv", device};
-    auto fragModule = VulkanShaderModule{"../../data/shaders/pass_through.frag.spv", device};
+void FluidSimPlayback::createRenderPipeline() {
+    auto vertModule = VulkanShaderModule{ "../../data/shaders/point.vert.spv", device};
+    auto fragModule = VulkanShaderModule{"../../data/shaders/point.frag.spv", device};
 
     auto shaderStages = initializers::vertexShaderStages({
              { vertModule, VK_SHADER_STAGE_VERTEX_BIT },
@@ -64,6 +73,7 @@ void $classname$::createRenderPipeline() {
 
     auto vertexInputState = initializers::vertexInputState(bindings, attribs);
     auto inputAssemblyState = initializers::inputAssemblyState();
+    inputAssemblyState.topology = VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
 
     auto viewport = initializers::viewport(swapChain.extent);
     auto scissor = initializers::scissor(swapChain.extent);
@@ -87,7 +97,7 @@ void $classname$::createRenderPipeline() {
     auto colorBlendAttachment = initializers::colorBlendStateAttachmentStates();
     auto colorBlendState = initializers::colorBlendState(colorBlendAttachment);
 
-    render.layout = device.createPipelineLayout({});
+    render.layout = device.createPipelineLayout({}, { {VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Camera) + sizeof(glm::vec4) }});
 
     auto createInfo = initializers::graphicsPipelineCreateInfo();
     createInfo.flags = VK_PIPELINE_CREATE_ALLOW_DERIVATIVES_BIT;
@@ -107,7 +117,7 @@ void $classname$::createRenderPipeline() {
     render.pipeline = device.createGraphicsPipeline(createInfo, pipelineCache);
 }
 
-void $classname$::createComputePipeline() {
+void FluidSimPlayback::createComputePipeline() {
     auto module = VulkanShaderModule{ "../../data/shaders/pass_through.comp.spv", device};
     auto stage = initializers::shaderStage({ module, VK_SHADER_STAGE_COMPUTE_BIT});
 
@@ -121,17 +131,17 @@ void $classname$::createComputePipeline() {
 }
 
 
-void $classname$::onSwapChainDispose() {
+void FluidSimPlayback::onSwapChainDispose() {
     dispose(render.pipeline);
     dispose(compute.pipeline);
 }
 
-void $classname$::onSwapChainRecreation() {
+void FluidSimPlayback::onSwapChainRecreation() {
     createRenderPipeline();
     createComputePipeline();
 }
 
-VkCommandBuffer *$classname$::buildCommandBuffers(uint32_t imageIndex, uint32_t &numCommandBuffers) {
+VkCommandBuffer *FluidSimPlayback::buildCommandBuffers(uint32_t imageIndex, uint32_t &numCommandBuffers) {
     numCommandBuffers = 1;
     auto& commandBuffer = commandBuffers[imageIndex];
 
@@ -139,7 +149,7 @@ VkCommandBuffer *$classname$::buildCommandBuffers(uint32_t imageIndex, uint32_t 
     vkBeginCommandBuffer(commandBuffer, &beginInfo);
 
     static std::array<VkClearValue, 2> clearValues;
-    clearValues[0].color = {0, 0, 1, 1};
+    clearValues[0].color = {0, 0, 0, 1};
     clearValues[1].depthStencil = {1.0, 0u};
 
     VkRenderPassBeginInfo rPassInfo = initializers::renderPassBeginInfo();
@@ -152,8 +162,12 @@ VkCommandBuffer *$classname$::buildCommandBuffers(uint32_t imageIndex, uint32_t 
 
     vkCmdBeginRenderPass(commandBuffer, &rPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-
-
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, render.pipeline);
+    vkCmdPushConstants(commandBuffer, render.layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Camera), &camera->cam());
+    vkCmdPushConstants(commandBuffer, render.layout, VK_SHADER_STAGE_VERTEX_BIT, sizeof(Camera), sizeof(glm::vec4), &pointColor);
+    VkDeviceSize offset = 0;
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffer, &offset);
+    vkCmdDraw(commandBuffer, numPoints, 1, 0, 0);
     vkCmdEndRenderPass(commandBuffer);
 
     vkEndCommandBuffer(commandBuffer);
@@ -161,21 +175,36 @@ VkCommandBuffer *$classname$::buildCommandBuffers(uint32_t imageIndex, uint32_t 
     return &commandBuffer;
 }
 
-void $classname$::update(float time) {
-    VulkanBaseApp::update(time);
+void FluidSimPlayback::update(float time) {
+    camera->update(time);
+    auto points = animation.next(uint64_t(elapsedTime * 1000u));
+    if(!points.empty()){
+        vertexBuffer.copy(points.data(), sizeof(glm::vec4) * numPoints);
+    }
+
 }
 
-void $classname$::checkAppInputs() {
-    VulkanBaseApp::checkAppInputs();
+void FluidSimPlayback::checkAppInputs() {
+    camera->processInput();
 }
 
-void $classname$::cleanup() {
+void FluidSimPlayback::cleanup() {
     // TODO save pipeline cache
     VulkanBaseApp::cleanup();
 }
 
-void $classname$::onPause() {
+void FluidSimPlayback::onPause() {
     VulkanBaseApp::onPause();
+}
+
+void FluidSimPlayback::initCamera() {
+    OrbitingCameraSettings settings{};
+    settings.offsetDistance = 5.0f;
+    settings.rotationSpeed = 0.1f;
+    settings.fieldOfView = 45.0f;
+    settings.modelHeight = 0;
+    settings.aspectRatio = static_cast<float>(swapChain.extent.width)/static_cast<float>(swapChain.extent.height);
+    camera = std::make_unique<OrbitingCameraController>(device, swapChain.imageCount(), currentImageIndex, dynamic_cast<InputManager&>(*this), settings);
 }
 
 
@@ -185,7 +214,7 @@ int main(){
         Settings settings;
         settings.depthTest = true;
 
-        auto app = $classname${ settings };
+        auto app = FluidSimPlayback{ settings };
         app.run();
     }catch(std::runtime_error& err){
         spdlog::error(err.what());

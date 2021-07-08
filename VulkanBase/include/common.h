@@ -64,6 +64,10 @@ constexpr std::chrono::seconds ONE_SECOND = std::chrono::seconds(1);
 #define ASSERT(result) assert(result == VK_SUCCESS)
 #define COUNT(sequence) static_cast<uint32_t>(sequence.size())
 
+#ifndef UNUSED_VARIABLE
+#   define UNUSED_VARIABLE(x) ((void)x)
+#endif
+
 using cstring = const char*;
 
 inline bool closeEnough(float x, float y, float epsilon = 1E-3) {

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "VulkanBaseApp.h"
-
+#include <glm/gtc/epsilon.hpp>
 
 
 struct mVertex{
@@ -9,10 +9,8 @@ struct mVertex{
     glm::vec4 normal;
 };
 
-inline bool similar(const mVertex& a, const mVertex& b, float epsilon = 1E-7){
-    return closeEnough(a.position.x, b.position.x, epsilon)
-           && closeEnough(a.position.y, b.position.y, epsilon)
-           && closeEnough(a.position.z, b.position.z, epsilon);
+inline bool similar(const mVertex& a, const mVertex& b, float epsilon = 1E-4){
+    return glm::all(glm::epsilonEqual(a.position.xyz(), b.position.xyz(), epsilon));
 };
 
 template<>
