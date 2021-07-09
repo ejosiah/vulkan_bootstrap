@@ -16,11 +16,17 @@ class VolumeParticleEmitter : public ComputePipelines{
 public:
     VolumeParticleEmitter() = default;
 
-    explicit VolumeParticleEmitter(Texture* texture, BoundingBox bounds, float spacing, PointGeneratorType genType);
+    explicit VolumeParticleEmitter(VulkanDevice* device, VulkanDescriptorPool* pool, VulkanDescriptorSetLayout* particleDescriptorSetLayout, Texture* texture, BoundingBox bounds, float spacing, PointGeneratorType genType);
+
+    void init();
 
     std::vector<PipelineMetaData> pipelineMetaData() final;
 
-    void execute(VkCommandBuffer commandBuffer);
+    void createDescriptorSetLayout();
+
+    void createDescriptorSet();
+
+    void execute(VkCommandBuffer commandBuffer, VkDescriptorSet particleDescriptorSet);
 
     void setPointGenerator(PointGeneratorType genType);
 
@@ -29,6 +35,12 @@ public:
 
 private:
     Texture* texture{nullptr};
+
+    VulkanDescriptorPool* pool;
+    VulkanDevice* device;
+    VkDescriptorSet descriptorSet;
+    VulkanDescriptorSetLayout setLayout;
+    VulkanDescriptorSetLayout* particleDescriptorSetLayout;
 
     struct{
         glm::vec3 boundingBoxLowerCorner;
