@@ -354,10 +354,10 @@ void MarchingCubeDemo::initSdf() {
     VkImageCreateInfo imageCreateInfo = initializers::imageCreateInfo(VK_IMAGE_TYPE_3D, VK_FORMAT_R32G32B32A32_SFLOAT
                                                                       , VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, sdfSize, sdfSize, sdfSize);
     sdf.image = device.createImage(imageCreateInfo);
+
     VkImageSubresourceRange subresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
     sdf.image.transitionLayout(device.graphicsCommandPool(), VK_IMAGE_LAYOUT_GENERAL, subresourceRange, 0,
                                VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
-    
     sdf.imageView = sdf.image.createView(VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_VIEW_TYPE_3D, subresourceRange);
 
     normalMap.image = device.createImage(imageCreateInfo);

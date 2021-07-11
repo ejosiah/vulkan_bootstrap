@@ -1,5 +1,6 @@
 #version 460
 
+#include "common.glsl"
 #include "point_generator.glsl"
 
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
@@ -11,7 +12,7 @@ layout(set = 0, binding = 1) buffer Atomics{
 };
 
 layout(set = 1, binding = 0) buffer Positions{
-    vec4 positions[];
+    Particle particles[];
 };
 
 layout(push_constant) uniform Constants{
@@ -32,7 +33,20 @@ void main(){
         return;
     }
 
-    uint posIndex = atomicAdd(nextId, 1);
     vec4 pos = generatePoint(boundingBoxLowerCorner, boundingBoxUpperCorner, spacing, genType, id);
-    positions[posIndex] = pos;
+    vec3 uv = remap(pos.xyz, BoundingBox(boundingBoxLowerCorner, boundingBoxUpperCorner), BoundingBox(vec3(0), vec3(1)));
+
+    BoundingBox domain = BoundingBox(boundingBoxLowerCorner, boundingBoxUpperCorner);
+
+    float plane = pos.y - 0.25 * height(domain);
+    float sphere = length(pos.xyz - midPoint(domain)) - 0.15 * width(domain);
+    float d = min(plane, sphere);
+
+    d = texture(sdf, uv).r;
+
+    if(d <= 0){
+        uint posIndex = atomicAdd(nextId, 1);
+        particles[posIndex].position = pos;
+        particles[posIndex].color = vec4(1, 0, 0, 1);
+    }
 }

@@ -1,22 +1,34 @@
 #include "SPHFluidSimulation.hpp"
 #include "sampling.hpp"
+#include "vulkan_util.h"
 
 SPHFluidSimulation::SPHFluidSimulation(const Settings& settings) : VulkanBaseApp("SPH Fluid Simulation", settings) {
 
 }
 
 void SPHFluidSimulation::initApp() {
+    initCamera();
     createDescriptorPool();
+    createDescriptorSetLayouts();
     createCommandPool();
     initGrid();
     createParticles();
+    createSdf();
+    createEmitter();
 //    initGridBuilder();
-    createDescriptorSetLayouts();
     createDescriptorSets();
     createRenderDescriptorSet();
     createPipelineCache();
     createRenderPipeline();
     createComputePipeline();
+    device.computeCommandPool().oneTimeCommand([&](auto cmdBuffer){
+        sdf.execute(cmdBuffer);
+    });
+    device.computeCommandPool().oneTimeCommand([&](auto cmdBuffer){
+        emitter.execute(cmdBuffer, particles.descriptorSets[0]);
+        emitter.execute(cmdBuffer, particles.descriptorSets[1]);
+    });
+    particles.constants.numParticles = emitter.numParticles();
 //    createGridBuilderDescriptorSetLayout();
 //    createGridBuilderDescriptorSet(gridBuilder.buffer.size - sizeof(uint32_t), sizeof(uint32_t));
 //    createGridBuilderPipeline();
@@ -92,7 +104,6 @@ void SPHFluidSimulation::createRenderDescriptorSet() {
     render.descriptorSet = descriptorPool.allocate({ render.setLayout}).front();
     
     auto writes = initializers::writeDescriptorSets<1>(render.descriptorSet);
-
 
     VkDescriptorBufferInfo info = {render.mvpBuffer, 0, VK_WHOLE_SIZE};
     writes[0].dstBinding = 0;
@@ -182,6 +193,11 @@ void SPHFluidSimulation::createRenderPipeline() {
              {particleFragModule, VK_SHADER_STAGE_FRAGMENT_BIT}
      });
 
+    VkSpecializationMapEntry entry{0, 0, sizeof(float)};
+    float pointSize = 1.0f;
+    VkSpecializationInfo specializationInfo{1, &entry, entry.size, &pointSize};
+    shaderStages[0].pSpecializationInfo = &specializationInfo;
+
     bindings = std::vector<VkVertexInputBindingDescription>{
             {0, sizeof(Particle), VK_VERTEX_INPUT_RATE_VERTEX}
     };
@@ -211,7 +227,7 @@ void SPHFluidSimulation::createComputePipeline() {
     auto module = VulkanShaderModule{"../../data/shaders/sph/sph_sim.comp.spv", device};
     auto stage = initializers::shaderStage({ module, VK_SHADER_STAGE_COMPUTE_BIT});
 
-    compute.layout = device.createPipelineLayout({particles.descriptorSetLayout, particles.descriptorSetLayout}, { { VK_SHADER_STAGE_COMPUTE_BIT, sizeof(Camera), sizeof(decltype(particles.constants)) } });
+    compute.layout = device.createPipelineLayout({particles.descriptorSetLayout, particles.descriptorSetLayout}, { { VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(particles.constants) } });
 
 
     auto computeCreateInfo = initializers::computePipelineCreateInfo();
@@ -256,16 +272,16 @@ VkCommandBuffer *SPHFluidSimulation::buildCommandBuffers(uint32_t imageIndex, ui
     vkCmdBeginRenderPass(commandBuffer, &rPassInfo, VK_SUBPASS_CONTENTS_INLINE);
     // render grid
     VkDeviceSize offset = 0;
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, render.pipeline);
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, render.layout, 0, 1, &render.descriptorSet, 0, nullptr);
-    vkCmdBindVertexBuffers(commandBuffer, 0, 1, grid.vertexBuffer, &offset);
-    vkCmdDraw(commandBuffer, grid.vertexBuffer.size/sizeof(glm::vec3), 1, 0, 0);
+//    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, render.pipeline);
+//    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, render.layout, 0, 1, &render.descriptorSet, 0, nullptr);
+//    vkCmdBindVertexBuffers(commandBuffer, 0, 1, grid.vertexBuffer, &offset);
+//    vkCmdDraw(commandBuffer, grid.vertexBuffer.size/sizeof(glm::vec3), 1, 0, 0);
 
     // render particles
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, particles.pipeline);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, render.layout, 0, 1, &render.descriptorSet, 0, nullptr);
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, particles.buffers[0], &offset);
-    vkCmdDraw(commandBuffer, particles.buffers[0].size/sizeof(Particle), 1, 0, 0);
+    vkCmdDraw(commandBuffer, particles.constants.numParticles, 1, 0, 0);
 
     vkCmdEndRenderPass(commandBuffer);
 
@@ -276,11 +292,15 @@ VkCommandBuffer *SPHFluidSimulation::buildCommandBuffers(uint32_t imageIndex, ui
 
 void SPHFluidSimulation::update(float time) {
     particles.constants.time = time;
+    camera->update(time);
+    render.mvpBuffer.map<Camera>([&](auto ptr){
+        *ptr = camera->cam();
+    });
 //    runPhysics();
 }
 
 void SPHFluidSimulation::checkAppInputs() {
-    VulkanBaseApp::checkAppInputs();
+    camera->processInput();
 }
 
 void SPHFluidSimulation::cleanup() {
@@ -312,7 +332,7 @@ void SPHFluidSimulation::initGrid() {
     grid.xforms.model = glm::scale(glm::mat4{1}, {1/swapChain.aspectRatio(), 1, 1});
     grid.xforms.projection = vkn::ortho(-1.01, 1.01, -1.01, 1.01, -1, 1);
 
-    render.mvpBuffer = device.createCpuVisibleBuffer(&grid.xforms, sizeof(grid.xforms), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
+    render.mvpBuffer = device.createCpuVisibleBuffer(&grid.xforms, sizeof(grid.xforms), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
 }
 
 void SPHFluidSimulation::createParticles() {
@@ -384,11 +404,10 @@ void SPHFluidSimulation::createParticles() {
         vertices.push_back(p);
     }
     vertices.front().color = glm::vec4(1);
+    vertices.front().color = glm::vec4(1);
 
-    particles.buffers[0] = device.createDeviceLocalBuffer(vertices.data(), sizeof(Particle) * vertices.size()
-                                                          , VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-    particles.buffers[1] = device.createDeviceLocalBuffer(vertices.data(), sizeof(Particle) * vertices.size()
-                                                          , VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+    particles.buffers[0] = device.createBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY, sizeof(Particle) * MAX_PARTICLES);
+    particles.buffers[1] = device.createBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY, sizeof(Particle) * MAX_PARTICLES);
 }
 
 void SPHFluidSimulation::runPhysics() {
@@ -399,10 +418,10 @@ void SPHFluidSimulation::runPhysics() {
 
     device.graphicsCommandPool().oneTimeCommand([&](VkCommandBuffer commandBuffer){
         particles.constants.gravity = glm::vec3(0, -0.98, 0);
-        particles.constants.numParticles = std::min(1 << frameCount, 1024);
+    //    particles.constants.numParticles = std::min(1 << frameCount, 1024);
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, compute.pipeline);
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, compute.layout, 0, COUNT(sets), sets.data(), 0, nullptr);
-        vkCmdPushConstants(commandBuffer, compute.layout, VK_SHADER_STAGE_COMPUTE_BIT, sizeof(Camera), sizeof(particles.constants), &particles.constants);
+        vkCmdPushConstants(commandBuffer, compute.layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(particles.constants), &particles.constants);
         vkCmdDispatch(commandBuffer, (particles.constants.numParticles - 1)/1024 + 1, 1, 1);
     });
 }
@@ -514,6 +533,31 @@ void SPHFluidSimulation::GeneratePointHashGrid(int pass) {
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, gridBuilder.layout, 0, COUNT(sets), sets.data(), 0, nullptr);
         vkCmdDispatch(commandBuffer, particles.constants.numParticles/1024 + 1, 1, 1);
     });
+}
+
+void SPHFluidSimulation::createEmitter() {
+    emitter = VolumeParticleEmitter{&device, &descriptorPool, &particles.descriptorSetLayout, sdf.sdf, 0.02f};
+}
+
+void SPHFluidSimulation::createSdf() {
+    sdf = SdfCompute{ &device, &descriptorPool, BoundingBox{glm::vec3(-0.5, 0, -0.5), glm::vec3(0.5, 2, 0.5) },
+                      "../../data/sph/water_drop.comp.spv", glm::ivec3{128}};
+}
+
+void SPHFluidSimulation::initCamera() {
+    OrbitingCameraSettings settings{};
+    settings.offsetDistance = 5.0f;
+    settings.rotationSpeed = 0.1f;
+    settings.orbitMinZoom = -5.0f;
+    settings.fieldOfView = 45.0f;
+    settings.modelHeight = 0;
+    settings.aspectRatio = static_cast<float>(swapChain.extent.width)/static_cast<float>(swapChain.extent.height);
+    camera = std::make_unique<OrbitingCameraController>(device, swapChain.imageCount(), currentImageIndex, dynamic_cast<InputManager&>(*this), settings);
+}
+
+void SPHFluidSimulation::addParticleBufferBarrier(VkCommandBuffer commandBuffer, int index) {
+    addBufferMemoryBarriers(commandBuffer, { &particles.buffers[index] }
+    , VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 }
 
 int main(){

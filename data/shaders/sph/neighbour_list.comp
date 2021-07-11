@@ -2,15 +2,9 @@
 #extension GL_EXT_scalar_block_layout : enable
 #extension GL_GOOGLE_include_directive : enable
 
+#include "common.glsl"
 #include "../hash.glsl"
 #include "point_hash_grid.glsl"
-
-struct Particle{
-    vec4 position;
-    vec4 color;
-    vec3 velocity;
-    float invMass;
-};
 
 layout(local_size_x = 1024, local_size_y = 1, local_size_z = 1) in;
 

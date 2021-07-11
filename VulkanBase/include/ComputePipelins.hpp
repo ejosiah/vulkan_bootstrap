@@ -28,7 +28,7 @@ public:
 
     VkPipelineLayout layout(const std::string& name);
 
-private:
+protected:
     VulkanDevice* device{};
     std::map<std::string, Pipeline> pipelines{};
 };

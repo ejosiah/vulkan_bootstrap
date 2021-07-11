@@ -52,7 +52,7 @@ vec4 generatePoint(vec3 lowerConer, vec3 upperConer, float spacing, int genType,
 }
 
 bool shouldExit(vec3 lowerConer, vec3 upperConer, float spacing, int genType, uvec3 id){
-    vec3 boxSize = abs(lowerConer - upperConer);
+    vec3 boxSize = abs(upperConer - lowerConer);
     float halfSpacing = spacing * 0.5;
     float offset = 0;
 

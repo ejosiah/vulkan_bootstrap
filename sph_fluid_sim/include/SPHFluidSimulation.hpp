@@ -1,11 +1,11 @@
-#include "VulkanBaseApp.h"
+#pragma once
 
-struct Particle{
-    glm::vec4 position{0};
-    glm::vec4 color{0};
-    glm::vec3 velocity{0};
-    float invMass{0};
-};
+#include "model.hpp"
+#include "VulkanBaseApp.h"
+#include "SdfCompute.hpp"
+#include "VolumeParticleEmitter.hpp"
+
+constexpr uint32_t MAX_PARTICLES = 500000;
 
 class SPHFluidSimulation : public VulkanBaseApp{
 public:
@@ -20,7 +20,13 @@ protected:
 
     void initGridBuilder();
 
+    void createSdf();
+
+    void createEmitter();
+
     void createDescriptorPool();
+
+    void addParticleBufferBarrier(VkCommandBuffer commandBuffer, int index);
 
     void createDescriptorSetLayouts();
 
@@ -61,6 +67,8 @@ protected:
     void buildPointHashGrid();
 
     void GeneratePointHashGrid(int pass = 0);
+
+    void initCamera();
 
 protected:
     struct {
@@ -122,4 +130,8 @@ protected:
     VulkanCommandPool commandPool;
     std::vector<VkCommandBuffer> commandBuffers;
     VulkanPipelineCache pipelineCache;
+
+    SdfCompute sdf;
+    VolumeParticleEmitter emitter;
+    std::shared_ptr<OrbitingCameraController> camera;
 };
