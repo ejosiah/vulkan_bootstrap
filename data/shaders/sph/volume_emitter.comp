@@ -44,9 +44,9 @@ void main(){
 
     d = texture(sdf, uv).r;
 
-    if(d <= 0){
+//    if(d <= 0){
         uint posIndex = atomicAdd(nextId, 1);
         particles[posIndex].position = pos;
         particles[posIndex].color = vec4(1, 0, 0, 1);
-    }
+//    }
 }

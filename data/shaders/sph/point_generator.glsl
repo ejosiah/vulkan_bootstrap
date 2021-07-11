@@ -29,7 +29,7 @@ vec4 bccLatticePoint(vec3 lowerConer, vec3 upperConer, float spacing, uvec3 id){
 vec4 fccLatticePoint(vec3 lowerConer, vec3 upperConer, float spacing, uvec3 id){
 
     float halfSpacing = spacing * 0.5;
-    float offset = ((id.z % 2 == 1 && id.y % 2 == 0) || (id.y % 2 == 1)) ? halfSpacing : 0;
+    float offset = (id.z % 2 == 1 && id.y % 2 == 0) || (id.z % 2 == 0 && id.y % 2 == 1) ? halfSpacing : 0;
     return vec4(
         id.x * spacing + offset + lowerConer.x,
         id.y * halfSpacing + lowerConer.y,
@@ -63,7 +63,7 @@ bool shouldExit(vec3 lowerConer, vec3 upperConer, float spacing, int genType, uv
             offset = (id.z % 2 == 1) ? halfSpacing : 0;
             return (id.z * halfSpacing > boxSize.z) || (id.y * spacing + offset > boxSize.y) || (id.x * spacing + offset > boxSize.x);
         case FCC_LATTICE_POINT_GENERATOR:
-          offset = ((id.z % 2 == 1 && id.y % 2 == 0) || (id.y % 2 == 1)) ? halfSpacing : 0;
+          offset = (id.z % 2 == 1 && id.y % 2 == 0) || (id.z % 2 == 0 && id.y % 2 == 1)? halfSpacing : 0;
             return (id.z * halfSpacing > boxSize.z) || (id.y * halfSpacing > boxSize.y) || (id.x * spacing + offset > boxSize.x);
         default:
             return false;

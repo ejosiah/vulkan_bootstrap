@@ -194,7 +194,7 @@ void SPHFluidSimulation::createRenderPipeline() {
      });
 
     VkSpecializationMapEntry entry{0, 0, sizeof(float)};
-    float pointSize = 1.0f;
+    float pointSize = 5.0f;
     VkSpecializationInfo specializationInfo{1, &entry, entry.size, &pointSize};
     shaderStages[0].pSpecializationInfo = &specializationInfo;
 
@@ -536,7 +536,8 @@ void SPHFluidSimulation::GeneratePointHashGrid(int pass) {
 }
 
 void SPHFluidSimulation::createEmitter() {
-    emitter = VolumeParticleEmitter{&device, &descriptorPool, &particles.descriptorSetLayout, sdf.sdf, 0.02f};
+    sdf.sdf.domain = BoundingBox{ glm::vec3(0), glm::vec3(1) };
+    emitter = VolumeParticleEmitter{&device, &descriptorPool, &particles.descriptorSetLayout, sdf.sdf, 1.0f, FCC_LATTICE_POINT_GENERATOR};
 }
 
 void SPHFluidSimulation::createSdf() {
