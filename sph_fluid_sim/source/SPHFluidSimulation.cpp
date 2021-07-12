@@ -538,6 +538,7 @@ void SPHFluidSimulation::GeneratePointHashGrid(int pass) {
 
 void SPHFluidSimulation::createEmitter() {
     emitter = VolumeParticleEmitter{&device, &descriptorPool, &particles.descriptorSetLayout, sdf.sdf, 0.02f};
+    emitter.init();
 }
 
 void SPHFluidSimulation::createSdf() {

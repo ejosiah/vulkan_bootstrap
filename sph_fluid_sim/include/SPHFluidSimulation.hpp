@@ -6,6 +6,7 @@
 #include "VolumeParticleEmitter.hpp"
 
 constexpr uint32_t MAX_PARTICLES = 500000;
+constexpr float WATER_DENSITY = 1000.0;
 
 class SPHFluidSimulation : public VulkanBaseApp{
 public:
@@ -135,11 +136,19 @@ protected:
     VolumeParticleEmitter emitter;
     std::shared_ptr<OrbitingCameraController> camera;
 
+    uint32_t numParticles;
     float eosExponent = 7.0;
     float negativePressureScale = 0.0;
     float viscosityCoefficient = 0.01;
     float pseudoViscosityCoefficient = 10.0;
     float speedOfSound = 100.0;
-    float radius = 1e-3;
-    float mass = 1e-3;
+
+    struct {
+        float radius = 1e-3;
+        float mass = 1e-3;
+        float targetDensity = WATER_DENSITY;
+        float targetSpacing = 0.1;
+        float kernelRadiusOverTargetSpacing = 1.8;
+        float kernelRadius = 0.0f;
+    } particleProperties;
 };
