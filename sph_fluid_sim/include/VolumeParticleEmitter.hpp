@@ -51,6 +51,6 @@ private:
         float spacing{1.0f};
         glm::vec3 boundingBoxUpperCorner{1};
         int genType{ GRID_POINT_GENERATOR };
-        float jitter{1.0f};
+        float jitter{0.0f};
     } constants;
 };

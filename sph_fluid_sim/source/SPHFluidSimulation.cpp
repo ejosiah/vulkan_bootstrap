@@ -29,6 +29,7 @@ void SPHFluidSimulation::initApp() {
         emitter.execute(cmdBuffer, particles.descriptorSets[1]);
     });
     particles.constants.numParticles = emitter.numParticles();
+    spdlog::info("{} particles emitted", particles.constants.numParticles);
 //    createGridBuilderDescriptorSetLayout();
 //    createGridBuilderDescriptorSet(gridBuilder.buffer.size - sizeof(uint32_t), sizeof(uint32_t));
 //    createGridBuilderPipeline();
@@ -536,7 +537,7 @@ void SPHFluidSimulation::GeneratePointHashGrid(int pass) {
 }
 
 void SPHFluidSimulation::createEmitter() {
-    emitter = VolumeParticleEmitter{&device, &descriptorPool, &particles.descriptorSetLayout, sdf.sdf, 0.02f, FCC_LATTICE_POINT_GENERATOR};
+    emitter = VolumeParticleEmitter{&device, &descriptorPool, &particles.descriptorSetLayout, sdf.sdf, 0.02f};
 }
 
 void SPHFluidSimulation::createSdf() {

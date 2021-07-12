@@ -134,4 +134,12 @@ protected:
     SdfCompute sdf;
     VolumeParticleEmitter emitter;
     std::shared_ptr<OrbitingCameraController> camera;
+
+    float eosExponent = 7.0;
+    float negativePressureScale = 0.0;
+    float viscosityCoefficient = 0.01;
+    float pseudoViscosityCoefficient = 10.0;
+    float speedOfSound = 100.0;
+    float radius = 1e-3;
+    float mass = 1e-3;
 };
