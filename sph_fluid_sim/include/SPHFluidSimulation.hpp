@@ -4,8 +4,9 @@
 #include "VulkanBaseApp.h"
 #include "SdfCompute.hpp"
 #include "VolumeParticleEmitter.hpp"
+#include "StdKernel.hpp"
 
-constexpr uint32_t MAX_PARTICLES = 500000;
+constexpr uint32_t MAX_PARTICLES = 1 << 19;
 constexpr float WATER_DENSITY = 1000.0;
 
 class SPHFluidSimulation : public VulkanBaseApp{
@@ -24,6 +25,10 @@ protected:
     void createSdf();
 
     void createEmitter();
+
+    void computeMass();
+
+    void createPointGenerator();
 
     void createDescriptorPool();
 
@@ -110,6 +115,9 @@ protected:
             float time;
         } constants;
 
+        VkDeviceSize pointSize{0};
+        VkDeviceSize dataSize{0};
+
     } particles;
 
     struct {
@@ -143,12 +151,16 @@ protected:
     float pseudoViscosityCoefficient = 10.0;
     float speedOfSound = 100.0;
 
+    StdKernel kernel;
+    PointGenerator pointGenerator;
+    VkDeviceSize bufferOffsetAlignment;
+
     struct {
         float radius = 1e-3;
         float mass = 1e-3;
         float targetDensity = WATER_DENSITY;
-        float targetSpacing = 0.1;
+        float targetSpacing = 0.02;
         float kernelRadiusOverTargetSpacing = 1.8;
-        float kernelRadius = 0.0f;
+        float kernelRadius = 0.036f;
     } particleProperties;
 };

@@ -12,7 +12,7 @@ layout(set = 0, binding = 1) buffer Atomics{
 };
 
 layout(set = 1, binding = 0) buffer Points{
-    vec3 points[];
+    vec4 points[];
 };
 
 layout(push_constant) uniform Constants{
@@ -42,6 +42,5 @@ void main(){
     vec3 pos = generatePoint(domain.min, domain.max, spacing, genType, id).xyz + randomDir * maxJitterDist;
 
     uint posIndex = atomicAdd(nextId, 1);
-    points[posIndex] = pos;
-    particles[posIndex].color = vec4(1, 0, 0, 1);
+    points[posIndex] = vec4(pos, 1);
 }

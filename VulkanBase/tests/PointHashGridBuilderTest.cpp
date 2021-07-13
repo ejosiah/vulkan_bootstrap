@@ -2,10 +2,10 @@
 #include "PointHashGrid.hpp"
 #include "sampling.hpp"
 
-inline bool similar(const Particle& a, const Particle& b, float epsilon = 1E-7){
-    return closeEnough(a.position.x, b.position.x, epsilon)
-           && closeEnough(a.position.y, b.position.y, epsilon)
-           && closeEnough(a.position.z, b.position.z, epsilon);
+inline bool similar(const glm::vec4& a, const glm::vec4& b, float epsilon = 1E-7){
+    return closeEnough(a.x, b.x, epsilon)
+           && closeEnough(a.y, b.y, epsilon)
+           && closeEnough(a.z, b.z, epsilon);
 };
 
 inline bool similar(const glm::vec3& a, const glm::vec3& b, float epsilon = 1E-7){
@@ -27,8 +27,8 @@ protected:
     float gridSpacing = 1;
 
     const uint32_t  particlePushConstantsSize = 20;
-    std::vector<Particle> particles;
-    std::map<int, std::vector<Particle>> expectedHashGrid;
+    std::vector<glm::vec4> particles;
+    std::map<int, std::vector<glm::vec4>> expectedHashGrid;
     uint32_t pushConstantOffset = alignedSize(sizeof(Camera) + particlePushConstantsSize, 16);
     uint32_t bufferOffsetAlignment;
 
@@ -81,8 +81,8 @@ protected:
         unitTestDescriptorSetLayout = device.createDescriptorSetLayout(bindings);
     }
 
-    void createParticleBuffer(const std::vector<Particle>& particles){
-        particleBuffer = device.createCpuVisibleBuffer(particles.data(), sizeof(Particle) * particles.size(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+    void createParticleBuffer(const std::vector<glm::vec4>& particles){
+        particleBuffer = device.createCpuVisibleBuffer(particles.data(), sizeof(glm::vec4) * particles.size(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
         nearByKeys = device.createBuffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, sizeof(int) * 8);
         updateDescriptorSet();
     }
@@ -127,8 +127,8 @@ protected:
         for(int z = 0; z < res.z; z++){
             for(int y = 0; y < res.y; y++){
                 for(int x = 0; x < res.x; x++){
-                    std::vector<Particle> particles = generate(x, y, z);
-                    int index = hash(particles.front().position.xyz(), res, gridSpacing);
+                    std::vector<glm::vec4> particles = generate(x, y, z);
+                    int index = hash(particles.front().xyz(), res, gridSpacing);
                     add(index, particles);
                 }
             }
@@ -141,19 +141,19 @@ protected:
         createParticleBuffer(this->particles);
     }
 
-    void add(int index, const std::vector<Particle>& vParticles){
+    void add(int index, const std::vector<glm::vec4>& vParticles){
         if(expectedHashGrid.find(index) == end(expectedHashGrid)){
-            expectedHashGrid[index] = std::vector<Particle>{};
+            expectedHashGrid[index] = std::vector<glm::vec4>{};
         }
         expectedHashGrid[index].insert(begin(expectedHashGrid[index]), begin(vParticles), end(vParticles));
         particles.insert(begin(particles), begin(vParticles), end(vParticles));
     }
 
-    bool bucketContainsPoint(int key, const Particle& particle){
+    bool bucketContainsPoint(int key, const glm::vec4& particle){
         bool contains = false;
         grid.bucketBuffer.map<int>([&](auto bucketPtr){
             grid.bucketSizeBuffer.map<int>([&](auto bucketSizePtr){
-                particleBuffer.map<Particle>([&](auto particlePtr){
+                particleBuffer.map<glm::vec4>([&](auto particlePtr){
 
                     auto getOffset = [&](){
                         int offset = 0;
@@ -166,7 +166,7 @@ protected:
                     auto numParticles = bucketSizePtr[key];
                     for(int i = 0; i < numParticles; i++){
                         int particleId = bucketPtr[getOffset() + i];
-                        Particle bParticle = particlePtr[particleId];
+                        glm::vec4 bParticle = particlePtr[particleId];
                         contains = similar(particle, bParticle);
                         if(contains){
                             break;
@@ -195,7 +195,7 @@ protected:
         for(const auto& [bucket, particles] : expectedHashGrid){
             for(const auto& expected : particles) {
                 ASSERT_TRUE(bucketContainsPoint(bucket, expected))
-                    << fmt::format("expected {} not found in bucket : {}", expected.position, bucket);
+                    << fmt::format("expected {} not found in bucket : {}", expected, bucket);
             }
         }
     }
@@ -230,8 +230,8 @@ protected:
     };
 
     void addParticleAt(glm::vec3 position){
-        Particle particle;
-        particle.position = glm::vec4(position, 0);
+        glm::vec4 particle;
+        particle = glm::vec4(position, 0);
         particles.push_back(particle);
     }
 
@@ -263,7 +263,7 @@ protected:
         grid.bucketBuffer.map<int>([&](auto bucketPtr){
             grid.bucketSizeOffsetBuffer.map<int>([&](auto bucketOffsetPtr){
             grid.bucketSizeBuffer.map<int>([&](auto bucketSizePtr){
-                particleBuffer.map<Particle>([&](auto particlePtr){
+                particleBuffer.map<glm::vec4>([&](auto particlePtr){
                     int numBuckets = resolution.x * resolution.y * resolution.y;
                     for(int bucket = 0; bucket < numBuckets; bucket++){
                         int size = bucketSizePtr[bucket];
@@ -272,7 +272,7 @@ protected:
                         for(auto i = 0; i < size; i++){
                             auto entry = i + offset;
                             auto pIndex = bucketPtr[entry];
-                            auto point = particlePtr[pIndex].position.xyz();
+                            auto point = particlePtr[pIndex].xyz();
                             spdlog::error("\tpoint[{}] => {}", pIndex, point);
                         }
                     }
@@ -289,12 +289,12 @@ protected:
                auto size = sizePtr[index];
                ASSERT_EQ(neighbourList.size(), size) << "neighbour list size did not match" ;
                 grid.neighbourList.neighbourListBuffer.map<int>([&](auto listPtr){
-                    particleBuffer.map<Particle>([&](auto particlePtr){
+                    particleBuffer.map<glm::vec4>([&](auto particlePtr){
                         int offset = offsetPtr[index];
                         int prevIndex = -1;
                         for(int i = 0; i < size; i++){
                             int particleIndex = listPtr[i + offset];
-                            glm::vec3 actual = particlePtr[particleIndex].position.xyz();
+                            glm::vec3 actual = particlePtr[particleIndex].xyz();
 
                             ASSERT_NE(prevIndex, particleIndex) << fmt::format("duplicate particle found {} at iteration: {}", particleIndex, i);
                             auto found = std::find_if(begin(neighbourList), end(neighbourList), [&](auto expected){ return similar(expected, actual); });
@@ -339,12 +339,12 @@ protected:
         float radius = gridSpacing * 0.5;
         float radiusSqr = radius * radius;
         for(auto i = 0; i < particles.size(); i++){
-            auto origin = particles[i].position.xyz();
+            auto origin = particles[i].xyz();
             std::vector<glm::vec3> neighbours;
             for(auto& point : particles){
-                glm::vec3 d = point.position.xyz() - origin;
+                glm::vec3 d = point.xyz() - origin;
                 if(dot(d, d) <= radiusSqr){
-                    neighbours.push_back(point.position.xyz());
+                    neighbours.push_back(point.xyz());
                 }
             }
             list[i] = neighbours;
@@ -356,11 +356,9 @@ protected:
 TEST_F(PointHashGridBuilderTest, OnePointPerGrid2d){
     gridSpacing = 0.1;
     resolution = glm::vec3{10, 10, 1};
-    auto generateParticle = [&](int x, int y, int _) -> std::vector<Particle> {
-        Particle particle;
+    auto generateParticle = [&](int x, int y, int _) -> std::vector<glm::vec4> {
         glm::vec3 pos = (glm::vec3(x, y, 0) + glm::vec3(0.5f, 0.5f, 0)) * gridSpacing;
-        particle.position = glm::vec4(pos, 1);
-        return { particle };
+        return { {pos, 1} };
     };
     grid.constants.resolution = resolution;
     grid.constants.gridSpacing = gridSpacing;
@@ -373,11 +371,11 @@ TEST_F(PointHashGridBuilderTest, OnePointPerGrid2d){
 TEST_F(PointHashGridBuilderTest, OnePointPerGrid3d){
     gridSpacing = 0.1;
     resolution = glm::vec3{10, 10, 10};
-    auto generateParticle = [&](int x, int y, int z) -> std::vector<Particle> {
+    auto generateParticle = [&](int x, int y, int z) -> std::vector<glm::vec4> {
 
-        Particle particle;
+        glm::vec4 particle;
         glm::vec3 pos = (glm::vec3(x, y, z) + 0.5f) * gridSpacing;
-        particle.position = glm::vec4(pos, 0); // range [0, 1]
+        particle = glm::vec4(pos, 0); // range [0, 1]
         return { particle };
     };
     grid.constants.resolution = resolution;
@@ -391,10 +389,10 @@ TEST_F(PointHashGridBuilderTest, OnePointPerGrid3d){
 TEST_F(PointHashGridBuilderTest, generateGridWithPointsInNegativeAndPositiveSpace){
     resolution =  glm::vec3 {4, 4, 4};
     gridSpacing = 0.25;
-    auto generateParticle = [&](int x, int y, int z) -> std::vector<Particle> {
-        Particle particle;
+    auto generateParticle = [&](int x, int y, int z) -> std::vector<glm::vec4> {
+        glm::vec4 particle;
         glm::vec3 pos = (glm::vec3(x, y, z) + 0.5f) * gridSpacing - 1.0f;
-        particle.position = glm::vec4(pos, 1); // [-1, 1]
+        particle = glm::vec4(pos, 1); // [-1, 1]
         return { particle };
     };
     grid.constants.resolution = resolution;
@@ -410,12 +408,12 @@ TEST_F(PointHashGridBuilderTest, PointRandomlyScatteredInSpace){
     resolution =  glm::vec3 {4, 4, 4};
     gridSpacing = 0.25;
 
-    auto generateParticle = [&](int x, int y, int z) -> std::vector<Particle> {
+    auto generateParticle = [&](int x, int y, int z) -> std::vector<glm::vec4> {
 
-        Particle particle;
-        particle.position.x = rng();
-        particle.position.y = rng();
-        particle.position.z = rng();
+        glm::vec4 particle;
+        particle.x = rng();
+        particle.y = rng();
+        particle.z = rng();
         return { particle };
     };
     grid.constants.resolution = resolution;

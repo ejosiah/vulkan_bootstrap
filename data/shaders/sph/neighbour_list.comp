@@ -17,7 +17,7 @@ layout(push_constant) uniform Constants {
 };
 
 layout(set = 0, binding = 0) buffer POINTS {
-    Particle points[];
+    vec4 points[];
 };
 
 layout(set = 1, binding = 0, scalar) buffer BUCKETS {
@@ -49,8 +49,7 @@ void main(){
 
     if(id >= numParticles) return;
 
-    Particle particle = points[id];
-    vec3 origin = particle.position.xyz;
+    vec3 origin = points[id].xyz;
 
     int nearByKeys[8];
     getNearByKeys(origin, gridSpacing, resolution, nearByKeys);
@@ -70,7 +69,7 @@ void main(){
             for(int j = bucketOffset; j < (bucketOffset + numPointsInBucket); j++){
                 int pointIndex = buckets[j];
                 next++;
-                vec3 point = points[pointIndex].position.xyz;
+                vec3 point = points[pointIndex].xyz;
                 vec3 d = point - origin;
                 if(dot(d, d) <= radiusSqr){
                     neighbourListSize++;
@@ -91,7 +90,7 @@ void main(){
         int offset = neighbourListSizes[id];
         for(int j = bucketOffset; j < (bucketOffset + numPointsInBucket); j++){
             int pointIndex = buckets[j];
-            vec3 point = points[pointIndex].position.xyz;
+            vec3 point = points[pointIndex].xyz;
             vec3 d = point - origin;
             if(dot(d, d) <= radiusSqr){
                 int listIndex = nextIndex + offset;

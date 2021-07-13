@@ -8,6 +8,12 @@ struct Particle{
     float invMass;
 };
 
+struct ParticleData{
+    vec4 color;
+    vec3 velocity;
+    float invMass;
+};
+
 struct BoundingBox{
     vec3 min;
     vec3 max;

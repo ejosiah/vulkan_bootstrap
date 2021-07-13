@@ -17,8 +17,12 @@ layout(set = 0, binding = 1) buffer Atomics{
     uint nextId;
 };
 
-layout(set = 1, binding = 0) buffer Positions{
-    Particle particles[];
+layout(set = 1, binding = 0) buffer Points{
+    vec4 points[];
+};
+
+layout(set = 1, binding = 1) buffer PData{
+    ParticleData data[];
 };
 
 layout(push_constant) uniform Constants{
@@ -52,7 +56,7 @@ void main(){
 
     if(d <= 0){
         uint posIndex = atomicAdd(nextId, 1);
-        particles[posIndex].position = vec4(pos, 1);
-        particles[posIndex].color = vec4(1, 0, 0, 1);
+        points[posIndex] = vec4(pos, 1);
+        data[posIndex].color = vec4(1, 0, 0, 1);
     }
 }

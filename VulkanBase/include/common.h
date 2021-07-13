@@ -51,7 +51,7 @@ constexpr bool debugMode = false;
 namespace chrono = std::chrono;
 namespace fs = std::filesystem;
 
-using Real = float;
+using real = float;
 
 using Flags = unsigned int;
 

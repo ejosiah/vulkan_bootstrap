@@ -23,7 +23,7 @@ layout(push_constant) uniform Constants {
 };
 
 layout(set = 0, binding = 0) buffer POINTS {
-    Particle points[];
+    vec4 points[];
 };
 
 layout(set = 1, binding = 0, scalar) buffer BUCKETS {
@@ -44,7 +44,7 @@ void main(){
 
     if(id >= numParticles) return;
 
-    vec3 point = points[id].position.xyz;
+    vec3 point = points[id].xyz;
     int key = getHashKey(point, resolution, gridSpacing);
     if(pass == 0){
         atomicAdd(bucketSize[key], 1);

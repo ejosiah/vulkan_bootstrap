@@ -1,3 +1,4 @@
+#include <SPHFluidSimulation.hpp>
 #include "SPHFluidSimulation.hpp"
 #include "sampling.hpp"
 #include "vulkan_util.h"
@@ -7,12 +8,14 @@ SPHFluidSimulation::SPHFluidSimulation(const Settings& settings) : VulkanBaseApp
 }
 
 void SPHFluidSimulation::initApp() {
+    bufferOffsetAlignment = device.getLimits().minStorageBufferOffsetAlignment;
     initCamera();
     createDescriptorPool();
     createDescriptorSetLayouts();
     createCommandPool();
     initGrid();
     createParticles();
+//    createPointGenerator();
     createSdf();
     createEmitter();
 //    initGridBuilder();
@@ -21,6 +24,8 @@ void SPHFluidSimulation::initApp() {
     createPipelineCache();
     createRenderPipeline();
     createComputePipeline();
+
+    computeMass();
     device.computeCommandPool().oneTimeCommand([&](auto cmdBuffer){
         sdf.execute(cmdBuffer);
     });
@@ -66,14 +71,20 @@ void SPHFluidSimulation::createDescriptorPool() {
 
 
 void SPHFluidSimulation::createDescriptorSetLayouts() {
-    std::vector<VkDescriptorSetLayoutBinding> bindings(1);
+    std::vector<VkDescriptorSetLayoutBinding> bindings(2);
     bindings[0].binding = 0;
     bindings[0].descriptorCount = 1;
     bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     bindings[0].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
+    bindings[1].binding = 1;
+    bindings[1].descriptorCount = 1;
+    bindings[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    bindings[1].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
     particles.descriptorSetLayout = device.createDescriptorSetLayout(bindings);
-    
+
+    bindings.resize(1);
     bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     bindings[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
     render.setLayout = device.createDescriptorSetLayout(bindings);
@@ -82,21 +93,36 @@ void SPHFluidSimulation::createDescriptorSetLayouts() {
 void SPHFluidSimulation::createDescriptorSets() {
     descriptorPool.allocate({ particles.descriptorSetLayout, particles.descriptorSetLayout }, particles.descriptorSets);
 
-    std::array<VkWriteDescriptorSet, 2> writes = initializers::writeDescriptorSets<2>();
+    std::array<VkWriteDescriptorSet, 4> writes = initializers::writeDescriptorSets<4>();
 
-    VkDescriptorBufferInfo info0{ particles.buffers[0], 0, VK_WHOLE_SIZE};
+    VkDescriptorBufferInfo info0{ particles.buffers[0], 0, particles.pointSize};
     writes[0].dstSet = particles.descriptorSets[0];
     writes[0].dstBinding = 0;
     writes[0].descriptorCount = 1;
     writes[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     writes[0].pBufferInfo = &info0;
 
-    VkDescriptorBufferInfo info1{ particles.buffers[1], 0, VK_WHOLE_SIZE};
-    writes[1].dstSet = particles.descriptorSets[1];
-    writes[1].dstBinding = 0;
+    VkDescriptorBufferInfo info1{ particles.buffers[0], particles.pointSize, particles.dataSize};
+    writes[1].dstSet = particles.descriptorSets[0];
+    writes[1].dstBinding = 1;
     writes[1].descriptorCount = 1;
     writes[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     writes[1].pBufferInfo = &info1;
+
+    VkDescriptorBufferInfo info2{ particles.buffers[1], 0, particles.pointSize};
+    writes[2].dstSet = particles.descriptorSets[1];
+    writes[2].dstBinding = 0;
+    writes[2].descriptorCount = 1;
+    writes[2].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    writes[2].pBufferInfo = &info2;
+
+    VkDescriptorBufferInfo info3{ particles.buffers[1], particles.pointSize, particles.dataSize};
+    writes[3].dstSet = particles.descriptorSets[1];
+    writes[3].dstBinding = 1;
+    writes[3].descriptorCount = 1;
+    writes[3].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    writes[3].pBufferInfo = &info3;
+
 
     device.updateDescriptorSets(writes);
 }
@@ -200,11 +226,12 @@ void SPHFluidSimulation::createRenderPipeline() {
     shaderStages[0].pSpecializationInfo = &specializationInfo;
 
     bindings = std::vector<VkVertexInputBindingDescription>{
-            {0, sizeof(Particle), VK_VERTEX_INPUT_RATE_VERTEX}
+            {0, sizeof(glm::vec4), VK_VERTEX_INPUT_RATE_VERTEX},
+            {1, sizeof(ParticleData), VK_VERTEX_INPUT_RATE_VERTEX}
     };
     attribs = std::vector<VkVertexInputAttributeDescription>{
-            {0, 0, VK_FORMAT_R32G32B32A32_SFLOAT, offsetOf(Particle, position)},
-            {1, 0, VK_FORMAT_R32G32B32A32_SFLOAT, offsetOf(Particle, color)},
+            {0, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 0},
+            {1, 1, VK_FORMAT_R32G32B32A32_SFLOAT, 0},
     };
 
     vertexInputState = initializers::vertexInputState(bindings, attribs);
@@ -272,16 +299,19 @@ VkCommandBuffer *SPHFluidSimulation::buildCommandBuffers(uint32_t imageIndex, ui
 
     vkCmdBeginRenderPass(commandBuffer, &rPassInfo, VK_SUBPASS_CONTENTS_INLINE);
     // render grid
-    VkDeviceSize offset = 0;
+     static std::array<VkDeviceSize, 2> offsets = {0, particles.pointSize};
 //    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, render.pipeline);
 //    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, render.layout, 0, 1, &render.descriptorSet, 0, nullptr);
 //    vkCmdBindVertexBuffers(commandBuffer, 0, 1, grid.vertexBuffer, &offset);
 //    vkCmdDraw(commandBuffer, grid.vertexBuffer.size/sizeof(glm::vec3), 1, 0, 0);
 
     // render particles
+    static std::array<VkBuffer, 2> vertexBuffers;
+    vertexBuffers[0] = particles.buffers[0];
+    vertexBuffers[1] = particles.buffers[0];
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, particles.pipeline);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, render.layout, 0, 1, &render.descriptorSet, 0, nullptr);
-    vkCmdBindVertexBuffers(commandBuffer, 0, 1, particles.buffers[0], &offset);
+    vkCmdBindVertexBuffers(commandBuffer, 0, 2, vertexBuffers.data(), offsets.data());
     vkCmdDraw(commandBuffer, particles.constants.numParticles, 1, 0, 0);
 
     vkCmdEndRenderPass(commandBuffer);
@@ -407,8 +437,11 @@ void SPHFluidSimulation::createParticles() {
     vertices.front().color = glm::vec4(1);
     vertices.front().color = glm::vec4(1);
 
-    particles.buffers[0] = device.createBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY, sizeof(Particle) * MAX_PARTICLES);
-    particles.buffers[1] = device.createBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY, sizeof(Particle) * MAX_PARTICLES);
+    particles.pointSize = alignedSize(sizeof(glm::vec4) * MAX_PARTICLES, bufferOffsetAlignment);
+    particles.dataSize = alignedSize(sizeof(ParticleData) * MAX_PARTICLES, bufferOffsetAlignment);
+    auto size = particles.pointSize + particles.dataSize;
+    particles.buffers[0] = device.createBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, size);
+    particles.buffers[1] = device.createBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, size);
 }
 
 void SPHFluidSimulation::runPhysics() {
@@ -546,6 +579,14 @@ void SPHFluidSimulation::createSdf() {
                       "../../data/sph/water_drop.comp.spv", glm::ivec3{128}};
 }
 
+void SPHFluidSimulation::createPointGenerator() {
+    auto radius = particleProperties.kernelRadius * 1.5f;
+    auto targetSpacing = particleProperties.targetSpacing;
+    BoundingBox box{ -glm::vec3(radius), glm::vec3(radius) };
+    pointGenerator = PointGenerator{&device, &descriptorPool, &particles.descriptorSetLayout, box, targetSpacing, FCC_LATTICE_POINT_GENERATOR};
+    pointGenerator.init();
+}
+
 void SPHFluidSimulation::initCamera() {
     OrbitingCameraSettings settings{};
     settings.offsetDistance = 5.0f;
@@ -561,6 +602,47 @@ void SPHFluidSimulation::addParticleBufferBarrier(VkCommandBuffer commandBuffer,
     addBufferMemoryBarriers(commandBuffer, { &particles.buffers[index] }
     , VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 }
+
+void SPHFluidSimulation::computeMass() {
+    particleProperties.kernelRadius = particleProperties.kernelRadiusOverTargetSpacing * particleProperties.targetSpacing;
+    auto radius = particleProperties.kernelRadius * 1.5f;
+    auto targetSpacing = particleProperties.targetSpacing;
+    BoundingBox box{ -glm::vec3(radius), glm::vec3(radius) };
+
+    pointGenerator = PointGenerator{&device, &descriptorPool, &particles.descriptorSetLayout, box, targetSpacing};
+    pointGenerator.init();
+
+    device.computeCommandPool().oneTimeCommand([&](auto cmdBuffer){
+        pointGenerator.execute(cmdBuffer, particles.descriptorSets[0]);
+    });
+
+
+    auto numParticles = pointGenerator.numParticles();
+    auto kernel = StdKernel(particleProperties.kernelRadius);
+    spdlog::info("calculating mass for num particles {} with kernel radius: {}", numParticles, particleProperties.kernelRadius);
+
+    float maxDensity = std::numeric_limits<float>::min();
+
+    particles.buffers[0].map<glm::vec4>([&](glm::vec4* ptr){
+        for(auto i = 0; i < numParticles; i++){
+            float sum = 0.0f;
+            glm::vec3 point = ptr[i].xyz();
+//            spdlog::info("point: {}", point);
+            for(auto j = 0; j < numParticles; j++){
+                glm::vec3 neighbour = ptr[j].xyz();
+//                spdlog::info("\tneighbour: {}", neighbour);
+                sum += kernel(distance(point, neighbour));
+            }
+            maxDensity = std::max(maxDensity, sum);
+        }
+    });
+
+    float mass = particleProperties.targetDensity/maxDensity;
+    spdlog::info("running sim with particle mass of {}", mass);
+    assert(mass > 0);
+    particleProperties.mass = mass;
+}
+
 
 int main(){
     try{
