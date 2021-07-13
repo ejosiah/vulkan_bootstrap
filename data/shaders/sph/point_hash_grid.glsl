@@ -19,27 +19,47 @@ int getHashKey(vec3 point, vec3 resolution, float gridSpacing){
 void getNearByKeys(vec3 position, float gridSpacing, vec3 resolution, out int keys[8]){
     vec3 originIndex = floor(position/gridSpacing);
     vec3 nearByBucketIndices[8];
-    for(int i = 0; i < 4; i++){
+    for(int i = 0; i < 8; i++){
         nearByBucketIndices[i] = originIndex;
     }
 
-    if ((originIndex.x + 0.5) * gridSpacing <= position.x) {
-        nearByBucketIndices[2].x += 1;
-        nearByBucketIndices[3].x += 1;
+    if ((originIndex.x + 0.5f) * gridSpacing <= position.x) {
+        nearByBucketIndices[4].x += 1;
+        nearByBucketIndices[5].x += 1;
+        nearByBucketIndices[6].x += 1;
+        nearByBucketIndices[7].x += 1;
     } else {
-        nearByBucketIndices[2].x -= 1;
-        nearByBucketIndices[3].x -= 1;
+        nearByBucketIndices[4].x -= 1;
+        nearByBucketIndices[5].x -= 1;
+        nearByBucketIndices[6].x -= 1;
+        nearByBucketIndices[7].x -= 1;
     }
 
-    if ((originIndex.y + 0.5) * gridSpacing <= position.y) {
-        nearByBucketIndices[1].y += 1;
+    if ((originIndex.y + 0.5f) * gridSpacing <= position.y) {
+        nearByBucketIndices[2].y += 1;
         nearByBucketIndices[3].y += 1;
+        nearByBucketIndices[6].y += 1;
+        nearByBucketIndices[7].y += 1;
     } else {
-        nearByBucketIndices[1].y -= 1;
+        nearByBucketIndices[2].y -= 1;
         nearByBucketIndices[3].y -= 1;
+        nearByBucketIndices[6].y -= 1;
+        nearByBucketIndices[7].y -= 1;
     }
 
-    for (int i = 0; i < 4; i++) {
+    if ((originIndex.z + 0.5f) * gridSpacing <= position.z) {
+        nearByBucketIndices[1].z += 1;
+        nearByBucketIndices[3].z += 1;
+        nearByBucketIndices[5].z += 1;
+        nearByBucketIndices[7].z += 1;
+    } else {
+        nearByBucketIndices[1].z -= 1;
+        nearByBucketIndices[3].z -= 1;
+        nearByBucketIndices[5].z -= 1;
+        nearByBucketIndices[7].z -= 1;
+    }
+
+    for (int i = 0; i < 8; i++) {
         vec3 wrappedIndex = wrap(nearByBucketIndices[i], resolution);
         keys[i] = toHashKey(wrappedIndex, resolution);
     }

@@ -211,18 +211,18 @@ protected:
     std::function<bool(int, int, int, int)> containsNearbyKey = [&](int key0, int key1, int key2, int key3){
         std::array<bool, 4> predicates{};
         nearByKeys.map<int>([&](auto ptr){
-            for(int i = 0; i < 4; i++){
+            for(int i = 0; i < 8; i++){
                 if(key0 == ptr[i]){
-                    predicates[i] = true;
+                    predicates[0] = true;
                 }
                 if(key1 == ptr[i]){
-                    predicates[i] = true;
+                    predicates[1] = true;
                 }
                 if(key2 == ptr[i]){
-                    predicates[i] = true;
+                    predicates[2] = true;
                 }
                 if(key3 == ptr[i]){
-                    predicates[i] = true;
+                    predicates[3] = true;
                 }
             }
         });
@@ -499,6 +499,23 @@ TEST_F(PointHashGridBuilderTest, getNearByKeys2dOfPointInBottomCornerofCellZero)
     buildHashGrid();
     getNearByKeys();
     ASSERT_PRED4(containsNearbyKey, 0, 3, 12, 15) << "Near by keys did not match 0, 3, 12, 15";
+}
+
+TEST_F(PointHashGridBuilderTest, getNearByKeys3dOfPointInTopRightBackCorner){
+    resolution = glm::vec3{4, 4, 4};
+    gridSpacing = 0.25;
+
+    glm::vec3 position = glm::vec3(1, 1, 1) * gridSpacing;
+    position.x += gridSpacing * 0.8f;
+    position.y += gridSpacing * 0.8f;
+    position.z += gridSpacing * 0.8f;
+    addParticleAt(position);
+
+    createParticles();
+    buildHashGrid();
+    getNearByKeys();
+    ASSERT_PRED4(containsNearbyKey, 21, 22, 25, 26) << "Near by keys did not match 21, 22, 25, 26";
+    ASSERT_PRED4(containsNearbyKey, 37, 38, 41, 42) << "Near by keys did not match 37, 38, 41, 42";
 }
 
 TEST_F(PointHashGridBuilderTest, generateNeighbourList){
