@@ -13,7 +13,6 @@ void SPHFluidSimulation::initApp() {
     createDescriptorPool();
     createDescriptorSetLayouts();
     createCommandPool();
-    initGrid();
     createParticles();
 //    createPointGenerator();
     createSdf();
@@ -275,7 +274,7 @@ void SPHFluidSimulation::onSwapChainDispose() {
 void SPHFluidSimulation::onSwapChainRecreation() {
     createRenderPipeline();
     createComputePipeline();
-    grid.xforms.model = glm::scale(glm::mat4{1}, {1/swapChain.aspectRatio(), 1, 1});
+    camera->onResize(swapChain.width(), swapChain.height());
 }
 
 VkCommandBuffer *SPHFluidSimulation::buildCommandBuffers(uint32_t imageIndex, uint32_t &numCommandBuffers) {
@@ -343,100 +342,7 @@ void SPHFluidSimulation::onPause() {
     VulkanBaseApp::onPause();
 }
 
-void SPHFluidSimulation::initGrid() {
-    std::vector<glm::vec3> vertices;
-    float n = std::sqrtf(grid.numCells);
-    for(int i = 0; i < int(n) + 1; i++){
-        float y = 2.0f * float(i)/n - 1;
-        float x = 2.0f * float(i)/n - 1;
-
-        // rows
-        vertices.emplace_back(-1, y, 0);
-        vertices.emplace_back(1, y, 0);
-
-        // columns
-        vertices.emplace_back(x, -1, 0);
-        vertices.emplace_back(x, 1, 0);
-    }
-    
-    grid.vertexBuffer = device.createDeviceLocalBuffer(vertices.data(), sizeof(glm::vec3) * vertices.size(), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-    grid.xforms.model = glm::scale(glm::mat4{1}, {1/swapChain.aspectRatio(), 1, 1});
-    grid.xforms.projection = vkn::ortho(-1.01, 1.01, -1.01, 1.01, -1, 1);
-
-    render.mvpBuffer = device.createCpuVisibleBuffer(&grid.xforms, sizeof(grid.xforms), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
-}
-
 void SPHFluidSimulation::createParticles() {
-    std::random_device rnd;
-    std::default_random_engine engine{ rnd() };
-//    std::normal_distribution<float> dist{0, 0.3};
-    std::uniform_real_distribution<float> dist{-0.9, 0.9};
-    auto rngPosition = [&]{
-        return glm::vec4(dist(engine), dist(engine), 0, 1);
-    };
-
-    auto rngVelocity = [&]{
-        static std::default_random_engine engine{ rnd() };
-        static std::uniform_real_distribution<float> dist{-1, 1};
-        static std::uniform_real_distribution<float> dist1{0, 2};
-
-        return glm::vec3{dist(engine), dist1(engine), 0};
-    };
-
-    auto rngColor = [&]{
-        static std::default_random_engine engine{ rnd() };
-        static std::uniform_real_distribution<float> dist{0, 1};
-
-        return glm::vec4{dist(engine), dist(engine), dist(engine), 1};
-    };
-
-    std::vector<Particle> vertices;
-//    for(auto i = 0; i < particles.constants.numParticles; i++){
-//        Particle p{};
-//        p.position = rngPosition();
-////        p.position = glm::vec4(0, -1 ,0, 1);
-//        p.color = rngColor();
-//        p.velocity = rngVelocity();
-//        p.invMass = 0.1;
-//        vertices.push_back(p);
-//    }
-
-    float gridSpacing = float(grid.size)/std::sqrt(float(grid.numCells));
-//    glm::vec3 origin = glm::vec3(1, 2, 0) * gridSpacing;
-//    origin.x += gridSpacing * 0.8f;
-//    origin.y += gridSpacing * 0.2f;
-
-    std::vector<glm::vec3> expectedNeighbourList;
-    auto rng = rngFunc(0.0f, 1.0f, 1 << 20);
-    for(int i = 0; i < 100; i++){
-        glm::vec3 point{ rng(), rng(), 0};
-        expectedNeighbourList.push_back(point);
-    }
-//    auto rng = canonicalRng(1 << 20);
-//    for(int i = 0; i < 1; i++) {
-//        glm::vec2 uv { rng(), rng()};
-//        auto neighbour = glm::vec3(origin.xy() + gridSpacing * 0.45f * sampling::uniformSampleDisk(uv), 0);
-//        expectedNeighbourList.push_back(neighbour);
-//    }
-//
-//    for(int i = 0; i < 100; i++){
-//        float theta = float(i)/100.0f * glm::two_pi<float>();
-//        auto position = glm::vec3(origin.xy() +  gridSpacing * glm::vec2(std::cos(theta), std::sin(theta)), 0);
-//        expectedNeighbourList.push_back(position);
-//    }
-
-    for(auto& position : expectedNeighbourList){
-        Particle p{};
-        p.position = glm::vec4( 2.0f * position - 1.0f , 1);
-        p.position.z = 0;
-        p.color = rngColor();
-        p.velocity = rngVelocity();
-        p.invMass = 0.1;
-        vertices.push_back(p);
-    }
-    vertices.front().color = glm::vec4(1);
-    vertices.front().color = glm::vec4(1);
-
     particles.pointSize = alignedSize(sizeof(glm::vec4) * MAX_PARTICLES, bufferOffsetAlignment);
     particles.dataSize = alignedSize(sizeof(ParticleData) * MAX_PARTICLES, bufferOffsetAlignment);
     auto size = particles.pointSize + particles.dataSize;
@@ -460,117 +366,9 @@ void SPHFluidSimulation::runPhysics() {
     });
 }
 
-void SPHFluidSimulation::initGridBuilder() {
-    float n = std::sqrtf(float(grid.numCells));
-    gridBuilder.constants.resolution = glm::uvec3(n, n, 1);
-    gridBuilder.constants.gridSpacing = grid.size/n;
-    gridBuilder.constants.numParticles = particles.constants.numParticles;
-
-    // allocate buffer for bucketSize, nextBucketIndex and single value for buckets for pass 0
-    VkDeviceSize size = 2 * grid.numCells * sizeof(int) + sizeof(int);
-    gridBuilder.buffer = device.createBuffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, size);
-}
-
-void SPHFluidSimulation::createGridBuilderDescriptorSetLayout() {
-    std::vector<VkDescriptorSetLayoutBinding> bindings(3);
-    bindings[0].binding = 0;
-    bindings[0].descriptorCount = 1;
-    bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    bindings[0].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-
-    bindings[1].binding = 1;
-    bindings[1].descriptorCount = 1;
-    bindings[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    bindings[1].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-
-    bindings[2].binding = 2;
-    bindings[2].descriptorCount = 1;
-    bindings[2].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    bindings[2].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-
-   gridBuilder.descriptorSetLayout = device.createDescriptorSetLayout(bindings);
-}
-
-void SPHFluidSimulation::createGridBuilderDescriptorSet(VkDeviceSize offset, VkDeviceSize range) {
-    gridBuilder.descriptorSet = descriptorPool.allocate({ gridBuilder.descriptorSetLayout}).front();
-    auto writes = initializers::writeDescriptorSets<3>();
-
-
-    VkDeviceSize size = grid.numCells * sizeof(uint32_t);
-    VkDescriptorBufferInfo  bucketSizeInfo{ gridBuilder.buffer, 0, size };
-    writes[0].dstSet = gridBuilder.descriptorSet;
-    writes[0].dstBinding = 1;
-    writes[0].descriptorCount = 1;
-    writes[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    writes[0].pBufferInfo = &bucketSizeInfo;
-
-    VkDescriptorBufferInfo  nextBucketIndexInfo{ gridBuilder.buffer, size, size };
-    writes[1].dstSet = gridBuilder.descriptorSet;
-    writes[1].dstBinding = 2;
-    writes[1].descriptorCount = 1;
-    writes[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    writes[1].pBufferInfo = &nextBucketIndexInfo;
-
-    VkDescriptorBufferInfo bucketInfo{ gridBuilder.buffer, 2 * size, range };
-    writes[2].dstSet = gridBuilder.descriptorSet;
-    writes[2].dstBinding = 0;
-    writes[2].descriptorCount = 1;
-    writes[2].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    writes[2].pBufferInfo = &bucketInfo;
-
-    device.updateDescriptorSets(writes);
-}
-
-void SPHFluidSimulation::createGridBuilderPipeline() {
-    auto gridBuilderModule = VulkanShaderModule{"../../data/shaders/sph/point_hash_grid_builder.comp.spv", device};
-    auto stage = initializers::shaderStage({gridBuilderModule, VK_SHADER_STAGE_COMPUTE_BIT});
-    auto offset = alignedSize(sizeof(Camera) + sizeof(particles.constants), 16);
-    std::vector<VkPushConstantRange> ranges{{VK_SHADER_STAGE_COMPUTE_BIT, offset, sizeof(gridBuilder.constants)}};
-    gridBuilder.layout = device.createPipelineLayout({ particles.descriptorSetLayout, gridBuilder.descriptorSetLayout }, ranges);
-
-    auto createInfo = initializers::computePipelineCreateInfo();
-    createInfo.stage = stage;
-    createInfo.layout = gridBuilder.layout;
-
-    gridBuilder.pipeline = device.createComputePipeline(createInfo, pipelineCache);
-}
-
-
-void SPHFluidSimulation::buildPointHashGrid() {
-    GeneratePointHashGrid(0);
-    VkDeviceSize size = 0;
-    gridBuilder.buffer.map<int>([&](auto itr){
-        VkDeviceSize end =  grid.numCells;
-        for(int i = 0; i < end; i++ ){
-            auto gridSize = *(itr + i);
-            size += gridSize;
-        }
-    });
-    gridBuilder.buffer = device.createBuffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, size + 2 * sizeof(int) * grid.numCells);
-    createGridBuilderDescriptorSet(0, size);
-    GeneratePointHashGrid(1);
-}
-
-void SPHFluidSimulation::GeneratePointHashGrid(int pass) {
-    device.graphicsCommandPool().oneTimeCommand([&](auto commandBuffer){
-        uint32_t offset = alignedSize(sizeof(Camera) + sizeof(particles.constants), 16);
-        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, gridBuilder.pipeline);
-
-        gridBuilder.constants.pass = pass;
-        vkCmdPushConstants(commandBuffer, gridBuilder.layout, VK_SHADER_STAGE_COMPUTE_BIT, offset,
-                           sizeof(gridBuilder.constants), &gridBuilder.constants);
-
-        static std::array<VkDescriptorSet, 2> sets;
-        sets[0] = particles.descriptorSets[currentFrame%2];
-        sets[1] = gridBuilder.descriptorSet;
-
-        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, gridBuilder.layout, 0, COUNT(sets), sets.data(), 0, nullptr);
-        vkCmdDispatch(commandBuffer, particles.constants.numParticles/1024 + 1, 1, 1);
-    });
-}
-
 void SPHFluidSimulation::createEmitter() {
-    emitter = VolumeParticleEmitter{&device, &descriptorPool, &particles.descriptorSetLayout, sdf.sdf, 0.02f};
+    auto targetSpacing = particleProperties.targetSpacing;
+    emitter = VolumeParticleEmitter{&device, &descriptorPool, &particles.descriptorSetLayout, sdf.sdf, targetSpacing};
     emitter.init();
 }
 
@@ -596,6 +394,7 @@ void SPHFluidSimulation::initCamera() {
     settings.modelHeight = 0;
     settings.aspectRatio = static_cast<float>(swapChain.extent.width)/static_cast<float>(swapChain.extent.height);
     camera = std::make_unique<OrbitingCameraController>(device, swapChain.imageCount(), currentImageIndex, dynamic_cast<InputManager&>(*this), settings);
+    render.mvpBuffer = device.createCpuVisibleBuffer(&camera->cam(), sizeof(Camera), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
 }
 
 void SPHFluidSimulation::addParticleBufferBarrier(VkCommandBuffer commandBuffer, int index) {

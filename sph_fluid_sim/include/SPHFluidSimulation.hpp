@@ -16,11 +16,7 @@ public:
 protected:
     void initApp() override;
 
-    void initGrid();
-
     void createParticles();
-
-    void initGridBuilder();
 
     void createSdf();
 
@@ -64,15 +60,6 @@ protected:
 
     void onPause() override;
 
-    void createGridBuilderDescriptorSetLayout();
-
-    void createGridBuilderDescriptorSet(VkDeviceSize offset, VkDeviceSize range);
-
-    void createGridBuilderPipeline();
-
-    void buildPointHashGrid();
-
-    void GeneratePointHashGrid(int pass = 0);
 
     void initCamera();
 
@@ -89,17 +76,6 @@ protected:
         VulkanPipelineLayout layout;
         VulkanPipeline pipeline;
     } compute;
-
-    struct {
-        VulkanBuffer vertexBuffer;
-        struct {
-            glm::mat4 model = glm::mat4(1);
-            glm::mat4 view  = glm::mat4(1);
-            glm::mat4 projection = glm::mat4(1);
-        } xforms;
-        uint32_t numCells = 16;
-        float size = 1;
-    } grid;
 
     struct {
         VulkanPipelineLayout layout;
@@ -119,21 +95,6 @@ protected:
         VkDeviceSize dataSize{0};
 
     } particles;
-
-    struct {
-        VulkanPipelineLayout layout;
-        VulkanPipeline pipeline;
-        VulkanDescriptorSetLayout descriptorSetLayout;
-        VkDescriptorSet descriptorSet;
-        VulkanBuffer buffer;
-
-        struct {
-            glm::ivec3 resolution{1};
-            float gridSpacing{1};
-            uint32_t pass{0};
-            uint32_t numParticles{0};
-        } constants;
-    } gridBuilder;
 
     VulkanDescriptorPool descriptorPool;
     VulkanCommandPool commandPool;
