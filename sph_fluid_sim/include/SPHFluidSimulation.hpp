@@ -8,9 +8,12 @@
 #include "PointHashGrid.hpp"
 #include "TimeIntegration.hpp"
 #include "ExternalForces.hpp"
+#include "Collider.hpp"
 
 constexpr uint32_t MAX_PARTICLES = 1 << 19;
 constexpr float WATER_DENSITY = 1000.0;
+constexpr int PARTICLE_IN = 0;
+constexpr int PARTICLE_OUT = 1;
 
 class SPHFluidSimulation : public VulkanBaseApp{
 public:
@@ -26,6 +29,8 @@ protected:
     void createPointHashGrid();
 
     void createEmitter();
+
+    void createCollisonResolver();
 
     void computeMass();
 
@@ -117,6 +122,7 @@ protected:
     TimeIntegration timeIntegration;
     ForceDescriptor forceDescriptor;
     ExternalForces applyExternalForces;
+    Collider resolveCollision;
 
     std::shared_ptr<OrbitingCameraController> camera;
 

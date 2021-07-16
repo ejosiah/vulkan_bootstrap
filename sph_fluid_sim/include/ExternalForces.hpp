@@ -45,7 +45,7 @@ struct ExternalForces : public ComputePipelines{
     ForceDescriptor* forceDescriptor{nullptr };
 
     struct {
-        glm::vec3 gravity{0, -0.98, 0};
+        glm::vec3 gravity{0, -9.8, 0};
         uint32_t numParticles{0};
         float drag{1e-4};
         float time{0.0};

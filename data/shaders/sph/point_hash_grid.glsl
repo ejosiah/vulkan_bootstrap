@@ -1,6 +1,8 @@
 #ifndef POINT_HASH_GRID_GLSL
 #define POINT_HASH_GRID_GLSL
 
+#include "../glsl_cpp_bridge.glsl"
+
 vec3 wrap(vec3 bucketIndex, vec3 resolution){
     return mod(bucketIndex, resolution);
 }
@@ -19,7 +21,7 @@ bool is2dGrid(vec3 resolution){
     return (resolution.z - 1.0) <= 0.0;
 }
 
-void getNearByKeys2d(vec3 position, float gridSpacing, vec3 resolution, inout int keys[8]){
+void getNearByKeys2d(vec3 position, float gridSpacing, vec3 resolution, int keys[8]){
     vec3 originIndex = floor(position/gridSpacing);
     vec3 nearByBucketIndices[8];
     for(int i = 0; i < 4; i++){

@@ -1,11 +1,12 @@
 #version 460
+#extension GL_EXT_scalar_block_layout : enable
 #include "common.glsl"
 
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
 
 layout(set = 0, binding = 0, r32f) uniform image3D sdf_output;
 
-layout(set = 0, binding = 1) buffer Domain{
+layout(set = 0, binding = 1, scalar) buffer Domain{
     BoundingBox domain;
 };
 

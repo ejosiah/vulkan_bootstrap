@@ -37,6 +37,7 @@ constexpr bool debugMode = false;
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtc/matrix_access.hpp>
+#include <glm/gtc/epsilon.hpp>
 #include <vulkan/vulkan.h>
 #include <fmt/chrono.h>
 #include <fmt/ranges.h>
@@ -127,6 +128,7 @@ TypeName& operator=(const TypeName&) = delete;
 TypeName(TypeName&&) = delete; \
 TypeName& operator=(TypeName&&) = delete;
 
+
 constexpr uint32_t alignedSize(uint32_t value, uint32_t alignment){
     return (value + alignment - 1) & ~(alignment - 1);
 }
@@ -167,4 +169,9 @@ inline std::function<T()> rngFunc(T lower, T upper, uint32_t seed = std::random_
  */
 inline std::function<float()> canonicalRng(uint32_t seed = std::random_device{}()){
     return rngFunc<float>(0.0f, 1.0f, seed);
+}
+
+template<glm::length_t L, typename T, glm::qualifier Q>
+bool vectorEquals(glm::vec<L, T, Q> v0, glm::vec<L, T, Q> v1, float eps = 1e-4){
+    return glm::all(glm::epsilonEqual(v0, v1, eps));
 }

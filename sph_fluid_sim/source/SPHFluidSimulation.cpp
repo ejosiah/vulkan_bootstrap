@@ -16,6 +16,7 @@ void SPHFluidSimulation::initApp() {
     createParticles();
     createSdf();
     createEmitter();
+    createCollisonResolver();
     createDescriptorSets();
     createRenderDescriptorSet();
     createPipelineCache();
@@ -315,6 +316,7 @@ void SPHFluidSimulation::update(float time) {
         *ptr = camera->cam();
     });
     forceDescriptor.setNumParticles(numParticles);
+    resolveCollision.setNumParticles(numParticles);
     applyExternalForces.update(numParticles, time);
     timeIntegration.update(numParticles, time);
     runPhysics();
@@ -344,25 +346,19 @@ void SPHFluidSimulation::createParticles() {
 
 void SPHFluidSimulation::runPhysics() {
     int inIndex = currentFrame % 2;
+    int outIndex = 1 - inIndex;
     static std::array<VkDescriptorSet, 2> sets{};
-    sets[0] = particles.descriptorSets[inIndex];
-    sets[1] = particles.descriptorSets[1 - inIndex];
+    sets[PARTICLE_IN] = particles.descriptorSets[inIndex];
+    sets[PARTICLE_OUT] = particles.descriptorSets[outIndex];
 
     device.graphicsCommandPool().oneTimeCommand([&](VkCommandBuffer commandBuffer){
-//        particles.constants.gravity = glm::vec3(0, -0.11, 0);
-//        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, compute.pipeline);
-//        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, compute.layout, 0, COUNT(sets), sets.data(), 0, nullptr);
-//        vkCmdPushConstants(commandBuffer, compute.layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(particles.constants), &particles.constants);
-//        vkCmdDispatch(commandBuffer, (particles.constants.numParticles - 1)/1024 + 1, 1, 1);
-        applyExternalForces(commandBuffer, sets[inIndex]);
+        applyExternalForces(commandBuffer, sets[PARTICLE_IN]);
         addComputeBufferMemoryBarriers(commandBuffer, { &forceDescriptor.forceBuffer });
         timeIntegration(commandBuffer, sets, forceDescriptor.set);
+        addComputeBufferMemoryBarriers(commandBuffer, { &particles.buffers[0], &particles.buffers[1] });
+        resolveCollision(commandBuffer, sets[PARTICLE_OUT]);
     });
-//    forceDescriptor.forceBuffer.map<glm::vec3>([&](auto ptr){
-//        for(int i = 0; i < 10; i++){
-//            spdlog::info("force[{}] => {}", i, ptr[i]);
-//        }
-//    });
+
 }
 
 void SPHFluidSimulation::createEmitter() {
@@ -370,6 +366,15 @@ void SPHFluidSimulation::createEmitter() {
     emitter = VolumeParticleEmitter{&device, &descriptorPool, &particles.descriptorSetLayout, sdf.sdf, targetSpacing};
     emitter.init();
     emitter.constants.jitter = 1.0;
+}
+
+void SPHFluidSimulation::createCollisonResolver() {
+    BoxSurface box{domain, true };
+//    VulkanBuffer buffer = device.createStagingBuffer(sizeof(BoxSurface));
+//    VulkanBuffer buffer = device.createDeviceLocalBuffer(&domain, sizeof(box), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+
+    resolveCollision = Collider{ &device, &descriptorPool, &particles.descriptorSetLayout, box, particleProperties.targetSpacing};
+    resolveCollision.init();
 }
 
 void SPHFluidSimulation::createSdf() {
@@ -427,6 +432,9 @@ void SPHFluidSimulation::emit(){
     numParticles = emitter.numParticles();
     particles.constants.numParticles = numParticles;
     spdlog::info("{} particles emitted", particles.constants.numParticles);
+    particles.buffers[0].map<glm::vec4>([&](auto ptr){
+       for(int i = 0; i < 10; i++) spdlog::info("pos: {}", ptr[i].xyz());
+    });
 }
 
 void SPHFluidSimulation::computeMass() {

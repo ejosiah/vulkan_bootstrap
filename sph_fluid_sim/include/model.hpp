@@ -2,6 +2,13 @@
 
 #include "common.h"
 #include "Texture.h"
+
+constexpr int PARTICLES_PER_INVOCATION = 1024;
+
+constexpr int workGroupSize(const int NumWorkGroups, const int invocationsPerWorkGroup = PARTICLES_PER_INVOCATION){
+    return (NumWorkGroups - 1)/invocationsPerWorkGroup + 1;
+}
+
 struct Particle{
     glm::vec4 position{0};
     glm::vec4 color{0};
@@ -15,10 +22,9 @@ struct ParticleData{
     float invMass{0};
 };
 
-
 struct BoundingBox{
-    alignas(16) glm::vec3 min{ 0 };
-    alignas(16) glm::vec3 max{ 1 };
+    glm::vec3 min{ 0 };
+    glm::vec3 max{ 1 };
 };
 
 inline BoundingBox expand(BoundingBox box, glm::vec3 delta){
@@ -38,3 +44,7 @@ struct Sdf{
     BoundingBox domain;
 };
 
+struct BoxSurface{
+    BoundingBox bounds;
+    int flipNormal{0};
+};
