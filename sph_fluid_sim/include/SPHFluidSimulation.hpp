@@ -5,6 +5,9 @@
 #include "SdfCompute.hpp"
 #include "VolumeParticleEmitter.hpp"
 #include "StdKernel.hpp"
+#include "PointHashGrid.hpp"
+#include "TimeIntegration.hpp"
+#include "ExternalForces.hpp"
 
 constexpr uint32_t MAX_PARTICLES = 1 << 19;
 constexpr float WATER_DENSITY = 1000.0;
@@ -20,11 +23,17 @@ protected:
 
     void createSdf();
 
+    void createPointHashGrid();
+
     void createEmitter();
 
     void computeMass();
 
-    void createPointGenerator();
+    void emit();
+
+    void createForces();
+
+    void createTimeIntegrator();
 
     void createDescriptorPool();
 
@@ -103,18 +112,24 @@ protected:
 
     SdfCompute sdf;
     VolumeParticleEmitter emitter;
+    PointGenerator pointGenerator;
+    PointHashGrid pointHashGrid;
+    TimeIntegration timeIntegration;
+    ForceDescriptor forceDescriptor;
+    ExternalForces applyExternalForces;
+
     std::shared_ptr<OrbitingCameraController> camera;
 
-    uint32_t numParticles;
+    uint32_t numParticles{0};
     float eosExponent = 7.0;
     float negativePressureScale = 0.0;
     float viscosityCoefficient = 0.01;
     float pseudoViscosityCoefficient = 10.0;
     float speedOfSound = 100.0;
 
-    StdKernel kernel;
-    PointGenerator pointGenerator;
     VkDeviceSize bufferOffsetAlignment;
+
+    BoundingBox domain{{-0.5, 0, -0.5}, {0.5, 2, 0.5 }};
 
     struct {
         float radius = 1e-3;
@@ -124,4 +139,6 @@ protected:
         float kernelRadiusOverTargetSpacing = 1.8;
         float kernelRadius = 0.036f;
     } particleProperties;
+    VkPhysicalDeviceScalarBlockLayoutFeatures scalarFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SCALAR_BLOCK_LAYOUT_FEATURES,
+                                                              nullptr, VK_TRUE};
 };

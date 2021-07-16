@@ -1,6 +1,6 @@
 #include "PointHashGrid.hpp"
 
-PointHashGrid::PointHashGrid(VulkanDevice* device, VulkanDescriptorPool* descriptorPool, VulkanDescriptorSetLayout* particleDescriptorSetLayout, int numParticles, glm::vec3 resolution, float gridSpacing)
+PointHashGrid::PointHashGrid(VulkanDevice* device, VulkanDescriptorPool* descriptorPool, VulkanDescriptorSetLayout* particleDescriptorSetLayout, glm::vec3 resolution, float gridSpacing)
         :
         ComputePipelines(device),
         device(device),
@@ -9,9 +9,8 @@ PointHashGrid::PointHashGrid(VulkanDevice* device, VulkanDescriptorPool* descrip
 {
     constants.resolution = resolution;
     constants.gridSpacing = gridSpacing;
-    constants.numParticles = numParticles;
     bufferOffsetAlignment = device->getLimits().minStorageBufferOffsetAlignment;
-    init();
+
 }
 
 void PointHashGrid::init() {
@@ -21,13 +20,12 @@ void PointHashGrid::init() {
     createDescriptorSets();
     updateDescriptorSet();
     updateScanDescriptorSet();
-    initNeighbourList();
+    createNeighbourListSetLayout();
     createPipelines();
 }
 
 void PointHashGrid::initNeighbourList(){
     initNeighbourListBuffers();
-    createNeighbourListSetLayout();
     createNeighbourListDescriptorSets();
     updateNeighbourListScanDescriptorSet();
 }
@@ -47,13 +45,6 @@ void PointHashGrid::initNeighbourListBuffers(){
 
 void PointHashGrid::createDescriptorSetLayouts() {
     std::vector<VkDescriptorSetLayoutBinding> bindings(1);
-//    bindings[0].binding = 0;
-//    bindings[0].descriptorCount = 1;
-//    bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-//    bindings[0].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-
-//    particleDescriptorSetLayout = device->createDescriptorSetLayout(bindings);
-//
     bindings.resize(2);
     bindings[0].binding = 0;
     bindings[0].descriptorCount = 1;
@@ -74,20 +65,6 @@ void PointHashGrid::createDescriptorSetLayouts() {
     bindings[0].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
     bucketSizeSetLayout = device->createDescriptorSetLayout(bindings);
-
-    // unit test layout
-//    bindings.resize(2);
-//    bindings[0].binding = 0;
-//    bindings[0].descriptorCount = 1;
-//    bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-//    bindings[0].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-//
-//    bindings[1].binding = 1;
-//    bindings[1].descriptorCount = 1;
-//    bindings[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-//    bindings[1].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-//
-//    unitTestDescriptorSetLayout = device->createDescriptorSetLayout(bindings);
 
     bindings.resize(2);
     bindings[0].binding = 0;
@@ -223,27 +200,21 @@ void PointHashGrid::updateDescriptorSet() {
 }
 
 void PointHashGrid::updateBucketDescriptor() {
-    auto writes = initializers::writeDescriptorSets<3>();
-    VkDescriptorBufferInfo bucketInfo{bucketBuffer, 0, VK_WHOLE_SIZE };
-    writes[0].dstSet = gridDescriptorSet;
+    auto writes = initializers::writeDescriptorSets<2>();
+
+    VkDescriptorBufferInfo  bucketSizeInfo{bucketSizeBuffer, 0, VK_WHOLE_SIZE };
+    writes[0].dstSet = bucket.descriptorSet;
     writes[0].dstBinding = 0;
     writes[0].descriptorCount = 1;
     writes[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    writes[0].pBufferInfo = &bucketInfo;
-
-    VkDescriptorBufferInfo  bucketSizeInfo{bucketSizeBuffer, 0, VK_WHOLE_SIZE };
-    writes[1].dstSet = bucket.descriptorSet;
-    writes[1].dstBinding = 0;
-    writes[1].descriptorCount = 1;
-    writes[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    writes[1].pBufferInfo = &bucketSizeInfo;
+    writes[0].pBufferInfo = &bucketSizeInfo;
 
     VkDescriptorBufferInfo  bucketOffsetInfo{bucketSizeOffsetBuffer, 0, VK_WHOLE_SIZE };
-    writes[2].dstSet = bucket.descriptorSet;
-    writes[2].dstBinding = 1;
-    writes[2].descriptorCount = 1;
-    writes[2].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    writes[2].pBufferInfo = &bucketOffsetInfo;
+    writes[1].dstSet = bucket.descriptorSet;
+    writes[1].dstBinding = 1;
+    writes[1].descriptorCount = 1;
+    writes[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    writes[1].pBufferInfo = &bucketOffsetInfo;
 
     device->updateDescriptorSets(writes);
 }
@@ -255,7 +226,6 @@ void PointHashGrid::updateGridBuffer() {
     nextBufferIndexBuffer = device->createBuffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, gridSize);
     bucketSizeBuffer = device->createBuffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, gridSize);
     bucketSizeOffsetBuffer = device->createBuffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, gridSize);
-    bucketBuffer = device->createBuffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, constants.numParticles * sizeof(int));
     updateScanBuffer();
 }
 
@@ -436,6 +406,24 @@ std::vector<PipelineMetaData> PointHashGrid::pipelineMetaData() {
     };
 }
 
+void PointHashGrid::setNumParticles(int numParticles) {
+    if(bucketBuffer.buffer == VK_NULL_HANDLE || bucketBuffer.size/sizeof(int) != numParticles) {
+        constants.numParticles = numParticles;
+        bucketBuffer = device->createBuffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU,
+                                            constants.numParticles * sizeof(int));
+
+        auto writes = initializers::writeDescriptorSets<1>();
+        VkDescriptorBufferInfo bucketInfo{bucketBuffer, 0, VK_WHOLE_SIZE };
+        writes[0].dstSet = gridDescriptorSet;
+        writes[0].dstBinding = 0;
+        writes[0].descriptorCount = 1;
+        writes[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        writes[0].pBufferInfo = &bucketInfo;
+        device->updateDescriptorSets(writes);
+        initNeighbourList();
+    }
+}
+
 void PointHashGrid::updateParticleDescriptorSet(VkDescriptorSet newDescriptorSet) {
     particleDescriptorSet = newDescriptorSet;
 }
@@ -449,17 +437,5 @@ void PrefixScan::scan(VkCommandBuffer commandBuffer, VulkanBuffer &buffer, VkPip
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, layout, 0, 1, &descriptorSet, 0, nullptr);
     vkCmdDispatch(commandBuffer, numWorkGroups, 1, 1);
 
-//    if(numWorkGroups > 1){
-//        PointHashGrid::addBufferMemoryBarriers(commandBuffer, {&buffer, &sumsBuffer});
-//        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, layout, 0, 1, &sumScanDescriptorSet, 0, nullptr);
-//        vkCmdDispatch(commandBuffer, 1, 1, 1);
-//
-//        PointHashGrid::addBufferMemoryBarriers(commandBuffer, {&buffer, &sumsBuffer });
-//        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline("add"));
-//        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, layout("add"), 0, 1, &descriptorSet, 0, nullptr);
-//        vkCmdPushConstants(commandBuffer, layout("add"), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(constants), &constants);
-//        vkCmdDispatch(commandBuffer, numWorkGroups, 1, 1);
-//    }
-    // make sure bucketSize before write finished before grid build pass 1
     PointHashGrid::addBufferMemoryBarriers(commandBuffer, {&buffer});
 }

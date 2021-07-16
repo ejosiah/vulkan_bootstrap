@@ -4,7 +4,7 @@
 #include "vulkan_util.h"
 
 SPHFluidSimulation::SPHFluidSimulation(const Settings& settings) : VulkanBaseApp("SPH Fluid Simulation", settings) {
-
+    deviceCreateNextChain = &scalarFeatures;
 }
 
 void SPHFluidSimulation::initApp() {
@@ -14,30 +14,18 @@ void SPHFluidSimulation::initApp() {
     createDescriptorSetLayouts();
     createCommandPool();
     createParticles();
-//    createPointGenerator();
     createSdf();
     createEmitter();
-//    initGridBuilder();
     createDescriptorSets();
     createRenderDescriptorSet();
     createPipelineCache();
     createRenderPipeline();
     createComputePipeline();
-
+    createPointHashGrid();
+    createForces();
+    createTimeIntegrator();
     computeMass();
-    device.computeCommandPool().oneTimeCommand([&](auto cmdBuffer){
-        sdf.execute(cmdBuffer);
-    });
-    device.computeCommandPool().oneTimeCommand([&](auto cmdBuffer){
-        emitter.execute(cmdBuffer, particles.descriptorSets[0]);
-        emitter.execute(cmdBuffer, particles.descriptorSets[1]);
-    });
-    particles.constants.numParticles = emitter.numParticles();
-    spdlog::info("{} particles emitted", particles.constants.numParticles);
-//    createGridBuilderDescriptorSetLayout();
-//    createGridBuilderDescriptorSet(gridBuilder.buffer.size - sizeof(uint32_t), sizeof(uint32_t));
-//    createGridBuilderPipeline();
-//    buildPointHashGrid();
+    emit();
 }
 
 void SPHFluidSimulation::createDescriptorPool() {
@@ -326,7 +314,10 @@ void SPHFluidSimulation::update(float time) {
     render.mvpBuffer.map<Camera>([&](auto ptr){
         *ptr = camera->cam();
     });
-//    runPhysics();
+    forceDescriptor.setNumParticles(numParticles);
+    applyExternalForces.update(numParticles, time);
+    timeIntegration.update(numParticles, time);
+    runPhysics();
 }
 
 void SPHFluidSimulation::checkAppInputs() {
@@ -345,6 +336,7 @@ void SPHFluidSimulation::onPause() {
 void SPHFluidSimulation::createParticles() {
     particles.pointSize = alignedSize(sizeof(glm::vec4) * MAX_PARTICLES, bufferOffsetAlignment);
     particles.dataSize = alignedSize(sizeof(ParticleData) * MAX_PARTICLES, bufferOffsetAlignment);
+    particles.constants.numParticles = 0;
     auto size = particles.pointSize + particles.dataSize;
     particles.buffers[0] = device.createBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, size);
     particles.buffers[1] = device.createBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, size);
@@ -357,32 +349,54 @@ void SPHFluidSimulation::runPhysics() {
     sets[1] = particles.descriptorSets[1 - inIndex];
 
     device.graphicsCommandPool().oneTimeCommand([&](VkCommandBuffer commandBuffer){
-        particles.constants.gravity = glm::vec3(0, -0.98, 0);
-    //    particles.constants.numParticles = std::min(1 << frameCount, 1024);
-        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, compute.pipeline);
-        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, compute.layout, 0, COUNT(sets), sets.data(), 0, nullptr);
-        vkCmdPushConstants(commandBuffer, compute.layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(particles.constants), &particles.constants);
-        vkCmdDispatch(commandBuffer, (particles.constants.numParticles - 1)/1024 + 1, 1, 1);
+//        particles.constants.gravity = glm::vec3(0, -0.11, 0);
+//        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, compute.pipeline);
+//        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, compute.layout, 0, COUNT(sets), sets.data(), 0, nullptr);
+//        vkCmdPushConstants(commandBuffer, compute.layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(particles.constants), &particles.constants);
+//        vkCmdDispatch(commandBuffer, (particles.constants.numParticles - 1)/1024 + 1, 1, 1);
+        applyExternalForces(commandBuffer, sets[inIndex]);
+        addComputeBufferMemoryBarriers(commandBuffer, { &forceDescriptor.forceBuffer });
+        timeIntegration(commandBuffer, sets, forceDescriptor.set);
     });
+//    forceDescriptor.forceBuffer.map<glm::vec3>([&](auto ptr){
+//        for(int i = 0; i < 10; i++){
+//            spdlog::info("force[{}] => {}", i, ptr[i]);
+//        }
+//    });
 }
 
 void SPHFluidSimulation::createEmitter() {
     auto targetSpacing = particleProperties.targetSpacing;
     emitter = VolumeParticleEmitter{&device, &descriptorPool, &particles.descriptorSetLayout, sdf.sdf, targetSpacing};
     emitter.init();
+    emitter.constants.jitter = 1.0;
 }
 
 void SPHFluidSimulation::createSdf() {
-    sdf = SdfCompute{ &device, &descriptorPool, BoundingBox{glm::vec3(-0.5, 0, -0.5), glm::vec3(0.5, 2, 0.5) },
+    auto targetSpacing = particleProperties.targetSpacing;
+    BoundingBox region = expand(domain, -targetSpacing);
+    sdf = SdfCompute{ &device, &descriptorPool, region,
                       "../../data/sph/water_drop.comp.spv", glm::ivec3{128}};
 }
 
-void SPHFluidSimulation::createPointGenerator() {
-    auto radius = particleProperties.kernelRadius * 1.5f;
-    auto targetSpacing = particleProperties.targetSpacing;
-    BoundingBox box{ -glm::vec3(radius), glm::vec3(radius) };
-    pointGenerator = PointGenerator{&device, &descriptorPool, &particles.descriptorSetLayout, box, targetSpacing, FCC_LATTICE_POINT_GENERATOR};
-    pointGenerator.init();
+void SPHFluidSimulation::createPointHashGrid() {
+    auto radius = particleProperties.kernelRadius;
+    assert(radius > 0);
+    pointHashGrid = PointHashGrid{ &device, &descriptorPool, &particles.descriptorSetLayout, glm::vec3{64}, radius * 2.0f};
+    pointHashGrid.init();
+}
+
+void SPHFluidSimulation::createForces() {
+    forceDescriptor = ForceDescriptor{ &device, &descriptorPool};
+    forceDescriptor.init();
+    applyExternalForces = ExternalForces{ &device, &forceDescriptor, &particles.descriptorSetLayout, particles.constants.drag};
+    applyExternalForces.init();
+    applyExternalForces.constants.gravity = {0, -0.11, 0};
+}
+
+void SPHFluidSimulation::createTimeIntegrator() {
+    timeIntegration = TimeIntegration{ &device, &particles.descriptorSetLayout, &forceDescriptor.layoutSet};
+    timeIntegration.init();
 }
 
 void SPHFluidSimulation::initCamera() {
@@ -402,6 +416,19 @@ void SPHFluidSimulation::addParticleBufferBarrier(VkCommandBuffer commandBuffer,
     , VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 }
 
+void SPHFluidSimulation::emit(){
+    device.computeCommandPool().oneTimeCommand([&](auto cmdBuffer){
+        sdf.execute(cmdBuffer);
+    });
+    device.computeCommandPool().oneTimeCommand([&](auto cmdBuffer){
+        emitter.execute(cmdBuffer, particles.descriptorSets[0]);
+        emitter.execute(cmdBuffer, particles.descriptorSets[1]);
+    });
+    numParticles = emitter.numParticles();
+    particles.constants.numParticles = numParticles;
+    spdlog::info("{} particles emitted", particles.constants.numParticles);
+}
+
 void SPHFluidSimulation::computeMass() {
     particleProperties.kernelRadius = particleProperties.kernelRadiusOverTargetSpacing * particleProperties.targetSpacing;
     auto radius = particleProperties.kernelRadius * 1.5f;
@@ -416,7 +443,8 @@ void SPHFluidSimulation::computeMass() {
     });
 
 
-    auto numParticles = pointGenerator.numParticles();
+    numParticles = pointGenerator.numParticles();
+    particles.constants.numParticles = numParticles;
     auto kernel = StdKernel(particleProperties.kernelRadius);
     spdlog::info("calculating mass for num particles {} with kernel radius: {}", numParticles, particleProperties.kernelRadius);
 
@@ -440,7 +468,10 @@ void SPHFluidSimulation::computeMass() {
     spdlog::info("running sim with particle mass of {}", mass);
     assert(mass > 0);
     particleProperties.mass = mass;
+    applyExternalForces.constants.invMass = 1.0f/mass;
+    timeIntegration.constants.invMass = 1.0f/mass;
 }
+
 
 
 int main(){

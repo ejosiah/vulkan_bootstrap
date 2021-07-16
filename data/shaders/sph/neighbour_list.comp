@@ -59,10 +59,11 @@ void main(){
     int next = 0;
     if(pass == 0){
         int neighbourListSize = 0;
-        for(int i = 0; i < 4; i++){
+        for(int i = 0; i < 8; i++){
             int bucketIndex = nearByKeys[i];
-            int numPointsInBucket = bucketSize[bucketIndex];
+            if(bucketIndex < 0) continue;
 
+            int numPointsInBucket = bucketSize[bucketIndex];
             if(numPointsInBucket <= 0) continue;
 
             int bucketOffset = bucketSizeOffset[bucketIndex];
@@ -81,8 +82,10 @@ void main(){
     }
 
     int nextIndex = 0;
-    for(int i = 0; i < 4; i++){
+    for(int i = 0; i < 8; i++){
         int bucketIndex = nearByKeys[i];
+        if(bucketIndex < 0) continue;
+
         int numPointsInBucket = bucketSize[bucketIndex];
 
         int bucketOffset = bucketSizeOffset[bucketIndex];

@@ -11,8 +11,7 @@ enum PointGeneratorType{
     FCC_LATTICE_POINT_GENERATOR  = 2
 };
 
-class PointGenerator : public ComputePipelines{
-public:
+struct PointGenerator : public ComputePipelines{
     PointGenerator() = default;
 
     explicit PointGenerator(VulkanDevice* device, VulkanDescriptorPool* pool, VulkanDescriptorSetLayout* pointDescriptorSetLayout,
@@ -43,7 +42,6 @@ public:
     [[nodiscard]]
     int numParticles();
 
-protected:
     VulkanDescriptorPool* pool{ nullptr};
     VkDescriptorSet descriptorSet{ VK_NULL_HANDLE };
     VulkanDescriptorSetLayout setLayout;

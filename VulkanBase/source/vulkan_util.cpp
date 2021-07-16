@@ -1,5 +1,9 @@
 #include "vulkan_util.h"
 
+void addComputeBufferMemoryBarriers(VkCommandBuffer commandBuffer, const std::vector<VulkanBuffer*>& buffers){
+    addBufferMemoryBarriers(commandBuffer, buffers, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+}
+
 void addBufferMemoryBarriers(VkCommandBuffer commandBuffer, const std::vector<VulkanBuffer*> &buffers, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask) {
     std::vector<VkBufferMemoryBarrier> barriers(buffers.size());
 
@@ -12,7 +16,8 @@ void addBufferMemoryBarriers(VkCommandBuffer commandBuffer, const std::vector<Vu
         barriers[i].size = buffers[i]->size;
     }
 
-    vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0,
+    vkCmdPipelineBarrier(commandBuffer, srcStageMask, dstStageMask, 0,
                          0,
                          nullptr, COUNT(barriers), barriers.data(), 0, nullptr);
 }
+

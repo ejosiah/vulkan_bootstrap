@@ -2,9 +2,9 @@
 
 #include "VulkanDevice.h"
 #include "ComputePipelins.hpp"
-#include "particle_model.hpp"
 
-constexpr VkDeviceSize LIST_HEAP_SIZE = (1 << 20) * 50; // 50MB
+constexpr VkDeviceSize LIST_HEAP_SIZE = (1 << 20) * 50; // 50MB TODO calculate based on density and kernel radius
+static constexpr int ITEMS_PER_WORKGROUP = 8 << 10;
 
 struct PrefixScan{
     VkDescriptorSet descriptorSet{};
@@ -23,7 +23,7 @@ class PointHashGrid : public ComputePipelines{
 public:
     PointHashGrid() = default;
 
-    PointHashGrid(VulkanDevice* device, VulkanDescriptorPool* descriptorPool, VulkanDescriptorSetLayout* particleDescriptorSetLayout, int numParticles, glm::vec3 resolution, float gridSpacing);
+    PointHashGrid(VulkanDevice* device, VulkanDescriptorPool* descriptorPool, VulkanDescriptorSetLayout* particleDescriptorSetLayout, glm::vec3 resolution, float gridSpacing);
 
     void init();
 
@@ -65,10 +65,12 @@ public:
 
     void generateNeighbourList(VkCommandBuffer commandBuffer, int pass);
 
+
     std::vector<PipelineMetaData> pipelineMetaData() override;
 
     void updateParticleDescriptorSet(VkDescriptorSet newDescriptorSet);
 
+    void setNumParticles(int numParticles);
 public:
 
 

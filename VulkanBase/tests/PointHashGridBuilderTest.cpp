@@ -184,7 +184,9 @@ protected:
 
 
     void buildHashGrid(){
-        grid = PointHashGrid{&device, &descriptorPool, &particleDescriptorSetLayout, int(particles.size()), resolution, gridSpacing};
+        grid = PointHashGrid{&device, &descriptorPool, &particleDescriptorSetLayout, resolution, gridSpacing};
+        grid.init();
+        grid.setNumParticles(int(particles.size()));
         execute([&](auto commandBuffer){
             grid.buildHashGrid(commandBuffer, particleDescriptorSet);
         });
@@ -252,7 +254,9 @@ protected:
     }
 
     void generateNeighbourList(){
-        grid = PointHashGrid{&device, &descriptorPool, &particleDescriptorSetLayout, int(particles.size()), resolution, gridSpacing};
+        grid = PointHashGrid{&device, &descriptorPool, &particleDescriptorSetLayout, resolution, gridSpacing};
+        grid.init();
+        grid.setNumParticles(int(particles.size()));
         execute([&](auto commandBuffer){
             grid.buildHashGrid(commandBuffer, particleDescriptorSet);
             grid.generateNeighbourList(commandBuffer);
@@ -323,12 +327,12 @@ protected:
     }
 
     template<size_t Amount>
-    std::vector<glm::vec3> generateRandomPointsInGrid(float lower, float upper){
+    std::vector<glm::vec3> generateRandomPointsInGrid(float lower, float upper, glm::vec3 mask = glm::vec3(1)){
         std::vector<glm::vec3> points;
         auto rng = rngFunc(lower, upper, 1 << 20);
         for(int i = 0; i < Amount; i++){
-            glm::vec3 point{ rng(), rng(), 0};
-            points.push_back(point);
+            glm::vec3 point{ rng(), rng(), rng()};
+            points.push_back(point * mask);
             addParticleAt(point);
         }
         return points;
@@ -494,6 +498,7 @@ TEST_F(PointHashGridBuilderTest, getNearByKeys2dOfPointInBottomCornerofCellZero)
     gridSpacing = 0.25;
 
     addParticleAt(glm::vec3{0});
+    glm::vec3 origin = particles.front().xyz();
 
     createParticles();
     buildHashGrid();
@@ -546,7 +551,7 @@ TEST_F(PointHashGridBuilderTest, generateNeighbourList){
 }
 
 TEST_F(PointHashGridBuilderTest, generateNeighbourListOfRandomPoints){
-    resolution = glm::vec3{4, 4, 1};
+    resolution = glm::vec3{4, 4, 4};
     gridSpacing = 0.25;
 
     generateRandomPointsInGrid<100>(0.0f, 1.0f);

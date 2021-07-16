@@ -4,7 +4,6 @@
 #include <VulkanDebug.h>
 #include <VulkanShaderModule.h>
 #include <mutex>
-
 std::mutex g_mutex;
 VkInstance g_instance = VK_NULL_HANDLE;
 VkPhysicalDevice g_physicalDevice = VK_NULL_HANDLE;
@@ -239,56 +238,89 @@ vec3 remap(vec3 value, vec3 oldMin, vec3 oldMax, vec3 newMin, vec3 newMax){
     return (((value - oldMin) / (oldMax - oldMin)) * (newMax - newMin)) + newMin;
 }
 
-const float gridSpacing = 0.2;
-const ivec3 resolution = ivec3(10, 10, 1);
 
-ivec3 getBucketIndex(vec3 point){
-    ivec3 bucketIndex;
 
-    bucketIndex.x = int(floor(point.x/gridSpacing));
-    bucketIndex.y = int(floor(point.y/gridSpacing));
-    bucketIndex.z = int(floor(point.z/gridSpacing));
 
-    return bucketIndex;
-}
 
-ivec3 wrapAround(ivec3 bucketIndex){
-    auto wrapped = ivec3(mod(vec3(bucketIndex), vec3(resolution)));
-
-    if(wrapped.x < 0) wrapped.x += resolution.x;
-    if(wrapped.y < 0) wrapped.y += resolution.y;
-    if(wrapped.z < 0) wrapped.z += resolution.z;
-
+vec3 wrap(vec3 bucketIndex, vec3 resolution){
+    bucketIndex = mod(bucketIndex, resolution);
+    vec3 wrapped = bucketIndex + (1.0f - step(0.0f, bucketIndex)) * resolution;
     return wrapped;
 }
 
-int toHashKey(ivec3 bucketIndex){
-    auto wrapped = ivec3(mod(vec3(bucketIndex), vec3(resolution)));
-
-    if(wrapped.x < 0) wrapped.x += resolution.x;
-    if(wrapped.y < 0) wrapped.y += resolution.y;
-    if(wrapped.z < 0) wrapped.z += resolution.z;
-
-    return (wrapped.z * resolution.y + wrapped.y) * resolution.x + wrapped.x;
-//    return (wrapped.y * resolution.x + wrapped.x) * resolution.y + wrapped.z;
+int toHashKey(vec3 bucketIndex, vec3 resolution){
+    return int((bucketIndex.z * resolution.y + bucketIndex.y) * resolution.x + bucketIndex.x);
 }
 
+int getHashKey(vec3 point, vec3 resolution, float gridSpacing){
+    vec3 bucketIndex = floor(point/gridSpacing);
+    bucketIndex = wrap(bucketIndex, resolution);
+    return toHashKey(bucketIndex, resolution);
+}
+
+void getNearByKeys(vec3 position, float gridSpacing, vec3 resolution, int* keys){
+    vec3 originIndex = floor(position/gridSpacing);
+    vec3 nearByBucketIndices[8];
+    for(int i = 0; i < 8; i++){
+        nearByBucketIndices[i] = originIndex;
+    }
+
+    if ((originIndex.x + 0.5f) * gridSpacing <= position.x) {
+        nearByBucketIndices[4].x += 1;
+        nearByBucketIndices[5].x += 1;
+        nearByBucketIndices[6].x += 1;
+        nearByBucketIndices[7].x += 1;
+    } else {
+        nearByBucketIndices[4].x -= 1;
+        nearByBucketIndices[5].x -= 1;
+        nearByBucketIndices[6].x -= 1;
+        nearByBucketIndices[7].x -= 1;
+    }
+
+    if ((originIndex.y + 0.5f) * gridSpacing <= position.y) {
+        nearByBucketIndices[2].y += 1;
+        nearByBucketIndices[3].y += 1;
+        nearByBucketIndices[6].y += 1;
+        nearByBucketIndices[7].y += 1;
+    } else {
+        nearByBucketIndices[2].y -= 1;
+        nearByBucketIndices[3].y -= 1;
+        nearByBucketIndices[6].y -= 1;
+        nearByBucketIndices[7].y -= 1;
+    }
+
+    if ((originIndex.z + 0.5f) * gridSpacing <= position.z) {
+        nearByBucketIndices[1].z += 1;
+        nearByBucketIndices[3].z += 1;
+        nearByBucketIndices[5].z += 1;
+        nearByBucketIndices[7].z += 1;
+    } else {
+        nearByBucketIndices[1].z -= 1;
+        nearByBucketIndices[3].z -= 1;
+        nearByBucketIndices[5].z -= 1;
+        nearByBucketIndices[7].z -= 1;
+    }
+
+    for (int i = 0; i < 8; i++) {
+        vec3 wrappedIndex = wrap(nearByBucketIndices[i], resolution);
+        keys[i] = toHashKey(wrappedIndex, resolution);
+    }
+}
+
+const float gridSpacing = 0.25;
+const vec3 resolution = vec3(4, 4, 1);
 
 int main() {
-    std::array<std::tuple<vec3, vec3, vec3>, 100> buckets;
-    for(float r = -0.9; r < 1; r += 0.2 ){
-        for(float c = -0.9; c < 1; c += 0.2 ){
-            vec3 point{c, r, 0};
-            auto bucketIndex = getBucketIndex(point);
-            auto wrappedIndex = wrapAround(bucketIndex);
-            auto key = toHashKey(bucketIndex);
-            buckets[key] = std::make_tuple(point, vec3(bucketIndex), vec3(wrappedIndex));
-        }
-    }
 
-    for(int i = 0; i < 100; i++){
-        auto [point, bucketIndex, wrappedIndex] = buckets[i];
-        fmt::print("key: {} -> point{}, bucketIndex{}, wrappedIndex{}\n", i, point, bucketIndex, wrappedIndex);
-    }
+    std::array<int, 8> keys{};
+    getNearByKeys(vec3(0), gridSpacing, resolution, keys.data());
+    vec3 a{0, -2, 0};
+    vec3 b = resolution;
+    vec3 c = b * glm::floor(a / b);
+    vec3 d = a - c;
 
+    fmt::print("a:{}\n", a);
+    fmt::print("b:{}\n", b);
+    fmt::print("c = b * floor(a / b) => {}\n", c);
+    fmt::print("d = a - c => {}\n", d);
 }
