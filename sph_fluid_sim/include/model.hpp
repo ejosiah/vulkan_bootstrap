@@ -20,6 +20,7 @@ struct ParticleData{
     glm::vec4 color{0};
     glm::vec3 velocity{0};
     float invMass{0};
+    float density{0};
 };
 
 struct BoundingBox{
@@ -37,6 +38,21 @@ inline BoundingBox expand(BoundingBox box, float delta){
     box.min -= delta;
     box.max += delta;
     return box;
+}
+
+inline glm::vec3 diagonal(BoundingBox box){
+    return box.max - box.min;
+}
+
+inline float height(BoundingBox box){
+    return diagonal(box).y;
+}
+
+inline float width(BoundingBox box){
+    return diagonal(box).z;
+}
+inline float depth(BoundingBox box){
+    return diagonal(box).z;
 }
 
 struct Sdf{

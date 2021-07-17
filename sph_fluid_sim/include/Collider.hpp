@@ -37,7 +37,7 @@ struct Collider : public ComputePipelines {
     struct {
         uint32_t numParticles{0};
         float radius{0};
-        float restitutionCoefficient{0};
-        float frictionCoefficient{0};
+        float restitutionCoefficient{1};
+        float frictionCoefficient{1};
     } constants;
 };

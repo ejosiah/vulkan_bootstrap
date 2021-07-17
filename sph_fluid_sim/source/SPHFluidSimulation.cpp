@@ -406,11 +406,11 @@ void SPHFluidSimulation::createTimeIntegrator() {
 
 void SPHFluidSimulation::initCamera() {
     OrbitingCameraSettings settings{};
-    settings.offsetDistance = 5.0f;
+    settings.offsetDistance = 2.0f;
     settings.rotationSpeed = 0.1f;
     settings.orbitMinZoom = -5.0f;
     settings.fieldOfView = 45.0f;
-    settings.modelHeight = 0;
+    settings.modelHeight = diagonal(domain).y;
     settings.aspectRatio = static_cast<float>(swapChain.extent.width)/static_cast<float>(swapChain.extent.height);
     camera = std::make_unique<OrbitingCameraController>(device, swapChain.imageCount(), currentImageIndex, dynamic_cast<InputManager&>(*this), settings);
     render.mvpBuffer = device.createCpuVisibleBuffer(&camera->cam(), sizeof(Camera), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
