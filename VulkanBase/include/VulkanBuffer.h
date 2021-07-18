@@ -40,6 +40,12 @@ struct VulkanBuffer{
         return *this;
     }
 
+    template<typename T>
+    void copy(std::vector<T> dest, uint32_t offset = 0) const {
+        assert(!dest.empty());
+        copy(dest.data(), sizeof(T) * dest.size(), offset);
+    }
+
     void copy(const void* source, VkDeviceSize size, uint32_t offset = 0) const {
         assert(size + offset <= this->size);
         void* dest;

@@ -1,0 +1,33 @@
+#version 460
+
+#extension GL_EXT_scalar_block_layout : enable
+struct Node{
+    int dataIndex;
+    uint next;
+};
+
+layout(local_size_x = 20) in;
+
+layout(set = 0, binding = 0, scalar) buffer SOURCE_DATA{
+    int data[];
+};
+
+layout(set = 1, binding = 0) buffer  ATOMIC_COUNTER{
+    uint counter;
+};
+
+layout(set = 1, binding = 1) buffer HEAD{
+    uint head;
+};
+
+layout(set = 1, binding = 2, scalar) buffer NODE{
+    Node nodes[];
+};
+
+void main(){
+    uint new_head = atomicAdd(counter, 1);
+    uint old_head = atomicExchange(head, new_head);
+    int item = data[gl_LocalInvocationIndex];
+    Node node = Node(item, old_head);
+    nodes[new_head] = node;
+}

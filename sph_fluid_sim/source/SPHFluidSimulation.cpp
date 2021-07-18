@@ -358,16 +358,16 @@ void SPHFluidSimulation::runPhysics() {
         addComputeBufferMemoryBarriers(commandBuffer, pointHashGrid.bucketBuffers());
         buildNeighbourList(commandBuffer, sets[PARTICLE_IN]);
         addComputeBufferMemoryBarriers(commandBuffer, pointHashGrid.neighbourBuffers());
-        applyExternalForces(commandBuffer, sets[PARTICLE_IN]);
-        addComputeBufferMemoryBarriers(commandBuffer, { &forceDescriptor.forceBuffer });
-        timeIntegration(commandBuffer, sets, forceDescriptor.set);
-        addComputeBufferMemoryBarriers(commandBuffer, { &particles.buffers[0], &particles.buffers[1] });
-        resolveCollision(commandBuffer, sets[PARTICLE_OUT]);
+//        applyExternalForces(commandBuffer, sets[PARTICLE_IN]);
+//        addComputeBufferMemoryBarriers(commandBuffer, { &forceDescriptor.forceBuffer });
+//        timeIntegration(commandBuffer, sets, forceDescriptor.set);
+//        addComputeBufferMemoryBarriers(commandBuffer, { &particles.buffers[0], &particles.buffers[1] });
+//        resolveCollision(commandBuffer, sets[PARTICLE_OUT]);
     });
 
-    static bool debug = false;
+    static bool debug = true;
     if(debug){
-    //    debug = false;
+        debug = false;
         pointHashGrid.bucketSizeBuffer.map<int>([](auto ptr){
             float n = 0;
             float sum = 0;
@@ -375,10 +375,11 @@ void SPHFluidSimulation::runPhysics() {
                 if(ptr[i] != 0) {
                     sum += ptr[i];
                     n++;
+                    spdlog::info("grid[{}] => {}", i, ptr[i]);
                 }
             }
             float avg = sum/n;
-            spdlog::info("average points per grid: {}, size: {}", avg, n);
+            spdlog::info("average points per grid: {}, n: {}, sum: {}", avg, n, sum);
         });
     }
 

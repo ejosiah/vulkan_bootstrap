@@ -1,8 +1,6 @@
 #version 460
 
-#extension GL_EXT_nonuniform_qualifier : enable
-
-#define nonuniform nonuniformEXT
+#extension GL_EXT_scalar_block_layout : enable
 
 #include "common.glsl"
 #include "point_generator.glsl"

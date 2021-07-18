@@ -13,7 +13,7 @@ static std::vector<const char*> instanceExtensions{VK_EXT_DEBUG_UTILS_EXTENSION_
 static std::vector<const char*> validationLayers{"VK_LAYER_KHRONOS_validation"};
 static std::vector<const char*> deviceExtensions{ };
 
-class VulkanFixture : public ::testing::Test, public ComputePipelines{
+class VulkanFixture : public ::testing::Test{
 protected:
     VulkanInstance instance;
     VulkanDevice device;
@@ -22,6 +22,7 @@ protected:
     Settings settings;
     std::map<std::string, Pipeline> pipelines;
     uint32_t maxSets = 100;
+    bool _autoCreatePipeline = true;
 
     void SetUp() override {
         spdlog::set_level(spdlog::level::warn);
@@ -104,22 +105,24 @@ protected:
     }
 
     void createPipelines(){
-        for(auto& metaData : pipelineMetaData()){
-            auto shaderModule = VulkanShaderModule{ metaData.shadePath, device};
-            auto stage = initializers::shaderStage({ shaderModule, VK_SHADER_STAGE_COMPUTE_BIT});
-            Pipeline pipeline;
-            std::vector<VkDescriptorSetLayout> setLayouts;
-            for(auto& layout : metaData.layouts){
-                setLayouts.push_back(layout->handle);
+        if(_autoCreatePipeline) {
+            for (auto &metaData : pipelineMetaData()) {
+                auto shaderModule = VulkanShaderModule{metaData.shadePath, device};
+                auto stage = initializers::shaderStage({shaderModule, VK_SHADER_STAGE_COMPUTE_BIT});
+                Pipeline pipeline;
+                std::vector<VkDescriptorSetLayout> setLayouts;
+                for (auto &layout : metaData.layouts) {
+                    setLayouts.push_back(layout->handle);
+                }
+                pipeline.layout = device.createPipelineLayout(setLayouts, metaData.ranges);
+
+                auto createInfo = initializers::computePipelineCreateInfo();
+                createInfo.stage = stage;
+                createInfo.layout = pipeline.layout;
+
+                pipeline.pipeline = device.createComputePipeline(createInfo);
+                pipelines.insert(std::make_pair(metaData.name, std::move(pipeline)));
             }
-            pipeline.layout = device.createPipelineLayout(setLayouts, metaData.ranges);
-
-            auto createInfo = initializers::computePipelineCreateInfo();
-            createInfo.stage = stage;
-            createInfo.layout = pipeline.layout;
-
-            pipeline.pipeline = device.createComputePipeline(createInfo);
-            pipelines.insert(std::make_pair(metaData.name, std::move(pipeline)));
         }
     }
 
@@ -135,6 +138,10 @@ protected:
 
     virtual std::vector<PipelineMetaData> pipelineMetaData() {
         return {};
+    }
+
+    void autoCreatePipeline(bool val){
+        _autoCreatePipeline = val;
     }
 
     virtual void postVulkanInit() {}
