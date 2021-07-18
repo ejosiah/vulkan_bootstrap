@@ -115,6 +115,7 @@ public:
         VulkanDescriptorSetLayout neighbourSizeSetLayout{};
         VulkanDescriptorSetLayout setLayout{};
         VulkanBuffer neighbourListBuffer;
+        VulkanBuffer atomicCounterBuffer;
         VulkanBuffer neighbourSizeBuffer;
         VulkanBuffer neighbourOffsetsBuffer;
         PrefixScan prefixScan;

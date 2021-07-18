@@ -32,6 +32,7 @@ void PointHashGrid::initNeighbourList(){
 
 void PointHashGrid::initNeighbourListBuffers(){
     neighbourList.neighbourListBuffer = device->createBuffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, LIST_HEAP_SIZE);
+    neighbourList.atomicCounterBuffer = device->createBuffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, constants.numParticles * sizeof(int));
 
     VkDeviceSize size = constants.numParticles * sizeof(int);
     neighbourList.neighbourSizeBuffer = device->createBuffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, size);
@@ -143,7 +144,7 @@ void PointHashGrid::createNeighbourListDescriptorSets() {
     neighbourList.prefixScan.descriptorSet = sets[3];
     neighbourList.prefixScan.sumScanDescriptorSet = sets[4];
 
-    std::array<VkWriteDescriptorSet, 3> writes = initializers::writeDescriptorSets<3>();
+    std::array<VkWriteDescriptorSet, 4> writes = initializers::writeDescriptorSets<4>();
 
     VkDescriptorBufferInfo neighbourListInfo{ neighbourList.neighbourListBuffer, 0, VK_WHOLE_SIZE };
     writes[0].dstSet = neighbourList.descriptorSet;
@@ -152,19 +153,28 @@ void PointHashGrid::createNeighbourListDescriptorSets() {
     writes[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     writes[0].pBufferInfo = &neighbourListInfo;
 
-    VkDescriptorBufferInfo neighbourListSizeInfo{ neighbourList.neighbourSizeBuffer, 0, VK_WHOLE_SIZE };
-    writes[1].dstSet = neighbourList.neighbourSizeDescriptorSet;
-    writes[1].dstBinding = 0;
+    VkDescriptorBufferInfo counterInfo{ neighbourList.atomicCounterBuffer, 0, VK_WHOLE_SIZE };
+    writes[1].dstSet = neighbourList.descriptorSet;
+    writes[1].dstBinding = 1;
     writes[1].descriptorCount = 1;
     writes[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    writes[1].pBufferInfo = &neighbourListSizeInfo;
+    writes[1].pBufferInfo = &counterInfo;
 
-    VkDescriptorBufferInfo neighbourListSizeOffsetInfo{ neighbourList.neighbourOffsetsBuffer, 0, VK_WHOLE_SIZE };
-    writes[2].dstSet = neighbourList.neighbourSizeOffsetDescriptorSet;
+    VkDescriptorBufferInfo neighbourListSizeInfo{ neighbourList.neighbourSizeBuffer, 0, VK_WHOLE_SIZE };
+    writes[2].dstSet = neighbourList.neighbourSizeDescriptorSet;
     writes[2].dstBinding = 0;
     writes[2].descriptorCount = 1;
     writes[2].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    writes[2].pBufferInfo = &neighbourListSizeOffsetInfo;
+    writes[2].pBufferInfo = &neighbourListSizeInfo;
+
+    VkDescriptorBufferInfo neighbourListSizeOffsetInfo{ neighbourList.neighbourOffsetsBuffer, 0, VK_WHOLE_SIZE };
+    writes[3].dstSet = neighbourList.neighbourSizeOffsetDescriptorSet;
+    writes[3].dstBinding = 0;
+    writes[3].descriptorCount = 1;
+    writes[3].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    writes[3].pBufferInfo = &neighbourListSizeOffsetInfo;
+
+
 
     device->updateDescriptorSets(writes);
 }
@@ -341,6 +351,7 @@ void PointHashGrid::generateHashGrid(VkCommandBuffer commandBuffer, VkDescriptor
 }
 
 void PointHashGrid::generateNeighbourList(VkCommandBuffer commandBuffer, VkDescriptorSet particleDescriptorSet) {
+    neighbourList.atomicCounterBuffer.clear(commandBuffer);
     generateNeighbourList(commandBuffer, particleDescriptorSet, 0);
     scanNeighbourList(commandBuffer);
     generateNeighbourList(commandBuffer, particleDescriptorSet, 1);
@@ -348,20 +359,18 @@ void PointHashGrid::generateNeighbourList(VkCommandBuffer commandBuffer, VkDescr
 
 void PointHashGrid::generateNeighbourList(VkCommandBuffer commandBuffer, VkDescriptorSet particleDescriptorSet, int pass) {
     static std::array<VkDescriptorSet, 5> sets;
-    // { &particleDescriptorSetLayout, &gridDescriptorSetLayout, &bucket.setLayout, &neighbourList.setLayout, &neighbourList.neighbourSizeSetLayout},
     sets[0] = particleDescriptorSet;
     sets[1] = gridDescriptorSet;
     sets[2] = bucket.descriptorSet;
     sets[3] = neighbourList.descriptorSet;
     sets[4] = (pass % 2) == 0 ? neighbourList.neighbourSizeDescriptorSet : neighbourList.neighbourSizeOffsetDescriptorSet;
 
-
     addBufferMemoryBarriers(commandBuffer, { &bucketBuffer, &bucketSizeBuffer, &bucketSizeOffsetBuffer});
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline("neighbour_list"));
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, layout("neighbour_list"), 0, COUNT(sets), sets.data(), 0, nullptr);
     constants.pass = pass;
     vkCmdPushConstants(commandBuffer, layout("neighbour_list"), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(constants), &constants);
-    vkCmdDispatch(commandBuffer, (constants.numParticles - 1)/1024 + 1, 1, 1);
+    vkCmdDispatch(commandBuffer, (constants.numParticles - 1)/1024 + 1, 8, 1);
 }
 
 void PointHashGrid::addBufferMemoryBarriers(VkCommandBuffer commandBuffer, const std::vector<VulkanBuffer *> &buffers) {

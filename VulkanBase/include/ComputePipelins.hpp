@@ -3,6 +3,7 @@
 #include "common.h"
 #include "VulkanDevice.h"
 #include "VulkanShaderModule.h"
+#include "VulkanExtensions.h"
 
 struct PipelineMetaData{
     std::string name;
