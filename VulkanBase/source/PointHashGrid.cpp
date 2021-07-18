@@ -315,13 +315,15 @@ void PointHashGrid::scanNeighbourList(VkCommandBuffer commandBuffer) {
 }
 
 void PointHashGrid::buildHashGrid(VkCommandBuffer commandBuffer,  VkDescriptorSet particleDescriptorSet) {
-    updateParticleDescriptorSet(particleDescriptorSet);
-    generateHashGrid(commandBuffer, 0);
+    nextBufferIndexBuffer.clear(commandBuffer);
+    bucketSizeBuffer.clear(commandBuffer);
+    bucketSizeOffsetBuffer.clear(commandBuffer);
+    generateHashGrid(commandBuffer, particleDescriptorSet, 0);
     scan(commandBuffer);
-    generateHashGrid(commandBuffer, 1);
+    generateHashGrid(commandBuffer, particleDescriptorSet, 1);
 }
 
-void PointHashGrid::generateHashGrid(VkCommandBuffer commandBuffer, int pass) {
+void PointHashGrid::generateHashGrid(VkCommandBuffer commandBuffer, VkDescriptorSet particleDescriptorSet, int pass) {
     // TODO ADD buffer barriers
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline("point_hash_grid_builder"));
 
@@ -338,13 +340,13 @@ void PointHashGrid::generateHashGrid(VkCommandBuffer commandBuffer, int pass) {
     vkCmdDispatch(commandBuffer, (constants.numParticles - 1)/1024 + 1, 1, 1);
 }
 
-void PointHashGrid::generateNeighbourList(VkCommandBuffer commandBuffer) {
-    generateNeighbourList(commandBuffer, 0);
+void PointHashGrid::generateNeighbourList(VkCommandBuffer commandBuffer, VkDescriptorSet particleDescriptorSet) {
+    generateNeighbourList(commandBuffer, particleDescriptorSet, 0);
     scanNeighbourList(commandBuffer);
-    generateNeighbourList(commandBuffer, 1);
+    generateNeighbourList(commandBuffer, particleDescriptorSet, 1);
 }
 
-void PointHashGrid::generateNeighbourList(VkCommandBuffer commandBuffer, int pass) {
+void PointHashGrid::generateNeighbourList(VkCommandBuffer commandBuffer, VkDescriptorSet particleDescriptorSet, int pass) {
     static std::array<VkDescriptorSet, 5> sets;
     // { &particleDescriptorSetLayout, &gridDescriptorSetLayout, &bucket.setLayout, &neighbourList.setLayout, &neighbourList.neighbourSizeSetLayout},
     sets[0] = particleDescriptorSet;
@@ -424,8 +426,16 @@ void PointHashGrid::setNumParticles(int numParticles) {
     }
 }
 
-void PointHashGrid::updateParticleDescriptorSet(VkDescriptorSet newDescriptorSet) {
-    particleDescriptorSet = newDescriptorSet;
+std::vector<VulkanBuffer *> PointHashGrid::bucketBuffers() {
+    return { &bucketSizeBuffer, &bucketSizeOffsetBuffer, &bucketBuffer};
+}
+
+std::vector<VulkanBuffer *> PointHashGrid::neighbourBuffers() {
+    return { &neighbourList.neighbourListBuffer, &neighbourList.neighbourSizeBuffer, &neighbourList.neighbourOffsetsBuffer};
+}
+
+uint32_t PointHashGrid::numPointsInGrid() {
+    return prefixScan.sumsBuffer.get<uint32_t>(0);
 }
 
 void PrefixScan::scan(VkCommandBuffer commandBuffer, VulkanBuffer &buffer, VkPipeline pipeline, VkPipelineLayout layout) {

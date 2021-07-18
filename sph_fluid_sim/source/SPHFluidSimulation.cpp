@@ -16,7 +16,7 @@ void SPHFluidSimulation::initApp() {
     createParticles();
     createSdf();
     createEmitter();
-    createCollisonResolver();
+    createCollisionResolver();
     createDescriptorSets();
     createRenderDescriptorSet();
     createPipelineCache();
@@ -315,6 +315,7 @@ void SPHFluidSimulation::update(float time) {
     render.mvpBuffer.map<Camera>([&](auto ptr){
         *ptr = camera->cam();
     });
+    pointHashGrid.setNumParticles(numParticles);
     forceDescriptor.setNumParticles(numParticles);
     resolveCollision.setNumParticles(numParticles);
     applyExternalForces.update(numParticles, time);
@@ -345,6 +346,7 @@ void SPHFluidSimulation::createParticles() {
 }
 
 void SPHFluidSimulation::runPhysics() {
+    glfwSetWindowTitle(window, fmt::format("SPH Fluid Simulation - FPS {}", framePerSecond).c_str());
     int inIndex = currentFrame % 2;
     int outIndex = 1 - inIndex;
     static std::array<VkDescriptorSet, 2> sets{};
@@ -352,6 +354,10 @@ void SPHFluidSimulation::runPhysics() {
     sets[PARTICLE_OUT] = particles.descriptorSets[outIndex];
 
     device.graphicsCommandPool().oneTimeCommand([&](VkCommandBuffer commandBuffer){
+        buildHashPointGrid(commandBuffer, sets[PARTICLE_IN]);
+        addComputeBufferMemoryBarriers(commandBuffer, pointHashGrid.bucketBuffers());
+        buildNeighbourList(commandBuffer, sets[PARTICLE_IN]);
+        addComputeBufferMemoryBarriers(commandBuffer, pointHashGrid.neighbourBuffers());
         applyExternalForces(commandBuffer, sets[PARTICLE_IN]);
         addComputeBufferMemoryBarriers(commandBuffer, { &forceDescriptor.forceBuffer });
         timeIntegration(commandBuffer, sets, forceDescriptor.set);
@@ -359,6 +365,31 @@ void SPHFluidSimulation::runPhysics() {
         resolveCollision(commandBuffer, sets[PARTICLE_OUT]);
     });
 
+    static bool debug = false;
+    if(debug){
+    //    debug = false;
+        pointHashGrid.bucketSizeBuffer.map<int>([](auto ptr){
+            float n = 0;
+            float sum = 0;
+            for(int i = 0; i < 64 * 64 * 64; i++){
+                if(ptr[i] != 0) {
+                    sum += ptr[i];
+                    n++;
+                }
+            }
+            float avg = sum/n;
+            spdlog::info("average points per grid: {}, size: {}", avg, n);
+        });
+    }
+
+}
+
+void SPHFluidSimulation::buildHashPointGrid(VkCommandBuffer commandBuffer, VkDescriptorSet descriptorSet) {
+    pointHashGrid.buildHashGrid(commandBuffer, descriptorSet);
+}
+
+void SPHFluidSimulation::buildNeighbourList(VkCommandBuffer commandBuffer, VkDescriptorSet descriptorSet) {
+    pointHashGrid.generateNeighbourList(commandBuffer, descriptorSet);
 }
 
 void SPHFluidSimulation::createEmitter() {
@@ -368,11 +399,8 @@ void SPHFluidSimulation::createEmitter() {
     emitter.constants.jitter = 1.0;
 }
 
-void SPHFluidSimulation::createCollisonResolver() {
+void SPHFluidSimulation::createCollisionResolver() {
     BoxSurface box{domain, true };
-//    VulkanBuffer buffer = device.createStagingBuffer(sizeof(BoxSurface));
-//    VulkanBuffer buffer = device.createDeviceLocalBuffer(&domain, sizeof(box), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-
     resolveCollision = Collider{ &device, &descriptorPool, &particles.descriptorSetLayout, box, particleProperties.targetSpacing};
     resolveCollision.init();
 }
@@ -410,7 +438,7 @@ void SPHFluidSimulation::initCamera() {
     settings.rotationSpeed = 0.1f;
     settings.orbitMinZoom = -5.0f;
     settings.fieldOfView = 45.0f;
-    settings.modelHeight = diagonal(domain).y;
+//    settings.modelHeight = diagonal(domain).y;
     settings.aspectRatio = static_cast<float>(swapChain.extent.width)/static_cast<float>(swapChain.extent.height);
     camera = std::make_unique<OrbitingCameraController>(device, swapChain.imageCount(), currentImageIndex, dynamic_cast<InputManager&>(*this), settings);
     render.mvpBuffer = device.createCpuVisibleBuffer(&camera->cam(), sizeof(Camera), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
@@ -432,9 +460,6 @@ void SPHFluidSimulation::emit(){
     numParticles = emitter.numParticles();
     particles.constants.numParticles = numParticles;
     spdlog::info("{} particles emitted", particles.constants.numParticles);
-    particles.buffers[0].map<glm::vec4>([&](auto ptr){
-       for(int i = 0; i < 10; i++) spdlog::info("pos: {}", ptr[i].xyz());
-    });
 }
 
 void SPHFluidSimulation::computeMass() {
@@ -462,10 +487,8 @@ void SPHFluidSimulation::computeMass() {
         for(auto i = 0; i < numParticles; i++){
             float sum = 0.0f;
             glm::vec3 point = ptr[i].xyz();
-//            spdlog::info("point: {}", point);
             for(auto j = 0; j < numParticles; j++){
                 glm::vec3 neighbour = ptr[j].xyz();
-//                spdlog::info("\tneighbour: {}", neighbour);
                 sum += kernel(distance(point, neighbour));
             }
             maxDensity = std::max(maxDensity, sum);
@@ -479,7 +502,6 @@ void SPHFluidSimulation::computeMass() {
     applyExternalForces.constants.invMass = 1.0f/mass;
     timeIntegration.constants.invMass = 1.0f/mass;
 }
-
 
 
 int main(){

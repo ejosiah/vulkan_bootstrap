@@ -3,7 +3,7 @@
 #include "VulkanDevice.h"
 #include "ComputePipelins.hpp"
 
-constexpr VkDeviceSize LIST_HEAP_SIZE = (1 << 20) * 50; // 50MB TODO calculate based on density and kernel radius
+constexpr VkDeviceSize LIST_HEAP_SIZE = (1 << 20) * 214; // 500MB TODO calculate based on density and kernel radius
 static constexpr int ITEMS_PER_WORKGROUP = 8 << 10;
 
 struct PrefixScan{
@@ -59,18 +59,22 @@ public:
 
     void buildHashGrid(VkCommandBuffer commandBuffer, VkDescriptorSet particleDescriptorSet);
 
-    void generateHashGrid(VkCommandBuffer commandBuffer, int pass);
+    void generateHashGrid(VkCommandBuffer commandBuffer, VkDescriptorSet particleDescriptorSet, int pass);
 
-    void generateNeighbourList(VkCommandBuffer commandBuffer);
+    void generateNeighbourList(VkCommandBuffer commandBuffer, VkDescriptorSet particleDescriptorSet);
 
-    void generateNeighbourList(VkCommandBuffer commandBuffer, int pass);
+    void generateNeighbourList(VkCommandBuffer commandBuffer,  VkDescriptorSet particleDescriptorSet, int pass);
 
+    std::vector<VulkanBuffer*> bucketBuffers();
+
+    std::vector<VulkanBuffer*> neighbourBuffers();
 
     std::vector<PipelineMetaData> pipelineMetaData() override;
 
-    void updateParticleDescriptorSet(VkDescriptorSet newDescriptorSet);
-
     void setNumParticles(int numParticles);
+
+    uint32_t numPointsInGrid();
+
 public:
 
 
@@ -89,7 +93,6 @@ public:
     VulkanBuffer bucketBuffer{};
     VulkanBuffer nextBufferIndexBuffer{};
     uint32_t bufferOffsetAlignment{};
-    VkDescriptorSet particleDescriptorSet;
 
     PrefixScan prefixScan;
 

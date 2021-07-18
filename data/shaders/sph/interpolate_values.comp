@@ -19,12 +19,16 @@ layout(set = 0, binding = 1, scalar) buffer PData{
     ParticleData dataIn[];
 };
 
-layout(set = 3, binding = 0, scalar) buffer NEIGHBOUR_LIST{
+layout(set = 1, binding = 0, scalar) buffer NEIGHBOUR_LIST{
     int neighbourList[];
 };
 
-layout(set = 4, binding = 0, scalar) buffer NEIGHBOUR_LIST_SIZES{
+layout(set = 2, binding = 0, scalar) buffer NEIGHBOUR_LIST_SIZES{
     int neighbourListSizes[];
+};
+
+layout(set = 3, binding = 0, scalar) buffer NEIGHBOUR_LIST_SIZE_OFFSET{
+    int neighbourListSizeOffsets[];
 };
 
 layout(push_constant) uniform Constants{
@@ -45,6 +49,7 @@ void main(){
     if(index >= numParticles) return;
 
     vec3 origin = pointsIn[index].xyz;
+    int offset = neighbourListSizeOffsets[index];
     int size = neighbourListSizes[index];
     float mass = 1/invMass;
     float h = radius;
@@ -52,7 +57,7 @@ void main(){
     if((fieldToUpdate & DENSITY) == DENSITY){
         float density = 0;
         for(int i = 0; i < size; i++){
-            int neighbourIndex = neighbourList[i];
+            int neighbourIndex = neighbourList[i + offset];
             vec3 neighbourPoint = pointsIn[neighbourIndex].xyz;
             density += kernel(h, distance(origin, neighbourPoint));
         }
@@ -63,7 +68,7 @@ void main(){
     if((fieldToUpdate & COLOR) == COLOR){
         vec3 color = vec3(0);
         for(int i = 0; i < size; i++){
-            int neighbourIndex = neighbourList[i];
+            int neighbourIndex = neighbourList[i + offset];
             vec3 neighbourPoint = pointsIn[neighbourIndex].xyz;
             color += kernel(h, distance(origin, neighbourPoint));
         }

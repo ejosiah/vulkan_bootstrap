@@ -13,7 +13,7 @@ struct StdKernel{
         if (distance * distance >= h2) {
             return 0.0;
         } else {
-            double x = 1.0 - distance * distance / h2;
+            float x = 1.0 - distance * distance / h2;
             return 315.0f / (64.0f * glm::pi<float>() * h3) * x * x * x;
         }
     }
@@ -23,7 +23,7 @@ struct StdKernel{
         if (distance >= h) {
             return 0.0;
         } else {
-            double x = 1.0 - distance * distance / h2;
+            float x = 1.0 - distance * distance / h2;
             return -945.0f / (32.0f * glm::pi<float>() * h5) * distance * x * x;
         }
     }

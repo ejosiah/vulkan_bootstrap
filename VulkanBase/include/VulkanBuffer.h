@@ -85,7 +85,7 @@ struct VulkanBuffer{
         return mapped;
     }
 
-    void unmap(){
+    void unmap() const{
         vmaUnmapMemory(allocator, allocation);
     }
 
@@ -97,6 +97,10 @@ struct VulkanBuffer{
             res = ptr[index];
         });
         return res;
+    }
+
+    void clear(VkCommandBuffer commandBuffer) const {
+        vkCmdFillBuffer(commandBuffer, buffer, 0, size, 0);
     }
 
     VmaAllocator allocator = VK_NULL_HANDLE;

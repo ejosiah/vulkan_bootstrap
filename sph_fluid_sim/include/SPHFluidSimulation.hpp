@@ -30,7 +30,7 @@ protected:
 
     void createEmitter();
 
-    void createCollisonResolver();
+    void createCollisionResolver();
 
     void computeMass();
 
@@ -59,6 +59,10 @@ protected:
     void createComputePipeline();
 
     void runPhysics();
+
+    void buildHashPointGrid(VkCommandBuffer commandBuffer, VkDescriptorSet descriptorSet);
+
+    void buildNeighbourList(VkCommandBuffer commandBuffer, VkDescriptorSet descriptorSet);
 
     void onSwapChainDispose() override;
 

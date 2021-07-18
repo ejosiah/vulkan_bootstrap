@@ -1,52 +1,43 @@
 #ifndef STD_KERNEL_GLSL
 #define STD_KERNEL_GLSL
 
-#define kPiD 3.14159265358979323
+#define PI 3.14159265358979323
 
 float kernel(float h, float distance){
     float h2 = h * h;
-    float distanceSquared = distance * distance;
+    if (distance * distance >= h2) return 0.0;
 
-    if (distanceSquared >= h2) {
-        return 0.0;
-    } else {
-        float x = 1.0 - distanceSquared / h2;
-        return 4.0 / (kPiD * h2) * x * x * x;
-    }
+    float h3 = h2 * h;
+    float distanceSquared = distance * distance;
+    float x = 1.0 - distance * distance / h2;
+    return 315.0 / (64.0 * PI * h3) * x * x * x;
 }
-    
+
 float firstDerivative(float h, float distance){
+    if (distance >= h) return 0.0;
+
     float h2 = h * h;
-    if (distance >= h) {
-        return 0.0;
-    } else {
-        float x = 1.0 - distance * distance / h2;
-        return -24.0 * distance / (kPiD * h4) * x * x;
-    } 
+    float h5 = h2 * h2 * h;
+    float x = 1.0 - distance * distance / h2;
+    return -945.0f / (32.0f * PI * h5) * distance * x * x;
 }
 
 float secondDerivative(float h, float distance){
-    float distanceSquared = distance * distance;
     float h2 = h * h;
-    if (distanceSquared >= h2) {
-        return 0.0;
-    } else {
-        float x = distanceSquared / h2;
-        return 24.0 / (kPiD * h4) * (1 - x) * (5 * x - 1);
-    }
+    if (distance * distance >= h2) return 0.0f;
+
+    float h5 = h2 * h2 * h;
+    float x = distance * distance / h2;
+    return 945.0f / (32.0f * PI * h5) * (1 - x) * (5 * x - 1);
+}
+vec3 gradient(float h, float distance, vec3 dirToCenter){
+    return -firstDerivative(h, distance) * dirToCenter;
 }
 
-vec2 gradient(float h, vec2 point){
+vec3 gradient(float h, vec3 point){
     float dist = length(point);
-    if(dist > 0){
-        return gradient(h, dist, point / dist);
-    }else {
-        return vec2(0);
-    }
-} 
-    
-vec2 gradient(float h, float distance, vec2 dirToCenter){
-    return -firstDerivative(h, distance) * dirToCenter;
+    if(dist > 0.0) return gradient(h, dist, point / dist);
+    return vec3(0);
 }
     
 #endif // STD_KERNEL_GLSL

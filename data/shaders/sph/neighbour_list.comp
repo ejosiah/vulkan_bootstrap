@@ -56,7 +56,6 @@ void main(){
 
     float radius = gridSpacing * 0.5;
     float radiusSqr = radius * radius;
-    int next = 0;
     if(pass == 0){
         int neighbourListSize = 0;
         for(int i = 0; i < 8; i++){
@@ -69,7 +68,6 @@ void main(){
             int bucketOffset = bucketSizeOffset[bucketIndex];
             for(int j = bucketOffset; j < (bucketOffset + numPointsInBucket); j++){
                 int pointIndex = buckets[j];
-                next++;
                 vec3 point = points[pointIndex].xyz;
                 vec3 d = point - origin;
                 if(dot(d, d) <= radiusSqr){

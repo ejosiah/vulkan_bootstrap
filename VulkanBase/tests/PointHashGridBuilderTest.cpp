@@ -259,7 +259,7 @@ protected:
         grid.setNumParticles(int(particles.size()));
         execute([&](auto commandBuffer){
             grid.buildHashGrid(commandBuffer, particleDescriptorSet);
-            grid.generateNeighbourList(commandBuffer);
+            grid.generateNeighbourList(commandBuffer, particleDescriptorSet);
         });
     }
 
@@ -426,6 +426,29 @@ TEST_F(PointHashGridBuilderTest, PointRandomlyScatteredInSpace){
     createParticles(generateParticle, defaultHash);
     buildHashGrid();
     AssertGrid();
+}
+
+TEST_F(PointHashGridBuilderTest, NumberOfPointsPointsPerShouldConsistentBeConsistent){
+    resolution = glm::vec3{4, 4, 4};
+    gridSpacing = 0.25;
+
+    generateRandomPointsInGrid<100>(0.0f, 1.0f);
+    createParticles();
+    grid = PointHashGrid{&device, &descriptorPool, &particleDescriptorSetLayout, resolution, gridSpacing};
+    grid.init();
+    grid.setNumParticles(int(particles.size()));
+
+    execute([&](auto commandBuffer){
+        grid.buildHashGrid(commandBuffer, particleDescriptorSet);
+    });
+
+    ASSERT_EQ(uint32_t(particles.size()), grid.numPointsInGrid());
+
+    execute([&](auto commandBuffer){
+        grid.buildHashGrid(commandBuffer, particleDescriptorSet);
+    });
+
+    ASSERT_EQ(uint32_t(particles.size()), grid.numPointsInGrid());
 }
 
 TEST_F(PointHashGridBuilderTest, getNearByKeys2dOriginInTopLeftCorner){
