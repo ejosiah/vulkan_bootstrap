@@ -70,6 +70,7 @@ protected:
                     bool found = false;
                     for(int i = 0; i < listSize; i++){
                         found = node.entry == datum;
+//                        spdlog::error("Node[entry: {}, next: {}]", node.entry, node.next);
                         if(found) break;
                         node = nodePtr[node.next];
                     }
@@ -79,14 +80,25 @@ protected:
         });
         ASSERT_TRUE(containsAll);
     }
+
+    template<size_t Size>
+    std::vector<int> generateRandomUniqueInts(){
+        auto rng = rngFunc(-20, 20, 1 << 20);
+        std::vector<int> res;
+        while(res.size() != Size){
+            auto item = rng();
+            if(std::find(begin(res), end(res), item) != end(res)){
+                continue;
+            }
+            res.push_back(item);
+        }
+        return res;
+    }
 };
 
 
 TEST_F(DeviceLinkedListFixture, createAValidDeviceLinkedList){
-    std::vector<int> expected{
-        5, 2, -4, 8, 7, 12, -16, 20, 11, 14,
-        24, 120, 10, -11, 49, 55, -26, 26, -53, 32,
-    };
+    std::vector<int> expected = generateRandomUniqueInts<20>();
     updateSourceDataDescriptorSet(expected.data(), expected.size() * sizeof(int));
     createLinkedList();
     ASSERT_EQ(expected.size(), linkedList.size());
