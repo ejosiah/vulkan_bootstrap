@@ -66,7 +66,6 @@ void main(){
     float radiusSqr = radius * radius;
     if(pass == 0){
         int neighbourListSize = 0;
-        //        for(int i = 0; i < 8; i++){
         int bucketIndex = nearByKeys[neighbourId];
         if(bucketIndex < 0) return;
 
@@ -79,35 +78,29 @@ void main(){
             vec3 point = points[pointIndex].xyz;
             vec3 d = point - origin;
             if(dot(d, d) <= radiusSqr){
-//                neighbourListSize++;
                 atomicAdd(neighbourListSizes[index], 1);
             }
         }
-        //        }
-        //        neighbourListSizes[id] = neighbourListSize;
         return;
     }
 
-         int invocationOffset = 0;
-//        for(int i = 0; i < 8; i++){
-            int bucketIndex = nearByKeys[neighbourId];
-            if(bucketIndex < 0) return;
+    int invocationOffset = 0;
+    int bucketIndex = nearByKeys[neighbourId];
+    if(bucketIndex < 0) return;
 
-            int numPointsInBucket = bucketSize[bucketIndex];
+    int numPointsInBucket = bucketSize[bucketIndex];
 
-            int bucketOffset = bucketSizeOffset[bucketIndex];
+    int bucketOffset = bucketSizeOffset[bucketIndex];
 
-            int offset = neighbourListSizes[index];
-            for(int j = int(gl_GlobalInvocationID.z); j < numPointsInBucket; j += int(size.z)){
-                int pointIndex = buckets[j + bucketOffset];
-                vec3 point = points[pointIndex].xyz;
-                vec3 d = point - origin;
-                if(dot(d, d) <= radiusSqr){
-                    invocationOffset = atomicAdd(counter[index], 1);
-                    int listIndex = invocationOffset + offset;
-                    neighbourList[listIndex]  = pointIndex;
-                }
-            }
-//            counter = invocationOffset;
-//        }
+    int offset = neighbourListSizes[index];
+    for(int j = int(gl_GlobalInvocationID.z); j < numPointsInBucket; j += int(size.z)){
+        int pointIndex = buckets[j + bucketOffset];
+        vec3 point = points[pointIndex].xyz;
+        vec3 d = point - origin;
+        if(dot(d, d) <= radiusSqr){
+            invocationOffset = atomicAdd(counter[index], 1);
+            int listIndex = invocationOffset + offset;
+            neighbourList[listIndex]  = pointIndex;
+        }
+    }
 }

@@ -7,6 +7,7 @@
 #include "VulkanShaderModule.h"
 #include "VulkanBaseApp.h"
 #include "ComputePipelins.hpp"
+#include "VulkanExtensions.h"
 
 static std::vector<const char*> instanceExtensions{VK_EXT_DEBUG_UTILS_EXTENSION_NAME};
 static std::vector<const char*> validationLayers{"VK_LAYER_KHRONOS_validation"};
@@ -25,6 +26,7 @@ protected:
     void SetUp() override {
         spdlog::set_level(spdlog::level::warn);
         initVulkan();
+        ext::init(instance);
         postVulkanInit();
         createPipelines();
     }
