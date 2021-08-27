@@ -1,0 +1,24 @@
+#version 460 core
+
+#define COUNTS 0
+#define SUMS 1
+#define DATA 0
+#define NUM_DATA_ELEMENTS 1
+#define VALUE_ID 0
+layout(local_size_x = 1024) in;
+
+layout(set = 0, binding=DATA) buffer DataIn{
+	uint buf[];
+} data[NUM_DATA_ELEMENTS];
+
+
+layout(set = 0, binding = SUMS) buffer Sum{
+	uint sum[];
+};
+
+void main(){
+	uint val = sum[gl_WorkGroupID.x];
+	uint i = gl_GlobalInvocationID.x;
+
+	data[VALUE_ID].buf[i] += val;
+}

@@ -13,8 +13,8 @@ struct Particle{
 struct ParticleData{
     vec4 color;
     vec3 velocity;
-    float invMass;
     float density;
+    float pressure;
 };
 
 #endif // COMMON_GLSL

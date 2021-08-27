@@ -19,8 +19,8 @@ struct Particle{
 struct ParticleData{
     glm::vec4 color{0};
     glm::vec3 velocity{0};
-    float invMass{0};
     float density{0};
+    float pressure{0};
 };
 
 struct BoundingBox{

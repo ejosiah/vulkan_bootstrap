@@ -9,14 +9,18 @@
 #include "TimeIntegration.hpp"
 #include "ExternalForces.hpp"
 #include "Collider.hpp"
+#include "Interpolator.hpp"
+#include "ComputePressure.hpp"
 
-constexpr uint32_t MAX_PARTICLES = 1 << 19;
-constexpr float WATER_DENSITY = 1000.0;
-constexpr int PARTICLE_IN = 0;
-constexpr int PARTICLE_OUT = 1;
 
 class SPHFluidSimulation : public VulkanBaseApp{
 public:
+
+    static constexpr uint32_t MAX_PARTICLES = 1 << 19;
+    static constexpr float WATER_DENSITY = 1000.0;
+    static constexpr int PARTICLE_IN = 0;
+    static constexpr int PARTICLE_OUT = 1;
+
     explicit SPHFluidSimulation(const Settings& settings = {});
 
 protected:
@@ -38,7 +42,11 @@ protected:
 
     void createForces();
 
+    void createComputePressure();
+
     void createTimeIntegrator();
+
+    void createInterpolator();
 
     void createDescriptorPool();
 
@@ -77,7 +85,6 @@ protected:
     void cleanup() override;
 
     void onPause() override;
-
 
     void initCamera();
 
@@ -127,6 +134,8 @@ protected:
     ForceDescriptor forceDescriptor;
     ExternalForces applyExternalForces;
     Collider resolveCollision;
+    Interpolator interpolator;
+    ComputePressure computePressure;
 
     std::shared_ptr<OrbitingCameraController> camera;
 

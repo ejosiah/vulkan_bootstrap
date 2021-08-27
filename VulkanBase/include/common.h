@@ -53,7 +53,7 @@ namespace chrono = std::chrono;
 namespace fs = std::filesystem;
 
 using real = float;
-
+using uint = unsigned int;
 using Flags = unsigned int;
 
 constexpr float EPSILON = 0.000001;
@@ -64,6 +64,7 @@ constexpr std::chrono::seconds ONE_SECOND = std::chrono::seconds(1);
 
 #define ASSERT(result) assert(result == VK_SUCCESS)
 #define COUNT(sequence) static_cast<uint32_t>(sequence.size())
+#define BYTE_SIZE(sequence) static_cast<VkDeviceSize>(sizeof(sequence[0]) * sequence.size())
 
 #ifndef UNUSED_VARIABLE
 #   define UNUSED_VARIABLE(x) ((void)x)
@@ -153,7 +154,7 @@ inline std::vector<char> loadFile(const std::string& path) {
 template<typename T>
 inline std::function<T()> rngFunc(T lower, T upper, uint32_t seed = std::random_device{}()) {
     std::default_random_engine engine{ seed };
-    if constexpr(std::is_same_v<T, int>){
+    if constexpr(std::is_integral_v<T>){
         std::uniform_int_distribution<T> dist{lower, upper};
         return std::bind(dist, engine);
     }else {
@@ -175,3 +176,21 @@ template<glm::length_t L, typename T, glm::qualifier Q>
 bool vectorEquals(glm::vec<L, T, Q> v0, glm::vec<L, T, Q> v1, float eps = 1e-4){
     return glm::all(glm::epsilonEqual(v0, v1, eps));
 }
+
+constexpr int nearestPowerOfTwo(int x) {
+    if (x <= 1) return 2;
+    x -= 1;
+    x |= (x >> 1);
+    x |= (x >> 2);
+    x |= (x >> 4);
+    x |= (x >> 8);
+    x |= (x >> 16);
+    x += 1;
+    return x;
+}
+
+constexpr uint nearestMultiple(uint n, uint x) {
+    uint nModx = n % x;
+    return nModx == 0 ? n : n + x - nModx;
+}
+

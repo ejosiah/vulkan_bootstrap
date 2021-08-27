@@ -3,7 +3,7 @@
 #include "VulkanDevice.h"
 #include "ComputePipelins.hpp"
 
-constexpr VkDeviceSize LIST_HEAP_SIZE = (1 << 20) * 214; // 500MB TODO calculate based on density and kernel radius
+constexpr VkDeviceSize LIST_HEAP_SIZE = (1 << 20) * 214; // TODO might need to create multiple buffers
 static constexpr int ITEMS_PER_WORKGROUP = 8 << 10;
 
 struct PrefixScan{

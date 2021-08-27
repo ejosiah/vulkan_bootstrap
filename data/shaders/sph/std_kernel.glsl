@@ -1,7 +1,7 @@
 #ifndef STD_KERNEL_GLSL
 #define STD_KERNEL_GLSL
 
-#define PI 3.14159265358979323
+#define PI 3.1415926535897932384626433832795
 
 float kernel(float h, float distance){
     float h2 = h * h;

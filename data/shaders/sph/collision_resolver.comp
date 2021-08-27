@@ -10,7 +10,7 @@ layout(set = 0, binding = 0) buffer Points_Out{
     vec4 pointsOut[];
 };
 
-layout(set = 0, binding = 1) buffer PData_Out{
+layout(set = 0, binding = 1, scalar) buffer PData_Out{
     ParticleData dataOut[];
 };
 

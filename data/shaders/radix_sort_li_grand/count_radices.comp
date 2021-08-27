@@ -1,0 +1,77 @@
+#version 460 core
+
+#define NUM_COUNTERS 8192
+#define WORKGROUP_SIZE 1024
+#define DATA 0
+#define COUNTS 0
+#define VALUE_ID 0
+#define INDEX_ID 1
+#define NUM_DATA_ELEMENTS 1
+#define BYTE_SIZE 8
+#define DIGIT(WORD, BLOCK, RADIX) ((WORD >> BLOCK * BYTE_SIZE) & (RADIX-1))
+#define IS_GROUP_LEADER(ID, NUM_INVOC_PER_GROUP) ((ID % NUM_INVOC_PER_GROUP) == 0)
+
+layout(local_size_x = WORKGROUP_SIZE) in;
+
+
+layout(push_constant) uniform Consts{
+	uint block;
+	uint R;
+	uint Radix;
+	uint Num_Groups_per_WorkGroup;
+	uint Num_Elements_per_WorkGroup;
+	uint Num_Elements_Per_Group;
+	uint Num_Elements;
+	uint Num_Radices_Per_WorkGroup;
+	uint Num_Groups;
+};
+
+layout(set = 0, binding=DATA) buffer Data{
+	uint buf[];
+} data[NUM_DATA_ELEMENTS];
+
+layout(set = 1, binding=COUNTS) buffer Counts{
+	uint counts[];
+};
+
+shared uint local_counts[NUM_COUNTERS];
+
+void main(){
+	uint thid = gl_LocalInvocationIndex;
+	uint group = thid/R;
+
+	for(uint i = thid; i < NUM_COUNTERS; i+= gl_WorkGroupSize.x){
+		local_counts[i] = 0;
+	}
+
+	barrier();
+
+	for(uint r = 0; r < Num_Elements_Per_Group; r += R){
+		uint idx = (gl_WorkGroupID.x * Num_Groups_per_WorkGroup + group) * Num_Elements_Per_Group + (thid % R) + r;
+
+		if(idx >= Num_Elements) break;
+			
+			uint word = data[VALUE_ID].buf[idx];
+			uint bit = DIGIT(word, block, Radix);
+			uint bitIdx = bit * Num_Groups_per_WorkGroup + group;
+
+			for(int i = 0; i < R; i++){
+				if(thid%R == i) {
+					local_counts[bitIdx]++;
+				}
+				barrier();
+			}
+	}
+	barrier();
+
+	
+	if(IS_GROUP_LEADER(thid, R)){	// TODO group member processes Radix/groupSize
+		for(uint i = 0; i < Radix; i++){
+			uint local_bit_Idx = i * Num_Groups_per_WorkGroup + group;
+			uint global_bit_Idx = i * (gl_NumWorkGroups.x * Num_Groups_per_WorkGroup) + gl_WorkGroupID.x * Num_Groups_per_WorkGroup + group;
+			counts[global_bit_Idx] = local_counts[local_bit_Idx];
+		}
+	}
+
+	barrier();
+}

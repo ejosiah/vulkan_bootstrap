@@ -66,8 +66,10 @@ namespace initializers{
         return createInfo;
     }
 
-    inline VkViewport viewport(float width, float height, float minDepth = 0.0f, float maxDepth = 1.0f){
+    inline VkViewport viewport(float width, float height, float x = 0.0f, float y = 0.0f, float minDepth = 0.0f, float maxDepth = 1.0f){
         VkViewport viewport{};
+        viewport.x = x;
+        viewport.y = y;
         viewport.width = width;
         viewport.height = height;
         viewport.minDepth = minDepth;

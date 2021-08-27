@@ -9,12 +9,13 @@ struct VulkanBuffer{
 
     VulkanBuffer() = default;
 
-    inline VulkanBuffer(VmaAllocator allocator, VkBuffer buffer, VmaAllocation allocation, VkDeviceSize size, const std::string name = "")
+    inline VulkanBuffer(VmaAllocator allocator, VkBuffer buffer, VmaAllocation allocation, VkDeviceSize size, const std::string name = "", bool mappable = false)
     : allocator(allocator)
     , buffer(buffer)
     , allocation(allocation)
     , size(size)
     , name(name)
+    , mappable(mappable)
     {}
 
     VulkanBuffer(VulkanBuffer&& source) noexcept {

@@ -352,6 +352,9 @@ void PointHashGrid::generateHashGrid(VkCommandBuffer commandBuffer, VkDescriptor
 
 void PointHashGrid::generateNeighbourList(VkCommandBuffer commandBuffer, VkDescriptorSet particleDescriptorSet) {
     neighbourList.atomicCounterBuffer.clear(commandBuffer);
+    vkCmdFillBuffer(commandBuffer, neighbourList.atomicCounterBuffer, 0, neighbourList.atomicCounterBuffer.size, 0);
+    vkCmdFillBuffer(commandBuffer, neighbourList.neighbourSizeBuffer, 0, neighbourList.neighbourSizeBuffer.size, 0);
+    vkCmdFillBuffer(commandBuffer, neighbourList.neighbourOffsetsBuffer, 0, neighbourList.neighbourOffsetsBuffer.size, 0);
     generateNeighbourList(commandBuffer, particleDescriptorSet, 0);
     scanNeighbourList(commandBuffer);
     generateNeighbourList(commandBuffer, particleDescriptorSet, 1);
@@ -370,7 +373,7 @@ void PointHashGrid::generateNeighbourList(VkCommandBuffer commandBuffer, VkDescr
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, layout("neighbour_list"), 0, COUNT(sets), sets.data(), 0, nullptr);
     constants.pass = pass;
     vkCmdPushConstants(commandBuffer, layout("neighbour_list"), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(constants), &constants);
-    vkCmdDispatch(commandBuffer, (constants.numParticles - 1)/1024 + 1, 8, 1);
+    vkCmdDispatch(commandBuffer, (constants.numParticles - 1)/1024 + 1, 1, 1);
 }
 
 void PointHashGrid::addBufferMemoryBarriers(VkCommandBuffer commandBuffer, const std::vector<VulkanBuffer *> &buffers) {

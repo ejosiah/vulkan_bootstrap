@@ -8,6 +8,7 @@
 
 #include "common.glsl"
 #include "std_kernel.glsl"
+#include "spiky_kernel.glsl"
 
 layout(local_size_x = 1024) in;
 
@@ -19,15 +20,19 @@ layout(set = 0, binding = 1, scalar) buffer PData{
     ParticleData dataIn[];
 };
 
-layout(set = 1, binding = 0, scalar) buffer NEIGHBOUR_LIST{
+layout(set = 1, binding = 0, scalar) buffer Forces{
+    vec3 forces[];
+};
+
+layout(set = 2, binding = 0, scalar) buffer NEIGHBOUR_LIST{
     int neighbourList[];
 };
 
-layout(set = 2, binding = 0, scalar) buffer NEIGHBOUR_LIST_SIZES{
+layout(set = 3, binding = 0, scalar) buffer NEIGHBOUR_LIST_SIZES{
     int neighbourListSizes[];
 };
 
-layout(set = 3, binding = 0, scalar) buffer NEIGHBOUR_LIST_SIZE_OFFSET{
+layout(set = 4, binding = 0, scalar) buffer NEIGHBOUR_LIST_SIZE_OFFSET{
     int neighbourListSizeOffsets[];
 };
 
@@ -53,7 +58,7 @@ void main(){
     int size = neighbourListSizes[index];
     float mass = 1/invMass;
     float h = radius;
-
+//    dataIn[index].density = size;
     if((fieldToUpdate & DENSITY) == DENSITY){
         float density = 0;
         for(int i = 0; i < size; i++){
@@ -66,13 +71,42 @@ void main(){
     }
 
     if((fieldToUpdate & COLOR) == COLOR){
-        vec3 color = vec3(0);
+        vec3 colorAccum = dataIn[index].color.rgb;
         for(int i = 0; i < size; i++){
             int neighbourIndex = neighbourList[i + offset];
             vec3 neighbourPoint = pointsIn[neighbourIndex].xyz;
-            color += kernel(h, distance(origin, neighbourPoint));
+            vec3 color = dataIn[neighbourIndex].color.rgb;
+            float density = dataIn[neighbourIndex].density;
+            colorAccum += color/density * kernel(h, distance(origin, neighbourPoint));
         }
-        color *= mass;
-        dataIn[index].color.rgb = color;
+        colorAccum *= mass;
+        dataIn[index].color.rgb = colorAccum/(colorAccum + 1);
+    }
+
+    if((fieldToUpdate & PRESSURE) == PRESSURE){
+        ParticleData data = dataIn[index];
+        float h = radius;
+        float di = data.density;
+        float pi = data.pressure;
+        vec3 sum = vec3(0);
+
+        for(int i = 0; i < size; i++){
+            int neighbourIndex = neighbourList[i + offset];
+            vec3 neighbourPoint = pointsIn[neighbourIndex].xyz;
+            ParticleData neighbourData = dataIn[neighbourIndex];
+            float dj = neighbourData.density;
+            float pj = neighbourData.pressure;
+
+            vec3 dirToCenter = neighbourPoint - origin;
+            float dist = length(dirToCenter);
+            if(dist <= 0) continue;
+            dirToCenter /= dist;
+            float scalar = (pi/(di * di) + pj/(dj * dj));
+            vec3 presureGradient = vec3(0);
+            presureGradient = scalar * spiky_gradient(h, dist, dirToCenter);
+            sum += presureGradient;
+        }
+        sum *= -(mass * mass);
+        forces[index] += sum;
     }
 }

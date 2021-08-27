@@ -253,9 +253,11 @@ protected:
         });
     }
 
-    void generateNeighbourList(){
-        grid = PointHashGrid{&device, &descriptorPool, &particleDescriptorSetLayout, resolution, gridSpacing};
-        grid.init();
+    void generateNeighbourList(bool initializeGrid = true){
+        if(initializeGrid) {
+            grid = PointHashGrid{&device, &descriptorPool, &particleDescriptorSetLayout, resolution, gridSpacing};
+            grid.init();
+        }
         grid.setNumParticles(int(particles.size()));
         execute([&](auto commandBuffer){
             grid.buildHashGrid(commandBuffer, particleDescriptorSet);
@@ -586,5 +588,25 @@ TEST_F(PointHashGridBuilderTest, generateNeighbourListOfRandomPoints){
     for(auto& [index, expectedNeighbourList] : expected){
         assertNeighbourList(index, expectedNeighbourList);
     }
+}
 
+TEST_F(PointHashGridBuilderTest, generateNeighbourListShouldBeConsistentBetweenCalls){
+    resolution = glm::vec3{4, 4, 4};
+    gridSpacing = 0.25;
+
+    generateRandomPointsInGrid<100>(0.0f, 1.0f);
+    createParticles();
+
+    generateNeighbourList();
+
+    auto expected = getExpectedNeighbourList();
+    for(auto& [index, expectedNeighbourList] : expected){
+        assertNeighbourList(index, expectedNeighbourList);
+    }
+
+    generateNeighbourList(false);
+
+    for(auto& [index, expectedNeighbourList] : expected){
+        assertNeighbourList(index, expectedNeighbourList);
+    }
 }

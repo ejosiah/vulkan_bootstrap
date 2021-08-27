@@ -323,4 +323,6 @@ int main() {
     fmt::print("b:{}\n", b);
     fmt::print("c = b * floor(a / b) => {}\n", c);
     fmt::print("d = a - c => {}\n", d);
+
+    std::sort(begin(keys), end(keys));
 }

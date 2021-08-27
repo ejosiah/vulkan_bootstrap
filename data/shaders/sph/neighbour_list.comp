@@ -34,14 +34,10 @@ layout(set = 2, binding = 0, scalar) buffer BUCKET_SIZES {
 
 layout(set = 2, binding = 1, scalar) buffer BUCKET_SIZE_OFFSET {
     int bucketSizeOffset[];
-
 };
+
 layout(set = 3, binding = 0, scalar) buffer NEIGHBOUR_LIST{
     int neighbourList[];
-};
-
-layout(set = 3, binding = 1, scalar) buffer ATOMIC_COUNTER{
-    int counter[];
 };
 
 layout(set = 4, binding = 0, scalar) buffer NEIGHBOUR_LIST_SIZES{
@@ -49,58 +45,61 @@ layout(set = 4, binding = 0, scalar) buffer NEIGHBOUR_LIST_SIZES{
 };
 
 void main(){
-    uvec3 id = gl_GlobalInvocationID;
-    uvec3 size = gl_WorkGroupSize * gl_NumWorkGroups;
-    int gIndex = int((id.z * size.y + id.y) * size.x + id.x);
-    int index = int(gl_LocalInvocationID.x);
-    int neighbourId = int(gl_GlobalInvocationID.y);
+    int id = int(gl_GlobalInvocationID.x);
 
-    if(index >= numParticles) return;
+    if(id >= numParticles) return;
 
-    vec3 origin = points[index].xyz;
+    vec3 origin = points[id].xyz;
 
     int nearByKeys[8];
     getNearByKeys(origin, gridSpacing, resolution, nearByKeys);
 
     float radius = gridSpacing * 0.5;
     float radiusSqr = radius * radius;
+    int next = 0;
     if(pass == 0){
         int neighbourListSize = 0;
-        int bucketIndex = nearByKeys[neighbourId];
-        if(bucketIndex < 0) return;
+        for(int i = 0; i < 8; i++){
+            int bucketIndex = nearByKeys[i];
+            if(bucketIndex < 0) continue;
 
-        int numPointsInBucket = bucketSize[bucketIndex];
-        if(numPointsInBucket <= 0) return;
+            int numPointsInBucket = bucketSize[bucketIndex];
+            if(numPointsInBucket <= 0) continue;
 
-        int bucketOffset = bucketSizeOffset[bucketIndex];
-        for(int j = int(gl_GlobalInvocationID.z); j < numPointsInBucket; j += int(size.z)){
-            int pointIndex = buckets[j + bucketOffset];
-            vec3 point = points[pointIndex].xyz;
-            vec3 d = point - origin;
-            if(dot(d, d) <= radiusSqr){
-                atomicAdd(neighbourListSizes[index], 1);
+            int bucketOffset = bucketSizeOffset[bucketIndex];
+            for(int j = bucketOffset; j < (bucketOffset + numPointsInBucket); j++){
+                int pointIndex = buckets[j];
+                next++;
+                vec3 point = points[pointIndex].xyz;
+                vec3 d = point - origin;
+                if(dot(d, d) <= radiusSqr){
+                    neighbourListSize++;
+                }
             }
         }
+        neighbourListSizes[id] = neighbourListSize;
         return;
     }
 
-    int invocationOffset = 0;
-    int bucketIndex = nearByKeys[neighbourId];
-    if(bucketIndex < 0) return;
+    int nextIndex = 0;
+    for(int i = 0; i < 8; i++){
+        int bucketIndex = nearByKeys[i];
+        if(bucketIndex < 0) continue;
 
-    int numPointsInBucket = bucketSize[bucketIndex];
+        int numPointsInBucket = bucketSize[bucketIndex];
 
-    int bucketOffset = bucketSizeOffset[bucketIndex];
+        int bucketOffset = bucketSizeOffset[bucketIndex];
 
-    int offset = neighbourListSizes[index];
-    for(int j = int(gl_GlobalInvocationID.z); j < numPointsInBucket; j += int(size.z)){
-        int pointIndex = buckets[j + bucketOffset];
-        vec3 point = points[pointIndex].xyz;
-        vec3 d = point - origin;
-        if(dot(d, d) <= radiusSqr){
-            invocationOffset = atomicAdd(counter[index], 1);
-            int listIndex = invocationOffset + offset;
-            neighbourList[listIndex]  = pointIndex;
+        int offset = neighbourListSizes[id];
+        for(int j = bucketOffset; j < (bucketOffset + numPointsInBucket); j++){
+            int pointIndex = buckets[j];
+            vec3 point = points[pointIndex].xyz;
+            vec3 d = point - origin;
+            if(dot(d, d) <= radiusSqr){
+                int listIndex = nextIndex + offset;
+                neighbourList[listIndex]  = pointIndex;
+                nextIndex++;
+            }
         }
     }
 }

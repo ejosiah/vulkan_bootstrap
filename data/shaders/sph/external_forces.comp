@@ -12,7 +12,7 @@ layout(set = 0, binding = 0) buffer Points{
     vec4 pointsIn[];
 };
 
-layout(set = 0, binding = 1) buffer PData{
+layout(set = 0, binding = 1, scalar) buffer PData{
     ParticleData dataIn[];
 };
 

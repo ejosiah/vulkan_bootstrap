@@ -56,5 +56,7 @@ void main(){
         uint posIndex = atomicAdd(nextId, 1);
         points[posIndex] = vec4(pos, 1);
         data[posIndex].color = vec4(hash33(vec3(id)), 1);
+//        data[posIndex].color = vec4(vec3(1, 0, 0), 1);
+        data[posIndex].velocity = hash33(vec3(id)) * 0.25;
     }
 }

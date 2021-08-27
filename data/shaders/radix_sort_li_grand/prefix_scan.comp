@@ -1,0 +1,110 @@
+#version 460 core 
+
+#define SYNCTHREADS groupMemoryBarrier(); barrier()
+
+layout(local_size_x=128) in;
+
+layout(std430, binding=0) buffer DATA{
+	uint data[];
+};
+
+layout(std430, binding=1) buffer SUM{
+	uint sums[];
+};
+
+uniform int N;
+shared uint local_data[256];
+
+void prefixScan(inout uvec4 v, out uint sum){
+	sum = 0;
+	uint temp = v.x;
+	v.x = sum;
+	sum += temp;
+	
+	temp = v.y;
+	v.y = sum;
+	sum += temp;
+
+	temp = v.z;
+	v.z = sum;
+	sum += temp;
+
+	temp = v.w;
+	v.w = sum;
+	sum += temp;
+}
+
+void main(){
+	uint thid = gl_LocalInvocationIndex;
+	uint g_thid = gl_GlobalInvocationID.x;
+
+	//if(g_thid >= N) return;
+
+	uvec4 temp0 = uvec4(data[8 * g_thid + 0], data[8 * g_thid + 1], data[8 * g_thid + 2], data[8 * g_thid + 3]);
+	uvec4 temp1 = uvec4(data[8 * g_thid + 4], data[8 * g_thid + 5], data[8 * g_thid + 6], data[8 * g_thid + 7]);
+
+	//uint n = max(2, N/4);
+	uint n = 256;
+
+	uint sum = 0;
+	prefixScan(temp0, sum);
+	local_data[2 * thid] = sum;
+
+	prefixScan(temp1, sum);
+	local_data[2 * thid + 1] = sum;
+
+	uint offset = 1;
+    for(uint d = n >> 1; d > 0; d >>= 1){
+        SYNCTHREADS;
+        if(thid < d){
+            uint ai = offset * ( 2 * thid+1) -1;
+            uint bi = offset * ( 2 * thid+2) -1;
+            local_data[bi]  += local_data[ai];
+        }
+        offset *= 2;
+    }
+
+	if(thid == 0){  
+        uint t = local_data[n - 1];
+        local_data[n - 1] = 0;
+        sums[gl_WorkGroupID.x] = t;
+    }
+
+	    for(uint d = 1; d < n; d *= 2){
+        offset >>= 1;
+        SYNCTHREADS;
+        if(thid < d){
+            uint ai = offset * (2 * thid + 1) - 1;
+            uint bi = offset * (2 * thid + 2) - 1;
+            uint t = local_data[ai];
+            local_data[ai] = local_data[bi];
+            local_data[bi] += t;
+        }
+    }
+    SYNCTHREADS;
+
+    uint sum0 = local_data[2 * thid];
+    uint sum1 = local_data[2 * thid + 1];
+
+    temp0.x += sum0;
+    temp0.y += sum0;
+    temp0.z += sum0;
+    temp0.w += sum0;
+
+    
+    temp1.x += sum1;
+    temp1.y += sum1;
+    temp1.z += sum1;
+    temp1.w += sum1;
+
+    data[8 * g_thid] = temp0.x;
+    data[8 * g_thid + 1] = temp0.y;   
+    data[8 * g_thid + 2] = temp0.z;
+    data[8 * g_thid + 3] = temp0.w;
+
+    
+    data[8 * g_thid + 4] = temp1.x;
+    data[8 * g_thid + 5] = temp1.y;   
+    data[8 * g_thid + 6] = temp1.z;
+    data[8 * g_thid + 7] = temp1.w;
+}

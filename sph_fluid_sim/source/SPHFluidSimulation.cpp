@@ -25,7 +25,9 @@ void SPHFluidSimulation::initApp() {
     createPointHashGrid();
     createForces();
     createTimeIntegrator();
+    createComputePressure();
     computeMass();
+    createInterpolator();
     emit();
 }
 
@@ -317,9 +319,19 @@ void SPHFluidSimulation::update(float time) {
     });
     pointHashGrid.setNumParticles(numParticles);
     forceDescriptor.setNumParticles(numParticles);
+    computePressure.setNumParticles(numParticles);
+    interpolator.setNumParticles(numParticles);
     resolveCollision.setNumParticles(numParticles);
     applyExternalForces.update(numParticles, time);
     timeIntegration.update(numParticles, time);
+
+    std::vector<VkDescriptorSet> neighbourDescriptorSets{
+            pointHashGrid.neighbourList.descriptorSet,
+            pointHashGrid.neighbourList.neighbourSizeDescriptorSet,
+            pointHashGrid.neighbourList.neighbourSizeOffsetDescriptorSet
+    };
+    interpolator.setNeighbourDescriptors(neighbourDescriptorSets.data());
+
     runPhysics();
 }
 
@@ -358,28 +370,41 @@ void SPHFluidSimulation::runPhysics() {
         addComputeBufferMemoryBarriers(commandBuffer, pointHashGrid.bucketBuffers());
         buildNeighbourList(commandBuffer, sets[PARTICLE_IN]);
         addComputeBufferMemoryBarriers(commandBuffer, pointHashGrid.neighbourBuffers());
-//        applyExternalForces(commandBuffer, sets[PARTICLE_IN]);
-//        addComputeBufferMemoryBarriers(commandBuffer, { &forceDescriptor.forceBuffer });
-//        timeIntegration(commandBuffer, sets, forceDescriptor.set);
+//        interpolator.updateDensity(commandBuffer, sets[PARTICLE_IN]);
 //        addComputeBufferMemoryBarriers(commandBuffer, { &particles.buffers[0], &particles.buffers[1] });
-//        resolveCollision(commandBuffer, sets[PARTICLE_OUT]);
+//        interpolator.updateColor(commandBuffer, sets[PARTICLE_IN]);
+        applyExternalForces(commandBuffer, sets[PARTICLE_IN]);
+//        addComputeBufferMemoryBarriers(commandBuffer, { &forceDescriptor.forceBuffer });
+//        computePressure(commandBuffer, sets[PARTICLE_IN]);
+//        addComputeBufferMemoryBarriers(commandBuffer, { &particles.buffers[0], &particles.buffers[1] });
+//        interpolator.updatePressure(commandBuffer, sets[PARTICLE_IN]);
+//        addComputeBufferMemoryBarriers(commandBuffer, { &forceDescriptor.forceBuffer });
+        timeIntegration(commandBuffer, sets, forceDescriptor.set);
+        addComputeBufferMemoryBarriers(commandBuffer, { &particles.buffers[0], &particles.buffers[1] });
+        resolveCollision(commandBuffer, sets[PARTICLE_OUT]);
     });
 
-    static bool debug = true;
+    static bool debug = false;
     if(debug){
         debug = false;
-        pointHashGrid.bucketSizeBuffer.map<int>([](auto ptr){
-            float n = 0;
-            float sum = 0;
-            for(int i = 0; i < 64 * 64 * 64; i++){
-                if(ptr[i] != 0) {
-                    sum += ptr[i];
-                    n++;
-                    spdlog::info("grid[{}] => {}", i, ptr[i]);
-                }
-            }
-            float avg = sum/n;
-            spdlog::info("average points per grid: {}, n: {}, sum: {}", avg, n, sum);
+        forceDescriptor.forceBuffer.map<glm::vec3>([&](auto ptr){
+            particles.buffers[PARTICLE_IN].map<char>([&](auto pPtr){
+                pointHashGrid.neighbourList.neighbourSizeBuffer.map<int>([&](auto nSizePtr){
+                    pointHashGrid.neighbourList.neighbourOffsetsBuffer.map<int>([&](auto offsetPtr){
+                        for(int i = 0; i < numParticles; i++){
+                            glm::vec3 f = ptr[i];
+                            ParticleData data = reinterpret_cast<ParticleData*>(pPtr + particles.pointSize)[i];
+                            auto size = nSizePtr[i];
+                            int noNeighbours = 0;
+
+                            if(data.density > 0){
+                                spdlog::error("i: {}, force: {}, density: {}, pressure : {}, size: {}", i, f, data.density, data.pressure, size);
+                            }
+                        }
+                    });
+                });
+            })  ;
+
         });
     }
 
@@ -425,7 +450,27 @@ void SPHFluidSimulation::createForces() {
     forceDescriptor.init();
     applyExternalForces = ExternalForces{ &device, &forceDescriptor, &particles.descriptorSetLayout, particles.constants.drag};
     applyExternalForces.init();
-    applyExternalForces.constants.gravity = {0, -0.11, 0};
+    applyExternalForces.constants.gravity = {0, -9.8, 0};
+}
+
+void SPHFluidSimulation::createComputePressure() {
+    computePressure = ComputePressure{ &device, &particles.descriptorSetLayout,
+                                       eosExponent, particleProperties.targetDensity,
+                                       speedOfSound, negativePressureScale};
+    computePressure.init();
+}
+
+void SPHFluidSimulation::createInterpolator() {
+    interpolator = Interpolator{ &device
+                                 , &particles.descriptorSetLayout
+                                 , &forceDescriptor
+                                 , &pointHashGrid.neighbourList.setLayout
+                                 , &pointHashGrid.neighbourList.neighbourSizeSetLayout
+                                 , &pointHashGrid.neighbourList.neighbourSizeSetLayout
+                                 , particleProperties.kernelRadius
+                                 , 1.0f/particleProperties.mass
+    };
+    interpolator.init();
 }
 
 void SPHFluidSimulation::createTimeIntegrator() {
@@ -503,6 +548,8 @@ void SPHFluidSimulation::computeMass() {
     applyExternalForces.constants.invMass = 1.0f/mass;
     timeIntegration.constants.invMass = 1.0f/mass;
 }
+
+
 
 
 int main(){

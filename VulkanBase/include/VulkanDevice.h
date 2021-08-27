@@ -12,6 +12,9 @@
 #include "VulkanRenderPass.h"
 #include "VulkanFramebuffer.h"
 #include "VulkanDebug.h"
+#include "VulkanExtensions.h"
+
+class GraphicsPipelineBuilder;
 
 struct VulkanDevice{
 
@@ -565,4 +568,16 @@ struct VulkanDevice{
     inline void updateDescriptorSets(const Writes& writes, const Copies& copies = {}) const {
         vkUpdateDescriptorSets(logicalDevice, COUNT(writes), writes.data(), COUNT(copies), copies.data());
     }
+
+    template<VkObjectType objectType>
+    inline void setName(const std::string& objectName, void* ptr){
+        VkDebugUtilsObjectNameInfoEXT nameInfo{};
+        nameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
+        nameInfo.pObjectName = objectName.c_str();
+        nameInfo.objectType = objectType;
+        nameInfo.objectHandle = (uint64_t)ptr;
+        vkSetDebugUtilsObjectNameEXT(logicalDevice, &nameInfo);
+    }
+
+    GraphicsPipelineBuilder graphicsPipelineBuilder();
 };
