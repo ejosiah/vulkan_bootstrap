@@ -5,7 +5,9 @@ class Profiler{
 public:
     Profiler() = default;
 
-    explicit  Profiler(VulkanDevice* device) : device(device)
+    explicit  Profiler(VulkanDevice* device, uint32_t queryCount = 20)
+    : device(device)
+    , queryCount(queryCount)
     {
         queryPool = TimestampQueryPool{*device, QueryCount};
     }
@@ -15,18 +17,30 @@ public:
             queryCount += queryCount * 0.25;
             queryPool = TimestampQueryPool{*device, QueryCount};
         }
-        Query query{name, queries.size()};
+        Query query{name};
         query.startId = queries.size() * 2;
         query.endId = queries.size() * 2 + 1;
         queries.insert(std::make_pair(name, query));
     }
 
-    void group(const string::string& groupName, std::initializer_list<std::string> queryNames){
+    template<typename Queries queries>
+    void group(const std::string& groupName, Queries queries){
         QueryGroup queryGroup = queryGroups.find(groupName) == end(queryGroup) ? QueryGroup{groupName} : queryGroups[groupName];
-        for(auto query : queryNames){
-            queryGroup.queries.push_back(query);
+        for(auto _query : queries){
+            queryGroup.queries.push_back(_query);
         }
         queryGroup[groupName] = queryGroup;
+    }
+
+    void addGroup(const std::string& name, int queries){
+        assert(queries > 0);
+        std::vector<std::string> queryNames;
+        for(auto i = 0; i < queries; i++){
+            auto queryName = fmt::format("{}_{}", name, i);
+            addQuery(queryName);
+            queryNames.push_back(queryName);
+        }
+        group(name, queryNames);
     }
 
     template<typename Body>
@@ -53,19 +67,19 @@ public:
         }
 
         for(auto& [_, group] : queryGroups){
+            uint64_t runtime = 0;
             for(auto& queryName : group.queries){
                 auto& query = queries[queryName];
-                auto runtime = query.runtimes.back();
-                group.runtimes.push_back(runtime);
+                runtime += query.runtimes.back();
             }
-            group.runtimes[group.runtimes.size() - 1] /= group.queries.size();
+            runtime /= group.queries.size();
+            group.runtimes.push_back(runtime);
         }
     }
 
 private:
     struct Query{
         std::string name;
-        uint32_t queryId{0};
         uint64_t startId{0};
         uint64_t endId{0};
         std::vector<uint64_t> runtimes{};
