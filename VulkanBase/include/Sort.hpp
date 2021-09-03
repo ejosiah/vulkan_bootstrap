@@ -2,7 +2,7 @@
 
 #include "ComputePipelins.hpp"
 #include "VulkanQuery.hpp"
-
+#include "Profiler.hpp"
 
 class GpuSort : public ComputePipelines{
 public:
@@ -53,77 +53,6 @@ class RadixSort : public GpuSort{
     enum Query  { COUNT, PREFIX_SUM, REORDER, NUM_QUERIES };
 
 public:
-    class Profiler{
-    public:
-        Profiler() = default;
-
-        explicit  Profiler(VulkanDevice* device, bool active = false)
-        : device(device)
-        , active(active)
-        {
-            if(active) {
-                queryPool = TimestampQueryPool{*device, QueryCount};
-            }
-        }
-
-
-        template<typename Body>
-        void profile(VkCommandBuffer commandBuffer, int pass, Query query, Body&& body){
-            if(active) {
-                uint32_t startId = (pass * NUM_QUERIES + query) * 2;
-                uint32_t endId = startId + 1;
-                vkCmdResetQueryPool(commandBuffer, queryPool, startId, 2);
-                vkCmdWriteTimestamp(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, queryPool, startId);
-                body();
-                vkCmdWriteTimestamp(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, queryPool, endId);
-            }else{
-                body();
-            }
-        }
-
-        void commit(){
-            if(active) {
-                VkQueryResultFlags flags = VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT;
-                vkGetQueryPoolResults(*device, queryPool, 0, QueryCount, sizeof(StopWatch) * PASSES,
-                                      timesPerPass.data(), sizeof(uint64_t), flags);
-
-                Runtime rt{};
-                auto timestampPeriod = device->timestampPeriod();
-                for (auto &stopWatch : timesPerPass) {
-                    rt.count += (stopWatch.countStop - stopWatch.countStart) * timestampPeriod;
-                    rt.prefixSum += (stopWatch.prefixSumStop - stopWatch.prefixSumStart) * timestampPeriod;
-                    rt.reorder += (stopWatch.reorderStop - stopWatch.reorderStart) * timestampPeriod;
-                }
-                rt.count /= PASSES;
-                rt.prefixSum /= PASSES;
-                rt.prefixSum /= PASSES;
-                runtimes.push_back(rt);
-            }
-        }
-
-        struct Runtime{
-            uint64_t count{0};
-            uint64_t prefixSum{0};
-            uint64_t reorder{0};
-        };
-        std::vector<Runtime> runtimes{};
-
-    private:
-        static constexpr uint32_t QueryCount = 24;
-        struct StopWatch {
-            uint64_t countStart;
-            uint64_t countStop;
-            uint64_t prefixSumStart;
-            uint64_t prefixSumStop;
-            uint64_t reorderStart;
-            uint64_t reorderStop;
-        };
-
-        std::array<StopWatch, PASSES> timesPerPass{};
-        TimestampQueryPool queryPool;
-        VulkanDevice* device = nullptr;
-        bool active = false;
-    };
 
 public:
     explicit RadixSort(VulkanDevice* device = nullptr, bool debug = false);

@@ -180,7 +180,8 @@ void RadixSort::count(VkCommandBuffer commandBuffer, VkDescriptorSet dataDescrip
     static std::array<VkDescriptorSet, 2> sets{};
     sets[0] = dataDescriptorSet;
     sets[1] = countsDescriptorSet;
-    profiler.profile(commandBuffer, constants.block, Query::COUNT,  [&]{
+    auto query = fmt::format("{}_{}", "count", constants.block);
+    profiler.profile(query, commandBuffer, [&]{
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline("count_radices"));
         vkCmdPushConstants(commandBuffer, layout("count_radices"), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(constants), &constants);
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, layout("count_radices"), 0, COUNT(sets), sets.data(), 0, VK_NULL_HANDLE);
@@ -191,7 +192,8 @@ void RadixSort::count(VkCommandBuffer commandBuffer, VkDescriptorSet dataDescrip
 }
 
 void RadixSort::prefixSum(VkCommandBuffer commandBuffer) {
-    profiler.profile(commandBuffer, constants.block, Query::PREFIX_SUM,  [&] {
+    auto query = fmt::format("{}_{}", "prefix_sum", constants.block);
+    profiler.profile(query, commandBuffer,  [&] {
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline("prefix_sum"));
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, layout("prefix_sum"), 0, 1,  &countsDescriptorSet, 0, VK_NULL_HANDLE);
         vkCmdPushConstants(commandBuffer, layout("prefix_sum"), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(constants), &constants);
@@ -205,7 +207,8 @@ void RadixSort::reorder(VkCommandBuffer commandBuffer, std::array<VkDescriptorSe
     sets[0] = dataDescriptorSets[DATA_IN];
     sets[1] = dataDescriptorSets[DATA_OUT];
     sets[2] = countsDescriptorSet;
-    profiler.profile(commandBuffer, constants.block, Query::REORDER, [&] {
+    auto query = fmt::format("{}_{}", "reorder", constants.block);
+    profiler.profile(query, commandBuffer, [&] {
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline("reorder"));
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, layout("reorder"), 0, COUNT(sets), sets.data(), 0, VK_NULL_HANDLE);
         vkCmdPushConstants(commandBuffer, layout("reorder"), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(constants), &constants);
@@ -217,7 +220,12 @@ void RadixSort::reorder(VkCommandBuffer commandBuffer, std::array<VkDescriptorSe
 }
 
 void RadixSort::createProfiler() {
-    profiler = Profiler{device, debug};
+    if(debug) {
+        profiler = Profiler{device, PASSES * 6};
+        profiler.addGroup("count", PASSES);
+        profiler.addGroup("prefix_sum", PASSES);
+        profiler.addGroup("reorder", PASSES);
+    }
 }
 
 void RadixSort::commitProfiler() {

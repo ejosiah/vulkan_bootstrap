@@ -75,7 +75,9 @@ void verify(VulkanBuffer& buffer){
 
 int main() {
     initVulkan();
-    std::vector<RadixSort::Profiler::Runtime> runtimes;
+    std::vector<Profiler::QueryGroup> countQueries;
+    std::vector<Profiler::QueryGroup> prefixSumQueries;
+    std::vector<Profiler::QueryGroup> reorderQueries;
     auto rng = rngFunc<uint32_t>(0, std::numeric_limits<uint32_t>::max() - 1, 1 << 20);
     for(int i = 0; i <= 15; i++){
         std::vector<uint32_t> data(1 << (i + 8));
@@ -92,16 +94,18 @@ int main() {
         verify(buffer);
 
         sort.profiler.commit();
-        runtimes.push_back(sort.profiler.runtimes.front());
+        countQueries.push_back(sort.profiler.getGroup("count").value());
+        prefixSumQueries.push_back(sort.profiler.getGroup("prefix_sum").value());
+        reorderQueries.push_back(sort.profiler.getGroup("reorder").value());
     }
     fmt::print("\n\n");
     fmt::print("{:<20}{:<20}{:<20}{:<20}{:<20}\n", "Input Size", "Count (ms)", "Prefix Sum (ms)", "Reorder (ms)", "Total Time (ms)");
 
     for(int i = 0; i <= 15; i++){
         int inputSize = 1 << (i + 8);
-        float count = toMillis(runtimes[i].count);
-        float prefixSum = toMillis(runtimes[i].prefixSum);
-        float reorder = toMillis(runtimes[i].reorder);
+        float count = toMillis(countQueries[i].runtimes.front());
+        float prefixSum = toMillis(prefixSumQueries[i].runtimes.front());
+        float reorder = toMillis(reorderQueries[i].runtimes.front());
         float total = count + prefixSum + reorder;
 
         fmt::print("{:<20}{:<20}{:<20}{:<20}{:<20}\n", inputSize, count, prefixSum, reorder, total);

@@ -95,6 +95,10 @@ struct VulkanQueryPool{
         return &queryPool;
     }
 
+    operator bool() const {
+        return queryPool != VK_NULL_HANDLE;
+    }
+
 
     template<typename Result>
     Result queryResult(VkQueryResultFlags flags = 0) const {
