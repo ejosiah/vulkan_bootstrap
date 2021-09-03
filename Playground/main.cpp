@@ -1,328 +1,111 @@
 #include <fmt/format.h>
 #include <VulkanInstance.h>
 #include <VulkanDevice.h>
+#include <Sort.hpp>
 #include <VulkanDebug.h>
 #include <VulkanShaderModule.h>
 #include <mutex>
-std::mutex g_mutex;
-VkInstance g_instance = VK_NULL_HANDLE;
-VkPhysicalDevice g_physicalDevice = VK_NULL_HANDLE;
-VkDevice g_device = VK_NULL_HANDLE;
-VkQueue g_queue = VK_NULL_HANDLE;
-uint32_t g_queueFamilyIndex = VK_NULL_HANDLE;
-VkDebugUtilsMessengerEXT g_debugMessenger;
-VkDebugUtilsMessengerCreateInfoEXT g_debugInfo;
-VkPipelineLayout g_layout = VK_NULL_HANDLE;
-VkPipeline g_Pipeline = VK_NULL_HANDLE;
-VkCommandPool g_commandPool = VK_NULL_HANDLE;
-
-const std::vector<const char*> g_validationLayers {
-        "VK_LAYER_KHRONOS_validation"
-};
-
-static  VkBool32 VKAPI_PTR debugCallback(
-        VkDebugUtilsMessageSeverityFlagBitsEXT           messageSeverity,
-        VkDebugUtilsMessageTypeFlagsEXT                  messageTypes,
-        const VkDebugUtilsMessengerCallbackDataEXT*      pCallbackData,
-        void*                                            pUserData){
 
 
-    if(messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT){
-        printf("info: %s\n", pCallbackData->pMessage);
-    }
-    if(messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT){
-        printf("warning: %s\n", pCallbackData->pMessage);
-    }
+static std::vector<const char*> instanceExtensions{VK_EXT_DEBUG_UTILS_EXTENSION_NAME};
+static std::vector<const char*> validationLayers{"VK_LAYER_KHRONOS_validation"};
+static std::vector<const char*> deviceExtensions{ };
 
-    if(messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT){
-        printf("error: %ss\n", pCallbackData->pMessage);
-    }
-    return VK_FALSE;
+VulkanInstance g_instance;
+VulkanDevice g_device;
+VulkanDebug g_debug;
+Settings g_settings;
 
-}
-
-void initDebugInfo(){
-    g_debugInfo = VkDebugUtilsMessengerCreateInfoEXT{};
-    g_debugInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-    g_debugInfo.messageSeverity =
-            VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
-            VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT |
-            VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
-            VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-    g_debugInfo.messageType =
-            VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
-            VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT |
-            VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT;
-    g_debugInfo.pfnUserCallback = debugCallback;
-}
-
-
-void initInstance(){
-    const std::vector<const char*> instanceExtensions{
-            VK_EXT_DEBUG_UTILS_EXTENSION_NAME
-    };
-
+void createInstance(){
     VkApplicationInfo appInfo{};
-    appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+    appInfo.sType  = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+    appInfo.applicationVersion = VK_MAKE_VERSION(0, 0, 0);
+    appInfo.pApplicationName = "Vulkan Test";
     appInfo.apiVersion = VK_API_VERSION_1_2;
-    appInfo.applicationVersion = VK_MAKE_VERSION(0, 0, 1);
-    appInfo.engineVersion = VK_MAKE_VERSION(0,  0, 1);
-    appInfo.pApplicationName = "Nsight Aftermath test";
     appInfo.pEngineName = "";
 
-    VkInstanceCreateInfo info{};
-    info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-    info.pNext = &g_debugInfo;
-    info.pApplicationInfo = &appInfo;
-    info.enabledExtensionCount = COUNT(instanceExtensions);
-    info.ppEnabledExtensionNames = instanceExtensions.data();
-    info.enabledLayerCount = COUNT(g_validationLayers);
-    info.ppEnabledLayerNames = g_validationLayers.data();
+    VkInstanceCreateInfo createInfo{};
+    createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+    createInfo.pApplicationInfo = &appInfo;
+    createInfo.enabledExtensionCount = static_cast<uint32_t>(instanceExtensions.size());
+    createInfo.ppEnabledExtensionNames = instanceExtensions.data();
 
-    ASSERT(vkCreateInstance(&info, nullptr, &g_instance));
-    printf("instance created...\n");
-}
+    createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
+    createInfo.ppEnabledLayerNames = validationLayers.data();
+    auto debugInfo = VulkanDebug::debugCreateInfo();
+    createInfo.pNext = &debugInfo;
 
-void createDebugMessenger(){
-    assert(g_instance);
-    auto vkCreateDebugUtilsMessengerEXT = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(
-            g_instance, "vkCreateDebugUtilsMessengerEXT"));
-    if(vkCreateDebugUtilsMessengerEXT == nullptr){
-        printf("unable to retrieve create debut utils messenger function pointer\n");
-        exit(120);
-    }
-
-    auto result = vkCreateDebugUtilsMessengerEXT(g_instance, &g_debugInfo, nullptr, &g_debugMessenger);
-    if(result != VK_SUCCESS){
-        printf("unable to create debug messenger\n");
-        exit(140);
-    }
+    g_instance = VulkanInstance{appInfo, {instanceExtensions, validationLayers}};
 }
 
 void createDevice(){
-    assert(g_instance);
-
-    uint32_t count = 0;
-
-    VkResult result;
-    do {
-        printf("enumerating devices\n");
-        result = vkEnumeratePhysicalDevices(g_instance, &count, VK_NULL_HANDLE);
-    }while(result == VK_INCOMPLETE);
-    printf("%d devices found\n", count);
-
-    std::vector<VkPhysicalDevice> physicalDevices(count);
-    vkEnumeratePhysicalDevices(g_instance, &count, physicalDevices.data());
-    g_physicalDevice = physicalDevices.front();
-
-    vkGetPhysicalDeviceQueueFamilyProperties(g_physicalDevice, &count, nullptr);
-    std::vector<VkQueueFamilyProperties> queueFamilyProperties(count);
-    vkGetPhysicalDeviceQueueFamilyProperties(g_physicalDevice, &count, queueFamilyProperties.data());
-
-    for(uint32_t i = 0; i < count; i++){
-        if(queueFamilyProperties[i].queueFlags & VK_QUEUE_COMPUTE_BIT){
-            g_queueFamilyIndex = i;
-            break;
-        }
-    }
-
-    float priority = 1;
-    VkDeviceQueueCreateInfo queueCreateInfo{};
-    queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-    queueCreateInfo.queueFamilyIndex = g_queueFamilyIndex;
-    queueCreateInfo.queueCount = 1;
-    queueCreateInfo.pQueuePriorities = &priority;
-
-    const std::vector<const char*> deviceExtensions{};
+    auto pDevice = enumerate<VkPhysicalDevice>([&](uint32_t* size, VkPhysicalDevice* pDevice){
+        return vkEnumeratePhysicalDevices(g_instance, size, pDevice);
+    }).front();
+    g_device = VulkanDevice{ g_instance, pDevice, g_settings};
+    VkPhysicalDeviceVulkan12Features features2{};
+    features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
+    features2.hostQueryReset = VK_TRUE;
     VkPhysicalDeviceFeatures enabledFeatures{};
-
-    VkDeviceCreateInfo info{};
-    info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-    info.queueCreateInfoCount = 1;
-    info.pQueueCreateInfos = &queueCreateInfo;
-    info.enabledExtensionCount = COUNT(deviceExtensions);
-    info.ppEnabledExtensionNames = deviceExtensions.data();
-    info.pEnabledFeatures = &enabledFeatures;
-    info.enabledLayerCount = COUNT(g_validationLayers);
-    info.ppEnabledLayerNames = g_validationLayers.data();
-
-    result = vkCreateDevice(g_physicalDevice, &info, nullptr, &g_device);
-    if(result != VK_SUCCESS){
-        printf("unable to create device\n");
-        exit(500);
-    }
-    vkGetDeviceQueue(g_device, g_queueFamilyIndex, 0, &g_queue);
+    enabledFeatures.robustBufferAccess = VK_TRUE;
+    g_device.createLogicalDevice(enabledFeatures, deviceExtensions, validationLayers, VK_NULL_HANDLE, VK_QUEUE_COMPUTE_BIT, &features2);
 }
 
-void createCommandPool(){
-    VkCommandPoolCreateInfo info{};
-    info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-    info.queueFamilyIndex = g_queueFamilyIndex;
-
-    ASSERT(vkCreateCommandPool(g_device, &info, nullptr, &g_commandPool));
+void initVulkan(){
+    g_settings.queueFlags = VK_QUEUE_COMPUTE_BIT;
+    createInstance();
+    ext::init(g_instance);
+    g_debug = VulkanDebug{ g_instance };
+    createDevice();
 }
 
-void createComputePipeline(){
-    auto source = VulkanShaderModule{"../../data/shaders/crash.comp.spv", g_device};
-    VkPipelineShaderStageCreateInfo stageInfo{};
-    stageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    stageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-    stageInfo.module = source;
-    stageInfo.pName = "main";
-
-    VkPipelineLayoutCreateInfo layoutInfo{};
-    layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    ASSERT(vkCreatePipelineLayout(g_device, &layoutInfo, nullptr, &g_layout));
-
-    VkComputePipelineCreateInfo createInfo{};
-    createInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
-    createInfo.stage = stageInfo;
-    createInfo.layout = g_layout;
-
-    ASSERT(vkCreateComputePipelines(g_device, VK_NULL_HANDLE, 1, &createInfo, nullptr, &g_Pipeline));
+float toMillis(uint64_t duration){
+    return static_cast<float>(duration) * 1e-6;
 }
 
-void cleanup(){
-    vkDestroyPipeline(g_device, g_Pipeline, nullptr);
-    vkDestroyPipelineLayout(g_device, g_layout, nullptr);
+void verify(VulkanBuffer& buffer){
+    VulkanBuffer hostBuffer = g_device.createStagingBuffer(buffer.size);
+    g_device.copy(buffer, hostBuffer, buffer.size);
 
-    vkDestroyCommandPool(g_device, g_commandPool, nullptr);
-    vkDestroyDevice(g_device, nullptr);
-    auto vkDestroyDebugUtilsMessengerEXT = reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(g_instance, "vkDestroyDebugUtilsMessengerEXT"));
-    if(!vkDestroyDebugUtilsMessengerEXT){
-        printf("unable to retrieve destroy debug utils function ptr\n");
-    }
-    vkDestroyDebugUtilsMessengerEXT(g_instance, g_debugMessenger, nullptr);
-    vkDestroyInstance(g_instance, nullptr);
+    auto first = reinterpret_cast<uint32_t*>(hostBuffer.map());
+    auto last = first + hostBuffer.size/sizeof(uint32_t);
+    assert(std::is_sorted(first, last));
+    hostBuffer.unmap();
 }
-
-using uint = uint32_t;
-
-glm::vec2 hammersleySquare(uint i, const uint N) {
-    glm::vec2 P;
-    P.x = float(i) * (1.0 / float(N));
-
-    i = (i << 16u) | (i >> 16u);
-    i = ((i & 0x55555555u) << 1u) | ((i & 0xAAAAAAAAu) >> 1u);
-    i = ((i & 0x33333333u) << 2u) | ((i & 0xCCCCCCCCu) >> 2u);
-    i = ((i & 0x0F0F0F0Fu) << 4u) | ((i & 0xF0F0F0F0u) >> 4u);
-    i = ((i & 0x00FF00FFu) << 8u) | ((i & 0xFF00FF00u) >> 8u);
-    P.y = float(i) * 2.3283064365386963e-10; // / 0x100000000
-
-    return P;
-}
-
-using namespace glm;
-
-void computeOrthonormalBasis(vec3 N, vec3& Nt, vec3& Nb)
-{
-
-    Nt = normalize(((abs(N.z) > 0.99999f) ? vec3(-N.x * N.y, 1.0f - N.y * N.y, -N.y * N.z) :
-                    vec3(-N.x * N.z, -N.y * N.z, 1.0f - N.z * N.z)));
-    Nb = cross(Nt, N);
-}
-
-void othonormalBasis(vec3& normal, vec3& tangent, vec3& binormal){
-    normal = normalize(normal);
-    vec3 a;
-    if(abs(normal.x) > 0.9){
-        a = vec3(0, 1, 0);
-    }else {
-        a = vec3(1, 0, 0);
-    }
-    binormal = normalize(cross(normal, a));
-    tangent = cross(normal, binormal);
-}
-
-vec3 remap(vec3 value, vec3 oldMin, vec3 oldMax, vec3 newMin, vec3 newMax){
-    return (((value - oldMin) / (oldMax - oldMin)) * (newMax - newMin)) + newMin;
-}
-
-
-
-
-
-vec3 wrap(vec3 bucketIndex, vec3 resolution){
-    bucketIndex = mod(bucketIndex, resolution);
-    vec3 wrapped = bucketIndex + (1.0f - step(0.0f, bucketIndex)) * resolution;
-    return wrapped;
-}
-
-int toHashKey(vec3 bucketIndex, vec3 resolution){
-    return int((bucketIndex.z * resolution.y + bucketIndex.y) * resolution.x + bucketIndex.x);
-}
-
-int getHashKey(vec3 point, vec3 resolution, float gridSpacing){
-    vec3 bucketIndex = floor(point/gridSpacing);
-    bucketIndex = wrap(bucketIndex, resolution);
-    return toHashKey(bucketIndex, resolution);
-}
-
-void getNearByKeys(vec3 position, float gridSpacing, vec3 resolution, int* keys){
-    vec3 originIndex = floor(position/gridSpacing);
-    vec3 nearByBucketIndices[8];
-    for(int i = 0; i < 8; i++){
-        nearByBucketIndices[i] = originIndex;
-    }
-
-    if ((originIndex.x + 0.5f) * gridSpacing <= position.x) {
-        nearByBucketIndices[4].x += 1;
-        nearByBucketIndices[5].x += 1;
-        nearByBucketIndices[6].x += 1;
-        nearByBucketIndices[7].x += 1;
-    } else {
-        nearByBucketIndices[4].x -= 1;
-        nearByBucketIndices[5].x -= 1;
-        nearByBucketIndices[6].x -= 1;
-        nearByBucketIndices[7].x -= 1;
-    }
-
-    if ((originIndex.y + 0.5f) * gridSpacing <= position.y) {
-        nearByBucketIndices[2].y += 1;
-        nearByBucketIndices[3].y += 1;
-        nearByBucketIndices[6].y += 1;
-        nearByBucketIndices[7].y += 1;
-    } else {
-        nearByBucketIndices[2].y -= 1;
-        nearByBucketIndices[3].y -= 1;
-        nearByBucketIndices[6].y -= 1;
-        nearByBucketIndices[7].y -= 1;
-    }
-
-    if ((originIndex.z + 0.5f) * gridSpacing <= position.z) {
-        nearByBucketIndices[1].z += 1;
-        nearByBucketIndices[3].z += 1;
-        nearByBucketIndices[5].z += 1;
-        nearByBucketIndices[7].z += 1;
-    } else {
-        nearByBucketIndices[1].z -= 1;
-        nearByBucketIndices[3].z -= 1;
-        nearByBucketIndices[5].z -= 1;
-        nearByBucketIndices[7].z -= 1;
-    }
-
-    for (int i = 0; i < 8; i++) {
-        vec3 wrappedIndex = wrap(nearByBucketIndices[i], resolution);
-        keys[i] = toHashKey(wrappedIndex, resolution);
-    }
-}
-
-const float gridSpacing = 0.25;
-const vec3 resolution = vec3(4, 4, 1);
 
 int main() {
+    initVulkan();
+    std::vector<RadixSort::Profiler::Runtime> runtimes;
+    auto rng = rngFunc<uint32_t>(0, std::numeric_limits<uint32_t>::max() - 1, 1 << 20);
+    for(int i = 0; i <= 15; i++){
+        std::vector<uint32_t> data(1 << (i + 8));
+        std::generate(begin(data), end(data), rng);
+        assert(!std::is_sorted(begin(data), end(data)));
+        VkBufferUsageFlags usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+        VulkanBuffer buffer = g_device.createDeviceLocalBuffer(data.data(), BYTE_SIZE(data), usage);
 
-    std::array<int, 8> keys{};
-    getNearByKeys(vec3(0), gridSpacing, resolution, keys.data());
-    vec3 a{0, -2, 0};
-    vec3 b = resolution;
-    vec3 c = b * glm::floor(a / b);
-    vec3 d = a - c;
+        RadixSort sort{ &g_device, true };
+        sort.init();
+        g_device.graphicsCommandPool().oneTimeCommand([&](auto cmdBuffer){
+           sort(cmdBuffer, buffer);
+        });
+        verify(buffer);
 
-    fmt::print("a:{}\n", a);
-    fmt::print("b:{}\n", b);
-    fmt::print("c = b * floor(a / b) => {}\n", c);
-    fmt::print("d = a - c => {}\n", d);
+        sort.profiler.commit();
+        runtimes.push_back(sort.profiler.runtimes.front());
+    }
+    fmt::print("\n\n");
+    fmt::print("{:<20}{:<20}{:<20}{:<20}{:<20}\n", "Input Size", "Count (ms)", "Prefix Sum (ms)", "Reorder (ms)", "Total Time (ms)");
 
-    std::sort(begin(keys), end(keys));
+    for(int i = 0; i <= 15; i++){
+        int inputSize = 1 << (i + 8);
+        float count = toMillis(runtimes[i].count);
+        float prefixSum = toMillis(runtimes[i].prefixSum);
+        float reorder = toMillis(runtimes[i].reorder);
+        float total = count + prefixSum + reorder;
+
+        fmt::print("{:<20}{:<20}{:<20}{:<20}{:<20}\n", inputSize, count, prefixSum, reorder, total);
+
+    }
+
 }

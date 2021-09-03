@@ -1,7 +1,10 @@
 #include "Sort.hpp"
 #include "vulkan_util.h"
 
-RadixSort::RadixSort(VulkanDevice *device) : StableSort(device) {
+RadixSort::RadixSort(VulkanDevice *device, bool debug)
+: GpuSort(device)
+, debug(debug)
+{
 
 }
 
@@ -10,6 +13,8 @@ void RadixSort::init() {
     createDescriptorSetLayouts();
     createDescriptorSets();
     createPipelines();
+    createProfiler();
+
 }
 
 void RadixSort::createDescriptorPool() {
@@ -18,7 +23,7 @@ void RadixSort::createDescriptorPool() {
             {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, maxSets * 10}
     };
 
-    descriptorPool = device->createDescriptorPool(3, poolSizes);
+    descriptorPool = device->createDescriptorPool(maxSets, poolSizes);
 }
 
 void RadixSort::createDescriptorSetLayouts() {
@@ -81,6 +86,11 @@ std::vector<PipelineMetaData> RadixSort::pipelineMetaData() {
     };
 }
 
+VulkanBuffer RadixSort::sortWithIndices(VkCommandBuffer commandBuffer, VulkanBuffer &buffer) {
+    operator()(commandBuffer, buffer);
+    return std::move(indexBuffers[DATA_IN]);
+}
+
 void RadixSort::operator()(VkCommandBuffer commandBuffer, VulkanBuffer &buffer) {
 
     updateConstants(buffer);
@@ -98,12 +108,13 @@ void RadixSort::operator()(VkCommandBuffer commandBuffer, VulkanBuffer &buffer) 
         reorder(commandBuffer, localDataSets);
         std::swap(localDataSets[DATA_IN], localDataSets[DATA_OUT]);
     }
+
 }
 
 void RadixSort::updateConstants(VulkanBuffer& buffer) {
     workGroupCount = numWorkGroups(buffer);
     constants.Num_Elements = buffer.size/sizeof(uint);
-    constants.Num_Groups_per_WorkGroup = NUM_THREADS_PER_BLOCK/WORLD_SIZE;
+    constants.Num_Groups_per_WorkGroup = NUM_THREADS_PER_BLOCK / WORD_SIZE;
     constants.Num_Elements_per_WorkGroup = nearestMultiple(constants.Num_Elements / workGroupCount , NUM_THREADS_PER_BLOCK);
     constants.Num_Elements_Per_Group = constants.Num_Elements_per_WorkGroup / constants.Num_Groups_per_WorkGroup;
     constants.Num_Radices_Per_WorkGroup = RADIX / workGroupCount;
@@ -169,19 +180,24 @@ void RadixSort::count(VkCommandBuffer commandBuffer, VkDescriptorSet dataDescrip
     static std::array<VkDescriptorSet, 2> sets{};
     sets[0] = dataDescriptorSet;
     sets[1] = countsDescriptorSet;
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline("count_radices"));
-    vkCmdPushConstants(commandBuffer, layout("count_radices"), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(constants), &constants);
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, layout("count_radices"), 0, COUNT(sets), sets.data(), 0, VK_NULL_HANDLE);
-    vkCmdDispatch(commandBuffer, workGroupCount, 1, 1);
-    addComputeBufferMemoryBarriers(commandBuffer, { dataBuffers[DATA_IN], &countsBuffer });
+    profiler.profile(commandBuffer, constants.block, Query::COUNT,  [&]{
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline("count_radices"));
+        vkCmdPushConstants(commandBuffer, layout("count_radices"), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(constants), &constants);
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, layout("count_radices"), 0, COUNT(sets), sets.data(), 0, VK_NULL_HANDLE);
+        vkCmdDispatch(commandBuffer, workGroupCount, 1, 1);
+        addComputeBufferMemoryBarriers(commandBuffer, { dataBuffers[DATA_IN], &countsBuffer });
+    });
+
 }
 
 void RadixSort::prefixSum(VkCommandBuffer commandBuffer) {
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline("prefix_sum"));
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, layout("prefix_sum"), 0, 1, &countsDescriptorSet, 0, VK_NULL_HANDLE);
-    vkCmdPushConstants(commandBuffer, layout("prefix_sum"), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(constants), &constants);
-    vkCmdDispatch(commandBuffer, workGroupCount, 1, 1);
-    addComputeBufferMemoryBarriers(commandBuffer, { &countsBuffer, &sumBuffer, dataBuffers[DATA_IN], dataBuffers[DATA_OUT] });
+    profiler.profile(commandBuffer, constants.block, Query::PREFIX_SUM,  [&] {
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline("prefix_sum"));
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, layout("prefix_sum"), 0, 1,  &countsDescriptorSet, 0, VK_NULL_HANDLE);
+        vkCmdPushConstants(commandBuffer, layout("prefix_sum"), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(constants), &constants);
+        vkCmdDispatch(commandBuffer, workGroupCount, 1, 1);
+        addComputeBufferMemoryBarriers(commandBuffer,{&countsBuffer, &sumBuffer, dataBuffers[DATA_IN], dataBuffers[DATA_OUT]});
+    });
 }
 
 void RadixSort::reorder(VkCommandBuffer commandBuffer, std::array<VkDescriptorSet, 2> &dataDescriptorSets) {
@@ -189,14 +205,23 @@ void RadixSort::reorder(VkCommandBuffer commandBuffer, std::array<VkDescriptorSe
     sets[0] = dataDescriptorSets[DATA_IN];
     sets[1] = dataDescriptorSets[DATA_OUT];
     sets[2] = countsDescriptorSet;
+    profiler.profile(commandBuffer, constants.block, Query::REORDER, [&] {
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline("reorder"));
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, layout("reorder"), 0, COUNT(sets), sets.data(), 0, VK_NULL_HANDLE);
+        vkCmdPushConstants(commandBuffer, layout("reorder"), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(constants), &constants);
+        vkCmdDispatch(commandBuffer, workGroupCount, 1, 1);
+        if (constants.block < PASSES - 1) {
+            addComputeBufferMemoryBarriers(commandBuffer, {dataBuffers[DATA_IN], dataBuffers[DATA_OUT]});
+        }
+    });
+}
 
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline("reorder"));
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, layout("reorder"), 0, COUNT(sets), sets.data(), 0, VK_NULL_HANDLE);
-    vkCmdPushConstants(commandBuffer, layout("reorder"), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(constants), &constants);
-    vkCmdDispatch(commandBuffer, workGroupCount, 1, 1);
-    if(constants.block < PASSES - 1){
-        addComputeBufferMemoryBarriers(commandBuffer, {  dataBuffers[DATA_IN], dataBuffers[DATA_OUT] });
-    }
+void RadixSort::createProfiler() {
+    profiler = Profiler{device, debug};
+}
+
+void RadixSort::commitProfiler() {
+    profiler.commit();
 }
 
 

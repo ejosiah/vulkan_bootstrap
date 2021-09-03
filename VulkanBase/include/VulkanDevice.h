@@ -15,6 +15,7 @@
 #include "VulkanExtensions.h"
 
 class GraphicsPipelineBuilder;
+class DescriptorSetLayoutBuilder;
 
 struct VulkanDevice{
 
@@ -328,7 +329,7 @@ struct VulkanDevice{
     }
 
     inline VulkanBuffer createStagingBuffer(VkDeviceSize size, std::set<uint32_t> queueIndices = {}) const {
-        return createBuffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, size, "StagingBuffer", queueIndices);
+        return createBuffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_CPU_ONLY, size, "StagingBuffer", queueIndices);
     }
 
     [[nodiscard]]
@@ -579,5 +580,13 @@ struct VulkanDevice{
         vkSetDebugUtilsObjectNameEXT(logicalDevice, &nameInfo);
     }
 
+    inline float timestampPeriod(){
+        return getLimits().timestampPeriod;
+    }
+
+    [[nodiscard]]
     GraphicsPipelineBuilder graphicsPipelineBuilder();
+
+    [[nodiscard]]
+    DescriptorSetLayoutBuilder descriptorSetLayoutBuilder();
 };

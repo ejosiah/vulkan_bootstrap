@@ -1,0 +1,126 @@
+#version 460 core
+
+#define tail(ARRAY) (ARRAY[ARRAY.length() - 1])
+#define set_tail(ARRAY, VALUE) (ARRAY[ARRAY.length() - 1] = VALUE)
+
+layout(constant_id = 0) const uint MaxElementsPerWorkGroup = 128;
+
+layout(local_size_x_id = 1) in;
+
+const uint MaskOutLen = MaxElementsPerWorkGroup + 1;
+
+shared uint s_data[MaxElementsPerWorkGroup];
+shared uint s_mask_out[MaskOutLen];
+shared uint s_merged_scan_mask_out[MaxElementsPerWorkGroup];
+shared uint s_mask_out_sums[MaxElementsPerWorkGroup];
+shared uint s_scan_mask_out_sums[4];
+
+layout(set = 0, binding = 0) buffer DATA_IN{
+    uint data_in[];
+};
+
+layout(set = 1, binding = 0) buffer DATA_OUT{
+    uint data_out[];
+};
+
+layout(set = 2, binding = 0) buffer PREFIX_SUMS{
+    uint prefix_sums[];
+};
+
+layout(set = 2, binding = 1) buffer BLOCK_SUMS{
+    uint block_sums[];
+};
+
+layout(push_constant) uniform CONSTANTS{
+    uint shift_width;
+    uint data_length;
+};
+
+const uint N = MaxElementsPerWorkGroup;
+
+void main(){
+    int tid = int(gl_LocalInvocationIndex);
+    int data_id = int(N * gl_WorkGroupID.x + tid);
+    s_data[tid] = 0;
+    if(data_id < data_length){
+        s_data[tid] = data_in[data_id];
+    }
+
+    barrier();
+
+    uint data = s_data[tid];
+    uint two_bit_extract_d = (data >> shift_width) & 3u;
+    for(uint mask = 0; mask < 4; mask++){
+
+        s_mask_out[tid] = 0;
+        if(tid == 0){
+            set_tail(s_mask_out, 0);
+        }
+        barrier();
+
+        uint mask_result = 0;
+        if(data_id < data_length){
+            bool match = two_bit_extract_d == mask;
+            mask_result = uint(match);
+            s_mask_out[tid] = mask_result;
+        }
+
+        // inclusive scan masks
+        for(int offset = 1; offset < N; offset <<= 1){
+            barrier();
+
+            int aid = tid;
+            int bid = tid - offset;
+            uint a = s_mask_out[aid];
+            uint b = bid >= 0 ? s_mask_out[bid] : 0;
+
+            barrier();
+            s_mask_out[aid] = a + b;
+        }
+
+        // convert to exclusive scan
+        uint value = s_mask_out[tid];
+        barrier();
+        s_mask_out[tid + 1] = value;
+        barrier();
+
+        if(tid == 0){
+            s_mask_out[0] = 0;
+            uint total_sum = tail(s_mask_out);
+            s_mask_out_sums[mask] = total_sum;
+            block_sums[mask * gl_NumWorkGroups.x + gl_WorkGroupID.x] = total_sum;
+        }
+
+        barrier();
+
+        if(mask_result == 1 && (data_id < data_length)){
+            s_merged_scan_mask_out[tid] = s_mask_out[tid];
+        }
+
+        barrier();
+    }
+
+    // execute local prefix sum
+    if(tid == 0){
+        uint sum = 0;
+        for(uint i = 0; i < 4; i++){
+            s_scan_mask_out_sums[i] = sum;
+            sum += s_mask_out_sums[i];
+        }
+    }
+    barrier();
+
+    // execute local shuffle
+    if(data_id < data_length){
+        uint prefix_sum_value = s_merged_scan_mask_out[tid];
+        uint new_pos = prefix_sum_value + s_scan_mask_out_sums[two_bit_extract_d];
+        barrier();
+
+        s_data[new_pos] = data;
+        s_merged_scan_mask_out[new_pos] = prefix_sum_value;
+        barrier();
+
+        data_out[data_id] = s_data[tid];
+        prefix_sums[data_id] = s_merged_scan_mask_out[tid];
+    }
+}

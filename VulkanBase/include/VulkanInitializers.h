@@ -397,4 +397,11 @@ namespace initializers{
         info.sType = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR;
         return info;
     }
+
+
+    inline VkQueryPoolCreateInfo queryPoolCreateInfo() {
+        VkQueryPoolCreateInfo info{};
+        info.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
+        return info;
+    }
 }

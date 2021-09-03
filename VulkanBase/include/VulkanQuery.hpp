@@ -87,6 +87,14 @@ struct VulkanQueryPool{
 //        query(commandBuffer, queryName, func, controlFlags);
 //    }
 
+    operator VkQueryPool() const {
+        return queryPool;
+    }
+
+    operator VkQueryPool*()  {
+        return &queryPool;
+    }
+
 
     template<typename Result>
     Result queryResult(VkQueryResultFlags flags = 0) const {

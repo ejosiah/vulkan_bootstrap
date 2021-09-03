@@ -22,7 +22,7 @@ protected:
         return sorted;
     }
 
-    bool isStable(VulkanBuffer& buffer, VulkanBuffer indexBuffer) const {
+    bool isStable(VulkanBuffer& buffer, VulkanBuffer& indexBuffer) const {
         bool result = true;
         int numElements = buffer.size/sizeof(uint32_t);
 

@@ -5,11 +5,18 @@
 #include "VulkanShaderModule.h"
 #include "VulkanExtensions.h"
 
+struct SpecializationConstants{
+    std::vector<VkSpecializationMapEntry> entries{};
+    void* data = nullptr;
+    size_t dataSize = 0;
+};
+
 struct PipelineMetaData{
     std::string name;
     std::string shadePath;
     std::vector<VulkanDescriptorSetLayout*> layouts;
     std::vector<VkPushConstantRange> ranges;
+    SpecializationConstants specializationConstants{};
 };
 
 struct Pipeline{

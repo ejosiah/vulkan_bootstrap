@@ -83,7 +83,3 @@ private:
     std::vector<ShaderInfo> shaders;
     VulkanDevice& device;
 };
-
-GraphicsPipelineBuilder VulkanDevice::graphicsPipelineBuilder(){
-    return GraphicsPipelineBuilder{ *this };
-}

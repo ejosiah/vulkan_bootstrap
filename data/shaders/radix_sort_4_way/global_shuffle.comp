@@ -1,0 +1,44 @@
+#version 460 core
+
+layout(constant_id = 0) const uint MaxElementsPerWorkGroup = 128;
+
+layout(local_size_x_id = 1) in;
+
+layout(set = 0, binding = 0) buffer DATA_IN{
+    uint data_in[];
+};
+
+layout(set = 1, binding = 0) buffer DATA_OUT{
+    uint data_out[];
+};
+
+layout(set = 2, binding = 0) buffer PREFIX_SUMS{
+    uint prefix_sums[];
+};
+
+layout(set = 2, binding = 1) buffer BLOCK_PREFIX_SUMS{
+    uint block_prefix_sums[];
+};
+
+layout(push_constant) uniform CONSTANTS{
+    uint shift_width;
+    uint data_length;
+};
+
+const uint N = MaxElementsPerWorkGroup;
+
+void main(){
+    int tid = int(gl_LocalInvocationIndex);
+    int data_id = int(N * gl_WorkGroupID.x + tid);
+
+    if(data_id < data_length){
+        uint data = data_in[data_id];
+        uint two_bit_extract_d = (data >> shift_width) & 3u;
+        uint prefix_sum = prefix_sums[data_id];
+        uint global_data_pos = block_prefix_sums[two_bit_extract_d * gl_NumWorkGroups.x + gl_WorkGroupID.x] + prefix_sum;
+        barrier();
+        data_out[global_data_pos] = data;
+//        data_out[data_id] = two_bit_extract_d * gl_NumWorkGroups.x + gl_WorkGroupID.x;
+    }
+
+}

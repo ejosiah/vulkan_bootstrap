@@ -94,9 +94,12 @@ protected:
             return vkEnumeratePhysicalDevices(instance, size, pDevice);
         }).front();
         device = VulkanDevice{ instance, pDevice, settings};
+        VkPhysicalDeviceVulkan12Features features2{};
+        features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
+        features2.hostQueryReset = VK_TRUE;
         VkPhysicalDeviceFeatures enabledFeatures{};
         enabledFeatures.robustBufferAccess = VK_TRUE;
-        device.createLogicalDevice(enabledFeatures, deviceExtensions, validationLayers, VK_NULL_HANDLE, VK_QUEUE_COMPUTE_BIT);
+        device.createLogicalDevice(enabledFeatures, deviceExtensions, validationLayers, VK_NULL_HANDLE, VK_QUEUE_COMPUTE_BIT, &features2);
     }
 
     template<typename Func>
@@ -107,11 +110,14 @@ protected:
     void createPipelines(){
         if(_autoCreatePipeline) {
             for (auto &metaData : pipelineMetaData()) {
-                auto shaderModule = VulkanShaderModule{metaData.shadePath, device};
-                auto stage = initializers::shaderStage({shaderModule, VK_SHADER_STAGE_COMPUTE_BIT});
+                auto shaderModule = VulkanShaderModule{ metaData.shadePath, device};
+                auto stage = initializers::shaderStage({ shaderModule, VK_SHADER_STAGE_COMPUTE_BIT});
+                auto& sc = metaData.specializationConstants;
+                VkSpecializationInfo specialization{COUNT(sc.entries), sc.entries.data(), sc.dataSize, sc.data };
+                stage.pSpecializationInfo = &specialization;
                 Pipeline pipeline;
                 std::vector<VkDescriptorSetLayout> setLayouts;
-                for (auto &layout : metaData.layouts) {
+                for(auto& layout : metaData.layouts){
                     setLayouts.push_back(layout->handle);
                 }
                 pipeline.layout = device.createPipelineLayout(setLayouts, metaData.ranges);
@@ -121,6 +127,7 @@ protected:
                 createInfo.layout = pipeline.layout;
 
                 pipeline.pipeline = device.createComputePipeline(createInfo);
+                device.setName<VK_OBJECT_TYPE_PIPELINE>(metaData.name, pipeline.pipeline.handle);
                 pipelines.insert(std::make_pair(metaData.name, std::move(pipeline)));
             }
         }
@@ -145,4 +152,19 @@ protected:
     }
 
     virtual void postVulkanInit() {}
+
+    template<typename Iter0, typename Iter1>
+    void assertEqual(Iter0 _first0, Iter0 _last0, Iter1 _first1, Iter1 _last1){
+        auto dist0 = std::distance(_first0, _last0);
+        auto dist1 = std::distance(_first1, _last1);
+        ASSERT_EQ(dist0, dist1);
+
+        auto next0 = _first0;
+        auto next1 = _first1;
+        while(next0 != _last0){
+            ASSERT_EQ(*next0, *next1);
+            std::advance(*next0, 1);
+            std::advance(*next1, 1);
+        }
+    }
 };
