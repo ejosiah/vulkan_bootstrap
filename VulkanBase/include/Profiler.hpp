@@ -1,6 +1,7 @@
 #pragma once
 #include "VulkanDevice.h"
 #include <optional>
+#include "Statistics.hpp"
 
 class Profiler{
 public:
@@ -105,6 +106,41 @@ public:
             return queryGroups[name];
         }
         return {};
+    }
+
+    std::map<std::string, stats::Statistics<float>> groupStats(){
+        std::map<std::string, stats::Statistics<float>> result;
+
+        for(auto& [name, group] : queryGroups){
+            auto runtimes = toMillis(group.runtimes);
+            auto statistics = stats::summarize<float>(runtimes);
+            result.insert(std::make_pair(name, statistics));
+        }
+        return result;
+    }
+
+    std::map<std::string, stats::Statistics<float>> queryStats(){
+        std::map<std::string, stats::Statistics<float>> result;
+
+        for(auto& [name, query] : queries){
+            auto runtimes = toMillis(query.runtimes);
+            auto statistics = stats::summarize<float>(runtimes);
+            result.insert(std::make_pair(name, statistics));
+        }
+        return result;
+    }
+
+    static constexpr float toMillis(uint64_t duration){
+        return static_cast<float>(duration) * 1e-6f;
+    }
+
+    static inline std::vector<float> toMillis(const std::vector<uint64_t>& durations){
+        std::vector<float> result;
+        result.reserve(durations.size());
+        for(auto& duration : durations){
+            result.push_back(toMillis(duration));
+        }
+        return result;
     }
 
 private:

@@ -5,6 +5,7 @@
 #include <VulkanDebug.h>
 #include <VulkanShaderModule.h>
 #include <mutex>
+#include "Statistics.hpp"
 
 
 static std::vector<const char*> instanceExtensions{VK_EXT_DEBUG_UTILS_EXTENSION_NAME};
@@ -111,5 +112,4 @@ int main() {
         fmt::print("{:<20}{:<20}{:<20}{:<20}{:<20}\n", inputSize, count, prefixSum, reorder, total);
 
     }
-
 }
