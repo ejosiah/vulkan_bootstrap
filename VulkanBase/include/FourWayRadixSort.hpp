@@ -1,9 +1,10 @@
 #include "Sort.hpp"
 #include "PrefixSum.hpp"
+#include "Profiler.hpp"
 
 class FourWayRadixSort : public GpuSort{
 public:
-    explicit FourWayRadixSort(VulkanDevice* device = nullptr, uint maxElementsPerWorkGroup = 128);
+    explicit FourWayRadixSort(VulkanDevice* device = nullptr, uint maxElementsPerWorkGroup = 128, bool debug = false);
 
     void init() override;
 
@@ -18,6 +19,8 @@ protected:
 
     void createDescriptorSets();
 
+    void initProfiler();
+
     void updateDataDescriptorSets(VulkanBuffer& buffer);
 
     void localSort(VkCommandBuffer commandBuffer);
@@ -25,8 +28,6 @@ protected:
     void scan(VkCommandBuffer commandBuffer);
 
     void globalShuffle(VkCommandBuffer commandBuffer);
-
-    void copyResult(VkCommandBuffer commandBuffer);
 
     uint32_t calculateNumWorkGroups(VulkanBuffer& buffer);
 
@@ -42,6 +43,8 @@ public:
     std::array<VulkanBuffer*, 2> dataBuffers;
     PrefixSum prefixSum;
     uint numWorkGroups;
+    Profiler profiler;
+    bool debug = false;
 
     struct{
         uint shift_width{0};

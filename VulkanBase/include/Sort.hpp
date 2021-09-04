@@ -89,6 +89,8 @@ public:
 
     Profiler profiler;
 
+    bool debug = false;
+
 protected:
     VulkanDescriptorPool descriptorPool;
     VulkanDescriptorSetLayout dataSetLayout;
@@ -101,7 +103,6 @@ protected:
     std::array<VulkanBuffer, 2> indexBuffers;
     VulkanBuffer dataScratchBuffer;
     uint workGroupCount = 0;
-    bool debug = false;
 
     struct {
         uint block;

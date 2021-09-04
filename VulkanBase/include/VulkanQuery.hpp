@@ -95,7 +95,7 @@ struct VulkanQueryPool{
         return &queryPool;
     }
 
-    operator bool() const {
+    explicit operator bool() const {
         return queryPool != VK_NULL_HANDLE;
     }
 

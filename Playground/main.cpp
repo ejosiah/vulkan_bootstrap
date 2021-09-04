@@ -6,7 +6,7 @@
 #include <VulkanShaderModule.h>
 #include <mutex>
 #include "Statistics.hpp"
-
+#include "FourWayRadixSort.hpp"
 
 static std::vector<const char*> instanceExtensions{VK_EXT_DEBUG_UTILS_EXTENSION_NAME};
 static std::vector<const char*> validationLayers{"VK_LAYER_KHRONOS_validation"};
@@ -74,42 +74,62 @@ void verify(VulkanBuffer& buffer){
     hostBuffer.unmap();
 }
 
-int main() {
-    initVulkan();
-    std::vector<Profiler::QueryGroup> countQueries;
-    std::vector<Profiler::QueryGroup> prefixSumQueries;
-    std::vector<Profiler::QueryGroup> reorderQueries;
-    auto rng = rngFunc<uint32_t>(0, std::numeric_limits<uint32_t>::max() - 1, 1 << 20);
+template<typename Sorter>
+void perf_test(int iterations, const std::vector<std::string>& operations){
+    std::map<std::string, std::vector<stats::Statistics<float>>> statistics;
+    for(const auto& op : operations){
+        statistics.insert(std::make_pair(op, std::vector<stats::Statistics<float>>{}));
+    }
+
+//    auto rng = rngFunc<uint32_t>(0, std::numeric_limits<uint32_t>::max() - 1, 1 << 20);
+    auto rng = rngFunc<uint32_t>(0, 100, 1 << 20);
     for(int i = 0; i <= 15; i++){
-        std::vector<uint32_t> data(1 << (i + 8));
+        auto numItems = 1 << (i + 8);
+        std::vector<uint32_t> data(numItems);
         std::generate(begin(data), end(data), rng);
         assert(!std::is_sorted(begin(data), end(data)));
-        VkBufferUsageFlags usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-        VulkanBuffer buffer = g_device.createDeviceLocalBuffer(data.data(), BYTE_SIZE(data), usage);
 
-        RadixSort sort{ &g_device, true };
-        sort.init();
-        g_device.graphicsCommandPool().oneTimeCommand([&](auto cmdBuffer){
-           sort(cmdBuffer, buffer);
-        });
-        verify(buffer);
+        Sorter sorter{ &g_device };
+        sorter.debug = true;
+        sorter.init();
+        spdlog::info("running {} iterations, sorting {} items", iterations, numItems);
+        for(int j = 0; j < iterations; j++) {
+            spdlog::debug("run number {}, sorting {} items\n", j, numItems);
+            VkBufferUsageFlags usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+            VulkanBuffer buffer = g_device.createDeviceLocalBuffer(data.data(), BYTE_SIZE(data), usage);
 
-        sort.profiler.commit();
-        countQueries.push_back(sort.profiler.getGroup("count").value());
-        prefixSumQueries.push_back(sort.profiler.getGroup("prefix_sum").value());
-        reorderQueries.push_back(sort.profiler.getGroup("reorder").value());
+            g_device.graphicsCommandPool().oneTimeCommand([&](auto cmdBuffer) {
+                sorter(cmdBuffer, buffer);
+            });
+            verify(buffer);
+
+            sorter.profiler.commit();
+        }
+        auto stats = sorter.profiler.groupStats();
+
+        for(const auto& op : operations){
+            statistics[op].push_back(stats[op]);
+        }
+
     }
     fmt::print("\n\n");
-    fmt::print("{:<20}{:<20}{:<20}{:<20}{:<20}\n", "Input Size", "Count (ms)", "Prefix Sum (ms)", "Reorder (ms)", "Total Time (ms)");
 
     for(int i = 0; i <= 15; i++){
         int inputSize = 1 << (i + 8);
-        float count = toMillis(countQueries[i].runtimes.front());
-        float prefixSum = toMillis(prefixSumQueries[i].runtimes.front());
-        float reorder = toMillis(reorderQueries[i].runtimes.front());
-        float total = count + prefixSum + reorder;
-
-        fmt::print("{:<20}{:<20}{:<20}{:<20}{:<20}\n", inputSize, count, prefixSum, reorder, total);
-
+        fmt::print("{:<20}{:<20}{:<20}{:<20}{:<20}{:<20}", "Operation", "Input Size", "Average Time (ms)", "Min Time (ms)", "Max Time (ms)", "Median Time (ms)");
+        float total = 0.0f;
+        for(const auto& [op, stats] : statistics){
+            total += stats[i].meanValue;
+            fmt::print("{:<20}{:<20}{:<20}{:<20}{:<20}{:<20}", op, inputSize, stats[i].meanValue, stats[i].minValue, stats[i].maxValue, stats[i].medianValue);
+        }
+        fmt::print("{:<20}{:<20}{:<20}{:<20}{:<20}{:<20}\n", "total", "", total, "", "", "", "");
     }
+    fmt::print("\n\n");
+}
+
+int main() {
+    size_t iterations = 100;
+    initVulkan();
+    perf_test<RadixSort>(iterations, {"count", "prefix_sum", "reorder"});
+    perf_test<FourWayRadixSort>(iterations, {"local_sort", "prefix_sum", "global_shuffle"});
 }

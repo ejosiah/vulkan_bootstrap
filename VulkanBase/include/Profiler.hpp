@@ -20,15 +20,15 @@ public:
 
     Profiler() = default;
 
-    explicit  Profiler(VulkanDevice* device, uint32_t queryCount = 20)
+    inline explicit  Profiler(VulkanDevice* device, uint32_t queryCount = 20)
     : device(device)
     , queryCount(std::max(queryCount, DEFAULT_QUERY_COUNT))
     {
         queryPool = TimestampQueryPool{*device, queryCount};
     }
 
-    void addQuery(const std::string& name){
-        if(!queryPool && !device) return;
+    inline void addQuery(const std::string& name){
+        if(!isReady()) return;
         if(queries.size() >= queryCount){
             queryCount += queryCount * 0.25;
             queryPool = TimestampQueryPool{*device, queryCount};
@@ -40,8 +40,8 @@ public:
     }
 
     template<typename Queries>
-    void group(const std::string& groupName, Queries queries){
-        if(!queryPool && !device) return;
+    inline void group(const std::string& groupName, Queries queries){
+        if(!isReady()) return;
         QueryGroup queryGroup = queryGroups.find(groupName) == end(queryGroups) ? QueryGroup{groupName} : queryGroups[groupName];
         for(auto _query : queries){
             queryGroup.queries.push_back(_query);
@@ -49,8 +49,8 @@ public:
         queryGroups[groupName] = queryGroup;
     }
 
-    void addGroup(const std::string& name, int queries){
-        if(!queryPool && !device) return;
+    inline void addGroup(const std::string& name, int queries){
+        if(!isReady()) return;
         assert(queries > 0);
         std::vector<std::string> queryNames;
         for(auto i = 0; i < queries; i++){
@@ -62,8 +62,8 @@ public:
     }
 
     template<typename Body>
-    void profile(const std::string& name, VkCommandBuffer commandBuffer, Body&& body){
-        if(!queryPool && !device){
+    inline void profile(const std::string& name, VkCommandBuffer commandBuffer, Body&& body){
+        if(!isReady()){
             body();
             return;
         }
@@ -75,8 +75,8 @@ public:
         vkCmdWriteTimestamp(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, queryPool, query.endId);
     }
 
-    void commit(){
-        if(!queryPool && !device) return;
+    inline void commit(){
+        if(!isReady()) return;
         std::vector<uint64_t> counters(queries.size() * 2);
 
         VkQueryResultFlags flags = VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT;
@@ -101,14 +101,14 @@ public:
         }
     }
 
-    std::optional<QueryGroup> getGroup(const std::string& name){
+    inline std::optional<QueryGroup> getGroup(const std::string& name){
         if(queryGroups.find(name) != end(queryGroups)){
             return queryGroups[name];
         }
         return {};
     }
 
-    std::map<std::string, stats::Statistics<float>> groupStats(){
+    inline std::map<std::string, stats::Statistics<float>> groupStats(){
         std::map<std::string, stats::Statistics<float>> result;
 
         for(auto& [name, group] : queryGroups){
@@ -119,7 +119,7 @@ public:
         return result;
     }
 
-    std::map<std::string, stats::Statistics<float>> queryStats(){
+    inline std::map<std::string, stats::Statistics<float>> queryStats(){
         std::map<std::string, stats::Statistics<float>> result;
 
         for(auto& [name, query] : queries){
@@ -141,6 +141,10 @@ public:
             result.push_back(toMillis(duration));
         }
         return result;
+    }
+
+    inline bool isReady() const {
+        return static_cast<bool>(queryPool) && device;
     }
 
 private:

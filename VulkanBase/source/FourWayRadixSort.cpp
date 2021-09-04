@@ -1,7 +1,10 @@
 #include "FourWayRadixSort.hpp"
 #include "vulkan_util.h"
 
-FourWayRadixSort::FourWayRadixSort(VulkanDevice *device, uint maxElementsPerWorkGroup) : GpuSort(device) {
+FourWayRadixSort::FourWayRadixSort(VulkanDevice *device, uint maxElementsPerWorkGroup, bool debug)
+    : GpuSort(device)
+    , debug(debug)
+{
     constData[0] = constData[1] = maxElementsPerWorkGroup;
 }
 
@@ -12,6 +15,7 @@ void FourWayRadixSort::init() {
     createPipelines();
     prefixSum = PrefixSum{device};
     prefixSum.init();
+    initProfiler();
 }
 
 void FourWayRadixSort::operator()(VkCommandBuffer commandBuffer, VulkanBuffer &buffer) {
@@ -24,7 +28,6 @@ void FourWayRadixSort::operator()(VkCommandBuffer commandBuffer, VulkanBuffer &b
         scan(commandBuffer);
         globalShuffle(commandBuffer);
     }
-//    copyResult(commandBuffer);
 }
 
 void FourWayRadixSort::localSort(VkCommandBuffer commandBuffer) {
@@ -32,16 +35,22 @@ void FourWayRadixSort::localSort(VkCommandBuffer commandBuffer) {
     sets[0] = dataDescriptorSets[DATA_IN];
     sets[1] = dataDescriptorSets[DATA_OUT];
     sets[2] = scanDescriptorSet;
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, layout("local_sort"), 0, COUNT(sets), sets.data(), 0, VK_NULL_HANDLE);
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline("local_sort"));
-    vkCmdPushConstants(commandBuffer, layout("local_sort"), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(constants), &constants);
-    vkCmdDispatch(commandBuffer, numWorkGroups, 1, 1);
-    addComputeBufferMemoryBarriers(commandBuffer, { &blockSumBuffer });
+    auto query = fmt::format("{}_{}", "local_sort", constants.shift_width/2);
+    profiler.profile(query, commandBuffer, [&]{
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, layout("local_sort"), 0, COUNT(sets), sets.data(), 0, VK_NULL_HANDLE);
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline("local_sort"));
+        vkCmdPushConstants(commandBuffer, layout("local_sort"), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(constants), &constants);
+        vkCmdDispatch(commandBuffer, numWorkGroups, 1, 1);
+        addComputeBufferMemoryBarriers(commandBuffer, { &blockSumBuffer });
+    });
 }
 
 void FourWayRadixSort::scan(VkCommandBuffer commandBuffer) {
-    prefixSum(commandBuffer, blockSumBuffer);
-    addComputeBufferMemoryBarriers(commandBuffer, { dataBuffers[DATA_IN], dataBuffers[DATA_OUT], &prefixSumBuffer, &blockSumBuffer });
+    auto query = fmt::format("{}_{}", "prefix_sum", constants.shift_width/2);
+    profiler.profile(query, commandBuffer, [&]{
+        prefixSum(commandBuffer, blockSumBuffer);
+        addComputeBufferMemoryBarriers(commandBuffer, { dataBuffers[DATA_IN], dataBuffers[DATA_OUT], &prefixSumBuffer, &blockSumBuffer });
+    });
 }
 
 void FourWayRadixSort::globalShuffle(VkCommandBuffer commandBuffer) {
@@ -49,19 +58,17 @@ void FourWayRadixSort::globalShuffle(VkCommandBuffer commandBuffer) {
     sets[0] = dataDescriptorSets[DATA_OUT];
     sets[1] = dataDescriptorSets[DATA_IN];
     sets[2] = scanDescriptorSet;
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, layout("global_shuffle"), 0, COUNT(sets), sets.data(), 0, VK_NULL_HANDLE);
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline("global_shuffle"));
-    vkCmdPushConstants(commandBuffer, layout("global_shuffle"), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(constants), &constants);
-    vkCmdDispatch(commandBuffer, numWorkGroups, 1, 1);
-    if(constants.shift_width < 30){
-        addComputeBufferMemoryBarriers(commandBuffer, { dataBuffers[DATA_IN], dataBuffers[DATA_OUT], &prefixSumBuffer, &blockSumBuffer });
-    }
-}
 
-void FourWayRadixSort::copyResult(VkCommandBuffer commandBuffer){
-    VkBufferCopy copyRegion{0, 0, dataBuffers[DATA_IN]->size};
-    addComputeBufferMemoryBarriers(commandBuffer, { dataBuffers[DATA_IN], dataBuffers[DATA_OUT] });
-    vkCmdCopyBuffer(commandBuffer, *dataBuffers[DATA_OUT], *dataBuffers[DATA_IN], 1, &copyRegion);
+    auto query = fmt::format("{}_{}", "global_shuffle", constants.shift_width/2);
+    profiler.profile(query, commandBuffer, [&]{
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, layout("global_shuffle"), 0, COUNT(sets), sets.data(), 0, VK_NULL_HANDLE);
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline("global_shuffle"));
+        vkCmdPushConstants(commandBuffer, layout("global_shuffle"), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(constants), &constants);
+        vkCmdDispatch(commandBuffer, numWorkGroups, 1, 1);
+        if(constants.shift_width < 30){
+            addComputeBufferMemoryBarriers(commandBuffer, { dataBuffers[DATA_IN], dataBuffers[DATA_OUT], &prefixSumBuffer, &blockSumBuffer });
+        }
+    });
 }
 
 std::vector<PipelineMetaData> FourWayRadixSort::pipelineMetaData() {
@@ -175,4 +182,13 @@ uint FourWayRadixSort::calculateNumWorkGroups(VulkanBuffer& buffer) {
     int numItems = static_cast<int>(buffer.size/sizeof(uint));
     uint itemsPerWorkGroup = constData[0];
     return static_cast<uint>(std::abs(numItems - 1)/itemsPerWorkGroup + 1);
+}
+
+void FourWayRadixSort::initProfiler() {
+    if(debug){
+        profiler = Profiler{ device, 3 * 32};
+        profiler.addGroup("local_sort", 16);
+        profiler.addGroup("prefix_sum", 16);
+        profiler.addGroup("global_shuffle", 16);
+    }
 }
