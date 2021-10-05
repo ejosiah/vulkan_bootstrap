@@ -58,9 +58,9 @@ struct VulkanBuffer{
 
     template<typename T>
     void map(std::function<void(T*)> use){
-        vmaMapMemory(allocator, allocation, &mapped);
-        use(reinterpret_cast<T*>(mapped));
-        vmaUnmapMemory(allocator, allocation);
+        auto ptr = map();
+        use(reinterpret_cast<T*>(ptr));
+        unmap();
     }
 
     template<typename T>
