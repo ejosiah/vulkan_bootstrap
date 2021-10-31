@@ -248,6 +248,8 @@ void VulkanBaseApp::mainLoop() {
             newFrame();
             drawFrame();
             presentFrame();
+            notifyPluginsOfEndFrame();
+            endFrame();
             nextFrame();
         }else{
             glfwSetTime(elapsedTime);
@@ -564,9 +566,19 @@ void VulkanBaseApp::newFrame() {
 
 }
 
+void VulkanBaseApp::endFrame() {
+
+}
+
 void VulkanBaseApp::notifyPluginsOfNewFrameStart() {
     for(auto& plugin : plugins){
         plugin->newFrame();
+    }
+}
+
+void VulkanBaseApp::notifyPluginsOfEndFrame() {
+    for(auto& plugin : plugins){
+        plugin->endFrame();
     }
 }
 

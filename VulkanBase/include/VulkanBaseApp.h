@@ -166,6 +166,8 @@ protected:
 
     void  notifyPluginsOfNewFrameStart();
 
+    void notifyPluginsOfEndFrame();
+
     void notifyPluginsOfSwapChainDisposal();
 
     void notifyPluginsOfSwapChainRecreation();
@@ -177,6 +179,8 @@ protected:
     void cleanupPlugins();
 
     virtual void newFrame();
+
+    virtual void endFrame();
 
     /**
      * Renders the current image on the swap chain and then sends it for presentation
@@ -235,7 +239,7 @@ protected:
 
     template<typename PluginType = Plugin>
     static PluginType& plugin(const std::string &name) {
-        assert(appInstance != nullptr && appInstance->ready);
+//        assert(appInstance != nullptr && appInstance->ready);
         for(auto& plugin : appInstance->plugins){
             if(plugin->name() == name){
                 return reinterpret_cast<PluginType&>(*plugin);

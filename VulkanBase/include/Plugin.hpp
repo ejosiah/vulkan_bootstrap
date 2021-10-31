@@ -5,6 +5,7 @@
 #include "VulkanDevice.h"
 #include "VulkanSwapChain.h"
 #include "Window.h"
+#include "Camera.h"
 
 
 struct PluginData{
@@ -22,6 +23,8 @@ public:
     virtual ~Plugin() = default;
 
     void set(PluginData data);
+
+    void set(Camera* camera);
 
     [[nodiscard]]
     virtual std::vector<const char*> instanceExtensions() const {
@@ -94,6 +97,8 @@ public:
 
     virtual void newFrame() {};
 
+    virtual void endFrame() {};
+
     virtual void cleanup(){};
 
     virtual void onSwapChainDispose(){};
@@ -103,4 +108,5 @@ public:
 protected:
     PluginData data{};
     Settings settings{};
+    Camera* _camera{nullptr};
 };

@@ -10,6 +10,7 @@ boost/1.75.0
 gtest/1.11.0
 thrust/1.9.5
 argparse/2.1
+bullet3/3.17
 
 [generators]
 cmake
