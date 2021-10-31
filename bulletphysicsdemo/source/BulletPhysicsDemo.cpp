@@ -232,7 +232,7 @@ int main(){
 
         BulletPhysicsPluginInfo info{};
         info.gravity = {0, -0.9807, 0};
-        info.debugMode = btIDebugDraw::DebugDrawModes::DBG_DrawWireframe
+        info.debugMode = btIDebugDraw::DebugDrawModes::DBG_DrawWireframe;
         info.timeStep = INV_120_HERTZ;
         info.maxSubSteps = 10;
         std::unique_ptr<Plugin> plugin = std::make_unique<BulletPhysicsPlugin>(info);
