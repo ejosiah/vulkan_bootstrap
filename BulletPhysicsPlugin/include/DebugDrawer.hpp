@@ -12,6 +12,15 @@ struct Line{
     glm::vec3 color{0};
 };
 
+struct ContactPoint{
+    glm::vec3 pointOnA;
+    glm::vec3 pointOnB;
+    glm::vec3 normal;
+    glm::vec3 color;
+    float distance;
+    int lifeTime;
+};
+
 constexpr int NUM_LINES = 100000;
 
 class DebugDrawer : public btIDebugDraw{
@@ -53,13 +62,16 @@ public:
     int _debugMode = btIDebugDraw::DebugDrawModes::DBG_NoDebug;
 
     std::vector<Line> _lines;
-    Camera* _camera;
+    std::vector<ContactPoint> _contactPoints;
+    Camera* _camera{};
 
     struct {
-        VulkanPipeline pipeLine;
-        VulkanPipelineLayout layout;
-        VkPushConstantRange range{ VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Camera) + sizeof(glm::vec3)};
-    } _pipeline;
+        struct { ;
+            VulkanPipeline pipeLine;
+            VulkanPipelineLayout layout;
+            VkPushConstantRange range{VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Camera) + sizeof(glm::vec3)};
+        } lines;
+    } _pipelines;
 
     VulkanBuffer _lineBuffer;
     PluginData _pluginData;

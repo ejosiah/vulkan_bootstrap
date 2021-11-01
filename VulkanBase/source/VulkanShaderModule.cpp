@@ -24,5 +24,20 @@ VulkanShaderModule::VulkanShaderModule(const std::vector<uint32_t>& data, VkDevi
 
 
 VulkanShaderModule::~VulkanShaderModule() {
-    vkDestroyShaderModule(device, shaderModule, nullptr);
+    if(shaderModule) {
+        vkDestroyShaderModule(device, shaderModule, nullptr);
+    }
+}
+
+VulkanShaderModule::VulkanShaderModule(VulkanShaderModule &&source) noexcept {
+    operator=(static_cast<VulkanShaderModule&&>(source));
+}
+
+VulkanShaderModule &VulkanShaderModule::operator=(VulkanShaderModule &&source) noexcept {
+    this->shaderModule = source.shaderModule;
+    this->device = source.device;
+
+    source.shaderModule = VK_NULL_HANDLE;
+    source.device = VK_NULL_HANDLE;
+    return *this;
 }

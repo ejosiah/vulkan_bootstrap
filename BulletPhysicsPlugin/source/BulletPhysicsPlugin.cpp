@@ -3,6 +3,7 @@
 #include <vulkan/vulkan_core.h>
 #include <Plugin.hpp>
 #include <BulletPhysicsPlugin.hpp>
+#include <glm_bullet_interpreter.hpp>
 
 BulletPhysicsPlugin::BulletPhysicsPlugin(const BulletPhysicsPluginInfo& info)
  : _timeStep{ info.timeStep }
@@ -76,35 +77,6 @@ RigidBodyId BulletPhysicsPlugin::addRigidBody(RigidBody body) {
     auto bt_body = new btRigidBody{ info };
     _dynamicsWorld->addRigidBody(bt_body);
     return RigidBodyId{ _dynamicsWorld->getNumCollisionObjects() };
-}
-
-btMatrix3x3 BulletPhysicsPlugin::to_btMatrix3x3(const glm::mat3 m) {
-    return btMatrix3x3{
-        to_btVector3(glm::row(m, 0)),
-        to_btVector3(glm::row(m, 1)),
-        to_btVector3(glm::row(m, 2))
-    };
-}
-
-btVector3 BulletPhysicsPlugin::to_btVector3(const glm::vec3 &v) {
-    return btVector3(v.x, v.y, v.z);
-}
-
-
-glm::vec3 BulletPhysicsPlugin::to_vec3(const btVector3 &btv) {
-    return glm::vec3{
-        static_cast<float>(btv.getX()),
-        static_cast<float>(btv.getY()),
-        static_cast<float>(btv.getZ())
-    };
-}
-
-glm::mat3 BulletPhysicsPlugin::to_mat3(const btMatrix3x3 &btmat3) {
-    return glm::mat3{
-        to_vec3(btmat3.getColumn(0)),
-        to_vec3(btmat3.getColumn(1)),
-        to_vec3(btmat3.getColumn(2))
-    };
 }
 
 Transform BulletPhysicsPlugin::getTransform(RigidBodyId id) const {

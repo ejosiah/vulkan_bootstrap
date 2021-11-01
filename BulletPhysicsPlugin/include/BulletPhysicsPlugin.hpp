@@ -81,14 +81,6 @@ public:
     [[nodiscard]]
     Transform getTransform(RigidBodyId id) const;
 
-    static btVector3 to_btVector3(const glm::vec3& v);
-
-    static btMatrix3x3 to_btMatrix3x3(glm::mat3 m);
-
-    static glm::vec3 to_vec3(const btVector3& btv);
-
-    static glm::mat3 to_mat3(const btMatrix3x3& btmat3);
-
     [[nodiscard]]
     DebugDrawer* getDebugDrawer() const;
 

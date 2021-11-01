@@ -1,5 +1,5 @@
 #include "CollisionDetection.hpp"
-#include "GraphisPipelineBuilder.hpp"
+#include "GraphicsPipelineBuilder.hpp"
 
 CollisionDetection::CollisionDetection(const Settings& settings) : VulkanBaseApp("Collision Detection", settings) {
 

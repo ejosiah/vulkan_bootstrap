@@ -1,8 +1,6 @@
 #include <DebugDrawer.hpp>
-#include <LinearMath/btVector3.h>
-#include <spdlog/spdlog.h>
-#include "vulkan_util.h"
 #include "VulkanShaderModule.h"
+#include "GraphicsPipelineBuilder.hpp"
 
 DebugDrawer::DebugDrawer(const PluginData &pluginData, int aDebugMode)
 : _pluginData{ pluginData }
@@ -124,7 +122,7 @@ void DebugDrawer::createGraphicsPipeline() {
     colorBlendAttachment[0].blendEnable = VK_TRUE;
     auto colorBlendState = initializers::colorBlendState(colorBlendAttachment);
 
-    _pipeline.layout = device.createPipelineLayout({}, {_pipeline.range });
+    _pipelines.lines.layout = device.createPipelineLayout({}, {_pipelines.lines.range });
 
     auto createInfo = initializers::graphicsPipelineCreateInfo();
     createInfo.flags = VK_PIPELINE_CREATE_ALLOW_DERIVATIVES_BIT;
@@ -137,11 +135,21 @@ void DebugDrawer::createGraphicsPipeline() {
     createInfo.pMultisampleState = &multisampleState;
     createInfo.pDepthStencilState = &depthStencilState;
     createInfo.pColorBlendState = &colorBlendState;
-    createInfo.layout = _pipeline.layout;
+    createInfo.layout = _pipelines.lines.layout;
     createInfo.renderPass = *_pluginData.renderPass;
     createInfo.subpass = 0;
 
-    _pipeline.pipeLine = device.createGraphicsPipeline(createInfo);
+    _pipelines.lines.pipeLine = device.createGraphicsPipeline(createInfo);
+
+    auto builder = GraphicsPipelineBuilder(_pluginData.device);
+    builder
+        .shaderStage()
+            .addVertexShader("../../data/shaders/bullet/debug.vert.spv")
+            .addFragmentShader("../../data/shaders/bullet/debug.frag.spv")
+        .vertexInputState()
+            .addVertexBindingDescription(0, sizeof(glm::vec4), VK_VERTEX_INPUT_RATE_VERTEX)
+            .addVertexAttributeDescription(0, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 0);
+
 }
 
 void DebugDrawer::createLineBuffer() {
@@ -154,7 +162,7 @@ void DebugDrawer::createLineBuffer() {
 
 void DebugDrawer::draw(VkCommandBuffer commandBuffer) {
     if(!_lines.empty()) {
-        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipeline.pipeLine);
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipelines.lines.pipeLine);
         uint32_t numLines = _lines.size();
 
         VkDeviceSize offsets = 0u;
@@ -162,8 +170,8 @@ void DebugDrawer::draw(VkCommandBuffer commandBuffer) {
         for (int i = 0; i < numLines; i++) {
             auto &line = _lines[i];
 
-            vkCmdPushConstants(commandBuffer, _pipeline.layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Camera), _camera);
-            vkCmdPushConstants(commandBuffer, _pipeline.layout, VK_SHADER_STAGE_VERTEX_BIT, sizeof(Camera),
+            vkCmdPushConstants(commandBuffer, _pipelines.lines.layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Camera), _camera);
+            vkCmdPushConstants(commandBuffer, _pipelines.lines.layout, VK_SHADER_STAGE_VERTEX_BIT, sizeof(Camera),
                                sizeof(glm::vec3), &line.color);
             vkCmdDraw(commandBuffer, 2, 1, i * 2, 0);
         }

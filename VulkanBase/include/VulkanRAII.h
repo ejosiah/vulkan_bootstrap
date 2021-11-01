@@ -51,6 +51,10 @@ struct VulkanHandle{
         return &handle;
     }
 
+    operator bool() const {
+        return handle != VK_NULL_HANDLE;
+    }
+
     VkDevice device = VK_NULL_HANDLE;
     Handle handle = VK_NULL_HANDLE;
 };
