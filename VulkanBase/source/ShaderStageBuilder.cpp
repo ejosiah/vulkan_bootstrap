@@ -41,7 +41,7 @@ void ShaderStageBuilder::validate() const {
     }
 }
 
-std::vector<VkPipelineShaderStageCreateInfo> ShaderStageBuilder::buildShaderStage()  {
+std::vector<VkPipelineShaderStageCreateInfo>& ShaderStageBuilder::buildShaderStage()  {
     validate();
 
     _stages.push_back({_vertexModule, VK_SHADER_STAGE_VERTEX_BIT});
@@ -61,5 +61,7 @@ std::vector<VkPipelineShaderStageCreateInfo> ShaderStageBuilder::buildShaderStag
         _stages.push_back({ _tessControlModule, VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT});
     }
 
-    return initializers::vertexShaderStages(_stages);
+    _vkStages = initializers::vertexShaderStages(_stages);
+
+    return _vkStages;
 }

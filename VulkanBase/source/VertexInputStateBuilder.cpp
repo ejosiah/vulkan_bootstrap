@@ -1,5 +1,4 @@
 #include "VertexInputStateBuilder.hpp"
-#include "VulkanInitializers.h"
 
 VertexInputStateBuilder::VertexInputStateBuilder(VulkanDevice *device, GraphicsPipelineBuilder *parent)
         : GraphicsPipelineBuilder(device, parent) {
@@ -37,7 +36,8 @@ void VertexInputStateBuilder::validate() const {
     }
 }
 
-VkPipelineVertexInputStateCreateInfo VertexInputStateBuilder::buildVertexInputState() {
+VkPipelineVertexInputStateCreateInfo& VertexInputStateBuilder::buildVertexInputState() {
     validate();
-    return initializers::vertexInputState(_bindings, _attributes);
+    _info = initializers::vertexInputState(_bindings, _attributes);
+    return _info;
 }

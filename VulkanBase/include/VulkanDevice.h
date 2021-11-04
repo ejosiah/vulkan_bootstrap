@@ -14,7 +14,6 @@
 #include "VulkanDebug.h"
 #include "VulkanExtensions.h"
 
-class GraphicsPipelineBuilder;
 class DescriptorSetLayoutBuilder;
 
 struct VulkanDevice{
@@ -583,9 +582,6 @@ struct VulkanDevice{
     inline float timestampPeriod(){
         return getLimits().timestampPeriod;
     }
-
-    [[nodiscard]]
-    GraphicsPipelineBuilder graphicsPipelineBuilder();
 
     [[nodiscard]]
     DescriptorSetLayoutBuilder descriptorSetLayoutBuilder();

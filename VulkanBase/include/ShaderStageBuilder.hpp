@@ -25,7 +25,7 @@ public:
    void validate() const;
 
    [[nodiscard]]
-   std::vector<VkPipelineShaderStageCreateInfo> buildShaderStage() ;
+   std::vector<VkPipelineShaderStageCreateInfo>& buildShaderStage();
 
 private:
     VulkanShaderModule _vertexModule;
@@ -34,4 +34,5 @@ private:
     VulkanShaderModule _tessEvalModule;
     VulkanShaderModule _tessControlModule;
     std::vector<ShaderInfo> _stages;
+    std::vector<VkPipelineShaderStageCreateInfo> _vkStages;
 };

@@ -27,9 +27,10 @@ public:
 
     void validate() const;
 
-    VkPipelineVertexInputStateCreateInfo buildVertexInputState();
+    VkPipelineVertexInputStateCreateInfo& buildVertexInputState();
 
 private:
     std::vector<VkVertexInputBindingDescription> _bindings;
     std::vector<VkVertexInputAttributeDescription> _attributes;
+    VkPipelineVertexInputStateCreateInfo _info;
 };

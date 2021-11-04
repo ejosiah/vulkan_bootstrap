@@ -77,79 +77,51 @@ void DebugDrawer::set(PluginData pluginData) {
 }
 
 void DebugDrawer::createGraphicsPipeline() {
-    auto& device = *_pluginData.device;
-    auto vertModule = VulkanShaderModule{"../../data/shaders/bullet/debug.vert.spv", device };
-    auto fragModule = VulkanShaderModule{"../../data/shaders/bullet/debug.frag.spv", device };
-
-    auto shaderStages = initializers::vertexShaderStages({
-         { vertModule, VK_SHADER_STAGE_VERTEX_BIT },
-         {fragModule, VK_SHADER_STAGE_FRAGMENT_BIT}
-    });
-    std::vector<VkVertexInputBindingDescription> bindings;
-    bindings.push_back({0, sizeof(glm::vec4), VK_VERTEX_INPUT_RATE_VERTEX});
-
-    std::vector<VkVertexInputAttributeDescription> attributes;
-    attributes.push_back({0, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 0});
-
-    auto vertexInputState = initializers::vertexInputState(bindings, attributes);
-    auto inputAssemblyState = initializers::inputAssemblyState(VK_PRIMITIVE_TOPOLOGY_LINE_LIST);
-
-    auto viewport = initializers::viewport(_pluginData.swapChain->extent);
-    auto scissor = initializers::scissor(_pluginData.swapChain->extent);
-    auto viewportState = initializers::viewportState(viewport, scissor);
-
-    auto rasterState = initializers::rasterizationState();
-    rasterState.cullMode = VK_CULL_MODE_BACK_BIT;
-    rasterState.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-    rasterState.polygonMode = VK_POLYGON_MODE_LINE;
-    rasterState.lineWidth = 3.0;
-
-    auto multisampleState = initializers::multisampleState();
-
-    auto depthStencilState = initializers::depthStencilState();
-    depthStencilState.depthTestEnable = VK_TRUE;
-    depthStencilState.depthWriteEnable = VK_TRUE;
-    depthStencilState.depthCompareOp = VK_COMPARE_OP_LESS;
-    depthStencilState.minDepthBounds = 0.0;
-    depthStencilState.maxDepthBounds = 1.0;
-
-    auto colorBlendAttachment = initializers::colorBlendStateAttachmentStates();
-    colorBlendAttachment[0].srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-    colorBlendAttachment[0].dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-    colorBlendAttachment[0].srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
-    colorBlendAttachment[0].dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-    colorBlendAttachment[0].colorBlendOp = VK_BLEND_OP_ADD;
-    colorBlendAttachment[0].blendEnable = VK_TRUE;
-    auto colorBlendState = initializers::colorBlendState(colorBlendAttachment);
-
-    _pipelines.lines.layout = device.createPipelineLayout({}, {_pipelines.lines.range });
-
-    auto createInfo = initializers::graphicsPipelineCreateInfo();
-    createInfo.flags = VK_PIPELINE_CREATE_ALLOW_DERIVATIVES_BIT;
-    createInfo.stageCount = COUNT(shaderStages);
-    createInfo.pStages = shaderStages.data();
-    createInfo.pVertexInputState = &vertexInputState;
-    createInfo.pInputAssemblyState = &inputAssemblyState;
-    createInfo.pViewportState = &viewportState;
-    createInfo.pRasterizationState = &rasterState;
-    createInfo.pMultisampleState = &multisampleState;
-    createInfo.pDepthStencilState = &depthStencilState;
-    createInfo.pColorBlendState = &colorBlendState;
-    createInfo.layout = _pipelines.lines.layout;
-    createInfo.renderPass = *_pluginData.renderPass;
-    createInfo.subpass = 0;
-
-    _pipelines.lines.pipeLine = device.createGraphicsPipeline(createInfo);
-
-    auto builder = GraphicsPipelineBuilder(_pluginData.device);
-    builder
-        .shaderStage()
-            .addVertexShader("../../data/shaders/bullet/debug.vert.spv")
-            .addFragmentShader("../../data/shaders/bullet/debug.frag.spv")
-        .vertexInputState()
-            .addVertexBindingDescription(0, sizeof(glm::vec4), VK_VERTEX_INPUT_RATE_VERTEX)
-            .addVertexAttributeDescription(0, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 0);
-
+    _pipelines.lines.pipeLine =
+        GraphicsPipelineBuilder(_pluginData.device)
+            .shaderStage()
+                .addVertexShader("../../data/shaders/bullet/debug.vert.spv")
+                .addFragmentShader("../../data/shaders/bullet/debug.frag.spv")
+            .vertexInputState()
+                .addVertexBindingDescription(0, sizeof(glm::vec4), VK_VERTEX_INPUT_RATE_VERTEX)
+                .addVertexAttributeDescription(0, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 0)
+            .inputAssemblyState()
+                .lines()
+            .viewportState()
+                .viewport()
+                    .origin(0, 0)
+                    .dimension(_pluginData.swapChain->extent)
+                    .minDepth(0)
+                    .maxDepth(1)
+                .scissor()
+                    .offset(0, 0)
+                    .extent(_pluginData.swapChain->extent)
+                .add()
+            .rasterizationState()
+                .cullBackFace()
+                .frontFaceClockwise()
+                .polygonModeLine()
+                .lineWidth(1.0)
+            .depthStencilState()
+                .enableDepthTest()
+                .enableDepthWrite()
+                .compareOpLess()
+                .minDepthBounds(0.f)
+                .maxDepthBounds(1.f)
+             .colorBlendState()
+                .attachment()
+                    .disableBlend()
+                    .colorBlendOp().add()
+                    .srcAlphaBlendFactor().one()
+                    .dstAlphaBlendFactor().one()
+                    .srcColorBlendFactor().one()
+                    .dstColorBlendFactor().oneMinusSrcAlpha()
+                .add()
+            .layout()
+                .addPushConstantRange(_pipelines.lines.range)
+            .renderPass(*_pluginData.renderPass)
+            .subpass(0)
+        .build(_pipelines.lines.layout);
 }
 
 void DebugDrawer::createLineBuffer() {
