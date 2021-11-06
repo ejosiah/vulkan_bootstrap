@@ -56,6 +56,7 @@ private:
     Pipelines pipelines;
     VulkanPipelineLayout layout;
     std::unique_ptr<OrbitingCameraController> cameraController;
+    Texture texture;
     struct {
         int useTexture = 0;
         float shine = 50;

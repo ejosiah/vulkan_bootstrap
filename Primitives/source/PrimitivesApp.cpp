@@ -263,6 +263,19 @@ void PrimitivesApp::createDescriptorSetLayout() {
 
 void PrimitivesApp::createDescriptorSet() {
     descriptorSet = descriptorPool.allocate({setLayout}).front();
+    textures::color(device, texture, glm::vec3(1), {256, 256});
+
+    auto writes = initializers::writeDescriptorSets<1>();
+    auto& write = writes[0];
+
+    VkDescriptorImageInfo info{ texture.sampler, texture.imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+    write.dstSet = descriptorSet;
+    write.dstBinding = 0;
+    write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    write.descriptorCount = 1;
+    write.pImageInfo = &info;
+
+    device.updateDescriptorSets(writes);
 }
 
 

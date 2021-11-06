@@ -11,6 +11,7 @@ GraphicsPipelineBuilder::GraphicsPipelineBuilder(VulkanDevice *device)
 , _multisampleStateBuilder{ new MultisampleStateBuilder{device, this}}
 , _depthStencilStateBuilder{ new DepthStencilStateBuilder{device, this}}
 , _colorBlendStateBuilder{ new ColorBlendStateBuilder{device, this}}
+, _name{""}
 {
 }
 
@@ -122,7 +123,11 @@ VulkanPipeline GraphicsPipelineBuilder::build(VulkanPipelineLayout& pipelineLayo
     }
     auto info = createInfo();
     pipelineLayout = std::move(_pipelineLayoutOwned);
-    return device().createGraphicsPipeline(info);
+    auto pipeline = device().createGraphicsPipeline(info);
+    if(!_name.empty()){
+        device().setName<VK_OBJECT_TYPE_PIPELINE>(_name, pipeline.handle);
+    }
+    return pipeline;
 }
 
 VkGraphicsPipelineCreateInfo GraphicsPipelineBuilder::createInfo() {
@@ -187,4 +192,12 @@ ColorBlendStateBuilder &GraphicsPipelineBuilder::colorBlendState() {
         return parent()->colorBlendState();
     }
     return *_colorBlendStateBuilder;
+}
+
+GraphicsPipelineBuilder &GraphicsPipelineBuilder::name(const std::string &value) {
+    if(parent()){
+        parent()->name(value);
+    }
+    _name = value;
+    return *this;
 }

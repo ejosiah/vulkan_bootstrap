@@ -44,6 +44,8 @@ protected:
 
     void onPause() override;
 
+    void displayInfo(VkCommandBuffer commandBuffer);
+
 protected:
     struct {
         VulkanPipelineLayout layout;

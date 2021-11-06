@@ -46,6 +46,8 @@ public:
 
     void set(PluginData pluginData);
 
+    VulkanDevice& device();
+
     [[nodiscard]]
     int getDebugMode() const override;
 
@@ -75,4 +77,5 @@ public:
 
     VulkanBuffer _lineBuffer;
     PluginData _pluginData;
+    VulkanDevice* _device = nullptr;
 };

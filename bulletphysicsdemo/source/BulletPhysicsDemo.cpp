@@ -1,5 +1,6 @@
 #include "BulletPhysicsDemo.hpp"
 #include "BulletPhysicsPlugin.hpp"
+#include "ImGuiPlugin.hpp"
 
 BulletPhysicsDemo::BulletPhysicsDemo(const Settings& settings) : VulkanBaseApp("bullet physics demo", settings) {
 
@@ -157,7 +158,7 @@ VkCommandBuffer *BulletPhysicsDemo::buildCommandBuffers(uint32_t imageIndex, uin
 
     auto& bullet = plugin<BulletPhysicsPlugin>(BULLET_PHYSICS_PLUGIN);
     bullet.draw(commandBuffer);
-
+    displayInfo(commandBuffer);
     vkCmdEndRenderPass(commandBuffer);
 
     vkEndCommandBuffer(commandBuffer);
@@ -166,6 +167,8 @@ VkCommandBuffer *BulletPhysicsDemo::buildCommandBuffers(uint32_t imageIndex, uin
 }
 
 void BulletPhysicsDemo::update(float time) {
+    auto text = fmt::format("{} - {} fps", title, framePerSecond);
+    glfwSetWindowTitle(window, text.c_str());
     cameraController->update(time);
 }
 
@@ -198,7 +201,7 @@ void BulletPhysicsDemo::initCamera() {
     settings.orbit.modelHeight = 0.5;
     cameraController = std::make_unique<CameraController>(device, swapChain.imageCount(), currentImageIndex, dynamic_cast<InputManager&>(*this), settings);
     cameraController->setMode(CameraMode::SPECTATOR);
-    cameraController->lookAt({20, 15, 0}, {2, 10, 0}, {0, 1, 0});
+    cameraController->lookAt({3, 7, 6}, {0, 0, 0}, {0, 1, 0});
     auto& bullet = plugin<BulletPhysicsPlugin>(BULLET_PHYSICS_PLUGIN);
     bullet.set(const_cast<Camera*>(&cameraController->cam()));
 }
@@ -207,16 +210,39 @@ void BulletPhysicsDemo::createRigidBodies() {
     RigidBody body;
     body.shape = new btBoxShape(btVector3(50.f, 50.f, 50.f));
     body.xform.basis = glm::mat3{1};
-    body.xform.origin = glm::vec3(0, -56, 0);
+    body.xform.origin = glm::vec3(0, -50, 0);
     body.mass = 0.0;
 
     auto& bullet = plugin<BulletPhysicsPlugin>(BULLET_PHYSICS_PLUGIN);
     bullet.addRigidBody(body);
 
-    body.shape = new btSphereShape(1.0);
-    body.xform.origin = glm::vec3(2, 10, 0);
-    body.mass = 1.0;
-    bullet.addRigidBody(body);
+    auto boxShape = new btBoxShape(btVector3{.1, .1, .1});
+    for(auto k = 0; k < 5; k++){
+        for(auto i = 0; i < 5; i++){
+            for(auto j = 0; j < 5; j++){
+                RigidBody box{};
+                box.shape = boxShape;
+                box.xform.origin = {0.2f * float(i), 2.f + .2 * float(k), 0.2f * float(j)};
+                box.mass = 1.f;
+                bullet.addRigidBody(box);
+            }
+        }
+    }
+
+}
+
+void BulletPhysicsDemo::displayInfo(VkCommandBuffer commandBuffer) {
+    auto& imgui = plugin<ImGuiPlugin>(IM_GUI_PLUGIN);
+    auto font = imgui.font("Arial", 15);
+    ImGui::Begin("info", nullptr, IMGUI_NO_WINDOW);
+    ImGui::SetWindowSize({ 500, float(height)});
+    ImGui::PushFont(font);
+
+    auto camPos = fmt::format("camera position: {}", cameraController->position());
+    ImGui::TextColored({1, 1, 0, 1}, camPos.c_str());
+    ImGui::PopFont();
+    ImGui::End();
+    imgui.draw(commandBuffer);
 }
 
 
@@ -235,9 +261,22 @@ int main(){
         info.debugMode = btIDebugDraw::DebugDrawModes::DBG_DrawWireframe;
         info.timeStep = INV_120_HERTZ;
         info.maxSubSteps = 10;
-        std::unique_ptr<Plugin> plugin = std::make_unique<BulletPhysicsPlugin>(info);
-        app.addPlugin(plugin);
+        std::unique_ptr<Plugin> bullet = std::make_unique<BulletPhysicsPlugin>(info);
 
+        std::vector<FontInfo> fonts {
+#ifdef WIN32
+                {"JetBrainsMono", R"(C:\Users\Josiah\Downloads\JetBrainsMono-2.225\fonts\ttf\JetBrainsMono-Regular.ttf)", 20},
+                {"Arial", R"(C:\Windows\Fonts\arial.ttf)", 20},
+                {"Arial", R"(C:\Windows\Fonts\arial.ttf)", 15}
+#elif defined(__APPLE__)
+                {"Arial", "/Library/Fonts/Arial Unicode.ttf", 20},
+                {"Arial", "/Library/Fonts/Arial Unicode.ttf", 15}
+#endif
+        };
+        std::unique_ptr<Plugin> imGui = std::make_unique<ImGuiPlugin>(fonts);
+
+        app.addPlugin(bullet);
+        app.addPlugin(imGui);
         app.run();
     }catch(std::runtime_error& err){
         spdlog::error(err.what());

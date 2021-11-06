@@ -13,3 +13,4 @@ class DepthStencilStateBuilder;
 class ColorBlendStateBuilder;
 class DynamicStateBuilder;
 class PipelineLayoutBuilder;
+class DescriptorSetLayoutBuilder;

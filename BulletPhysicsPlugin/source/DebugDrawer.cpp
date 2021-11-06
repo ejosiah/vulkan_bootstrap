@@ -5,6 +5,7 @@
 DebugDrawer::DebugDrawer(const PluginData &pluginData, int aDebugMode)
 : _pluginData{ pluginData }
 , _debugMode{ aDebugMode }
+, _device{ pluginData.device }
 {
     init();
 }
@@ -74,11 +75,12 @@ VulkanBuffer DebugDrawer::fillStagingBuffer() {
 
 void DebugDrawer::set(PluginData pluginData) {
     _pluginData = pluginData;
+    _device = _pluginData.device;
 }
 
 void DebugDrawer::createGraphicsPipeline() {
     _pipelines.lines.pipeLine =
-        GraphicsPipelineBuilder(_pluginData.device)
+        device().graphicsPipelineBuilder()
             .shaderStage()
                 .addVertexShader("../../data/shaders/bullet/debug.vert.spv")
                 .addFragmentShader("../../data/shaders/bullet/debug.frag.spv")
@@ -110,17 +112,12 @@ void DebugDrawer::createGraphicsPipeline() {
                 .maxDepthBounds(1.f)
              .colorBlendState()
                 .attachment()
-                    .disableBlend()
-                    .colorBlendOp().add()
-                    .srcAlphaBlendFactor().one()
-                    .dstAlphaBlendFactor().one()
-                    .srcColorBlendFactor().one()
-                    .dstColorBlendFactor().oneMinusSrcAlpha()
                 .add()
             .layout()
                 .addPushConstantRange(_pipelines.lines.range)
             .renderPass(*_pluginData.renderPass)
             .subpass(0)
+            .name("debug_drawer")
         .build(_pipelines.lines.layout);
 }
 
@@ -148,4 +145,8 @@ void DebugDrawer::draw(VkCommandBuffer commandBuffer) {
             vkCmdDraw(commandBuffer, 2, 1, i * 2, 0);
         }
     }
+}
+
+VulkanDevice &DebugDrawer::device() {
+    return *_device;
 }

@@ -17,7 +17,7 @@ struct Transform{
 };
 
 struct RigidBody{
-    Transform xform;
+    Transform xform{};
     glm::vec3 localInertia{0 };
     btCollisionShape* shape{nullptr };
     float mass{0 };

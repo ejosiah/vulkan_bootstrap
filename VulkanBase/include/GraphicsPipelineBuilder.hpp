@@ -42,6 +42,8 @@ public:
 
     GraphicsPipelineBuilder& renderPass(VkRenderPass  aRenderPass);
 
+    GraphicsPipelineBuilder& name(const std::string& value);
+
     [[nodiscard]]
     GraphicsPipelineBuilder *parent() override;
 
@@ -58,6 +60,7 @@ protected:
     VulkanPipelineLayout* _pipelineLayout = nullptr;
     VulkanPipelineLayout _pipelineLayoutOwned;
     uint32_t _subpass = 0;
+    std::string _name;
 
 private:
     ShaderStageBuilder* _shaderStageBuilder = nullptr;

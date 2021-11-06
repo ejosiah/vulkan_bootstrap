@@ -11,6 +11,10 @@ DepthStencilStateBuilder::DepthStencilStateBuilder(VulkanDevice *device, Graphic
 DepthStencilStateBuilder::DepthStencilStateBuilder(DepthStencilStateBuilder *parent)
 :GraphicsPipelineBuilder(parent->_device, parent)
 {
+    _info.depthTestEnable = VK_FALSE;
+    _info.depthWriteEnable = VK_FALSE;
+    _info.minDepthBounds = 0.f;
+    _info.maxDepthBounds = 1.f;
 }
 
 DepthStencilStateBuilder &DepthStencilStateBuilder::enableDepthTest() {

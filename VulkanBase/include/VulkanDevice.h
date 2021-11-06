@@ -13,8 +13,8 @@
 #include "VulkanFramebuffer.h"
 #include "VulkanDebug.h"
 #include "VulkanExtensions.h"
+#include "builder_forwards.hpp"
 
-class DescriptorSetLayoutBuilder;
 
 struct VulkanDevice{
 
@@ -585,4 +585,7 @@ struct VulkanDevice{
 
     [[nodiscard]]
     DescriptorSetLayoutBuilder descriptorSetLayoutBuilder();
+
+    [[nodiscard]]
+    GraphicsPipelineBuilder graphicsPipelineBuilder();
 };
