@@ -7,27 +7,27 @@ ShaderStageBuilder::ShaderStageBuilder(VulkanDevice *device, GraphicsPipelineBui
 
 }
 
-ShaderStageBuilder &ShaderStageBuilder::addVertexShader(const std::string &path) {
+ShaderStageBuilder &ShaderStageBuilder::vertexShader(const std::string &path) {
     _vertexModule = VulkanShaderModule{ path, device()};
     return *this;
 }
 
-ShaderStageBuilder &ShaderStageBuilder::addFragmentShader(const std::string &path) {
+ShaderStageBuilder &ShaderStageBuilder::fragmentShader(const std::string &path) {
     _fragmentModule = VulkanShaderModule{ path, device()};
     return *this;
 }
 
-ShaderStageBuilder &ShaderStageBuilder::addGeometryShader(const std::string &path) {
+ShaderStageBuilder &ShaderStageBuilder::geometryShader(const std::string &path) {
     _geometryModule = VulkanShaderModule{ path, device()};
     return *this;
 }
 
-ShaderStageBuilder &ShaderStageBuilder::addTessellationEvaluationShader(const std::string &path) {
+ShaderStageBuilder &ShaderStageBuilder::tessellationEvaluationShader(const std::string &path) {
     _tessEvalModule = VulkanShaderModule{ path, device()};
     return *this;
 }
 
-ShaderStageBuilder &ShaderStageBuilder::addTessellationControlShader(const std::string &path) {
+ShaderStageBuilder &ShaderStageBuilder::tessellationControlShader(const std::string &path) {
     _tessControlModule = VulkanShaderModule{ path, device() };
     return *this;;
 }

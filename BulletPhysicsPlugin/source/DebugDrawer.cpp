@@ -82,8 +82,8 @@ void DebugDrawer::createGraphicsPipeline() {
     _pipelines.lines.pipeLine =
         device().graphicsPipelineBuilder()
             .shaderStage()
-                .addVertexShader("../../data/shaders/bullet/debug.vert.spv")
-                .addFragmentShader("../../data/shaders/bullet/debug.frag.spv")
+                .vertexShader("../../data/shaders/bullet/debug.vert.spv")
+                .fragmentShader("../../data/shaders/bullet/debug.frag.spv")
             .vertexInputState()
                 .addVertexBindingDescription(0, sizeof(glm::vec4), VK_VERTEX_INPUT_RATE_VERTEX)
                 .addVertexAttributeDescription(0, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 0)

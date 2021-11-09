@@ -8,19 +8,19 @@ public:
    explicit ShaderStageBuilder(VulkanDevice* device, GraphicsPipelineBuilder* parent);
 
    [[nodiscard]]
-   ShaderStageBuilder& addVertexShader(const std::string& path);
+   ShaderStageBuilder& vertexShader(const std::string& path);
 
    [[nodiscard]]
-   ShaderStageBuilder& addFragmentShader(const std::string& path);
+   ShaderStageBuilder& fragmentShader(const std::string& path);
 
    [[nodiscard]]
-   ShaderStageBuilder& addGeometryShader(const std::string& path);
+   ShaderStageBuilder& geometryShader(const std::string& path);
 
    [[nodiscard]]
-   ShaderStageBuilder& addTessellationEvaluationShader(const std::string& path);
+   ShaderStageBuilder& tessellationEvaluationShader(const std::string& path);
 
    [[nodiscard]]
-   ShaderStageBuilder& addTessellationControlShader(const std::string& path);
+   ShaderStageBuilder& tessellationControlShader(const std::string& path);
 
    void clear();
 

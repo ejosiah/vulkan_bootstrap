@@ -62,8 +62,8 @@ void BulletPhysicsDemo::createRenderPipeline() {
     render.pipeline =
         builder
             .shaderStage()
-                .addVertexShader("../../bulletphysicsdemo/spv/cube.vert.spv")
-                .addFragmentShader("../../bulletphysicsdemo/spv/cube.frag.spv")
+                .vertexShader("../../bulletphysicsdemo/spv/cube.vert.spv")
+                .fragmentShader("../../bulletphysicsdemo/spv/cube.frag.spv")
             .vertexInputState()
                 .addVertexBindingDescription(0, sizeof(VertexData), VK_VERTEX_INPUT_RATE_VERTEX)
                 .addVertexBindingDescription(1, sizeof(VertexInstanceData), VK_VERTEX_INPUT_RATE_INSTANCE)
@@ -114,8 +114,8 @@ void BulletPhysicsDemo::createRenderPipeline() {
             .setDerivatives()
             .basePipeline(render.pipeline)
             .shaderStage()
-                .addVertexShader("../../bulletphysicsdemo/spv/floor.vert.spv")
-                .addFragmentShader("../../bulletphysicsdemo/spv/floor.frag.spv")
+                .vertexShader("../../bulletphysicsdemo/spv/floor.vert.spv")
+                .fragmentShader("../../bulletphysicsdemo/spv/floor.frag.spv")
             .vertexInputState()
                 .addVertexBindingDescription(0, sizeof(FloorVertexData), VK_VERTEX_INPUT_RATE_VERTEX)
                 .addVertexAttributeDescription(0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(FloorVertexData, position))
