@@ -18,6 +18,10 @@
 
 struct VulkanDevice{
 
+    using DeviceDisposeListener = std::function<void(const VulkanDevice&)>;
+
+    std::vector<DeviceDisposeListener> disposeListeners;
+
     struct {
         std::optional<uint32_t> graphics;
         std::optional<uint32_t> compute;
@@ -67,12 +71,19 @@ struct VulkanDevice{
 
     ~VulkanDevice(){
         if(logicalDevice){
+            for(const auto& listener : disposeListeners){
+                listener(*this);
+            }
             for(auto& [_, commandPool] : commandPools){
                 dispose(commandPool);
             }
             vmaDestroyAllocator(allocator);
             vkDestroyDevice(logicalDevice, nullptr);
         }
+    }
+
+    inline void registerDisposeListener(DeviceDisposeListener&& listener){
+        disposeListeners.push_back(listener);
     }
 
     inline void initQueueFamilies(VkQueueFlags queueFlags, VkSurfaceKHR surface = VK_NULL_HANDLE){

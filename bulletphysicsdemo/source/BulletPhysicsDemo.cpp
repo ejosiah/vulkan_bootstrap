@@ -9,7 +9,9 @@ BulletPhysicsDemo::BulletPhysicsDemo(const Settings& settings) : VulkanBaseApp("
 }
 
 void BulletPhysicsDemo::initApp() {
+    SkyBox::init(this);
     initCamera();
+    createSkyBox();
     createCubes();
     createRigidBodies();
     createDescriptorPool();
@@ -175,6 +177,7 @@ VkCommandBuffer *BulletPhysicsDemo::buildCommandBuffers(uint32_t imageIndex, uin
     drawCubes(commandBuffer);
 //    bullet.draw(commandBuffer);
     displayInfo(commandBuffer);
+    drawSkyBox(commandBuffer);
     vkCmdEndRenderPass(commandBuffer);
 
     vkEndCommandBuffer(commandBuffer);
@@ -271,6 +274,11 @@ void BulletPhysicsDemo::displayInfo(VkCommandBuffer commandBuffer) {
     imgui.draw(commandBuffer);
 }
 
+void BulletPhysicsDemo::createSkyBox() {
+    SkyBox::create(skyBox, R"(C:\Users\Josiah\OneDrive\media\textures\skybox\005)"
+                   , {"right.jpg", "left.jpg", "top.jpg", "bottom.jpg", "front.jpg", "back.jpg"});
+}
+
 void BulletPhysicsDemo::createCubes() {
 
     auto cube = primitives::cube();
@@ -340,6 +348,24 @@ void BulletPhysicsDemo::drawFloor(VkCommandBuffer commandBuffer) {
     cameraController->push(commandBuffer, floor.layout, model);
     vkCmdPushConstants(commandBuffer, render.layout, VK_SHADER_STAGE_VERTEX_BIT, sizeof(Camera), sizeof(glm::vec3), &lightDir);
     vkCmdDrawIndexed(commandBuffer, indexCount, 1, 0, 0, 0);
+}
+
+void BulletPhysicsDemo::drawSkyBox(VkCommandBuffer commandBuffer) {
+    static glm::mat4 model{1};
+
+    uint32_t indexCount = skyBox.cube.indices.size /sizeof(int32_t);
+    uint32_t instanceCount = 1;
+    int32_t vertexOffset = 0;
+    uint32_t firstInstance = 0;
+    VkDeviceSize offset = 0;
+
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, skyBox.cube.vertices, &offset);
+    vkCmdBindIndexBuffer(commandBuffer, skyBox.cube.indices, 0, VK_INDEX_TYPE_UINT32);
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *skyBox.pipeline);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *skyBox.layout, 0, 1, &skyBox.descriptorSet, 0, VK_NULL_HANDLE);
+    cameraController->push(commandBuffer, *skyBox.layout, model);
+    vkCmdDrawIndexed(commandBuffer, indexCount, instanceCount, firstInstance, vertexOffset, firstInstance);
+
 }
 
 

@@ -1,6 +1,7 @@
 #pragma once
 #include "VulkanBaseApp.h"
 #include "BulletPhysicsPlugin.hpp"
+#include "SkyBox.hpp"
 
 constexpr float     CAMERA_FOVX = 90;
 constexpr float     CAMERA_ZFAR = 100.0f;
@@ -39,6 +40,8 @@ protected:
 
     void createDescriptorPool();
 
+    void createSkyBox();
+
     void createCommandPool();
 
     void createPipelineCache();
@@ -56,6 +59,8 @@ protected:
     VkCommandBuffer *buildCommandBuffers(uint32_t imageIndex, uint32_t &numCommandBuffers) override;
 
     void drawCubes(VkCommandBuffer commandBuffer);
+
+    void drawSkyBox(VkCommandBuffer commandBuffer);
 
     void drawFloor(VkCommandBuffer commandBuffer);
 
@@ -106,6 +111,7 @@ protected:
     std::unique_ptr<CameraController> cameraController;
 
     glm::vec3 lightDir{1};
+    SkyBox skyBox;
 
     struct{
         VulkanBuffer vertexBuffer;
