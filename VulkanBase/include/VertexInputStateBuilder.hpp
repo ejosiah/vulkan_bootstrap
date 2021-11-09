@@ -27,6 +27,8 @@ public:
 
     void validate() const;
 
+    void clear();
+
     VkPipelineVertexInputStateCreateInfo& buildVertexInputState();
 
 private:

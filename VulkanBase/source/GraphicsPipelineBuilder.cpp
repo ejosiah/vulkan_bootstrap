@@ -154,6 +154,12 @@ VkGraphicsPipelineCreateInfo GraphicsPipelineBuilder::createInfo() {
     info.pDepthStencilState = &depthStencilState;
     info.pColorBlendState = &colorBlendState;
 
+    if(_flags & VK_PIPELINE_CREATE_DERIVATIVE_BIT){
+        assert(_basePipeline);
+        info.basePipelineHandle = _basePipeline->handle;
+        info.basePipelineIndex = -1;
+    }
+
     if(!_pipelineLayout){
         _pipelineLayoutOwned = _pipelineLayoutBuilder->buildPipelineLayout();
         info.layout = _pipelineLayoutOwned;
@@ -200,4 +206,25 @@ GraphicsPipelineBuilder &GraphicsPipelineBuilder::name(const std::string &value)
     }
     _name = value;
     return *this;
+}
+
+GraphicsPipelineBuilder &GraphicsPipelineBuilder::reuse() {
+    if(parent()){
+        parent()->reuse();
+    }
+    _vertexInputStateBuilder->clear();
+    _shaderStageBuilder->clear();
+    return *this;
+}
+
+GraphicsPipelineBuilder &GraphicsPipelineBuilder::basePipeline(VulkanPipeline &pipeline) {
+    _basePipeline = &pipeline;
+    return *this;
+}
+
+MultisampleStateBuilder &GraphicsPipelineBuilder::multisampleState() {
+    if(parent()){
+        return parent()->multisampleState();
+    }
+    return *_multisampleStateBuilder;
 }

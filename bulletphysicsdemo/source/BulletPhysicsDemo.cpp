@@ -1,6 +1,8 @@
+#include <BulletPhysicsDemo.hpp>
 #include "BulletPhysicsDemo.hpp"
 #include "BulletPhysicsPlugin.hpp"
 #include "ImGuiPlugin.hpp"
+#include "GraphicsPipelineBuilder.hpp"
 
 BulletPhysicsDemo::BulletPhysicsDemo(const Settings& settings) : VulkanBaseApp("bullet physics demo", settings) {
 
@@ -8,6 +10,7 @@ BulletPhysicsDemo::BulletPhysicsDemo(const Settings& settings) : VulkanBaseApp("
 
 void BulletPhysicsDemo::initApp() {
     initCamera();
+    createCubes();
     createRigidBodies();
     createDescriptorPool();
     createCommandPool();
@@ -55,60 +58,71 @@ void BulletPhysicsDemo::createPipelineCache() {
 
 
 void BulletPhysicsDemo::createRenderPipeline() {
-    auto vertModule = VulkanShaderModule{ "../../data/shaders/pass_through.vert.spv", device};
-    auto fragModule = VulkanShaderModule{"../../data/shaders/pass_through.frag.spv", device};
+    auto builder = device.graphicsPipelineBuilder();
+    render.pipeline =
+        builder
+            .shaderStage()
+                .addVertexShader("../../bulletphysicsdemo/spv/cube.vert.spv")
+                .addFragmentShader("../../bulletphysicsdemo/spv/cube.frag.spv")
+            .vertexInputState()
+                .addVertexBindingDescription(0, sizeof(VertexData), VK_VERTEX_INPUT_RATE_VERTEX)
+                .addVertexBindingDescription(1, sizeof(VertexInstanceData), VK_VERTEX_INPUT_RATE_INSTANCE)
+                .addVertexAttributeDescription(0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetOf(VertexData, position))
+                .addVertexAttributeDescription(1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetOf(VertexData, normal))
+                .addVertexAttributeDescription(2, 1, VK_FORMAT_R32G32B32_SFLOAT, offsetOf(VertexInstanceData, color))
+                .addVertexAttributeDescription(3, 1, VK_FORMAT_R32G32B32A32_SFLOAT, offsetOf(VertexInstanceData, xform))
+                .addVertexAttributeDescription(4, 1, VK_FORMAT_R32G32B32A32_SFLOAT, offsetOf(VertexInstanceData, xform) + 16)
+                .addVertexAttributeDescription(5, 1, VK_FORMAT_R32G32B32A32_SFLOAT, offsetOf(VertexInstanceData, xform) + 32)
+                .addVertexAttributeDescription(6, 1, VK_FORMAT_R32G32B32A32_SFLOAT, offsetOf(VertexInstanceData, xform) + 48)
+            .inputAssemblyState()
+                .triangles()
+            .viewportState()
+                .viewport()
+                    .origin(0, 0)
+                    .dimension(swapChain.extent)
+                    .minDepth(0)
+                    .maxDepth(1)
+                .scissor()
+                    .offset(0, 0)
+                    .extent(swapChain.extent)
+                .add()
+            .rasterizationState()
+                .cullBackFace()
+                .frontFaceCounterClockwise()
+                .polygonModeFill()
+            .multisampleState()
+                .rasterizationSamples(settings.msaaSamples)
+            .depthStencilState()
+                .enableDepthTest()
+                .enableDepthWrite()
+                .compareOpLess()
+                .minDepthBounds(0)
+                .maxDepthBounds(1)
+            .colorBlendState()
+                .attachment()
+                .add()
+            .layout()
+                .addPushConstantRange(VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Camera) + sizeof(glm::vec3))
+            .renderPass(renderPass)
+            .subpass(0)
+            .name("render_cube")
+            .allowDerivatives()
+        .build(render.layout);
 
-    auto shaderStages = initializers::vertexShaderStages({
-             { vertModule, VK_SHADER_STAGE_VERTEX_BIT },
-             {fragModule, VK_SHADER_STAGE_FRAGMENT_BIT}
-     });
-
-    auto bindings = Vertex::bindingDisc();
-    auto attribs = Vertex::attributeDisc();
-
-    auto vertexInputState = initializers::vertexInputState(bindings, attribs);
-    auto inputAssemblyState = initializers::inputAssemblyState();
-
-    auto viewport = initializers::viewport(swapChain.extent);
-    auto scissor = initializers::scissor(swapChain.extent);
-
-    auto viewportState = initializers::viewportState(viewport, scissor);
-
-    auto rasterizationState = initializers::rasterizationState();
-    rasterizationState.cullMode = VK_CULL_MODE_NONE;
-    rasterizationState.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-    rasterizationState.polygonMode = VK_POLYGON_MODE_FILL;
-
-    auto multisampleState = initializers::multisampleState();
-
-    auto depthStencilState = initializers::depthStencilState();
-    depthStencilState.depthTestEnable = VK_TRUE;
-    depthStencilState.depthWriteEnable = VK_TRUE;
-    depthStencilState.depthCompareOp = VK_COMPARE_OP_LESS;
-    depthStencilState.minDepthBounds = 0.0;
-    depthStencilState.maxDepthBounds = 1.0;
-
-    auto colorBlendAttachment = initializers::colorBlendStateAttachmentStates();
-    auto colorBlendState = initializers::colorBlendState(colorBlendAttachment);
-
-    render.layout = device.createPipelineLayout({});
-
-    auto createInfo = initializers::graphicsPipelineCreateInfo();
-    createInfo.flags = VK_PIPELINE_CREATE_ALLOW_DERIVATIVES_BIT;
-    createInfo.stageCount = COUNT(shaderStages);
-    createInfo.pStages = shaderStages.data();
-    createInfo.pVertexInputState = &vertexInputState;
-    createInfo.pInputAssemblyState = &inputAssemblyState;
-    createInfo.pViewportState = &viewportState;
-    createInfo.pRasterizationState = &rasterizationState;
-    createInfo.pMultisampleState = &multisampleState;
-    createInfo.pDepthStencilState = &depthStencilState;
-    createInfo.pColorBlendState = &colorBlendState;
-    createInfo.layout = render.layout;
-    createInfo.renderPass = renderPass;
-    createInfo.subpass = 0;
-
-    render.pipeline = device.createGraphicsPipeline(createInfo, pipelineCache);
+    floor.pipeline =
+        builder.reuse()
+            .setDerivatives()
+            .basePipeline(render.pipeline)
+            .shaderStage()
+                .addVertexShader("../../bulletphysicsdemo/spv/floor.vert.spv")
+                .addFragmentShader("../../bulletphysicsdemo/spv/floor.frag.spv")
+            .vertexInputState()
+                .addVertexBindingDescription(0, sizeof(FloorVertexData), VK_VERTEX_INPUT_RATE_VERTEX)
+                .addVertexAttributeDescription(0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(FloorVertexData, position))
+                .addVertexAttributeDescription(1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(FloorVertexData, normal))
+                .addVertexAttributeDescription(2, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(FloorVertexData, uv))
+            .name("floor")
+        .build(floor.layout);
 }
 
 void BulletPhysicsDemo::createComputePipeline() {
@@ -157,7 +171,9 @@ VkCommandBuffer *BulletPhysicsDemo::buildCommandBuffers(uint32_t imageIndex, uin
     vkCmdBeginRenderPass(commandBuffer, &rPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
     auto& bullet = plugin<BulletPhysicsPlugin>(BULLET_PHYSICS_PLUGIN);
-    bullet.draw(commandBuffer);
+    drawFloor(commandBuffer);
+    drawCubes(commandBuffer);
+//    bullet.draw(commandBuffer);
     displayInfo(commandBuffer);
     vkCmdEndRenderPass(commandBuffer);
 
@@ -170,6 +186,16 @@ void BulletPhysicsDemo::update(float time) {
     auto text = fmt::format("{} - {} fps", title, framePerSecond);
     glfwSetWindowTitle(window, text.c_str());
     cameraController->update(time);
+
+    auto& bullet = plugin<BulletPhysicsPlugin>(BULLET_PHYSICS_PLUGIN);
+    cubes.instanceBuffer.map<VertexInstanceData>([&](VertexInstanceData* ptr){
+        int next = 0;
+       for(auto& id : cubes.ids){
+           auto xform = bullet.getTransform(id);
+           auto& instance = ptr[next++];
+           instance.xform = glm::translate(glm::mat4(1), xform.origin) * glm::mat4(xform.basis);
+       }
+    });
 }
 
 void BulletPhysicsDemo::checkAppInputs() {
@@ -216,18 +242,18 @@ void BulletPhysicsDemo::createRigidBodies() {
     auto& bullet = plugin<BulletPhysicsPlugin>(BULLET_PHYSICS_PLUGIN);
     bullet.addRigidBody(body);
 
+
     auto boxShape = new btBoxShape(btVector3{.1, .1, .1});
-    for(auto k = 0; k < 5; k++){
-        for(auto i = 0; i < 5; i++){
-            for(auto j = 0; j < 5; j++){
-                RigidBody box{};
-                box.shape = boxShape;
-                box.xform.origin = {0.2f * float(i), 2.f + .2 * float(k), 0.2f * float(j)};
-                box.mass = 1.f;
-                bullet.addRigidBody(box);
-            }
+    cubes.instanceBuffer.map<VertexInstanceData>([&](auto instancePtr){
+        for(auto i = 0; i < cubes.numBoxes; i++){
+            auto instance = instancePtr[i];
+            RigidBody box{};
+            box.shape = boxShape;
+            box.xform.origin = (instance.xform * glm::vec4{0, 0, 0, 1}).xyz();
+            box.mass = 1.f;
+            cubes.ids.push_back(bullet.addRigidBody(box));
         }
-    }
+    });
 
 }
 
@@ -245,6 +271,77 @@ void BulletPhysicsDemo::displayInfo(VkCommandBuffer commandBuffer) {
     imgui.draw(commandBuffer);
 }
 
+void BulletPhysicsDemo::createCubes() {
+
+    auto cube = primitives::cube();
+    std::vector<VertexData> vertices;
+    std::vector<FloorVertexData> floorVertices;
+    vertices.reserve(cube.vertices.size());
+    for(auto& vertex : cube.vertices){
+        glm::vec3 pos = (glm::scale(glm::mat4(1), glm::vec3(0.2)) * vertex.position).xyz();
+        VertexData data{ pos, vertex.normal};
+        vertices.push_back(data);
+
+        FloorVertexData floorData{ vertex.position.xyz(), vertex.normal, vertex.uv};
+        floorVertices.push_back(floorData);
+    }
+    cubes.vertexBuffer = device.createDeviceLocalBuffer(vertices.data(), BYTE_SIZE(vertices), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+    cubes.indexBuffer = device.createDeviceLocalBuffer(cube.indices.data(), BYTE_SIZE(cube.indices), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+
+    std::vector<VertexInstanceData> instances;
+    auto rng = rngFunc(0.2, 1.0, 1 << 20);
+    int n = 5;
+    for(auto k = 0; k < n; k++){
+        for(auto i = 0; i < n; i++){
+            for(auto j = 0; j < n; j++){
+                glm::vec3 origin = {0.2f * float(i), 2.f + .2 * float(k), 0.2f * float(j)};
+               VertexInstanceData instance{};
+               instance.xform = glm::translate(glm::mat4(1), origin);
+               instance.color = {rng(), rng(), rng()};
+                glm::vec3 t = {float(i)/float(n), float(k)/float(n), float(j)/float(n)};
+               instance.color = trilerp(glm::vec3(0), {1, 0, 0}, {0, 1, 0}, {1, 1, 0},
+                                        {0, 0, 1}, {1, 0, 1}, {0, 1, 1}, glm::vec3(1), t);
+               instances.push_back(instance);
+            }
+        }
+    }
+    cubes.instanceBuffer = device.createCpuVisibleBuffer(instances.data(), BYTE_SIZE(instances), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+
+    floor.vertexBuffer = device.createDeviceLocalBuffer(floorVertices.data(), BYTE_SIZE(floorVertices), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+    floor.indexBuffer = device.createDeviceLocalBuffer(cube.indices.data(), BYTE_SIZE(cube.indices), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+}
+
+void BulletPhysicsDemo::drawCubes(VkCommandBuffer commandBuffer) {
+    static std::array<VkBuffer, 2> buffers;
+    buffers[0] = cubes.vertexBuffer;
+    buffers[1] = cubes.instanceBuffer;
+
+    uint32_t instanceCount = cubes.instanceBuffer.size / sizeof(VertexInstanceData);
+    uint32_t indexCount = cubes.indexBuffer.size / sizeof(uint32_t);
+    static std::array<VkDeviceSize, 2> offsets{0, 0};
+
+    vkCmdBindVertexBuffers(commandBuffer, 0, COUNT(buffers), buffers.data(), offsets.data());
+    vkCmdBindIndexBuffer(commandBuffer, cubes.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, render.pipeline);
+    cameraController->push(commandBuffer, render.layout, glm::mat4(1));
+    vkCmdPushConstants(commandBuffer, render.layout, VK_SHADER_STAGE_VERTEX_BIT, sizeof(Camera), sizeof(glm::vec3), &lightDir);
+    vkCmdDrawIndexed(commandBuffer, indexCount, instanceCount, 0, 0, 0);
+}
+
+void BulletPhysicsDemo::drawFloor(VkCommandBuffer commandBuffer) {
+    uint32_t indexCount = floor.indexBuffer.size / sizeof(uint32_t);
+    VkDeviceSize offset = 0;
+
+    static glm::mat4 model = glm::translate(glm::mat4(1), {0, -50, 0}) * glm::scale(glm::mat4(1), glm::vec3(100));
+
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, floor.vertexBuffer, &offset);
+    vkCmdBindIndexBuffer(commandBuffer, floor.indexBuffer, offset, VK_INDEX_TYPE_UINT32);
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, floor.pipeline);
+    cameraController->push(commandBuffer, floor.layout, model);
+    vkCmdPushConstants(commandBuffer, render.layout, VK_SHADER_STAGE_VERTEX_BIT, sizeof(Camera), sizeof(glm::vec3), &lightDir);
+    vkCmdDrawIndexed(commandBuffer, indexCount, 1, 0, 0, 0);
+}
+
 
 int main(){
     try{
@@ -253,7 +350,7 @@ int main(){
         settings.depthTest = true;
         settings.enabledFeatures.wideLines = true;
         settings.enabledFeatures.fillModeNonSolid = true;
-
+        settings.msaaSamples = VK_SAMPLE_COUNT_8_BIT;
         auto app = BulletPhysicsDemo{ settings };
 
         BulletPhysicsPluginInfo info{};

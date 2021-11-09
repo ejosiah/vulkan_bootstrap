@@ -23,7 +23,7 @@ function(compile_glsl)
         RESULT_VARIABLE GLSLC_COMPILE_OUTPUT
     )
     get_filename_component(SHADER_SRC_FILE ${COMPILE_SRC_FILE} NAME)
-    if(${COMPILE_SRC_FILE})
+    if(${GLSLC_COMPILE_OUTPUT})
         message(FATAL_ERROR "compile failed for ${SHADER_SRC_FILE}, reason: ${GLSLC_COMPILE_OUTPUT}")
     endif()
 

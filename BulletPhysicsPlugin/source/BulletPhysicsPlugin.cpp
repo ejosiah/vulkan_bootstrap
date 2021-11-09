@@ -76,7 +76,7 @@ RigidBodyId BulletPhysicsPlugin::addRigidBody(RigidBody body) {
     btRigidBody::btRigidBodyConstructionInfo info{ mass, motionState, shape, localInertia};
     auto bt_body = new btRigidBody{ info };
     _dynamicsWorld->addRigidBody(bt_body);
-    return RigidBodyId{ _dynamicsWorld->getNumCollisionObjects() };
+    return RigidBodyId{ _dynamicsWorld->getNumCollisionObjects() - 1};
 }
 
 Transform BulletPhysicsPlugin::getTransform(RigidBodyId id) const {

@@ -104,6 +104,8 @@ void DebugDrawer::createGraphicsPipeline() {
                 .frontFaceClockwise()
                 .polygonModeLine()
                 .lineWidth(1.0)
+            .multisampleState()
+                .rasterizationSamples(_pluginData.msaaSamples)
             .depthStencilState()
                 .enableDepthTest()
                 .enableDepthWrite()

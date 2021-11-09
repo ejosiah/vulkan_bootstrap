@@ -22,6 +22,8 @@ public:
    [[nodiscard]]
    ShaderStageBuilder& addTessellationControlShader(const std::string& path);
 
+   void clear();
+
    void validate() const;
 
    [[nodiscard]]

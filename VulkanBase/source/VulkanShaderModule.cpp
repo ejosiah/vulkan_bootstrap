@@ -34,6 +34,7 @@ VulkanShaderModule::VulkanShaderModule(VulkanShaderModule &&source) noexcept {
 }
 
 VulkanShaderModule &VulkanShaderModule::operator=(VulkanShaderModule &&source) noexcept {
+    this->~VulkanShaderModule();
     this->shaderModule = source.shaderModule;
     this->device = source.device;
 

@@ -30,6 +30,8 @@ public:
 
     virtual ColorBlendStateBuilder& colorBlendState();
 
+    virtual MultisampleStateBuilder& multisampleState();
+
     virtual PipelineLayoutBuilder& layout();
 
     GraphicsPipelineBuilder& allowDerivatives();
@@ -43,6 +45,10 @@ public:
     GraphicsPipelineBuilder& renderPass(VkRenderPass  aRenderPass);
 
     GraphicsPipelineBuilder& name(const std::string& value);
+
+    GraphicsPipelineBuilder& reuse();
+
+    GraphicsPipelineBuilder& basePipeline(VulkanPipeline& pipeline);
 
     [[nodiscard]]
     GraphicsPipelineBuilder *parent() override;
@@ -71,7 +77,9 @@ private:
     RasterizationStateBuilder* _rasterizationStateBuilder = nullptr;
     MultisampleStateBuilder* _multisampleStateBuilder = nullptr;
     DepthStencilStateBuilder* _depthStencilStateBuilder = nullptr;
-    ColorBlendStateBuilder* _colorBlendStateBuilder{ nullptr };
+    ColorBlendStateBuilder* _colorBlendStateBuilder = nullptr ;
+    VulkanPipeline* _basePipeline = nullptr;
+
 };
 
 #include "ShaderStageBuilder.hpp"
