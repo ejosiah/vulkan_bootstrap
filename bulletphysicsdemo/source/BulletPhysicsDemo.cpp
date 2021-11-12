@@ -3,6 +3,7 @@
 #include "BulletPhysicsPlugin.hpp"
 #include "ImGuiPlugin.hpp"
 #include "GraphicsPipelineBuilder.hpp"
+#include "glm_bullet_interpreter.hpp"
 
 BulletPhysicsDemo::BulletPhysicsDemo(const Settings& settings) : VulkanBaseApp("bullet physics demo", settings) {
 
@@ -10,12 +11,14 @@ BulletPhysicsDemo::BulletPhysicsDemo(const Settings& settings) : VulkanBaseApp("
 
 void BulletPhysicsDemo::initApp() {
     SkyBox::init(this);
+    createCommandPool();
+    createDescriptorPool();
+    createDescriptorSetLayouts();
+    accStructBuilder = rt::AccelerationStructureBuilder{&device};
     initCamera();
     createSkyBox();
     createCubes();
     createRigidBodies();
-    createDescriptorPool();
-    createCommandPool();
     createPipelineCache();
     createRenderPipeline();
     createComputePipeline();
@@ -104,6 +107,7 @@ void BulletPhysicsDemo::createRenderPipeline() {
                 .attachment()
                 .add()
             .layout()
+                .addDescriptorSetLayout(accStructDescriptorSetLayout)
                 .addPushConstantRange(VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Camera) + sizeof(glm::vec3))
             .renderPass(renderPass)
             .subpass(0)
@@ -175,9 +179,11 @@ VkCommandBuffer *BulletPhysicsDemo::buildCommandBuffers(uint32_t imageIndex, uin
     auto& bullet = plugin<BulletPhysicsPlugin>(BULLET_PHYSICS_PLUGIN);
     drawFloor(commandBuffer);
     drawCubes(commandBuffer);
+    bullet.set(cameraController->cam());
 //    bullet.draw(commandBuffer);
-    displayInfo(commandBuffer);
     drawSkyBox(commandBuffer);
+    displayInfo(commandBuffer);
+
     vkCmdEndRenderPass(commandBuffer);
 
     vkEndCommandBuffer(commandBuffer);
@@ -186,6 +192,11 @@ VkCommandBuffer *BulletPhysicsDemo::buildCommandBuffers(uint32_t imageIndex, uin
 }
 
 void BulletPhysicsDemo::update(float time) {
+
+//    if(totalFrames) {
+//        calculateCameraShade();
+//    }
+
     auto text = fmt::format("{} - {} fps", title, framePerSecond);
     glfwSetWindowTitle(window, text.c_str());
     cameraController->update(time);
@@ -197,8 +208,10 @@ void BulletPhysicsDemo::update(float time) {
            auto xform = bullet.getTransform(id);
            auto& instance = ptr[next++];
            instance.xform = glm::translate(glm::mat4(1), xform.origin) * glm::mat4(xform.basis);
+           asInstances[id].xform = instance.xform;
        }
     });
+    accStructBuilder.updateTlas(asInstances);
 }
 
 void BulletPhysicsDemo::checkAppInputs() {
@@ -232,19 +245,20 @@ void BulletPhysicsDemo::initCamera() {
     cameraController->setMode(CameraMode::SPECTATOR);
     cameraController->lookAt({3, 7, 6}, {0, 0, 0}, {0, 1, 0});
     auto& bullet = plugin<BulletPhysicsPlugin>(BULLET_PHYSICS_PLUGIN);
-    bullet.set(const_cast<Camera*>(&cameraController->cam()));
 }
 
 void BulletPhysicsDemo::createRigidBodies() {
+    auto& bullet = plugin<BulletPhysicsPlugin>(BULLET_PHYSICS_PLUGIN);
+
     RigidBody body;
     body.shape = new btBoxShape(btVector3(50.f, 50.f, 50.f));
     body.xform.basis = glm::mat3{1};
     body.xform.origin = glm::vec3(0, -50, 0);
     body.mass = 0.0;
 
-    auto& bullet = plugin<BulletPhysicsPlugin>(BULLET_PHYSICS_PLUGIN);
-    bullet.addRigidBody(body);
-
+    body = bullet.addRigidBody(body);
+    std::vector<RigidBody> rigidBodies;
+    rigidBodies.push_back(body);
 
     auto boxShape = new btBoxShape(btVector3{.1, .1, .1});
     cubes.instanceBuffer.map<VertexInstanceData>([&](auto instancePtr){
@@ -254,10 +268,62 @@ void BulletPhysicsDemo::createRigidBodies() {
             box.shape = boxShape;
             box.xform.origin = (instance.xform * glm::vec4{0, 0, 0, 1}).xyz();
             box.mass = 1.f;
-            cubes.ids.push_back(bullet.addRigidBody(box));
+            box = bullet.addRigidBody(box);
+            cubes.ids.push_back(box.id);
+            rigidBodies.push_back(box);
         }
     });
 
+    createAccelerationStructure(rigidBodies);
+
+//    std::vector<mesh::Mesh> meshes;
+//    mesh::load(meshes, R"(C:\Users\Josiah\OneDrive\media\models\werewolf.obj)");
+//    mesh::normalize(meshes, 1.0);
+//
+//    glm::vec3 vMin, vMax;
+//    mesh::bounds(meshes, vMin, vMax);
+//    mesh::transform(meshes, glm::translate(glm::mat4(1), {0, -vMin.y, 0}));
+//    mesh::bounds(meshes, vMin, vMax);
+//
+//    std::vector<btVector3> vertices;
+//    vertices.reserve(meshes.size());
+//    for(auto& mesh : meshes){
+//        for(auto& vertex : mesh.vertices){
+//            auto pos = vertex.position.xyz();
+//            vertices.push_back(to_btVector3(pos));
+//        }
+//    }
+//    auto convexHull = new btConvexHullShape{reinterpret_cast<btScalar*>(vertices.data()), int(vertices.size())};
+//
+//    body.shape = convexHull;
+//    body.xform.origin = (vMin + vMax) * 0.5f;
+//    body.mass = 0.0;
+//    bullet.addRigidBody(body);
+}
+
+void BulletPhysicsDemo::createAccelerationStructure(const std::vector<RigidBody>& rigidBodies) {
+    imp::Box box{glm::vec3(-0.1), glm::vec3(0.1)};
+
+    rt::ImplicitObject boxObj;
+    boxObj.numObjects = 1;
+    boxObj.hitGroupId = 0;
+    boxObj.aabbBuffer =
+            device.createCpuVisibleBuffer(&box, sizeof(box)
+                    , VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR
+                      | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT);
+    auto blasId = accStructBuilder.buildBlas({ &boxObj },
+                                             VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_BUILD_BIT_KHR
+                                             | VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR ).front();
+
+    for(auto i = 0u; i < rigidBodies.size(); i++){
+        auto& body = rigidBodies[i];
+        rt::Instance instance{ blasId, i};
+        instance.xform = glm::translate(glm::mat4(1), body.xform.origin) * glm::mat4(body.xform.basis);
+        accStructBuilder.add(instance);
+    }
+    asInstances = accStructBuilder.buildTlas(VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR | VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR);
+    createDescriptorSets();
+    updateAccelerationStructureDescriptorSet();
 }
 
 void BulletPhysicsDemo::displayInfo(VkCommandBuffer commandBuffer) {
@@ -268,7 +334,7 @@ void BulletPhysicsDemo::displayInfo(VkCommandBuffer commandBuffer) {
     ImGui::PushFont(font);
 
     auto camPos = fmt::format("camera position: {}", cameraController->position());
-    ImGui::TextColored({1, 1, 0, 1}, camPos.c_str());
+    ImGui::TextColored({0, 0, 0, 1}, camPos.c_str());
     ImGui::PopFont();
     ImGui::End();
     imgui.draw(commandBuffer);
@@ -331,6 +397,7 @@ void BulletPhysicsDemo::drawCubes(VkCommandBuffer commandBuffer) {
     vkCmdBindVertexBuffers(commandBuffer, 0, COUNT(buffers), buffers.data(), offsets.data());
     vkCmdBindIndexBuffer(commandBuffer, cubes.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, render.pipeline);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, render.layout, 0, 1, &accStructDescriptorSet, 0, VK_NULL_HANDLE);
     cameraController->push(commandBuffer, render.layout, glm::mat4(1));
     vkCmdPushConstants(commandBuffer, render.layout, VK_SHADER_STAGE_VERTEX_BIT, sizeof(Camera), sizeof(glm::vec3), &lightDir);
     vkCmdDrawIndexed(commandBuffer, indexCount, instanceCount, 0, 0, 0);
@@ -345,6 +412,8 @@ void BulletPhysicsDemo::drawFloor(VkCommandBuffer commandBuffer) {
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, floor.vertexBuffer, &offset);
     vkCmdBindIndexBuffer(commandBuffer, floor.indexBuffer, offset, VK_INDEX_TYPE_UINT32);
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, floor.pipeline);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, floor.layout, 0, 1, &accStructDescriptorSet, 0, VK_NULL_HANDLE);
+
     cameraController->push(commandBuffer, floor.layout, model);
     vkCmdPushConstants(commandBuffer, render.layout, VK_SHADER_STAGE_VERTEX_BIT, sizeof(Camera), sizeof(glm::vec3), &lightDir);
     vkCmdDrawIndexed(commandBuffer, indexCount, 1, 0, 0, 0);
@@ -368,6 +437,66 @@ void BulletPhysicsDemo::drawSkyBox(VkCommandBuffer commandBuffer) {
 
 }
 
+void BulletPhysicsDemo::calculateCameraShade() {
+    auto& bullet = plugin<BulletPhysicsPlugin>(BULLET_PHYSICS_PLUGIN);
+    const auto& world = bullet.dynamicsWorld();
+
+    auto numObjects = world.getNumCollisionObjects();
+    auto objects = world.getCollisionObjectArray();
+    for(auto i = 0; i < numObjects - 1; i++){
+        auto objA = objects[i];
+        for(auto j = i+1; j < numObjects; j++){
+            auto objB = objects[j];
+            if(objA->checkCollideWith(objB)){
+                auto bodyA = btRigidBody::upcast(objA);
+                auto bodyB = btRigidBody::upcast(objB);
+                Transform xformA = bullet.getTransform(i);
+                Transform xformB = bullet.getTransform(j);
+
+                glm::vec3 n = glm::normalize(xformA.origin - xformB.origin);
+                glm::vec3 vA = to_vec3(bodyA->getLinearVelocity());
+                auto vB = to_vec3(bodyB->getLinearVelocity());
+                glm::vec3 v =  vA - vB;
+                bool moving = glm::all(glm::greaterThan(v, glm::vec3(0)));
+                if(moving && glm::dot(n, v) > 0){
+                    spdlog::info("object[{}] and object[{}] separating", i, j);
+                }
+            }
+        }
+    }
+}
+
+void BulletPhysicsDemo::createDescriptorSetLayouts() {
+    accStructDescriptorSetLayout =
+        device.descriptorSetLayoutBuilder()
+            .binding(0)
+                .descriptorType(VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR)
+                .descriptorCount(1)
+                .shaderStages(VK_SHADER_STAGE_FRAGMENT_BIT)
+            .createLayout();
+}
+
+void BulletPhysicsDemo::createDescriptorSets(){
+    accStructDescriptorSet = descriptorPool.allocate({ accStructDescriptorSetLayout }).front();
+}
+
+void BulletPhysicsDemo::updateAccelerationStructureDescriptorSet() {
+
+    auto accWrites = VkWriteDescriptorSetAccelerationStructureKHR{};
+    accWrites.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR;
+    accWrites.accelerationStructureCount = 1;
+    accWrites.pAccelerationStructures = accStructBuilder.accelerationStructure();
+
+    auto writes = initializers::writeDescriptorSets<1>();
+    writes[0].dstSet = accStructDescriptorSet;
+    writes[0].dstBinding = 0;
+    writes[0].descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
+    writes[0].descriptorCount = 1;
+    writes[0].pNext = &accWrites;
+
+    device.updateDescriptorSets(writes);
+}
+
 
 int main(){
     try{
@@ -377,6 +506,7 @@ int main(){
         settings.enabledFeatures.wideLines = true;
         settings.enabledFeatures.fillModeNonSolid = true;
         settings.msaaSamples = VK_SAMPLE_COUNT_8_BIT;
+
         auto app = BulletPhysicsDemo{ settings };
 
         BulletPhysicsPluginInfo info{};

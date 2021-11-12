@@ -1,4 +1,7 @@
 #version 460 core
+#extension GL_EXT_debug_printf : require
+
+#define printf debugPrintfEXT
 
 layout(local_size_x = 32, local_size_y = 32) in;
 
@@ -24,5 +27,6 @@ void main(){
     }
 
     imageStore(image, ivec2(gl_GlobalInvocationID.xy), vec4(uv, 0, 1));
-    memoryBarrierImage();
+
+    printf("Hello from invocation (%d, %d)!", gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
 }

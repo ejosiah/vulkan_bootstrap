@@ -78,6 +78,7 @@ class VulkanBaseApp : protected Window, protected InputManager{
     friend class Canvas;
     friend class Plugin;
     friend class SkyBox;
+    friend class VulkanRayQuerySupport;
 public:
     explicit VulkanBaseApp(std::string_view name, const Settings& settings = {}, std::vector<std::unique_ptr<Plugin>> plugins = {});
 
@@ -113,6 +114,8 @@ protected:
     void addPluginExtensions();
 
     void initPlugins();
+
+    void initMixins();
 
     void checkInstanceExtensionSupport();
 

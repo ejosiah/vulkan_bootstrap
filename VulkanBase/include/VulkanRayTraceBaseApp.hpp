@@ -18,7 +18,7 @@ class VulkanRayTraceBaseApp : public VulkanBaseApp{
 public:
     explicit VulkanRayTraceBaseApp(std::string_view name, const Settings& settings = {}, std::vector<std::unique_ptr<Plugin>> plugins = {});
 
-    virtual ~VulkanRayTraceBaseApp();
+    ~VulkanRayTraceBaseApp() override;
 
 protected:
     void postVulkanInit() final;

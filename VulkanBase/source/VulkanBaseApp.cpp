@@ -15,6 +15,7 @@
 #include "events.h"
 #include "VulkanInitializers.h"
 #include "Plugin.hpp"
+#include "VulkanRayQuerySupport.hpp"
 
 namespace chrono = std::chrono;
 
@@ -48,6 +49,12 @@ void VulkanBaseApp::init() {
     ready = true;
 }
 
+void VulkanBaseApp::initMixins() {
+    if(auto rayQuery = dynamic_cast<VulkanRayQuerySupport*>(this)){
+        rayQuery->enableRayQuery();
+    }
+}
+
 void VulkanBaseApp::initWindow() {
     Window::initWindow();
     uint32_t size;
@@ -79,6 +86,7 @@ void VulkanBaseApp::initVulkan() {
     ext::init(instance);
     createDebugMessenger();
     pickPhysicalDevice();
+    initMixins();
     createLogicalDevice();
     createSwapChain();
 

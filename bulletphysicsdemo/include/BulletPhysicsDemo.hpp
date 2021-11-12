@@ -2,7 +2,8 @@
 #include "VulkanBaseApp.h"
 #include "BulletPhysicsPlugin.hpp"
 #include "SkyBox.hpp"
-
+#include "VulkanRayTraceModel.hpp"
+#include "VulkanRayQuerySupport.hpp"
 constexpr float     CAMERA_FOVX = 90;
 constexpr float     CAMERA_ZFAR = 100.0f;
 constexpr float     CAMERA_ZNEAR = 0.1f;
@@ -27,7 +28,8 @@ struct VertexInstanceData{
     glm::vec3 color;
 };
 
-class BulletPhysicsDemo : public VulkanBaseApp{
+
+class BulletPhysicsDemo : public VulkanBaseApp, public VulkanRayQuerySupport{
 public:
     explicit BulletPhysicsDemo(const Settings& settings = {});
 
@@ -39,6 +41,8 @@ protected:
     void createCubes();
 
     void createDescriptorPool();
+
+    void createDescriptorSetLayouts();
 
     void createSkyBox();
 
@@ -56,6 +60,12 @@ protected:
 
     void createRigidBodies();
 
+    void createAccelerationStructure(const std::vector<RigidBody>& rigidBodies);
+
+    void createDescriptorSets();
+
+    void updateAccelerationStructureDescriptorSet();
+
     VkCommandBuffer *buildCommandBuffers(uint32_t imageIndex, uint32_t &numCommandBuffers) override;
 
     void drawCubes(VkCommandBuffer commandBuffer);
@@ -71,6 +81,8 @@ protected:
     void cleanup() override;
 
     void onPause() override;
+
+    void calculateCameraShade();
 
     void displayInfo(VkCommandBuffer commandBuffer);
 
@@ -110,8 +122,10 @@ protected:
     VulkanPipelineCache pipelineCache;
     std::unique_ptr<CameraController> cameraController;
 
-    glm::vec3 lightDir{1};
+    glm::vec3 lightDir{3, 7, 6};
     SkyBox skyBox;
+    float shake = 0;
+    float trauma = 0;
 
     struct{
         VulkanBuffer vertexBuffer;
@@ -121,4 +135,9 @@ protected:
         std::vector<glm::mat4> transforms;
         uint32_t numBoxes{125};
     } cubes{};
+
+    VulkanDescriptorSetLayout accStructDescriptorSetLayout;
+    VkDescriptorSet accStructDescriptorSet;
+    std::vector<rt::Instance> asInstances;
+    rt::AccelerationStructureBuilder accStructBuilder;
 };

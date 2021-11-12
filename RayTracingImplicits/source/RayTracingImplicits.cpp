@@ -24,10 +24,10 @@ void RayTracingImplicits::createModel() {
 }
 
 void RayTracingImplicits::createPlanes() {
-    rt::Plane plane{{0, 1, 0}, 0};
+    imp::Plane plane{{0, 1, 0}, 0};
     planes.planes.push_back(plane);
     planes.planeBuffer = device.createDeviceLocalBuffer(planes.planes.data(),
-                                                        planes.planes.size() * sizeof(rt::Plane),
+                                                        planes.planes.size() * sizeof(imp::Plane),
                                                         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
 
     rtBuilder.add(planes.planes);
@@ -54,7 +54,7 @@ void RayTracingImplicits::createSpheres() {
     int numSpheres = 0;
 
     while(numSpheres < maxSpheres){
-        rt::Sphere sphere{};
+        imp::Sphere sphere{};
         sphere.center = randomCenter();
         sphere.radius = randomRadius();
         auto collision = std::any_of(begin(spheres.spheres), end(spheres.spheres), [&](auto& s){
@@ -68,7 +68,7 @@ void RayTracingImplicits::createSpheres() {
     }
 
     spheres.buffer = device.createDeviceLocalBuffer(spheres.spheres.data(),
-                                                    spheres.spheres.size() * sizeof(rt::Sphere),
+                                                    spheres.spheres.size() * sizeof(imp::Sphere),
                                                     VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
 
     rtBuilder.add(spheres.spheres);

@@ -50,6 +50,8 @@ namespace mesh {
 
     void transform(std::vector<Mesh>& meshes, glm::mat4 xform);
 
+    void bounds(const std::vector<Mesh>& meshes, glm::vec3& vMin, glm::vec3& vMax);
+
     inline void normalize(std::vector<Mesh>& meshes, float scale = 1.0f){
         primitives::normalize(meshes, scale);
     }

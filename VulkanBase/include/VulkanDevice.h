@@ -600,3 +600,5 @@ struct VulkanDevice{
     [[nodiscard]]
     GraphicsPipelineBuilder graphicsPipelineBuilder();
 };
+
+#include "DescriptorSetBuilder.hpp"

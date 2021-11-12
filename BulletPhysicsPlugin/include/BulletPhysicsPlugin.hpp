@@ -15,15 +15,16 @@ struct Transform{
     glm::mat3 basis{1 };
     glm::vec3 origin{0 };
 };
+using RigidBodyId = int;
 
 struct RigidBody{
+    RigidBodyId id{0};
     Transform xform{};
     glm::vec3 localInertia{0 };
     btCollisionShape* shape{nullptr };
     float mass{0 };
 };
 
-using RigidBodyId = int;
 
 struct CollisionShapes{
 
@@ -76,13 +77,18 @@ public:
 
     void endFrame() override;
 
-    RigidBodyId addRigidBody(RigidBody body);
+    void set(const Camera& camera);
+
+    RigidBody addRigidBody(RigidBody body);
 
     [[nodiscard]]
     Transform getTransform(RigidBodyId id) const;
 
     [[nodiscard]]
     DebugDrawer* getDebugDrawer() const;
+
+    [[nodiscard]]
+    const btDynamicsWorld& dynamicsWorld() const;
 
 private:
     std::unique_ptr<btCollisionConfiguration> _collisionConfiguration;

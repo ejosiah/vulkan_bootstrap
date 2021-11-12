@@ -184,3 +184,15 @@ void mesh::transform(std::vector<Mesh>& meshes, glm::mat4 xform){
         }
     }
 }
+
+void mesh::bounds(const std::vector<Mesh> &meshes, glm::vec3 &vMin, glm::vec3 &vMax) {
+    vMin = glm::vec3(MAX_FLOAT);
+    vMax = glm::vec3(MIN_FLOAT);
+    for(auto& mesh : meshes){
+        for(auto& vertex : mesh.vertices){
+            auto& pos = vertex.position;
+            vMin = glm::min(vMin, pos.xyz());
+            vMax = glm::max(vMax, pos.xyz());
+        }
+    }
+}

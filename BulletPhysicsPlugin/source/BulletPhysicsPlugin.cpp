@@ -54,13 +54,12 @@ void BulletPhysicsPlugin::newFrame() {
 }
 
 void BulletPhysicsPlugin::endFrame() {
-    _dynamicsWorld->clearForces();
     if(_dynamicsWorld->getDebugDrawer()) {
         _dynamicsWorld->getDebugDrawer()->clearLines();
     }
 }
 
-RigidBodyId BulletPhysicsPlugin::addRigidBody(RigidBody body) {
+RigidBody BulletPhysicsPlugin::addRigidBody(RigidBody body) {
     auto shape = body.shape;
     btVector3 localInertia{0, 0, 0};
     btScalar mass{body.mass};
@@ -76,7 +75,9 @@ RigidBodyId BulletPhysicsPlugin::addRigidBody(RigidBody body) {
     btRigidBody::btRigidBodyConstructionInfo info{ mass, motionState, shape, localInertia};
     auto bt_body = new btRigidBody{ info };
     _dynamicsWorld->addRigidBody(bt_body);
-    return RigidBodyId{ _dynamicsWorld->getNumCollisionObjects() - 1};
+
+    body.id =  RigidBodyId{ _dynamicsWorld->getNumCollisionObjects() - 1};
+    return body;
 }
 
 Transform BulletPhysicsPlugin::getTransform(RigidBodyId id) const {
@@ -99,6 +100,14 @@ Transform BulletPhysicsPlugin::getTransform(RigidBodyId id) const {
 
 DebugDrawer *BulletPhysicsPlugin::getDebugDrawer() const {
     return dynamic_cast<DebugDrawer*>(_dynamicsWorld->getDebugDrawer());
+}
+
+const btDynamicsWorld &BulletPhysicsPlugin::dynamicsWorld() const {
+    return *_dynamicsWorld;
+}
+
+void BulletPhysicsPlugin::set(const Camera &camera) {
+    _camera = const_cast<Camera*>(&camera);
 }
 
 void DynamicsWorldDeleter::operator()(btDynamicsWorld *dynamicsWorld) {

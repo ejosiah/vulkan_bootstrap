@@ -140,7 +140,6 @@ void DebugDrawer::draw(VkCommandBuffer commandBuffer) {
         vkCmdBindVertexBuffers(commandBuffer, 0, 1, _lineBuffer, &offsets);
         for (int i = 0; i < numLines; i++) {
             auto &line = _lines[i];
-
             vkCmdPushConstants(commandBuffer, _pipelines.lines.layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Camera), _camera);
             vkCmdPushConstants(commandBuffer, _pipelines.lines.layout, VK_SHADER_STAGE_VERTEX_BIT, sizeof(Camera),
                                sizeof(glm::vec3), &line.color);

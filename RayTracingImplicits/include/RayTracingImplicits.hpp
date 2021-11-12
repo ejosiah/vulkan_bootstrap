@@ -64,13 +64,13 @@ private:
     std::vector<VkRayTracingShaderGroupCreateInfoKHR> shaderGroups;
 
     struct {
-        std::vector<rt::Plane> planes;
+        std::vector<imp::Plane> planes;
         VulkanBuffer planeBuffer;
         rt::ImplicitObject asRef;
     } planes;
 
     struct {
-        std::vector<rt::Sphere> spheres;
+        std::vector<imp::Sphere> spheres;
         VulkanBuffer buffer;
         rt::ImplicitObject asRef;
     } spheres;

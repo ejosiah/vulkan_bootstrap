@@ -17,13 +17,21 @@ rt::AccelerationStructureBuilder& rt::AccelerationStructureBuilder::operator=(Ac
     this->m_instanceBuffer = std::move(source.m_instanceBuffer);
     this->m_device = source.m_device;
 
+    source.m_tlas.as.handle = VK_NULL_HANDLE;
+    for(auto& input : source.m_blas){
+        input.as.handle = VK_NULL_HANDLE;
+    }
+    source.m_device = nullptr;
+
     return *this;
 }
 
 rt::AccelerationStructureBuilder::~AccelerationStructureBuilder() {
-    vkDestroyAccelerationStructureKHR(*m_device, m_tlas.as.handle, nullptr);
-    for(auto& input : m_blas){
-        vkDestroyAccelerationStructureKHR(*m_device, input.as.handle, nullptr);
+    if(m_device && m_tlas.as.handle) {
+        vkDestroyAccelerationStructureKHR(*m_device, m_tlas.as.handle, nullptr);
+        for (auto &input : m_blas) {
+            vkDestroyAccelerationStructureKHR(*m_device, input.as.handle, nullptr);
+        }
     }
 }
 
@@ -74,14 +82,14 @@ std::vector<rt::InstanceGroup> rt::AccelerationStructureBuilder::add(const std::
     return instanceGroups;
 }
 
-rt::ImplicitObject rt::AccelerationStructureBuilder::add(const std::vector<rt::Sphere>& spheres, uint32_t customInstanceId, uint32_t hitGroup,
+rt::ImplicitObject rt::AccelerationStructureBuilder::add(const std::vector<imp::Sphere>& spheres, uint32_t customInstanceId, uint32_t hitGroup,
                                                          uint32_t cullMask, VkBuildAccelerationStructureFlagsKHR flags) {
 
     uint32_t numSpheres = spheres.size();
-    std::vector<AABB> aabbs;
+    std::vector<imp::Box> aabbs;
     aabbs.reserve(numSpheres);
     for(auto& sphere : spheres){
-        AABB aabb{};
+        imp::Box aabb{};
         aabb.max = sphere.center + glm::vec3(sphere.radius);
         aabb.min = sphere.center - glm::vec3(sphere.radius);
         aabbs.push_back(aabb);
@@ -90,13 +98,13 @@ rt::ImplicitObject rt::AccelerationStructureBuilder::add(const std::vector<rt::S
     return add(aabbs, customInstanceId, hitGroup, cullMask, flags);
 }
 
-rt::ImplicitObject rt::AccelerationStructureBuilder::add(const std::vector<rt::Cylinder>& cylinders, uint32_t customInstanceId, uint32_t hitGroup,
+rt::ImplicitObject rt::AccelerationStructureBuilder::add(const std::vector<imp::Cylinder>& cylinders, uint32_t customInstanceId, uint32_t hitGroup,
                                                          uint32_t cullMask, VkBuildAccelerationStructureFlagsKHR flags) {
 
-    std::vector<AABB> aabbs;
+    std::vector<imp::Box> aabbs;
     aabbs.reserve(cylinders.size());
     for(auto& cylinder : cylinders){
-        AABB aabb{};
+        imp::Box aabb{};
         auto center = (cylinder.top + cylinder.bottom) * 0.5f;
         auto height = glm::distance(cylinder.top, cylinder.bottom);
         aabb.max = center + glm::vec3(cylinder.radius, 0.5 * height, cylinder.radius);
@@ -107,19 +115,19 @@ rt::ImplicitObject rt::AccelerationStructureBuilder::add(const std::vector<rt::C
     return add(aabbs, customInstanceId, hitGroup, cullMask, flags);
 }
 
-rt::ImplicitObject rt::AccelerationStructureBuilder::add(const std::vector<rt::Plane>& planes, uint32_t customInstanceId, float length, uint32_t hitGroup,
+rt::ImplicitObject rt::AccelerationStructureBuilder::add(const std::vector<imp::Plane>& planes, uint32_t customInstanceId, float length, uint32_t hitGroup,
                                                          uint32_t cullMask, VkBuildAccelerationStructureFlagsKHR flags) {
 
-    auto project = [](glm::vec3 q, const Plane& p){
+    auto project = [](glm::vec3 q, const imp::Plane& p){
         float t = glm::dot(p.normal, q) - p.d;
         return q - t* p.normal;
     };
 
-    std::vector<AABB> aabbs;
+    std::vector<imp::Box> aabbs;
     auto numPlanes = planes.size();
     aabbs.reserve(numPlanes);
     for(auto& plane : planes){
-        AABB aabb{};
+        imp::Box aabb{};
         aabb.max = project(glm::vec3{ length }, plane);
         aabb.min = project(glm::vec3{ -length }, plane);
         aabbs.push_back(aabb);
@@ -128,13 +136,13 @@ rt::ImplicitObject rt::AccelerationStructureBuilder::add(const std::vector<rt::P
     return add(aabbs, customInstanceId, hitGroup, cullMask, flags);
 }
 
-rt::ImplicitObject rt::AccelerationStructureBuilder::add(const std::vector<rt::AABB> &aabbs, uint32_t customInstanceId, uint32_t hitGroup,
+rt::ImplicitObject rt::AccelerationStructureBuilder::add(const std::vector<imp::Box> &aabbs, uint32_t customInstanceId, uint32_t hitGroup,
                                                          uint32_t  cullMask, VkBuildAccelerationStructureFlagsKHR flags) {
 
     rt::ImplicitObject object;
     object.numObjects = aabbs.size();
     object.hitGroupId = hitGroup;
-    object.aabbBuffer = m_device->createCpuVisibleBuffer(aabbs.data(), aabbs.size() * sizeof(AABB)
+    object.aabbBuffer = m_device->createCpuVisibleBuffer(aabbs.data(), aabbs.size() * sizeof(imp::Box)
             , VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR
               | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT );
 
@@ -243,8 +251,16 @@ std::vector<rt::BlasId> rt::AccelerationStructureBuilder::buildBlas(const std::v
     return blasIds;
 }
 
+std::vector<rt::Instance> rt::AccelerationStructureBuilder::updateTlas(const std::vector<Instance> &instances) {
+    assert(m_tlas.as.handle && !instances.empty());
+    return buildTlas(m_tlas.flags | VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR, instances);
+}
+
 std::vector<rt::Instance> rt::AccelerationStructureBuilder::buildTlas(VkBuildAccelerationStructureFlagsKHR flags, const std::vector<Instance>& instances) {
     bool update = !instances.empty();
+    // Cannot call buildTlas twice except to update.
+    assert(m_tlas.as.handle == VK_NULL_HANDLE || update);
+    m_tlas.flags = flags;
     if(update){
         m_instances = instances;
     }
@@ -285,23 +301,25 @@ std::vector<rt::Instance> rt::AccelerationStructureBuilder::buildTlas(VkBuildAcc
             &numInstances,
             &accelerationStructureBuildSizesInfo);
 
-    m_tlas.as.buffer = m_device->createBuffer(
-            VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR,
-            VMA_MEMORY_USAGE_GPU_ONLY,
-            accelerationStructureBuildSizesInfo.accelerationStructureSize
-    );
+    if(!update) {
+        m_tlas.as.buffer = m_device->createBuffer(
+                VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR,
+                VMA_MEMORY_USAGE_GPU_ONLY,
+                accelerationStructureBuildSizesInfo.accelerationStructureSize
+        );
+        VkAccelerationStructureCreateInfoKHR createInfo{};
+        createInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;
+        createInfo.buffer = m_tlas.as.buffer;
+        createInfo.size = accelerationStructureBuildSizesInfo.accelerationStructureSize;
+        createInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
+        vkCreateAccelerationStructureKHR(*m_device, &createInfo, nullptr, &m_tlas.as.handle);
+    }
 
-    VkAccelerationStructureCreateInfoKHR createInfo{};
-    createInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;
-    createInfo.buffer = m_tlas.as.buffer;
-    createInfo.size = accelerationStructureBuildSizesInfo.accelerationStructureSize;
-    createInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
-    vkCreateAccelerationStructureKHR(*m_device, &createInfo, nullptr, &m_tlas.as.handle);
 
     auto scratchBuffer = createScratchBuffer(accelerationStructureBuildSizesInfo.buildScratchSize);
 
     accelerationStructureBuildGeometryInfo.mode = update ? VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR : VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
-    accelerationStructureBuildGeometryInfo.srcAccelerationStructure = m_tlas.as.handle;
+    accelerationStructureBuildGeometryInfo.srcAccelerationStructure = update ? m_tlas.as.handle : VK_NULL_HANDLE;
     accelerationStructureBuildGeometryInfo.dstAccelerationStructure = m_tlas.as.handle;
     accelerationStructureBuildGeometryInfo.scratchData.deviceAddress = scratchBuffer.deviceAddress;
 
@@ -352,4 +370,12 @@ rt::ScratchBuffer rt::AccelerationStructureBuilder::createScratchBuffer(VkDevice
     scratchBuffer.deviceAddress = vkGetBufferDeviceAddress(*m_device, &bufferDeviceAddressInfo);
 
     return scratchBuffer;
+}
+
+void rt::AccelerationStructureBuilder::addOrUpdateInstances(rt::InstanceBuilder &&builder) {
+    builder(m_instances);
+}
+
+void rt::AccelerationStructureBuilder::add(rt::Instance instance) {
+    m_instances.push_back(instance);
 }

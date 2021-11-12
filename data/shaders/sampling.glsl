@@ -9,4 +9,9 @@ vec3 uniformSampleSphere(vec2 uv){
     return vec3(r * cos(phi), r * sin(phi), z);
 }
 
+vec3 hemisphereRandom(vec2 r) {
+    vec3 s = uniformSampleSphere(r);
+    return vec3(s.x, s.y, abs(s.z));
+}
+
 #endif // SAMPLING_GLSL
