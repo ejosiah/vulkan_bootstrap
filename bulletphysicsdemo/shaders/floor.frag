@@ -10,7 +10,7 @@ layout(set = 0, binding = 0) uniform accelerationStructure tlas;
 
 const int repeat = 100;
 const float shine = 50;
-const vec3 globalAmbience = vec3(0.3);
+const vec3 globalAmbience = vec3(0.2);
 
 
 layout(location = 0) in struct {
@@ -36,7 +36,7 @@ void main(){
     vec3 diffuse = max(0, dot(L, N)) * albedo;
     vec3 specular = pow(max(0, dot(H, N)), shine) * albedo;
 
-    float occlusion = shadow(v_in.pos, L * 1000, 0xff, 8);
+    float occlusion = shadow(v_in.pos, L * 1000, 0xff, 1);
 
     vec3 color = ambience + (1 - occlusion) * (diffuse + specular);
 
