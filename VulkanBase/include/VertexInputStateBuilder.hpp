@@ -10,7 +10,7 @@ public:
     template<typename BindingDescriptions = std::vector<VkVertexInputBindingDescription>>
     inline VertexInputStateBuilder& addVertexBindingDescriptions(const BindingDescriptions& bindings){
         for(const auto& binding : bindings){
-            addVertexBinding(binding.binding, binding.stride, binding.inputRate);
+            addVertexBindingDescription(binding.binding, binding.stride, binding.inputRate);
         }
         return *this;
     }

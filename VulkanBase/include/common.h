@@ -55,6 +55,8 @@ namespace fs = std::filesystem;
 using real = float;
 using uint = unsigned int;
 using Flags = unsigned int;
+using byte_string = std::vector<char>;
+using ubyte_string = std::vector<unsigned char>;
 
 constexpr float EPSILON = 0.000001;
 constexpr float MAX_FLOAT = std::numeric_limits<float>::max();
@@ -139,7 +141,7 @@ template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
 // explicit deduction guide (not needed as of C++20)
 template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
 
-inline std::vector<char> loadFile(const std::string& path) {
+inline byte_string loadFile(const std::string& path) {
     std::ifstream fin(path.data(), std::ios::binary | std::ios::ate);
     if(!fin.good()) throw std::runtime_error{"Failed to open file: " + path};
 

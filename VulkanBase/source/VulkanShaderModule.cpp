@@ -22,6 +22,16 @@ VulkanShaderModule::VulkanShaderModule(const std::vector<uint32_t>& data, VkDevi
     REPORT_ERROR(vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule), "Failed to create shader module");
 }
 
+VulkanShaderModule::VulkanShaderModule(const byte_string& data, VkDevice device) : device(device) {
+    VkShaderModuleCreateInfo createInfo{};
+    createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+    createInfo.codeSize = data.size();
+    createInfo.pCode = reinterpret_cast<const uint32_t*>(data.data());
+
+    REPORT_ERROR(vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule), "Failed to create shader module");
+}
+
+
 
 VulkanShaderModule::~VulkanShaderModule() {
     if(shaderModule) {

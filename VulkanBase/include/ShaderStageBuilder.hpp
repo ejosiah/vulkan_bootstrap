@@ -1,5 +1,6 @@
 #pragma once
 
+#include "common.h"
 #include "GraphicsPipelineBuilder.hpp"
 #include "VulkanShaderModule.h"
 
@@ -11,7 +12,13 @@ public:
    ShaderStageBuilder& vertexShader(const std::string& path);
 
    [[nodiscard]]
+   ShaderStageBuilder& vertexShader(const byte_string& data);
+
+   [[nodiscard]]
    ShaderStageBuilder& fragmentShader(const std::string& path);
+
+   [[nodiscard]]
+   ShaderStageBuilder& fragmentShader(const byte_string& path);
 
    [[nodiscard]]
    ShaderStageBuilder& geometryShader(const std::string& path);

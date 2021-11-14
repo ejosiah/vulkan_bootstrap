@@ -10,6 +10,8 @@ struct VulkanShaderModule{
 
     VulkanShaderModule(const std::string& path, VkDevice device);
 
+    VulkanShaderModule(const byte_string& data, VkDevice device);
+
     VulkanShaderModule(const std::vector<uint32_t>& data, VkDevice device);
 
     VulkanShaderModule(VulkanShaderModule&& source) noexcept;

@@ -35,7 +35,7 @@
 #include "Plugin.hpp"
 #include "Settings.hpp"
 #include "VulkanDrawable.hpp"
-
+#include "utility/filemanager.hpp"
 #ifdef NDBUG
 constexpr bool enableValidation = false;
 #else
@@ -96,14 +96,6 @@ public:
      * runs the application loop
      */
     void run();
-
-
-    /**
-     * loads a files from the file system
-     * @param path path of file to load
-     * @return the contents of the file
-     */
-    static std::vector<char> loadFile(const std::string& path);
 
 protected:
     void initWindow() override;
@@ -252,6 +244,8 @@ protected:
         throw std::runtime_error{"Requested plugin not found"};
     }
 
+    byte_string load(const std::string& resource);
+
 
 private:
     void setPaused(bool flag);
@@ -299,6 +293,7 @@ protected:
     bool ready = false;
     bool toggleFullscreen = false;
     void* deviceCreateNextChain = nullptr;
+    FileManager fileLoader{};
 
 private:
     static VulkanBaseApp* appInstance;

@@ -1,0 +1,2 @@
+add_subdirectory(bulletphysicsdemo)
+add_subdirectory(deferred_rendering)

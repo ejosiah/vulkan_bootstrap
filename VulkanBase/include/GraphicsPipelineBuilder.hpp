@@ -50,6 +50,8 @@ public:
 
     GraphicsPipelineBuilder& basePipeline(VulkanPipeline& pipeline);
 
+    GraphicsPipelineBuilder& pipelineCache(VkPipelineCache pCache);
+
     [[nodiscard]]
     GraphicsPipelineBuilder *parent() override;
 
@@ -79,6 +81,7 @@ private:
     DepthStencilStateBuilder* _depthStencilStateBuilder = nullptr;
     ColorBlendStateBuilder* _colorBlendStateBuilder = nullptr ;
     VulkanPipeline* _basePipeline = nullptr;
+    VkPipelineCache pipelineCache_ = VK_NULL_HANDLE;
 
 };
 

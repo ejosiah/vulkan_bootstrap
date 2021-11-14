@@ -218,6 +218,9 @@ GraphicsPipelineBuilder &GraphicsPipelineBuilder::reuse() {
 }
 
 GraphicsPipelineBuilder &GraphicsPipelineBuilder::basePipeline(VulkanPipeline &pipeline) {
+    if(parent()){
+        parent()->basePipeline(pipeline);
+    }
     _basePipeline = &pipeline;
     return *this;
 }
@@ -227,4 +230,12 @@ MultisampleStateBuilder &GraphicsPipelineBuilder::multisampleState() {
         return parent()->multisampleState();
     }
     return *_multisampleStateBuilder;
+}
+
+GraphicsPipelineBuilder &GraphicsPipelineBuilder::pipelineCache(VkPipelineCache pCache) {
+    if(parent()){
+        parent()->pipelineCache(pCache);
+    }
+    pipelineCache_ = pCache;
+    return *this;
 }
