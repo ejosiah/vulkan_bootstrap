@@ -297,7 +297,6 @@ void VulkanBaseApp::createFramebuffer() {
     assert(renderPass.renderPass != VK_NULL_HANDLE);
 
     framebuffers.resize(swapChain.imageCount());
-    framebuffers.resize(swapChain.imageCount());
     for(int i = 0; i < framebuffers.size(); i++){
         std::vector<VkImageView> attachments{ swapChain.imageViews[i]};
         if(settings.depthTest){

@@ -288,12 +288,6 @@ void VulkanCube::cleanup() {
     VulkanBaseApp::cleanup();
 }
 
-RenderPassInfo VulkanCube::buildRenderPass() {
-    auto info =  VulkanBaseApp::buildRenderPass();
-
-    return info;
-}
-
 int main() {
     try{
         Settings settings;

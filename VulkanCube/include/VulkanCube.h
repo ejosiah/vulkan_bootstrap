@@ -21,8 +21,6 @@ protected:
 
     void checkAppInputs() override;
 
-    RenderPassInfo  buildRenderPass() override;
-
     void createCommandPool();
 
     void createCommandBuffer();
