@@ -99,7 +99,7 @@ protected:
 
    static constexpr uint32_t kSubpass_DEPTH = 0;
    static constexpr uint32_t kSubpass_GBUFFER = 1;
-   static constexpr uint32_t kSubpass_RENDER = 2;
+   static constexpr uint32_t kSubpass_RENDER = 1;
 
    static constexpr uint32_t kLayoutBinding_ALBDO = 0;
    static constexpr uint32_t kLayoutBinding_NORMAL = 1;

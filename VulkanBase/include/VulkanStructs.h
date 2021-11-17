@@ -2,8 +2,8 @@
 #include "common.h"
 
 struct SubpassDescription{
-    VkSubpassDescriptionFlags flags = 0;
-    VkPipelineBindPoint pipelineBindPoint;
+    VkSubpassDescriptionFlags flags{0};
+    VkPipelineBindPoint pipelineBindPoint{VK_PIPELINE_BIND_POINT_GRAPHICS};
     std::vector<VkAttachmentReference> inputAttachments;
     std::vector<VkAttachmentReference> colorAttachments;
     std::vector<VkAttachmentReference> resolveAttachments;

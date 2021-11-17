@@ -68,7 +68,7 @@ void DeferredRendering::createPipelineCache() {
 void DeferredRendering::createPipelines() {
     auto builder = device.graphicsPipelineBuilder();
     createDepthPrePassPipeline(builder);
-    createGBufferPipeline(builder);
+//    createGBufferPipeline(builder);
     createRenderPipeline(builder);
 }
 
@@ -109,10 +109,9 @@ void DeferredRendering::createDepthPrePassPipeline(GraphicsPipelineBuilder &buil
                     .add()
                 .layout()
                     .addPushConstantRange(Camera::pushConstant())
-                    .addPushConstantRange(VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(Camera), sizeof(CameraProps))
                 .renderPass(renderPass)
                 .subpass(kSubpass_DEPTH)
-                .name("render")
+                .name("depth")
                 .pipelineCache(pipelineCache)
             .build(pipelines.depthPrePass.layout);
 }
@@ -126,8 +125,8 @@ void DeferredRendering::createGBufferPipeline(GraphicsPipelineBuilder &builder) 
             .rasterizationState()
                 .disableRasterizerDiscard()
             .depthStencilState()
-                .disableDepthTest()
-                .disableDepthWrite()
+                .enableDepthTest()
+                .enableDepthWrite()
             .layout()
                 .addDescriptorSetLayout(sponza.descriptorSetLayout)
             .subpass(kSubpass_GBUFFER)
@@ -141,23 +140,20 @@ void DeferredRendering::createRenderPipeline(GraphicsPipelineBuilder& builder) {
         builder
             .setDerivatives()
             .shaderStage()
-                .clear()
-                .vertexShader(load("spv/render.vert.spv"))
-                .fragmentShader(load("spv/render.frag.spv"))
-            .vertexInputState()
-                .clear()
-                .addVertexBindingDescriptions(ClipSpace::bindingDescription())
-                .addVertexAttributeDescriptions(ClipSpace::attributeDescriptions())
-            .inputAssemblyState()
-                .triangleStrip()
+              .fragmentShader(load("spv/depth_buf.frag.spv"))
+            .rasterizationState()
+                .disableRasterizerDiscard()
+            .depthStencilState()
+                .enableDepthWrite()
+                .enableDepthTest()
             .layout()
-                .clear()
-                .addDescriptorSetLayout(gBuffer.setLayout)
-            .renderPass(renderPass)
+                .addPushConstantRange(VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(Camera), sizeof(CameraProps))
+                .addDescriptorSetLayout(sponza.descriptorSetLayout)
             .subpass(kSubpass_RENDER)
-            .basePipeline(pipelines.gBuffer.pipeline)
             .name("render")
-        .build(pipelines.render.layout);
+            .pipelineCache(pipelineCache)
+            .basePipeline(pipelines.depthPrePass.pipeline)
+            .build(pipelines.render.layout);
 }
 
 
@@ -193,10 +189,23 @@ VkCommandBuffer *DeferredRendering::buildCommandBuffers(uint32_t imageIndex, uin
 
     vkCmdBeginRenderPass(commandBuffer, &rPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
+//    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.depthPrePass.pipeline);
+//    cameraController->push(commandBuffer, pipelines.depthPrePass.layout);
+//    vkCmdPushConstants(commandBuffer, pipelines.depthPrePass.layout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(Camera), sizeof(CameraProps), &cameraProps);
+//    sponza.draw(commandBuffer);
+//
+//    vkCmdNextSubpass(commandBuffer, VK_SUBPASS_CONTENTS_INLINE);
+//    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.gBuffer.pipeline);
+//    cameraController->push(commandBuffer, pipelines.gBuffer.layout);
+//    vkCmdPushConstants(commandBuffer, pipelines.gBuffer.layout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(Camera), sizeof(CameraProps), &cameraProps);
+//    sponza.draw(commandBuffer, pipelines.gBuffer.layout);
+//
+//    VkDeviceSize offset = 0;
+//    vkCmdNextSubpass(commandBuffer, VK_SUBPASS_CONTENTS_INLINE);
 //    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.render.pipeline);
-//    cameraController->push(commandBuffer, pipelines.render.layout);
-//    vkCmdPushConstants(commandBuffer, pipelines.render.layout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(Camera), sizeof(CameraProps), &cameraProps);
-//    sponza.draw(commandBuffer, pipelines.render.layout);
+//    vkCmdBindVertexBuffers(commandBuffer, 0, 1, screenBuffer, &offset);
+//    vkCmdDraw(commandBuffer, 4, 1, 0, 0);
+
 
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.depthPrePass.pipeline);
     cameraController->push(commandBuffer, pipelines.depthPrePass.layout);
@@ -204,16 +213,10 @@ VkCommandBuffer *DeferredRendering::buildCommandBuffers(uint32_t imageIndex, uin
     sponza.draw(commandBuffer);
 
     vkCmdNextSubpass(commandBuffer, VK_SUBPASS_CONTENTS_INLINE);
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.gBuffer.pipeline);
-    cameraController->push(commandBuffer, pipelines.gBuffer.layout);
-    vkCmdPushConstants(commandBuffer, pipelines.gBuffer.layout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(Camera), sizeof(CameraProps), &cameraProps);
-    sponza.draw(commandBuffer, pipelines.gBuffer.layout);
-
-    VkDeviceSize offset = 0;
-    vkCmdNextSubpass(commandBuffer, VK_SUBPASS_CONTENTS_INLINE);
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.render.pipeline);
-    vkCmdBindVertexBuffers(commandBuffer, 0, 1, screenBuffer, &offset);
-    vkCmdDraw(commandBuffer, 4, 1, 0, 0);
+    cameraController->push(commandBuffer, pipelines.render.layout);
+    vkCmdPushConstants(commandBuffer, pipelines.render.layout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(Camera), sizeof(CameraProps), &cameraProps);
+    sponza.draw(commandBuffer, pipelines.render.layout);
 
     vkCmdEndRenderPass(commandBuffer);
 
@@ -355,117 +358,39 @@ void DeferredRendering::createScreenBuffer() {
 }
 
 RenderPassInfo DeferredRendering::buildRenderPass() {
-    auto [attachments, subpassDesc, dependency] = VulkanBaseApp::buildRenderPass();
-
-    VkAttachmentDescription albedoAttachmentDesc{};
-    albedoAttachmentDesc.format = VK_FORMAT_R32G32B32A32_SFLOAT;
-    albedoAttachmentDesc.samples = VK_SAMPLE_COUNT_1_BIT;
-    albedoAttachmentDesc.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    albedoAttachmentDesc.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    albedoAttachmentDesc.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    albedoAttachmentDesc.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    albedoAttachmentDesc.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    albedoAttachmentDesc.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    attachmentIndices[kAttachment_GBUFFER_ALBDEO] = attachments.size();
-    attachments.push_back(albedoAttachmentDesc);
-
-    VkAttachmentDescription normalAttachmentDesc{};
-    normalAttachmentDesc.format = VK_FORMAT_R32G32B32_SFLOAT;
-    normalAttachmentDesc.samples = VK_SAMPLE_COUNT_1_BIT;
-    normalAttachmentDesc.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    normalAttachmentDesc.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    normalAttachmentDesc.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    normalAttachmentDesc.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    normalAttachmentDesc.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    normalAttachmentDesc.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    attachmentIndices[kAttachment_GBUFFER_NORMAL] = attachments.size();
-    attachments.push_back(normalAttachmentDesc);
-
-    VkAttachmentDescription depthAttachmentDesc{};
-    depthAttachmentDesc.format = VK_FORMAT_D32_SFLOAT;
-    depthAttachmentDesc.samples = VK_SAMPLE_COUNT_1_BIT;
-    depthAttachmentDesc.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    depthAttachmentDesc.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    depthAttachmentDesc.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    depthAttachmentDesc.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    depthAttachmentDesc.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    depthAttachmentDesc.finalLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
-    attachmentIndices[kAttachment_GBUFFER_DEPTH] = attachments.size();
-    attachments.push_back(depthAttachmentDesc);
+    auto [attachments, subpassDesc, dependencies] = VulkanBaseApp::buildRenderPass();
 
     VkAttachmentReference depthRef{
         attachmentIndices[kAttachment_DEPTH],
         VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL
     };
 
-    VkAttachmentReference gBufferAlbedoRef{
-        attachmentIndices[kAttachment_GBUFFER_ALBDEO],
-        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-    };
-    VkAttachmentReference gBufferNormalRef{
-        attachmentIndices[kAttachment_GBUFFER_NORMAL],
-        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-    };
-    VkAttachmentReference gBufferDepthRef{
-        attachmentIndices[kAttachment_GBUFFER_DEPTH],
-        VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+    VkAttachmentReference backRef{
+        attachmentIndices[kAttachment_BACK],
+        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
     };
 
-    SubpassDescription depthPrepassDesc{
-        0,
-        VK_PIPELINE_BIND_POINT_GRAPHICS,
-        {}, // input attachments
-        {}, // out put attachments
-        {}, // resolve attachments
-        depthRef,
-        {}  // preserve attachments
-    };
+    subpassDesc.clear();
+    SubpassDescription prePassSubpass{};
+    prePassSubpass.depthStencilAttachments = depthRef;
+    subpassDesc.push_back(prePassSubpass);
 
-    SubpassDescription gBufferDesc{
-        0,
-        VK_PIPELINE_BIND_POINT_GRAPHICS,
-        {}, // input attachments
-        {
-            gBufferAlbedoRef,
-            gBufferNormalRef,
-            gBufferDepthRef
-        }, // output attachments
-        {}, // resolve attachments
-        depthRef,
-        {}, // preserve attachments
-    };
+    SubpassDescription renderSubpass{};
+    renderSubpass.colorAttachments.push_back(backRef);
+    renderSubpass.depthStencilAttachments = depthRef;
+    subpassDesc.push_back(renderSubpass);
 
-    SubpassDescription renderDesc = subpassDesc.front();
-    renderDesc.inputAttachments = {
-            gBufferAlbedoRef,
-            gBufferNormalRef,
-            gBufferDepthRef
-    };
+    VkSubpassDependency dependency{};
+    dependency.srcSubpass = kSubpass_DEPTH;
+    dependency.dstSubpass = kSubpass_RENDER;
+    dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependency.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    dependencies.clear();
+    dependencies.push_back(dependency);
 
-    VkSubpassDependency gBufferOnDepthPrePass{
-            kSubpass_DEPTH,
-            kSubpass_GBUFFER,
-            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-            VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-            VK_ACCESS_SHADER_READ_BIT,
-            VK_DEPENDENCY_BY_REGION_BIT
-    };
-
-    VkSubpassDependency renderOnGBuffer{
-        kSubpass_GBUFFER,
-        kSubpass_RENDER,
-        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-        VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-        VK_ACCESS_SHADER_READ_BIT,
-        VK_DEPENDENCY_BY_REGION_BIT
-    };
-
-    subpassDesc = {depthPrepassDesc, gBufferDesc, renderDesc};
-    dependency = { gBufferOnDepthPrePass, renderOnGBuffer};
-
-    return std::make_tuple(attachments, subpassDesc, dependency);
+    return std::make_tuple(attachments, subpassDesc, dependencies);
 }
 
 int main(){
