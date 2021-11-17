@@ -24,3 +24,19 @@ PipelineLayoutBuilder &PipelineLayoutBuilder::addPushConstantRange(VkPushConstan
     _ranges.push_back(range);
     return *this;
 }
+
+PipelineLayoutBuilder &PipelineLayoutBuilder::clearRanges() {
+    _ranges.clear();
+    return *this;
+}
+
+PipelineLayoutBuilder &PipelineLayoutBuilder::clearLayouts() {
+    _descriptorSetLayouts.clear();
+    return *this;
+}
+
+PipelineLayoutBuilder &PipelineLayoutBuilder::clear() {
+    _ranges.clear();
+    _descriptorSetLayouts.clear();
+    return *this;
+}

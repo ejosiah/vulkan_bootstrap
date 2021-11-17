@@ -88,6 +88,10 @@ public:
 
     const glm::vec3& getYAxis();
 
+    float near() override;
+
+    float far() override;
+
     void push(VkCommandBuffer commandBuffer, VkPipelineLayout layout, VkShaderStageFlags stageFlags = VK_SHADER_STAGE_VERTEX_BIT) const override;
 
     void push(VkCommandBuffer commandBuffer, VkPipelineLayout layout, const glm::mat4& model, VkShaderStageFlags stageFlags = VK_SHADER_STAGE_VERTEX_BIT) override;

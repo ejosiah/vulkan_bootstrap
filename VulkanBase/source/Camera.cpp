@@ -221,3 +221,11 @@ void CameraController::newFrame() {
 bool CameraController::moved() const {
     return cameras[currentMode]->moved();
 }
+
+float CameraController::near() {
+    return cameras[currentMode]->near();
+}
+
+float CameraController::far() {
+    return cameras[currentMode]->far();
+}

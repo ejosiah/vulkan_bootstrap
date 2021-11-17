@@ -6,12 +6,12 @@
 #include "glm_bullet_interpreter.hpp"
 
 BulletPhysicsDemo::BulletPhysicsDemo(const Settings& settings) : VulkanBaseApp("bullet physics demo", settings) {
-    fileLoader.addSearchPath(".");
-    fileLoader.addSearchPath("../../examples/bulletphysicsdemo");
-    fileLoader.addSearchPath("../../data/shaders");
-    fileLoader.addSearchPath("../../data");
-    fileLoader.addSearchPath("../../data/models");
-    fileLoader.addSearchPath("../../data/textures");
+    fileManager.addSearchPath(".");
+    fileManager.addSearchPath("../../examples/bulletphysicsdemo");
+    fileManager.addSearchPath("../../data/shaders");
+    fileManager.addSearchPath("../../data");
+    fileManager.addSearchPath("../../data/models");
+    fileManager.addSearchPath("../../data/textures");
 }
 
 void BulletPhysicsDemo::initApp() {
@@ -121,13 +121,15 @@ void BulletPhysicsDemo::createRenderPipeline() {
         .build(render.layout);
 
     floor.pipeline =
-        builder.reuse()
+        builder
             .setDerivatives()
             .basePipeline(render.pipeline)
             .shaderStage()
+                .clear()
                 .vertexShader(load("/spv/floor.vert.spv"))
                 .fragmentShader(load("spv/floor.frag.spv"))
             .vertexInputState()
+                .clear()
                 .addVertexBindingDescription(0, sizeof(FloorVertexData), VK_VERTEX_INPUT_RATE_VERTEX)
                 .addVertexAttributeDescription(0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(FloorVertexData, position))
                 .addVertexAttributeDescription(1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(FloorVertexData, normal))

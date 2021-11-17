@@ -214,6 +214,8 @@ GraphicsPipelineBuilder &GraphicsPipelineBuilder::reuse() {
     }
     _vertexInputStateBuilder->clear();
     _shaderStageBuilder->clear();
+    _pipelineLayoutBuilder->clearLayouts();
+    _pipelineLayoutBuilder->clearRanges();
     return *this;
 }
 

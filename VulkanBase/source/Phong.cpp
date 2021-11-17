@@ -6,10 +6,9 @@ void phong::Material::init(const mesh::Mesh& mesh, const VulkanDevice& device, c
     descriptorSet = descriptorPool.allocate({descriptorSetLayout}).front();
     std::vector<VkWriteDescriptorSet> writes;
 
-    auto initTexture = [&](Texture& texture, const std::string& path, uint32_t binding){
+    auto initTexture = [&](Texture& texture, VkDescriptorImageInfo& info, const std::string& path, uint32_t binding){
         if(!path.empty()){
             textures::fromFile(device, texture, path, true);
-            VkDescriptorImageInfo info{};
             info.imageView = texture.imageView;
             info.sampler = texture.sampler;
             info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -24,19 +23,25 @@ void phong::Material::init(const mesh::Mesh& mesh, const VulkanDevice& device, c
     };
 
     textures.ambientMap = std::make_unique<Texture>();
-    initTexture(*textures.ambientMap, mesh.textureMaterial.ambientMap, 1);
+    VkDescriptorImageInfo ambInfo{};
+    initTexture(*textures.ambientMap, ambInfo, mesh.textureMaterial.ambientMap, 1);
+
 
     textures.diffuseMap = std::make_unique<Texture>();
-    initTexture(*textures.diffuseMap, mesh.textureMaterial.diffuseMap, 2);
+    VkDescriptorImageInfo diffInfo{};
+    initTexture(*textures.diffuseMap, diffInfo, mesh.textureMaterial.diffuseMap, 2);
 
     textures.specularMap = std::make_unique<Texture>();
-    initTexture(*textures.specularMap, mesh.textureMaterial.specularMap, 3);
+    VkDescriptorImageInfo specInfo{};
+    initTexture(*textures.specularMap, specInfo, mesh.textureMaterial.specularMap, 3);
 
     textures.normalMap = std::make_unique<Texture>();
-    initTexture(*textures.normalMap, mesh.textureMaterial.normalMap, 4);
+    VkDescriptorImageInfo normInfo{};
+    initTexture(*textures.normalMap, normInfo, mesh.textureMaterial.normalMap, 4);
 
     textures.ambientOcclusionMap = std::make_unique<Texture>();
-    initTexture(*textures.ambientOcclusionMap, mesh.textureMaterial.ambientOcclusionMap, 5);
+    VkDescriptorImageInfo aoInfo{};
+    initTexture(*textures.ambientOcclusionMap, aoInfo, mesh.textureMaterial.ambientOcclusionMap, 5);
 
     uint32_t size = sizeof(mesh.material) - offsetof(mesh::Material, diffuse);
     std::vector<char> materialData(size);

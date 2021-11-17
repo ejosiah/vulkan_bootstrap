@@ -28,8 +28,15 @@ public:
         return *this;
     }
 
+    PipelineLayoutBuilder& clear();
+
+    PipelineLayoutBuilder& clearRanges();
+
+    PipelineLayoutBuilder& clearLayouts();
+
     [[nodiscard]]
     VulkanPipelineLayout buildPipelineLayout() const;
+
 
 private:
     std::vector<VkDescriptorSetLayout> _descriptorSetLayouts;

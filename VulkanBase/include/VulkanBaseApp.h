@@ -293,7 +293,14 @@ protected:
     bool ready = false;
     bool toggleFullscreen = false;
     void* deviceCreateNextChain = nullptr;
-    FileManager fileLoader{};
+    FileManager fileManager{};
+
+    std::map<std::string, uint32_t> attachmentIndices;
+    uint32_t numFrameBufferAttachments{0};
+
+    static const std::string kAttachment_BACK;
+    static const std::string kAttachment_MSAA;
+    static const std::string kAttachment_DEPTH;
 
 private:
     static VulkanBaseApp* appInstance;

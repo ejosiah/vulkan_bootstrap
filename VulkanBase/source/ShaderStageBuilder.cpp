@@ -76,11 +76,12 @@ std::vector<VkPipelineShaderStageCreateInfo>& ShaderStageBuilder::buildShaderSta
     return _vkStages;
 }
 
-void ShaderStageBuilder::clear() {
+ShaderStageBuilder& ShaderStageBuilder::clear() {
     dispose(_vertexModule);
     dispose(_fragmentModule);
     dispose(_geometryModule);
     dispose(_tessControlModule);
     dispose(_tessEvalModule);
     _stages.clear();
+    return *this;
 }

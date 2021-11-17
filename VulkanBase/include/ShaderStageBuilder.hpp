@@ -29,7 +29,7 @@ public:
    [[nodiscard]]
    ShaderStageBuilder& tessellationControlShader(const std::string& path);
 
-   void clear();
+   ShaderStageBuilder& clear();
 
    void validate() const;
 

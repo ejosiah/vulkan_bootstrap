@@ -119,27 +119,27 @@ mesh::Mesh loadMesh(const std::string& parent, const aiNode* node, const aiScene
     mesh::TextureMaterial texMaterial;
     ret = aiMaterial->GetTexture(aiTextureType_DIFFUSE, 0, &aiString);
     if(ret == aiReturn_SUCCESS){
-        texMaterial.diffuseMap = parent + aiString.C_Str();
+        texMaterial.diffuseMap = fmt::format("{}\\{}", parent, aiString.C_Str());
     }
 
     ret = aiMaterial->GetTexture(aiTextureType_AMBIENT, 0, &aiString);
     if(ret == aiReturn_SUCCESS){
-        texMaterial.ambientMap =  parent + aiString.C_Str();
+        texMaterial.ambientMap =  fmt::format("{}\\{}", parent, aiString.C_Str());
     }
 
     ret = aiMaterial->GetTexture(aiTextureType_SPECULAR, 0, &aiString);
     if(ret == aiReturn_SUCCESS){
-        texMaterial.specularMap =  parent + aiString.C_Str();
+        texMaterial.specularMap =  fmt::format("{}\\{}", parent, aiString.C_Str());
     }
 
     ret = aiMaterial->GetTexture(aiTextureType_NORMALS, 0, &aiString);
     if(ret == aiReturn_SUCCESS){
-        texMaterial.normalMap =  parent + aiString.C_Str();
+        texMaterial.normalMap =  fmt::format("{}\\{}", parent, aiString.C_Str());
     }
 
     ret = aiMaterial->GetTexture(aiTextureType_AMBIENT_OCCLUSION, 0, &aiString);
     if(ret == aiReturn_SUCCESS){
-        texMaterial.ambientOcclusionMap =  parent + aiString.C_Str();
+        texMaterial.ambientOcclusionMap =  fmt::format("{}\\{}", parent, aiString.C_Str());
     }
     mesh.material = material;
     mesh.textureMaterial = texMaterial;

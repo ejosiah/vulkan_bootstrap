@@ -19,6 +19,10 @@
 
 namespace chrono = std::chrono;
 
+const std::string VulkanBaseApp::kAttachment_BACK =  "BACK_BUFFER_INDEX";
+const std::string VulkanBaseApp::kAttachment_MSAA =  "MSAA_BUFFER_INDEX";
+const std::string VulkanBaseApp::kAttachment_DEPTH = "DEPTH_BUFFER_INDEX";
+
 VulkanBaseApp::VulkanBaseApp(std::string_view name, const Settings& settings, std::vector<std::unique_ptr<Plugin>> plugins)
         : Window(name, settings.width, settings.height, settings.fullscreen)
         , InputManager(settings.relativeMouseMode)
@@ -285,15 +289,16 @@ void VulkanBaseApp::createFramebuffer() {
     assert(renderPass.renderPass != VK_NULL_HANDLE);
 
     framebuffers.resize(swapChain.imageCount());
+    auto numAttachments = numFrameBufferAttachments;
     for(int i = 0; i < framebuffers.size(); i++){
-        std::vector<VkImageView> attachments{ swapChain.imageViews[i]};
+        std::vector<VkImageView> attachments(numAttachments);
+        attachments[attachmentIndices[kAttachment_BACK]] = swapChain.imageViews[i];
         if(settings.depthTest){
             assert(depthBuffer.imageView.handle != VK_NULL_HANDLE);
-            attachments.push_back(depthBuffer.imageView);
+            attachments[attachmentIndices[kAttachment_DEPTH]] = depthBuffer.imageView;
         }
         if(settings.msaaSamples != VK_SAMPLE_COUNT_1_BIT){
-            attachments.push_back(colorBuffer.imageView);
-            std::swap(attachments[0], attachments[attachments.size() - 1]);
+            attachments[attachmentIndices[kAttachment_MSAA]] = colorBuffer.imageView;
         }
         framebuffers[i] = device.createFramebuffer(renderPass, attachments
                                                , static_cast<uint32_t>(width), static_cast<uint32_t>(height) );
@@ -302,10 +307,11 @@ void VulkanBaseApp::createFramebuffer() {
 
 
 void VulkanBaseApp::createRenderPass() {
-    auto [attachments, subpassDesc, dependency] = buildRenderPass();
+    auto [attachments, subpassDesc, dependency] = buildRenderPass();    // TODO use default if empty
     renderPass = device.createRenderPass(attachments, subpassDesc, dependency);
 }
 
+// TODO make this private
 RenderPassInfo VulkanBaseApp::buildRenderPass() {
     bool msaaEnabled = settings.msaaSamples != VK_SAMPLE_COUNT_1_BIT;
     VkAttachmentDescription attachmentDesc{};
@@ -319,16 +325,22 @@ RenderPassInfo VulkanBaseApp::buildRenderPass() {
     attachmentDesc.finalLayout = msaaEnabled ? VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
 
+    std::vector<VkAttachmentDescription> attachments;
     VkAttachmentReference ref{};
-    ref.attachment = 0;
+    ref.attachment = attachments.size();
     ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    attachments.push_back(attachmentDesc);
+    if(msaaEnabled){
+        attachmentIndices[kAttachment_MSAA] = ref.attachment;
+    }else{
+        attachmentIndices[kAttachment_BACK] = ref.attachment;
+    }
 
 
     SubpassDescription subpassDesc{};
     subpassDesc.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
     subpassDesc.colorAttachments.push_back(ref);
 
-    std::vector<VkAttachmentDescription> attachments{ attachmentDesc };
     if(settings.depthTest){
         VkAttachmentDescription depthAttachment{};
         depthAttachment.format = depthBuffer.image.format;
@@ -344,7 +356,7 @@ RenderPassInfo VulkanBaseApp::buildRenderPass() {
         VkAttachmentReference depthRef{};
         depthRef.attachment = attachments.size() - 1;
         depthRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
+        attachmentIndices[kAttachment_DEPTH] = depthRef.attachment;
         subpassDesc.depthStencilAttachments = depthRef;
     }
 
@@ -364,6 +376,7 @@ RenderPassInfo VulkanBaseApp::buildRenderPass() {
         resolveRef.attachment = attachments.size() - 1;
         resolveRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
         subpassDesc.resolveAttachments.push_back(resolveRef);
+        attachmentIndices[kAttachment_BACK] = attachments.size() - 1;
     }
 
 
@@ -377,6 +390,8 @@ RenderPassInfo VulkanBaseApp::buildRenderPass() {
 
     std::vector<SubpassDescription> subpassDescs{ subpassDesc };
     std::vector<VkSubpassDependency> dependencies{ dependency };
+
+    numFrameBufferAttachments = attachments.size();
 
     return std::make_tuple(attachments, subpassDescs, dependencies);
 }
@@ -660,5 +675,5 @@ void VulkanBaseApp::checkInstanceExtensionSupport() {
 }
 
 byte_string VulkanBaseApp::load(const std::string &resource) {
-    return fileLoader.load(resource);
+    return fileManager.load(resource);
 }

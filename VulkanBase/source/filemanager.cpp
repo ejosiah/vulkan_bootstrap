@@ -18,10 +18,11 @@ byte_string FileManager::load(const std::string &resource) {
 }
 
 std::optional<fs::path> FileManager::getFullPath(const std::string &resource) {
+    assert(!searchPaths_.empty());
     fs::path path = resource;
     auto itr = begin(searchPaths_);
     while(!exists(path) && itr != end(searchPaths_)){
-        path = fmt::format("{}/{}", itr->string(), resource);
+        path = fmt::format("{}\\{}", itr->string(), resource);  // FIXME use platform specific path
         itr++;
     }
     return exists(path) ? std::optional{path} : std::nullopt;

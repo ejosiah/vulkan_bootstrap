@@ -42,7 +42,18 @@ VkPipelineVertexInputStateCreateInfo& VertexInputStateBuilder::buildVertexInputS
     return _info;
 }
 
-void VertexInputStateBuilder::clear() {
+VertexInputStateBuilder& VertexInputStateBuilder::clear() {
     _bindings.clear();
     _attributes.clear();
+    return *this;
+}
+
+VertexInputStateBuilder &VertexInputStateBuilder::clearBindingDesc() {
+    _bindings.clear();
+    return *this;
+}
+
+VertexInputStateBuilder &VertexInputStateBuilder::clearAttributeDesc() {
+    _attributes.clear();
+    return *this;
 }

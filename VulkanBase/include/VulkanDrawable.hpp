@@ -28,14 +28,23 @@ struct VulkanDrawable{
     }
 
     void draw(VkCommandBuffer commandBuffer, VulkanPipelineLayout& layout) const {
-        int numPrims = meshes.size();
+        auto numPrims = meshes.size();
         VkDeviceSize offset = 0;
         vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertexBuffer.buffer, &offset);
         vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
         for (auto i = 0; i < numPrims; i++) {
             vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, 1, &meshes[i].material.descriptorSet, 0, VK_NULL_HANDLE);
             meshes[i].drawIndexed(commandBuffer);
+        }
+    }
 
+    void draw(VkCommandBuffer commandBuffer) const {
+        auto numPrims = meshes.size();
+        VkDeviceSize offset = 0;
+        vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertexBuffer.buffer, &offset);
+        vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+        for (auto i = 0; i < numPrims; i++) {
+            meshes[i].drawIndexed(commandBuffer);
         }
     }
 

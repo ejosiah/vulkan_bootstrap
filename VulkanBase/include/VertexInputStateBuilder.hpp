@@ -27,7 +27,11 @@ public:
 
     void validate() const;
 
-    void clear();
+    VertexInputStateBuilder& clear();
+
+    VertexInputStateBuilder& clearBindingDesc();
+
+    VertexInputStateBuilder& clearAttributeDesc();
 
     VkPipelineVertexInputStateCreateInfo& buildVertexInputState();
 
