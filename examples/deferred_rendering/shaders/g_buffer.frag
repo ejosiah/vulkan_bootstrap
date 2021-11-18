@@ -21,11 +21,11 @@ layout(location = 0) in struct {
 } v_in;
 
 layout(location = 0) out vec4 abedo;
-layout(location = 1) out vec3 normal;
-layout(location = 2) out float depth;
+layout(location = 1) out vec4 normal;
+layout(location = 2) out vec4 position;
 
 void main(){
     abedo = texture(albedoMap, v_in.uv);
-    normal = v_in.normal;
-    depth = linearizeDepth(gl_FragCoord.z)/far;
+    normal = vec4(v_in.normal, 1);
+    position = vec4(v_in.position, 1);
 }

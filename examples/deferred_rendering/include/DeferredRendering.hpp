@@ -8,6 +8,10 @@ public:
 protected:
     void initApp() override;
 
+    void postVulkanInit() override;
+
+    void createFramebuffer() override;
+
     void initCamera();
 
     void loadSponza();
@@ -64,11 +68,11 @@ protected:
     } cameraProps;
 
     struct GBuffer {
-        FramebufferAttachment albedo;
-        FramebufferAttachment normal;
-        FramebufferAttachment depth;
+        std::vector<FramebufferAttachment> albedo;
+        std::vector<FramebufferAttachment> normal;
+        std::vector<FramebufferAttachment> position;
         VulkanDescriptorSetLayout setLayout;
-        VkDescriptorSet descriptorSet;
+        std::vector<VkDescriptorSet> descriptorSets;
     } gBuffer;
 
     struct Pipelines{
@@ -95,13 +99,13 @@ protected:
 //   static constexpr uint32_t kAttachment_GBUFFER = 2;
     static const std::string kAttachment_GBUFFER_ALBDEO;
     static const std::string kAttachment_GBUFFER_NORMAL;
-    static const std::string kAttachment_GBUFFER_DEPTH;
+    static const std::string kAttachment_GBUFFER_POSITION;
 
    static constexpr uint32_t kSubpass_DEPTH = 0;
    static constexpr uint32_t kSubpass_GBUFFER = 1;
-   static constexpr uint32_t kSubpass_RENDER = 1;
+   static constexpr uint32_t kSubpass_RENDER = 2;
 
    static constexpr uint32_t kLayoutBinding_ALBDO = 0;
    static constexpr uint32_t kLayoutBinding_NORMAL = 1;
-   static constexpr uint32_t kLayoutBinding_DEPTH = 2;
+   static constexpr uint32_t kLayoutBinding_POSITION = 2;
 };

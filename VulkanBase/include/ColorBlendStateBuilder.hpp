@@ -75,6 +75,8 @@ public:
 
     ColorBlendAttachmentStateBuilder& add();
 
+    ColorBlendAttachmentStateBuilder& clear();
+
     ColorBlendAttachmentStateBuilder &attachment() override;
 
 

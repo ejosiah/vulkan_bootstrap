@@ -42,7 +42,7 @@ namespace phong{
 
         VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
 
-        void init(const mesh::Mesh& mesh, const VulkanDevice& device, const VulkanDescriptorPool& descriptorPool, const VulkanDescriptorSetLayout& descriptorSetLayout, VkBufferUsageFlags usageFlags = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+        void init(const mesh::Mesh& mesh, VulkanDevice& device, const VulkanDescriptorPool& descriptorPool, const VulkanDescriptorSetLayout& descriptorSetLayout, VkBufferUsageFlags usageFlags = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
     };
 
     struct Mesh : public vkn::Primitive{
@@ -83,7 +83,7 @@ namespace phong{
      * @return
      */
     template<typename Drawable>
-    inline void load(const std::string& path, const VulkanDevice &device, const VulkanDescriptorPool& pool,
+    inline void load(const std::string& path, VulkanDevice &device, const VulkanDescriptorPool& pool,
                      Drawable& drawable,
                      const VulkanDrawableInfo info = {}, bool normalize = false, float size = 1){
         std::array<VkDescriptorSetLayoutBinding, 6> bindings{};

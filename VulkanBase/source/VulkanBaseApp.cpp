@@ -48,6 +48,12 @@ void VulkanBaseApp::init() {
     addPluginExtensions();
     initVulkan();
     postVulkanInit();
+
+    createColorBuffer();
+    createDepthBuffer();
+    createRenderPass();
+    createFramebuffer();
+
     initPlugins();
     initApp();
     ready = true;
@@ -93,11 +99,6 @@ void VulkanBaseApp::initVulkan() {
     initMixins();
     createLogicalDevice();
     createSwapChain();
-
-    createColorBuffer();
-    createDepthBuffer();
-    createRenderPass();
-    createFramebuffer();
 
     createSyncObjects();
 }

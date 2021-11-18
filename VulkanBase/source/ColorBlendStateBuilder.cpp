@@ -97,3 +97,9 @@ ColorBlendAttachmentStateBuilder &ColorBlendAttachmentStateBuilder::attachment()
     }
     return  *this;
 }
+
+ColorBlendAttachmentStateBuilder &ColorBlendAttachmentStateBuilder::clear() {
+    _states.clear();
+    resetScratchpad();
+    return *this;
+}

@@ -1,9 +1,10 @@
 #include "Phong.h"
 
-void phong::Material::init(const mesh::Mesh& mesh, const VulkanDevice& device, const VulkanDescriptorPool& descriptorPool
+void phong::Material::init(const mesh::Mesh& mesh,  VulkanDevice& device, const VulkanDescriptorPool& descriptorPool
                            , const VulkanDescriptorSetLayout& descriptorSetLayout, VkBufferUsageFlags usageFlags){
 
     descriptorSet = descriptorPool.allocate({descriptorSetLayout}).front();
+    device.setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>(mesh.name, descriptorSet);
     std::vector<VkWriteDescriptorSet> writes;
 
     auto initTexture = [&](Texture& texture, VkDescriptorImageInfo& info, const std::string& path, uint32_t binding){

@@ -142,7 +142,7 @@ protected:
      */
     virtual RenderPassInfo buildRenderPass();
 
-    void createFramebuffer();
+    virtual void createFramebuffer();
 
     void createSyncObjects();
 
