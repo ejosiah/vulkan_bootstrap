@@ -35,8 +35,6 @@ VulkanRayTraceBaseApp::VulkanRayTraceBaseApp(std::string_view name, const Settin
 void VulkanRayTraceBaseApp::postVulkanInit() {
     loadRayTracingProperties();
     rtBuilder = rt::AccelerationStructureBuilder{&device};
-    canvas = std::move(Canvas{this, VK_IMAGE_USAGE_STORAGE_BIT});
-    canvas.init();
 }
 
 
@@ -104,4 +102,9 @@ std::tuple<uint32_t, uint32_t> VulkanRayTraceBaseApp::getShaderGroupHandleSizing
 
 VulkanRayTraceBaseApp::~VulkanRayTraceBaseApp() {
 
+}
+
+void VulkanRayTraceBaseApp::framebufferReady() {
+    canvas = std::move(Canvas{this, VK_IMAGE_USAGE_STORAGE_BIT});
+    canvas.init();
 }

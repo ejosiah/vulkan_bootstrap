@@ -4,18 +4,36 @@
 #include <Plugin.hpp>
 #include <BulletPhysicsPlugin.hpp>
 #include <glm_bullet_interpreter.hpp>
+#include <BulletCollision/CollisionDispatch/btCollisionDispatcherMt.h>
+#include <BulletDynamics/ConstraintSolver/btSequentialImpulseConstraintSolverMt.h>
+#include <BulletDynamics/Dynamics/btDiscreteDynamicsWorldMt.h>
+#include <LinearMath/btPoolAllocator.h>
 
 BulletPhysicsPlugin::BulletPhysicsPlugin(const BulletPhysicsPluginInfo& info)
  : _timeStep{ info.timeStep }
  , _maxSubSteps{ info.maxSubSteps}
  , _fixedTimeStep{ info.fixedTimeStep }
  , _gravity{ info.gravity }
- , _debugMode{ info.debugMode }{
+ , _debugMode{ info.debugMode }
+ , _multiThreaded{ info.multiThreaded }
+ {
 
 }
 
 
 void BulletPhysicsPlugin::init() {
+    if(!_multiThreaded){
+        initSingleThreaded();
+    }else{
+        initMultiThreaded();
+    }
+
+    if(_debugMode != btIDebugDraw::DebugDrawModes::DBG_NoDebug) {
+        _dynamicsWorld->setDebugDrawer(new DebugDrawer{data, _debugMode});
+    }
+}
+
+void BulletPhysicsPlugin::initSingleThreaded() {
     _collisionConfiguration = std::make_unique<btDefaultCollisionConfiguration>();
     _dispatcher = std::make_unique<btCollisionDispatcher>(_collisionConfiguration.get());
     _overlappingPairCache = std::make_unique<btDbvtBroadphase>();
@@ -23,10 +41,25 @@ void BulletPhysicsPlugin::init() {
     _dynamicsWorld = std::unique_ptr<btDynamicsWorld, DynamicsWorldDeleter>(
             new btDiscreteDynamicsWorld{_dispatcher.get(), _overlappingPairCache.get(), _solver.get(), _collisionConfiguration.get()});
     _dynamicsWorld->setGravity(btVector3(_gravity.x, _gravity.y, _gravity.z));
+}
 
-    if(_debugMode != btIDebugDraw::DebugDrawModes::DBG_NoDebug) {
-        _dynamicsWorld->setDebugDrawer(new DebugDrawer{data, _debugMode});
-    }
+void BulletPhysicsPlugin::initMultiThreaded() {
+    btDefaultCollisionConstructionInfo cci{};
+    cci.m_defaultMaxPersistentManifoldPoolSize = 80000;
+    cci.m_defaultMaxCollisionAlgorithmPoolSize = 80000;
+    void* mem = btAlignedAlloc(sizeof(btPoolAllocator), 16);
+    cci.m_persistentManifoldPool = new (mem) btPoolAllocator(sizeof(btPersistentManifold), cci.m_defaultMaxPersistentManifoldPoolSize);
+    _collisionConfiguration = std::make_unique<btDefaultCollisionConfiguration>(cci);
+    auto configPtr = _collisionConfiguration.get();
+    auto localDispatcher = new btCollisionDispatcherMt(configPtr, 40);
+    _dispatcher = std::unique_ptr<btCollisionDispatcher>{ localDispatcher };
+    _overlappingPairCache = std::make_unique<btDbvtBroadphase>();
+
+    _solver = std::make_unique<btConstraintSolverPoolMt>(BT_MAX_THREAD_COUNT);
+
+    _dynamicsWorld = std::unique_ptr<btDynamicsWorld, DynamicsWorldDeleter>(
+            new btDiscreteDynamicsWorld{_dispatcher.get(), _overlappingPairCache.get(), _solver.get(), _collisionConfiguration.get()});
+    _dynamicsWorld->setGravity(btVector3(_gravity.x, _gravity.y, _gravity.z));
 }
 
 std::string BulletPhysicsPlugin::name() const {

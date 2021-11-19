@@ -102,7 +102,6 @@ protected:
 
     void initVulkan();
 
-
     void addPluginExtensions();
 
     void initPlugins();
@@ -114,6 +113,11 @@ protected:
     void checkDeviceExtensionSupport();
 
     virtual void postVulkanInit();
+
+    virtual void framebufferReady();
+
+    virtual void swapChainReady();
+
     /**
      * app specific initialization, this should be overridden by subclasses
      */

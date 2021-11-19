@@ -23,6 +23,8 @@ public:
 protected:
     void postVulkanInit() final;
 
+    void framebufferReady() final;
+
     void loadRayTracingProperties();
 
     void createAccelerationStructure(const std::vector<rt::MeshObjectInstance>& drawableInstances);

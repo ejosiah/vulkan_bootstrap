@@ -8,7 +8,7 @@ public:
 protected:
     void initApp() override;
 
-    void postVulkanInit() override;
+    void swapChainReady() override;
 
     void createFramebuffer() override;
 
@@ -17,6 +17,8 @@ protected:
     void loadSponza();
 
     void createScreenBuffer();
+
+    void setupInput();
 
     void createDescriptorPool();
 
@@ -94,9 +96,11 @@ protected:
 
     VulkanBuffer screenBuffer;
 
-//   static constexpr uint32_t kAttachment_BACK = 0;
-//   static constexpr uint32_t kAttachment_DEPTH = 1;
-//   static constexpr uint32_t kAttachment_GBUFFER = 2;
+    struct {
+        glm::vec4 lightPos;
+        uint32_t displayOption{DISPLAY_LIGHTING};
+    } renderConstants{};
+
     static const std::string kAttachment_GBUFFER_ALBDEO;
     static const std::string kAttachment_GBUFFER_NORMAL;
     static const std::string kAttachment_GBUFFER_POSITION;
@@ -108,4 +112,14 @@ protected:
    static constexpr uint32_t kLayoutBinding_ALBDO = 0;
    static constexpr uint32_t kLayoutBinding_NORMAL = 1;
    static constexpr uint32_t kLayoutBinding_POSITION = 2;
+
+   enum DisplayOption{
+       DISPLAY_LIGHTING,
+       DISPLAY_ALBEDO,
+       DISPLAY_NORMAL,
+       DISPLAY_POSITION,
+       MAX_DISPLAY_OPTIONS
+   };
+
+   Action* selectOption;
 };

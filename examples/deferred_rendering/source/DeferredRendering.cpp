@@ -13,13 +13,11 @@ DeferredRendering::DeferredRendering(const Settings& settings) : VulkanBaseApp("
     fileManager.addSearchPath("../../data");
     fileManager.addSearchPath(R"(..\..\data\models)");
     fileManager.addSearchPath("../../data/textures");
-}
-
-void DeferredRendering::postVulkanInit() {
-    createGBuffer();
+    selectOption = &mapToKey(Key::SPACE_BAR, "display option", Action::Behavior::DETECT_INITIAL_PRESS_ONLY);
 }
 
 void DeferredRendering::initApp() {
+    setupInput();
     createDescriptorPool();
     createDescriptorSetLayouts();
     updateDescriptorSets();
@@ -154,6 +152,8 @@ void DeferredRendering::createRenderPipeline(GraphicsPipelineBuilder& builder) {
                 .clear()
                 .addVertexBindingDescriptions(ClipSpace::bindingDescription())
                 .addVertexAttributeDescriptions(ClipSpace::attributeDescriptions())
+            .inputAssemblyState()
+                .triangleStrip()
             .rasterizationState()
                 .disableRasterizerDiscard()
             .depthStencilState()
@@ -165,6 +165,7 @@ void DeferredRendering::createRenderPipeline(GraphicsPipelineBuilder& builder) {
                 .add()
             .layout()
                 .clear()
+                .addPushConstantRange(VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(renderConstants))
                 .addDescriptorSetLayout(gBuffer.setLayout)
             .subpass(kSubpass_RENDER)
             .name("render")
@@ -192,9 +193,12 @@ VkCommandBuffer *DeferredRendering::buildCommandBuffers(uint32_t imageIndex, uin
     VkCommandBufferBeginInfo beginInfo = initializers::commandBufferBeginInfo();
     vkBeginCommandBuffer(commandBuffer, &beginInfo);
 
-    static std::array<VkClearValue, 2> clearValues;
-    clearValues[0].color = {0, 0, 1, 1};
+    static std::array<VkClearValue, 5> clearValues;
+    clearValues[0].color = {0, 0, 0, 1};
     clearValues[1].depthStencil = {1.0, 0u};
+    clearValues[2].color = {0, 0, 0, 1};
+    clearValues[3].color = {0, 0, 0, 1};
+    clearValues[4].color = {0, 0, 0, 1};
 
     VkRenderPassBeginInfo rPassInfo = initializers::renderPassBeginInfo();
     rPassInfo.clearValueCount = COUNT(clearValues);
@@ -219,6 +223,7 @@ VkCommandBuffer *DeferredRendering::buildCommandBuffers(uint32_t imageIndex, uin
     VkDeviceSize offset = 0;
     vkCmdNextSubpass(commandBuffer, VK_SUBPASS_CONTENTS_INLINE);
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.render.pipeline);
+    vkCmdPushConstants(commandBuffer, pipelines.render.layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(renderConstants), &renderConstants);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.render.layout, 0, 1, &gBuffer.descriptorSets[imageIndex], 0, nullptr);
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, screenBuffer, &offset);
     vkCmdDraw(commandBuffer, 4, 1, 0, 0);
@@ -247,6 +252,10 @@ void DeferredRendering::update(float time) {
 }
 
 void DeferredRendering::checkAppInputs() {
+    if(selectOption->isPressed()){
+        renderConstants.displayOption++;
+        renderConstants.displayOption %= MAX_DISPLAY_OPTIONS;
+    }
     cameraController->processInput();
 }
 
@@ -276,6 +285,7 @@ void DeferredRendering::initCamera() {
     cameraController->lookAt(pos, {0, 1, 0}, {0, 0, 1});
     cameraProps.near = cameraController->near();
     cameraProps.far = cameraController->far();
+    renderConstants.lightPos = glm::vec4(pos, 1);
 }
 
 void DeferredRendering::createDescriptorSetLayouts() {
@@ -404,7 +414,7 @@ RenderPassInfo DeferredRendering::buildRenderPass() {
                0,
                VK_FORMAT_R32G32B32A32_SFLOAT,
                VK_SAMPLE_COUNT_1_BIT,
-               VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+               VK_ATTACHMENT_LOAD_OP_CLEAR,
                VK_ATTACHMENT_STORE_OP_DONT_CARE,
                VK_ATTACHMENT_LOAD_OP_DONT_CARE,
                VK_ATTACHMENT_STORE_OP_DONT_CARE,
@@ -415,7 +425,7 @@ RenderPassInfo DeferredRendering::buildRenderPass() {
                0,
                VK_FORMAT_R32G32B32A32_SFLOAT,
                VK_SAMPLE_COUNT_1_BIT,
-               VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+               VK_ATTACHMENT_LOAD_OP_CLEAR,
                VK_ATTACHMENT_STORE_OP_DONT_CARE,
                VK_ATTACHMENT_LOAD_OP_DONT_CARE,
                VK_ATTACHMENT_STORE_OP_DONT_CARE,
@@ -426,7 +436,7 @@ RenderPassInfo DeferredRendering::buildRenderPass() {
                0,
                VK_FORMAT_R32G32B32A32_SFLOAT,
                VK_SAMPLE_COUNT_1_BIT,
-               VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+               VK_ATTACHMENT_LOAD_OP_CLEAR,
                VK_ATTACHMENT_STORE_OP_DONT_CARE,
                VK_ATTACHMENT_LOAD_OP_DONT_CARE,
                VK_ATTACHMENT_STORE_OP_DONT_CARE,
@@ -544,6 +554,14 @@ void DeferredRendering::createFramebuffer() {
         attachments[attachmentIndices[kAttachment_GBUFFER_POSITION]] = gBuffer.position[i].imageView;
         framebuffers[i] = device.createFramebuffer(renderPass, attachments,  static_cast<uint32_t>(width), static_cast<uint32_t>(height) );
     }
+}
+
+void DeferredRendering::setupInput() {
+    selectOption = &mapToKey(Key::SPACE_BAR, "display option", Action::Behavior::DETECT_INITIAL_PRESS_ONLY);
+}
+
+void DeferredRendering::swapChainReady() {
+    createGBuffer();
 }
 
 

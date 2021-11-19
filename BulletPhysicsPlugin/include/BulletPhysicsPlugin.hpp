@@ -3,6 +3,7 @@
 #include "common.h"
 #include "Plugin.hpp"
 #include <btBulletDynamicsCommon.h>
+#include <btBulletCollisionCommon.h>
 #include <DebugDrawer.hpp>
 
 #define BULLET_PHYSICS_PLUGIN "Bullet Physics Engine"
@@ -54,7 +55,8 @@ struct BulletPhysicsPluginInfo{
     int maxSubSteps{ 1 };
     float fixedTimeStep{ INV_60_HERTZ };
     glm::vec3 gravity{EARTH_GRAVITY};
-    int debugMode = btIDebugDraw::DebugDrawModes::DBG_NoDebug;
+    int debugMode{ btIDebugDraw::DebugDrawModes::DBG_NoDebug};
+    bool multiThreaded{ false };
 };
 
 
@@ -63,6 +65,10 @@ public:
     explicit BulletPhysicsPlugin(const BulletPhysicsPluginInfo& info = {});
 
     void init() override;
+
+    void initSingleThreaded();
+
+    void initMultiThreaded();
 
     [[nodiscard]]
     std::string name() const override;
@@ -101,5 +107,6 @@ private:
     float _fixedTimeStep;
     int _maxSubSteps;
     int _debugMode;
+    bool _multiThreaded;
     glm::vec3 _gravity;
 };

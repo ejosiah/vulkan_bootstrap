@@ -46,13 +46,19 @@ void VulkanBaseApp::init() {
     exit = &mapToKey(Key::ESCAPE, "Exit", Action::detectInitialPressOnly());
     pause = &mapToKey(Key::P, "Pause", Action::detectInitialPressOnly());
     addPluginExtensions();
+
     initVulkan();
     postVulkanInit();
+
+    createSwapChain();
+    createSyncObjects();
+    swapChainReady();
 
     createColorBuffer();
     createDepthBuffer();
     createRenderPass();
     createFramebuffer();
+    framebufferReady();
 
     initPlugins();
     initApp();
@@ -98,13 +104,13 @@ void VulkanBaseApp::initVulkan() {
     pickPhysicalDevice();
     initMixins();
     createLogicalDevice();
-    createSwapChain();
-
-    createSyncObjects();
 }
 
-void VulkanBaseApp::postVulkanInit() {
-}
+void VulkanBaseApp::postVulkanInit() {}
+
+void VulkanBaseApp::framebufferReady() {}
+
+void VulkanBaseApp::swapChainReady() {}
 
 void VulkanBaseApp::addPluginExtensions() {
     for(auto& plugin : plugins){
