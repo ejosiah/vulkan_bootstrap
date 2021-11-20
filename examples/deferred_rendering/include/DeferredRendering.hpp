@@ -1,5 +1,6 @@
-#include "VulkanBaseApp.h"
+#pragma once
 
+#include "VulkanBaseApp.h"
 
 class DeferredRendering : public VulkanBaseApp{
 public:
@@ -15,6 +16,8 @@ protected:
     void initCamera();
 
     void loadSponza();
+
+    void initLights();
 
     void createScreenBuffer();
 
@@ -65,14 +68,16 @@ protected:
     std::unique_ptr<CameraController> cameraController;
 
     struct CameraProps{
-        float near;
-        float far;
+        float near{0};
+        float far{0};
+        int isLight{0};
     } cameraProps;
 
     struct GBuffer {
         std::vector<FramebufferAttachment> albedo;
         std::vector<FramebufferAttachment> normal;
         std::vector<FramebufferAttachment> position;
+        std::vector<FramebufferAttachment> emission;
         VulkanDescriptorSetLayout setLayout;
         std::vector<VkDescriptorSet> descriptorSets;
     } gBuffer;
@@ -97,13 +102,28 @@ protected:
     VulkanBuffer screenBuffer;
 
     struct {
-        glm::vec4 lightPos;
+        uint32_t numLights;
         uint32_t displayOption{DISPLAY_LIGHTING};
     } renderConstants{};
+
+    struct Light{
+        glm::vec4 position;
+        glm::vec4 color;
+    };
+
+    struct {
+        std::vector<VulkanBuffer> vertices;
+        std::vector<VulkanBuffer> indices;
+        VulkanBuffer positions;
+        uint32_t count{50};
+        VulkanDescriptorSetLayout setLayout;
+        VkDescriptorSet descriptorSet;
+    } lights;
 
     static const std::string kAttachment_GBUFFER_ALBDEO;
     static const std::string kAttachment_GBUFFER_NORMAL;
     static const std::string kAttachment_GBUFFER_POSITION;
+    static const std::string kAttachment_GBUFFER_EMISSION;
 
    static constexpr uint32_t kSubpass_DEPTH = 0;
    static constexpr uint32_t kSubpass_GBUFFER = 1;
@@ -112,6 +132,7 @@ protected:
    static constexpr uint32_t kLayoutBinding_ALBDO = 0;
    static constexpr uint32_t kLayoutBinding_NORMAL = 1;
    static constexpr uint32_t kLayoutBinding_POSITION = 2;
+   static constexpr uint32_t kLayoutBinding_EMISSION = 3;
 
    enum DisplayOption{
        DISPLAY_LIGHTING,

@@ -71,15 +71,15 @@ protected:
     std::string _name;
 
 private:
-    ShaderStageBuilder* _shaderStageBuilder = nullptr;
-    VertexInputStateBuilder* _vertexInputStateBuilder = nullptr;
-    InputAssemblyStateBuilder* _inputAssemblyStateBuilder = nullptr;
-    PipelineLayoutBuilder* _pipelineLayoutBuilder = nullptr;
-    ViewportStateBuilder* _viewportStateBuilder = nullptr;
-    RasterizationStateBuilder* _rasterizationStateBuilder = nullptr;
-    MultisampleStateBuilder* _multisampleStateBuilder = nullptr;
-    DepthStencilStateBuilder* _depthStencilStateBuilder = nullptr;
-    ColorBlendStateBuilder* _colorBlendStateBuilder = nullptr ;
+    std::unique_ptr<ShaderStageBuilder> _shaderStageBuilder = nullptr;
+    std::unique_ptr<VertexInputStateBuilder> _vertexInputStateBuilder = nullptr;
+    std::unique_ptr<InputAssemblyStateBuilder> _inputAssemblyStateBuilder = nullptr;
+    std::unique_ptr<PipelineLayoutBuilder> _pipelineLayoutBuilder = nullptr;
+    std::unique_ptr<ViewportStateBuilder> _viewportStateBuilder = nullptr;
+    std::unique_ptr<RasterizationStateBuilder> _rasterizationStateBuilder = nullptr;
+    std::unique_ptr<MultisampleStateBuilder> _multisampleStateBuilder = nullptr;
+    std::unique_ptr<DepthStencilStateBuilder> _depthStencilStateBuilder = nullptr;
+    std::unique_ptr<ColorBlendStateBuilder> _colorBlendStateBuilder = nullptr ;
     VulkanPipeline* _basePipeline = nullptr;
     VkPipelineCache pipelineCache_ = VK_NULL_HANDLE;
 

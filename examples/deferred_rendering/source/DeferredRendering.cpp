@@ -1,10 +1,12 @@
+#include <DeferredRendering.hpp>
 #include "DeferredRendering.hpp"
 #include "GraphicsPipelineBuilder.hpp"
 #include "DescriptorSetBuilder.hpp"
 
 const std::string DeferredRendering::kAttachment_GBUFFER_ALBDEO = "GBUFFER_ALBEDO_INDEX";
 const std::string DeferredRendering::kAttachment_GBUFFER_NORMAL = "GBUFFER_NORMAL_INDEX";
-const std::string DeferredRendering::kAttachment_GBUFFER_POSITION = "GBUFFER_DEPTH_INDEX";
+const std::string DeferredRendering::kAttachment_GBUFFER_POSITION = "GBUFFER_POSITION_INDEX";
+const std::string DeferredRendering::kAttachment_GBUFFER_EMISSION = "GBUFFER_EMISSION_INDEX";
 
 DeferredRendering::DeferredRendering(const Settings& settings) : VulkanBaseApp("Deferred Rendering", settings) {
     fileManager.addSearchPath(".");
@@ -19,14 +21,15 @@ DeferredRendering::DeferredRendering(const Settings& settings) : VulkanBaseApp("
 void DeferredRendering::initApp() {
     setupInput();
     createDescriptorPool();
-    createDescriptorSetLayouts();
-    updateDescriptorSets();
     createCommandPool();
 
     createScreenBuffer();
     loadSponza();
+    initLights();
     initCamera();
 
+    createDescriptorSetLayouts();
+    updateDescriptorSets();
     createPipelineCache();
     createPipelines();
 }
@@ -110,6 +113,7 @@ void DeferredRendering::createDepthPrePassPipeline(GraphicsPipelineBuilder &buil
                     .add()
                     .add()
                     .add()
+                    .add()
                 .layout()
                     .addPushConstantRange(Camera::pushConstant())
                 .renderPass(renderPass)
@@ -167,6 +171,7 @@ void DeferredRendering::createRenderPipeline(GraphicsPipelineBuilder& builder) {
                 .clear()
                 .addPushConstantRange(VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(renderConstants))
                 .addDescriptorSetLayout(gBuffer.setLayout)
+                .addDescriptorSetLayout(lights.setLayout)
             .subpass(kSubpass_RENDER)
             .name("render")
             .pipelineCache(pipelineCache)
@@ -193,12 +198,13 @@ VkCommandBuffer *DeferredRendering::buildCommandBuffers(uint32_t imageIndex, uin
     VkCommandBufferBeginInfo beginInfo = initializers::commandBufferBeginInfo();
     vkBeginCommandBuffer(commandBuffer, &beginInfo);
 
-    static std::array<VkClearValue, 5> clearValues;
+    static std::array<VkClearValue, 6> clearValues;
     clearValues[0].color = {0, 0, 0, 1};
     clearValues[1].depthStencil = {1.0, 0u};
     clearValues[2].color = {0, 0, 0, 1};
     clearValues[3].color = {0, 0, 0, 1};
     clearValues[4].color = {0, 0, 0, 1};
+    clearValues[5].color = {0, 0, 0, 1};
 
     VkRenderPassBeginInfo rPassInfo = initializers::renderPassBeginInfo();
     rPassInfo.clearValueCount = COUNT(clearValues);
@@ -214,31 +220,38 @@ VkCommandBuffer *DeferredRendering::buildCommandBuffers(uint32_t imageIndex, uin
     cameraController->push(commandBuffer, pipelines.depthPrePass.layout);
     sponza.draw(commandBuffer);
 
+    uint32_t indexCount = lights.indices.front().size/sizeof(uint32_t);
+    VkDeviceSize offset = 0;
+    for(auto i = 0; i < lights.count; i++){
+        vkCmdBindVertexBuffers(commandBuffer, 0, 1, lights.vertices[i], &offset);
+        vkCmdBindIndexBuffer(commandBuffer, lights.indices[i], 0, VK_INDEX_TYPE_UINT32);
+        vkCmdDrawIndexed(commandBuffer, indexCount, 1, 0, 0, 0);
+    }
+
     vkCmdNextSubpass(commandBuffer, VK_SUBPASS_CONTENTS_INLINE);
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.gBuffer.pipeline);
     cameraController->push(commandBuffer, pipelines.gBuffer.layout);
+    cameraProps.isLight = 0;
     vkCmdPushConstants(commandBuffer, pipelines.gBuffer.layout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(Camera), sizeof(CameraProps), &cameraProps);
     sponza.draw(commandBuffer, pipelines.gBuffer.layout);
 
-    VkDeviceSize offset = 0;
+    cameraProps.isLight = 1;
+    vkCmdPushConstants(commandBuffer, pipelines.gBuffer.layout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(Camera), sizeof(CameraProps), &cameraProps);
+    for(auto i = 0; i < lights.count; i++){
+        vkCmdBindVertexBuffers(commandBuffer, 0, 1, lights.vertices[i], &offset);
+        vkCmdBindIndexBuffer(commandBuffer, lights.indices[i], 0, VK_INDEX_TYPE_UINT32);
+        vkCmdDrawIndexed(commandBuffer, indexCount, 1, 0, 0, 0);
+    }
+
+    static std::array<VkDescriptorSet, 2> sets;
+    sets[0] = gBuffer.descriptorSets[imageIndex];
+    sets[1] = lights.descriptorSet;
     vkCmdNextSubpass(commandBuffer, VK_SUBPASS_CONTENTS_INLINE);
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.render.pipeline);
     vkCmdPushConstants(commandBuffer, pipelines.render.layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(renderConstants), &renderConstants);
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.render.layout, 0, 1, &gBuffer.descriptorSets[imageIndex], 0, nullptr);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.render.layout, 0, COUNT(sets), sets.data(), 0, nullptr);
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, screenBuffer, &offset);
     vkCmdDraw(commandBuffer, 4, 1, 0, 0);
-
-
-//    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.depthPrePass.pipeline);
-//    cameraController->push(commandBuffer, pipelines.depthPrePass.layout);
-//    vkCmdPushConstants(commandBuffer, pipelines.depthPrePass.layout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(Camera), sizeof(CameraProps), &cameraProps);
-//    sponza.draw(commandBuffer);
-//
-//    vkCmdNextSubpass(commandBuffer, VK_SUBPASS_CONTENTS_INLINE);
-//    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.render.pipeline);
-//    cameraController->push(commandBuffer, pipelines.render.layout);
-//    vkCmdPushConstants(commandBuffer, pipelines.render.layout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(Camera), sizeof(CameraProps), &cameraProps);
-//    sponza.draw(commandBuffer, pipelines.render.layout);
 
     vkCmdEndRenderPass(commandBuffer);
 
@@ -248,6 +261,7 @@ VkCommandBuffer *DeferredRendering::buildCommandBuffers(uint32_t imageIndex, uin
 }
 
 void DeferredRendering::update(float time) {
+    glfwSetWindowTitle(window, fmt::format("fps: {}", framePerSecond).c_str());
     cameraController->update(time);
 }
 
@@ -285,7 +299,6 @@ void DeferredRendering::initCamera() {
     cameraController->lookAt(pos, {0, 1, 0}, {0, 0, 1});
     cameraProps.near = cameraController->near();
     cameraProps.far = cameraController->far();
-    renderConstants.lightPos = glm::vec4(pos, 1);
 }
 
 void DeferredRendering::createDescriptorSetLayouts() {
@@ -301,6 +314,18 @@ void DeferredRendering::createDescriptorSetLayouts() {
                 .shaderStages(VK_SHADER_STAGE_FRAGMENT_BIT)
             .binding(kLayoutBinding_POSITION)
                 .descriptorType(VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT)
+                .descriptorCount(1)
+                .shaderStages(VK_SHADER_STAGE_FRAGMENT_BIT)
+            .binding(kLayoutBinding_EMISSION)
+                .descriptorType(VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT)
+                .descriptorCount(1)
+                .shaderStages(VK_SHADER_STAGE_FRAGMENT_BIT)
+            .createLayout();
+
+    lights.setLayout =
+        device.descriptorSetLayoutBuilder()
+            .binding(0)
+                .descriptorType(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
                 .descriptorCount(1)
                 .shaderStages(VK_SHADER_STAGE_FRAGMENT_BIT)
             .createLayout();
@@ -357,12 +382,32 @@ void DeferredRendering::createGBuffer() {
     gBuffer.position[0].imageView  = gBuffer.position[0].image.createView(VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_VIEW_TYPE_2D, subresourceRange);
     gBuffer.position[1].imageView  = gBuffer.position[1].image.createView(VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_VIEW_TYPE_2D, subresourceRange);
     gBuffer.position[2].imageView  = gBuffer.position[2].image.createView(VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_VIEW_TYPE_2D, subresourceRange);
+
+    imageCreatInfo = initializers::imageCreateInfo(
+            VK_IMAGE_TYPE_2D,
+            VK_FORMAT_R32G32B32A32_SFLOAT,
+            VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT,
+            swapChain.extent.width,
+            swapChain.extent.height
+    );
+
+    gBuffer.emission.resize(swapChainImageCount);
+    gBuffer.emission[0].image = device.createImage(imageCreatInfo);
+    gBuffer.emission[1].image = device.createImage(imageCreatInfo);
+    gBuffer.emission[2].image = device.createImage(imageCreatInfo);
+    subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    gBuffer.emission[0].imageView  = gBuffer.emission[0].image.createView(VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_VIEW_TYPE_2D, subresourceRange);
+    gBuffer.emission[1].imageView  = gBuffer.emission[1].image.createView(VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_VIEW_TYPE_2D, subresourceRange);
+    gBuffer.emission[2].imageView  = gBuffer.emission[2].image.createView(VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_VIEW_TYPE_2D, subresourceRange);
 }
 
 void DeferredRendering::updateDescriptorSets() {
-    auto sets = descriptorPool.allocate({ gBuffer.setLayout, gBuffer.setLayout, gBuffer.setLayout});
+    auto sets = descriptorPool.allocate({ gBuffer.setLayout, gBuffer.setLayout, gBuffer.setLayout, lights.setLayout});
     gBuffer.descriptorSets.clear();
-    gBuffer.descriptorSets.insert(begin(gBuffer.descriptorSets), begin(sets), end(sets));
+
+    gBuffer.descriptorSets.push_back(sets[0]);
+    gBuffer.descriptorSets.push_back(sets[1]);
+    gBuffer.descriptorSets.push_back(sets[2]);
 
     for(int i = 0; i < swapChainImageCount; i++){
         device.setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>(fmt::format("{}_{}", "g_buffer", i), gBuffer.descriptorSets[i]);
@@ -371,7 +416,7 @@ void DeferredRendering::updateDescriptorSets() {
         albedoInfo.imageView = gBuffer.albedo[i].imageView;
         albedoInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-        auto writes = initializers::writeDescriptorSets<3>();
+        auto writes = initializers::writeDescriptorSets<4>();
         writes[kLayoutBinding_ALBDO].dstSet = gBuffer.descriptorSets[i];
         writes[kLayoutBinding_ALBDO].dstBinding = kLayoutBinding_ALBDO;
         writes[kLayoutBinding_ALBDO].descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
@@ -396,8 +441,29 @@ void DeferredRendering::updateDescriptorSets() {
         writes[kLayoutBinding_POSITION].descriptorCount = 1;
         writes[kLayoutBinding_POSITION].pImageInfo = &positionInfo;
 
+        VkDescriptorImageInfo emissionInfo{};
+        emissionInfo.imageView = gBuffer.emission[i].imageView;
+        emissionInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        writes[kLayoutBinding_EMISSION].dstSet = gBuffer.descriptorSets[i];
+        writes[kLayoutBinding_EMISSION].dstBinding = kLayoutBinding_EMISSION;
+        writes[kLayoutBinding_EMISSION].descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
+        writes[kLayoutBinding_EMISSION].descriptorCount = 1;
+        writes[kLayoutBinding_EMISSION].pImageInfo = &emissionInfo;
+
         device.updateDescriptorSets(writes);
     }
+
+    lights.descriptorSet = sets[3];
+    device.setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>("lights", lights.descriptorSet);
+    auto writes = initializers::writeDescriptorSets<1>();
+    auto& lightsWrite = writes[0];
+    lightsWrite.dstSet = lights.descriptorSet;
+    lightsWrite.dstBinding = 0;
+    lightsWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    lightsWrite.descriptorCount = 1;
+    VkDescriptorBufferInfo info{ lights.positions, 0, VK_WHOLE_SIZE};
+    lightsWrite.pBufferInfo = &info;
+    device.updateDescriptorSets(writes);
 
 }
 
@@ -442,12 +508,24 @@ RenderPassInfo DeferredRendering::buildRenderPass() {
                VK_ATTACHMENT_STORE_OP_DONT_CARE,
                VK_IMAGE_LAYOUT_UNDEFINED,
                VK_IMAGE_LAYOUT_GENERAL
+           },
+           {    // emission attachment
+               0,
+               VK_FORMAT_R32G32B32A32_SFLOAT,
+               VK_SAMPLE_COUNT_1_BIT,
+               VK_ATTACHMENT_LOAD_OP_CLEAR,
+               VK_ATTACHMENT_STORE_OP_DONT_CARE,
+               VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+               VK_ATTACHMENT_STORE_OP_DONT_CARE,
+               VK_IMAGE_LAYOUT_UNDEFINED,
+               VK_IMAGE_LAYOUT_GENERAL
            }
    };
    attachments.insert(end(attachments), begin(gBufferAttachments), end(gBufferAttachments));
-   attachmentIndices[kAttachment_GBUFFER_ALBDEO] = attachments.size() - 3;
-   attachmentIndices[kAttachment_GBUFFER_NORMAL] = attachments.size() - 2;
-   attachmentIndices[kAttachment_GBUFFER_POSITION] = attachments.size() - 1;
+   attachmentIndices[kAttachment_GBUFFER_ALBDEO] = attachments.size() - 4;
+   attachmentIndices[kAttachment_GBUFFER_NORMAL] = attachments.size() - 3;
+   attachmentIndices[kAttachment_GBUFFER_POSITION] = attachments.size() - 2;
+   attachmentIndices[kAttachment_GBUFFER_EMISSION] = attachments.size() - 1;
 
     VkAttachmentReference depthRef{
         attachmentIndices[kAttachment_DEPTH],
@@ -457,21 +535,6 @@ RenderPassInfo DeferredRendering::buildRenderPass() {
     VkAttachmentReference backRef{
         attachmentIndices[kAttachment_BACK],
         VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
-    };
-
-    VkAttachmentReference gBufferColorRef{
-        attachmentIndices[kAttachment_GBUFFER_ALBDEO],
-        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-    };
-
-    VkAttachmentReference gBufferNormalRef{
-        attachmentIndices[kAttachment_GBUFFER_NORMAL],
-        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-    };
-
-    VkAttachmentReference gBufferPositionRef{
-        attachmentIndices[kAttachment_GBUFFER_POSITION],
-        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
     };
 
     subpassDesc.clear();
@@ -493,6 +556,10 @@ RenderPassInfo DeferredRendering::buildRenderPass() {
                 attachmentIndices[kAttachment_GBUFFER_POSITION],
                 VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
             },
+            {   // emission
+                attachmentIndices[kAttachment_GBUFFER_EMISSION],
+                VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+            },
     };
     gBufferSubpass.depthStencilAttachments = depthRef;
     subpassDesc.push_back(gBufferSubpass);
@@ -509,6 +576,10 @@ RenderPassInfo DeferredRendering::buildRenderPass() {
         },
         {   // position
                 attachmentIndices[kAttachment_GBUFFER_POSITION],
+                VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+        },
+        {   // position
+                attachmentIndices[kAttachment_GBUFFER_EMISSION],
                 VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
         },
 };
@@ -552,6 +623,7 @@ void DeferredRendering::createFramebuffer() {
         attachments[attachmentIndices[kAttachment_GBUFFER_ALBDEO]] = gBuffer.albedo[i].imageView;
         attachments[attachmentIndices[kAttachment_GBUFFER_NORMAL]] = gBuffer.normal[i].imageView;
         attachments[attachmentIndices[kAttachment_GBUFFER_POSITION]] = gBuffer.position[i].imageView;
+        attachments[attachmentIndices[kAttachment_GBUFFER_EMISSION]] = gBuffer.emission[i].imageView;
         framebuffers[i] = device.createFramebuffer(renderPass, attachments,  static_cast<uint32_t>(width), static_cast<uint32_t>(height) );
     }
 }
@@ -562,6 +634,36 @@ void DeferredRendering::setupInput() {
 
 void DeferredRendering::swapChainReady() {
     createGBuffer();
+}
+
+void DeferredRendering::initLights() {
+    auto& bounds = sponza.bounds;
+    auto rngX = rngFunc(bounds.min.x, bounds.max.x);
+    auto rngY = rngFunc(bounds.min.y, bounds.max.y);
+    auto rngZ = rngFunc(bounds.min.z, bounds.max.z);
+
+    auto r = glm::distance(sponza.bounds.min, sponza.bounds.max) * 0.005f;
+
+    lights.vertices.reserve(lights.count);
+    lights.indices.reserve(lights.count);
+    std::vector<Light> lightObjs;
+    lightObjs.reserve(lights.count);
+
+    for(auto i = 0; i < lights.count; i++){
+        glm::vec4 position{rngX(), rngY(), rngZ(), 1};
+        auto xform = glm::translate(glm::mat4(1), position.xyz());
+        auto sphere = primitives::sphere(50, 50, r, xform, randomColor(), VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+        auto vBuffer = device.createDeviceLocalBuffer(sphere.vertices.data(), BYTE_SIZE(sphere.vertices)
+                                                      , VK_BUFFER_USAGE_VERTEX_BUFFER_BIT );
+        auto iBuffer = device.createDeviceLocalBuffer(sphere.indices.data(), BYTE_SIZE(sphere.indices), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+        lights.vertices.push_back(std::move(vBuffer));
+        lights.indices.push_back(std::move(iBuffer));
+
+        Light light{ position, sphere.vertices.front().color };
+        lightObjs.push_back(light);
+    }
+    lights.positions = device.createDeviceLocalBuffer(lightObjs.data(), BYTE_SIZE(lightObjs), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+    renderConstants.numLights = lights.count;
 }
 
 

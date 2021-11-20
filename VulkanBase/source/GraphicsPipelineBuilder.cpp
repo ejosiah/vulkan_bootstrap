@@ -2,15 +2,15 @@
 
 GraphicsPipelineBuilder::GraphicsPipelineBuilder(VulkanDevice *device)
 : Builder{ device, nullptr }
-, _shaderStageBuilder{ new ShaderStageBuilder{device, this}}
-, _vertexInputStateBuilder{ new VertexInputStateBuilder{device, this}}
-, _inputAssemblyStateBuilder{ new InputAssemblyStateBuilder{device, this}}
-, _pipelineLayoutBuilder{ new PipelineLayoutBuilder{ device, this }}
-, _viewportStateBuilder{ new ViewportStateBuilder{ device, this }}
-, _rasterizationStateBuilder{ new RasterizationStateBuilder{ device, this }}
-, _multisampleStateBuilder{ new MultisampleStateBuilder{device, this}}
-, _depthStencilStateBuilder{ new DepthStencilStateBuilder{device, this}}
-, _colorBlendStateBuilder{ new ColorBlendStateBuilder{device, this}}
+, _shaderStageBuilder{ std::make_unique<ShaderStageBuilder>(device, this)}
+, _vertexInputStateBuilder{ std::make_unique<VertexInputStateBuilder>(device, this)}
+, _inputAssemblyStateBuilder{ std::make_unique<InputAssemblyStateBuilder>(device, this)}
+, _pipelineLayoutBuilder{ std::make_unique<PipelineLayoutBuilder>( device, this )}
+, _viewportStateBuilder{ std::make_unique<ViewportStateBuilder>( device, this )}
+, _rasterizationStateBuilder{ std::make_unique<RasterizationStateBuilder>( device, this )}
+, _multisampleStateBuilder{ std::make_unique<MultisampleStateBuilder>(device, this)}
+, _depthStencilStateBuilder{ std::make_unique<DepthStencilStateBuilder>(device, this)}
+, _colorBlendStateBuilder{ std::make_unique<ColorBlendStateBuilder>(device, this)}
 , _name{""}
 {
 }
@@ -20,17 +20,7 @@ GraphicsPipelineBuilder::GraphicsPipelineBuilder(VulkanDevice *device, GraphicsP
 {
 }
 
-GraphicsPipelineBuilder::~GraphicsPipelineBuilder() {
-     delete _shaderStageBuilder;
-     delete _vertexInputStateBuilder;
-     delete _inputAssemblyStateBuilder;
-     delete _pipelineLayoutBuilder;
-     delete _viewportStateBuilder;
-     delete _rasterizationStateBuilder;
-     delete _multisampleStateBuilder;
-     delete _depthStencilStateBuilder;
-     delete _colorBlendStateBuilder;
-}
+GraphicsPipelineBuilder::~GraphicsPipelineBuilder() = default;
 
 ShaderStageBuilder &GraphicsPipelineBuilder::shaderStage() {
     if(parent()){

@@ -7,6 +7,7 @@ layout(push_constant) uniform CamProps{
     layout(offset=192)
     float near;
     float far;
+    int isLight;
 };
 
 float linearizeDepth(float z){
@@ -20,12 +21,20 @@ layout(location = 0) in struct {
     vec2 uv;
 } v_in;
 
-layout(location = 0) out vec4 abedo;
+layout(location = 0) out vec4 albedo;
 layout(location = 1) out vec4 normal;
 layout(location = 2) out vec4 position;
+layout(location = 3) out vec4 emission;
 
 void main(){
-    abedo = texture(albedoMap, v_in.uv);
     normal = vec4(v_in.normal, 1);
     position = vec4(v_in.position, 1);
+
+    if(bool(isLight)){
+        emission.rgb = v_in.color;
+        albedo.rgb = v_in.color;
+    }else{
+        albedo = texture(albedoMap, v_in.uv);
+        emission = vec4(0);
+    }
 }

@@ -9,7 +9,7 @@ void phong::Material::init(const mesh::Mesh& mesh,  VulkanDevice& device, const 
 
     auto initTexture = [&](Texture& texture, VkDescriptorImageInfo& info, const std::string& path, uint32_t binding){
         if(!path.empty()){
-            textures::fromFile(device, texture, path, true);
+            textures::fromFile(device, texture, path, true, VK_FORMAT_R8G8B8A8_SRGB);
             info.imageView = texture.imageView;
             info.sampler = texture.sampler;
             info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
