@@ -40,7 +40,7 @@ void $classname$::createDescriptorPool() {
 
 void $classname$::createCommandPool() {
     commandPool = device.createCommandPool(*device.queueFamilyIndex.graphics, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
-    commandBuffers = commandPool.allocate(swapChainImageCount);
+    commandBuffers = commandPool.allocateCommandBuffers(swapChainImageCount);
 }
 
 void $classname$::createPipelineCache() {

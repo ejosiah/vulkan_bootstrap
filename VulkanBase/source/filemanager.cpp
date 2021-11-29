@@ -22,7 +22,7 @@ std::optional<fs::path> FileManager::getFullPath(const std::string &resource) {
     fs::path path = resource;
     auto itr = begin(searchPaths_);
     while(!exists(path) && itr != end(searchPaths_)){
-        path = fmt::format("{}\\{}", itr->string(), resource);  // FIXME use platform specific path
+        path = fmt::format("{}/{}", itr->string(), resource);  // FIXME use platform specific path
         itr++;
     }
     return exists(path) ? std::optional{path} : std::nullopt;

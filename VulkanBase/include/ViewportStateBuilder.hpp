@@ -47,7 +47,7 @@ public:
 
     ViewportBuilder& add();
 
-    ViewportStateBuilder* parent();
+    ViewportStateBuilder* parent() override;
 
     ViewportBuilder &viewport() override;
 
@@ -92,7 +92,7 @@ public:
 
     ScissorBuilder &scissor() override;
 
-    ViewportStateBuilder* parent();
+    ViewportStateBuilder* parent() override;
 
 private:
     std::vector<VkRect2D> _scissors;

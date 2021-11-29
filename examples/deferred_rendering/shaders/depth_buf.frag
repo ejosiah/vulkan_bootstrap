@@ -15,7 +15,7 @@ layout(push_constant) uniform CamProps{
 };
 
 float linearizeDepth(float z){
-    return (near * far) / (far + near - z * (far - near));
+    return (near * far) / (z * (far - near) - far);
 }
 
 layout(location = 0) in struct {

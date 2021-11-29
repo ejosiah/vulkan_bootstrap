@@ -13,7 +13,7 @@ DeferredRendering::DeferredRendering(const Settings& settings) : VulkanBaseApp("
     fileManager.addSearchPath("../../examples/deferred_rendering");
     fileManager.addSearchPath("../../data/shaders");
     fileManager.addSearchPath("../../data");
-    fileManager.addSearchPath(R"(..\..\data\models)");
+    fileManager.addSearchPath("../../data/models");
     fileManager.addSearchPath("../../data/textures");
     selectOption = &mapToKey(Key::SPACE_BAR, "display option", Action::Behavior::DETECT_INITIAL_PRESS_ONLY);
 }
@@ -62,7 +62,7 @@ void DeferredRendering::createDescriptorPool() {
 
 void DeferredRendering::createCommandPool() {
     commandPool = device.createCommandPool(*device.queueFamilyIndex.graphics, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
-    commandBuffers = commandPool.allocate(swapChainImageCount);
+    commandBuffers = commandPool.allocateCommandBuffers(swapChainImageCount);
 }
 
 void DeferredRendering::createPipelineCache() {
@@ -283,7 +283,7 @@ void DeferredRendering::onPause() {
 }
 
 void DeferredRendering::loadSponza() {
-    phong::load(fileManager.getFullPath("Sponza\\sponza.obj")->string(), device, descriptorPool, sponza);
+    phong::load(fileManager.getFullPath("Sponza/sponza.obj")->string(), device, descriptorPool, sponza);
 }
 
 void DeferredRendering::initCamera() {
@@ -296,7 +296,9 @@ void DeferredRendering::initCamera() {
     cameraController = std::make_unique<CameraController>(device, swapChain.imageCount(), currentImageIndex, dynamic_cast<InputManager&>(*this), settings);
     cameraController->setMode(CameraMode::SPECTATOR);
     auto pos = (sponza.bounds.max + sponza.bounds.min) * 0.5f;
-    cameraController->lookAt(pos, {0, 1, 0}, {0, 0, 1});
+    auto target = pos + glm::vec3(1, 0, 0);
+//    auto target = glm::vec3(0);
+    cameraController->lookAt(pos, target, {0, 1, 0});
     cameraProps.near = cameraController->near();
     cameraProps.far = cameraController->far();
 }
@@ -672,6 +674,8 @@ int main(){
 
         Settings settings;
         settings.depthTest = true;
+        settings.fullscreen = true;
+        settings.relativeMouseMode = true;
 
         auto app = DeferredRendering{ settings };
         app.run();

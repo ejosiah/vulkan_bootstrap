@@ -139,6 +139,7 @@ protected:
        DISPLAY_ALBEDO,
        DISPLAY_NORMAL,
        DISPLAY_POSITION,
+       DISPLAY_DEPTH,
        MAX_DISPLAY_OPTIONS
    };
 

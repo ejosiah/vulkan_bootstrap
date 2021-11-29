@@ -2,18 +2,19 @@
 
 #include <vulkan/vulkan.h>
 #include <stdexcept>
+#include "common.h"
 
 template<typename FuncType>
 inline FuncType procAddress(VkInstance instance, const char* procName){
     auto func =  reinterpret_cast<FuncType>(vkGetInstanceProcAddr(instance, procName));
-    if(!func) throw std::runtime_error("unable to find prod address: " + std::string(procName));
+    if(!func) throw std::runtime_error(fmt::format("unable to find prod address: {}", procName));
     return func;
 }
 
 template<typename FuncType>
 inline FuncType procAddress(const char* procName){
     auto func =  reinterpret_cast<FuncType>(vkGetInstanceProcAddr(nullptr, procName));
-    if(!func) throw std::runtime_error("unable to find prod address: " + std::string(procName));
+    if(!func) throw std::runtime_error(fmt::format("unable to find prod address: {}", procName));
     return func;
 }
 

@@ -7,6 +7,7 @@
 #include <mutex>
 #include "Statistics.hpp"
 #include "FourWayRadixSort.hpp"
+#include "xforms.h"
 
 static std::vector<const char*> instanceExtensions{VK_EXT_DEBUG_UTILS_EXTENSION_NAME};
 static std::vector<const char*> validationLayers{"VK_LAYER_KHRONOS_validation"};
@@ -127,9 +128,35 @@ void perf_test(int iterations, const std::vector<std::string>& operations){
     fmt::print("\n\n");
 }
 
+float zndc(float z, float n, float f){
+   float num = (z + n) * f;
+   float denum = z * (f - n);
+   return num / denum;
+}
+
+float ndc_to_d(float z, float n, float f){
+    float num = f * n;
+    float denum = z * (f - n) - f;
+    return num/denum;
+}
+
 int main() {
-    size_t iterations = 100;
-    initVulkan();
-    perf_test<RadixSort>(iterations, {"count", "prefix_sum", "reorder"});
-    perf_test<FourWayRadixSort>(iterations, {"local_sort", "prefix_sum", "global_shuffle"});
+//    size_t iterations = 100;
+//    initVulkan();
+//    perf_test<RadixSort>(iterations, {"count", "prefix_sum", "reorder"});
+//    perf_test<FourWayRadixSort>(iterations, {"local_sort", "prefix_sum", "global_shuffle"});
+    float n = 2;
+    float f = 10;
+    auto projection = vkn::perspective(glm::radians(60.f), 1.f, n, f);
+    auto x = glm::vec4(0, 0, -4, 1);
+    auto v = projection * x;
+    auto z = zndc(x.z, n, f);
+    fmt::print("gl_to_vulkan:\n{}\n\n", vkn::GL_TO_VKN_CLIP);
+    fmt::print("projection:\n{}\n\n", projection);
+    fmt::print("combined:\n{}\n\n", vkn::GL_TO_VKN_CLIP * projection);
+    fmt::print("v: {}, z: {}", v, z);
+    v /= v.w;
+    fmt::print("\nv: {}", v);
+    float d = ndc_to_d(v.z, n, f);
+    fmt::print("\nd: {}", d);
 }

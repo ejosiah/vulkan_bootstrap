@@ -1,14 +1,13 @@
 #include "common.h"
 
-inline  auto rng(float  lowerBound, float  upperBound){
+inline auto rng(float  lowerBound, float  upperBound){
     std::random_device rd;
     std::default_random_engine engine{rd()};
 
     std::uniform_real_distribution<float> dist{ lowerBound, upperBound };
-//    return [=]{
-//        return dist(engine);
-//    };
-    return bind(dist, engine);
+    return [=] () mutable {
+        return dist(engine);
+    };
 }
 
 inline glm::vec3 randomVec3(const glm::vec3& lower = glm::vec3(-1), const glm::vec3& upper = glm::vec3(1)){

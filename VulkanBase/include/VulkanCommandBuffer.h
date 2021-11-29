@@ -47,7 +47,7 @@ struct VulkanCommandPool{
     }
 
     [[nodiscard]]
-    inline std::vector<VkCommandBuffer> allocate(uint32_t count = 1, VkCommandBufferLevel level = VK_COMMAND_BUFFER_LEVEL_PRIMARY) const {
+    inline std::vector<VkCommandBuffer> allocateCommandBuffers(uint32_t count = 1, VkCommandBufferLevel level = VK_COMMAND_BUFFER_LEVEL_PRIMARY) const {
         std::vector<VkCommandBuffer> buffers(count);
         VkCommandBufferAllocateInfo allocateInfo{};
         allocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -81,7 +81,7 @@ struct VulkanCommandPool{
 
     template<typename Command>
     inline void oneTimeCommand(Command&& command) const {
-        auto commandBuffer = allocate().front();
+        auto commandBuffer = allocateCommandBuffers().front();
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
         beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
@@ -102,7 +102,7 @@ struct VulkanCommandPool{
 
     template<typename Command>
     inline void oneTimeCommands(int size, Command&& command) const {
-        auto commandBuffers = allocate(size);
+        auto commandBuffers = allocateCommandBuffers(size);
         for(auto i = 0; i < size; i++){
             VkCommandBufferBeginInfo beginInfo{};
             beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;

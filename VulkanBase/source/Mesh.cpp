@@ -119,27 +119,27 @@ mesh::Mesh loadMesh(const std::string& parent, const aiNode* node, const aiScene
     mesh::TextureMaterial texMaterial;
     ret = aiMaterial->GetTexture(aiTextureType_DIFFUSE, 0, &aiString);
     if(ret == aiReturn_SUCCESS){
-        texMaterial.diffuseMap = fmt::format("{}\\{}", parent, aiString.C_Str());
+        texMaterial.diffuseMap = fmt::format("{}/{}", parent, aiString.C_Str());
     }
 
     ret = aiMaterial->GetTexture(aiTextureType_AMBIENT, 0, &aiString);
     if(ret == aiReturn_SUCCESS){
-        texMaterial.ambientMap =  fmt::format("{}\\{}", parent, aiString.C_Str());
+        texMaterial.ambientMap =  fmt::format("{}/{}", parent, aiString.C_Str());
     }
 
     ret = aiMaterial->GetTexture(aiTextureType_SPECULAR, 0, &aiString);
     if(ret == aiReturn_SUCCESS){
-        texMaterial.specularMap =  fmt::format("{}\\{}", parent, aiString.C_Str());
+        texMaterial.specularMap =  fmt::format("{}/{}", parent, aiString.C_Str());
     }
 
     ret = aiMaterial->GetTexture(aiTextureType_NORMALS, 0, &aiString);
     if(ret == aiReturn_SUCCESS){
-        texMaterial.normalMap =  fmt::format("{}\\{}", parent, aiString.C_Str());
+        texMaterial.normalMap =  fmt::format("{}/{}", parent, aiString.C_Str());
     }
 
     ret = aiMaterial->GetTexture(aiTextureType_AMBIENT_OCCLUSION, 0, &aiString);
     if(ret == aiReturn_SUCCESS){
-        texMaterial.ambientOcclusionMap =  fmt::format("{}\\{}", parent, aiString.C_Str());
+        texMaterial.ambientOcclusionMap =  fmt::format("{}/{}", parent, aiString.C_Str());
     }
     mesh.material = material;
     mesh.textureMaterial = texMaterial;
@@ -164,7 +164,7 @@ int mesh::load(std::vector<Mesh> &meshes, const std::string& path, uint32_t flag
 
     Assimp::Importer importer;
     const aiScene* scene = importer.ReadFile(path.data(), flags);
-    auto i = path.find_last_of("\\") + 1;
+    auto i = path.find_last_of("/") + 1;
     auto parentPath = fs::path{path}.parent_path().string();
 
     auto start = chrono::high_resolution_clock::now();

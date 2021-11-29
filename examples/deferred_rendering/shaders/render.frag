@@ -4,6 +4,7 @@
 #define DISPLAY_ALBEDO 1
 #define DISPLAY_NORMAL 2
 #define DISPLAY_POSITION 3
+#define DISPLAY_DEPTH 4
 
 layout(input_attachment_index=0, set=0, binding=0) uniform subpassInput albedoAttachment;
 layout(input_attachment_index=1, set=0, binding=1) uniform subpassInput normalAttachment;
@@ -29,8 +30,15 @@ layout(location = 0) in vec2 vUv;
 layout(location = 0) out vec4 fragColor;
 
 const float kc = 1;
-const float kl = 1;
-const float kq = 1;
+const float kl = 0.22;
+const float kq = 0.20;
+
+const float near = 1.0;
+const float far = 100;
+
+float linearizeDepth(float z){
+    return (near * far) / (far + near - z * (far - near));
+}
 
 void main(){
 
@@ -41,7 +49,11 @@ void main(){
         fragColor.rgb = subpassLoad(normalAttachment).xyz;
     } else if (option == DISPLAY_POSITION){
         fragColor.rgb = subpassLoad(positionAttachment).xyz;
-    } else if (option == DISPLAY_LIGHTING){
+    }else if (option == DISPLAY_DEPTH){
+        float depth = linearizeDepth(gl_FragCoord.z)/far;
+        fragColor.rgb = vec3(depth);
+    }
+    else if (option == DISPLAY_LIGHTING){
 
         vec3 color = vec3(0);
         vec3 albedo = subpassLoad(albedoAttachment).rgb;
@@ -60,7 +72,6 @@ void main(){
 
         vec3 emission = subpassLoad(emissionAttachment).rgb;
         color += emission;
-
         fragColor.rgb = pow(color, vec3(0.45));
     }
     else{
