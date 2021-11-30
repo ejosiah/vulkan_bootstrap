@@ -674,7 +674,6 @@ int main(){
 
         Settings settings;
         settings.depthTest = true;
-        settings.fullscreen = true;
         settings.relativeMouseMode = true;
 
         auto app = DeferredRendering{ settings };
