@@ -141,22 +141,30 @@ float ndc_to_d(float z, float n, float f){
 }
 
 int main() {
-//    size_t iterations = 100;
-//    initVulkan();
-//    perf_test<RadixSort>(iterations, {"count", "prefix_sum", "reorder"});
-//    perf_test<FourWayRadixSort>(iterations, {"local_sort", "prefix_sum", "global_shuffle"});
-    float n = 2;
-    float f = 10;
-    auto projection = vkn::perspective(glm::radians(60.f), 1.f, n, f);
-    auto x = glm::vec4(0, 0, -4, 1);
-    auto v = projection * x;
-    auto z = zndc(x.z, n, f);
-    fmt::print("gl_to_vulkan:\n{}\n\n", vkn::GL_TO_VKN_CLIP);
-    fmt::print("projection:\n{}\n\n", projection);
-    fmt::print("combined:\n{}\n\n", vkn::GL_TO_VKN_CLIP * projection);
-    fmt::print("v: {}, z: {}", v, z);
-    v /= v.w;
-    fmt::print("\nv: {}", v);
-    float d = ndc_to_d(v.z, n, f);
-    fmt::print("\nd: {}", d);
+    using namespace glm;
+    vec4 lightDir{3, 7, 6, 1};
+    auto lightProjection = vkn::ortho(-10.0f, 10.0f, -10.0f, 10.0f, 1.0f, 200.0f);
+//    auto view = glm::lookAt(lightDir.xyz(), glm::vec3(0), {0, 1, 0});
+    auto view = mat4(1);
+    auto lightSpaceMatrix = lightProjection * view;
+    auto center = lightSpaceMatrix * vec4(0, 0, 0, 1);
+
+    std::vector<vec3> points{
+            {-1, 1, 0}, {1, 1, 0},
+            {-1, -1, 0}, {1, -1, 0},
+            {-1, 1, 1}, {1, 1, 1},
+            {-1, -1, 1}, {1, -1, 1}
+    };
+
+    std::vector<uint32_t> indices{
+        0, 1, 2, 3, 0, 2, 1, 3,
+        4, 5, 6, 7, 4, 6, 5, 7,
+        0, 4, 1, 5, 2, 7, 3, 6
+    };
+
+    for(auto& point : points){
+        auto worldSpaceMatrix = inverse(lightSpaceMatrix);
+        auto worldSpacePoint = vkn::GL_TO_VKN_CLIP * vec4(point, 1);
+        fmt::print("{}\n", worldSpacePoint.xyz());
+    }
 }

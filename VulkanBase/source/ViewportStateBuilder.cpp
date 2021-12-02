@@ -60,6 +60,12 @@ ViewportBuilder &ViewportBuilder::dimension(VkExtent2D dim) {
     return *this;
 }
 
+ViewportBuilder &ViewportBuilder::dimension(uint32_t w, uint32_t h) {
+    width(static_cast<float>(w));
+    height(static_cast<float>(h));
+    return *this;
+}
+
 ViewportBuilder &ViewportBuilder::width(float value) {
     _scratchpad.width = value;
     return *this;

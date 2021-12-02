@@ -41,6 +41,8 @@ public:
 
     ViewportBuilder& dimension(VkExtent2D dim);
 
+    ViewportBuilder& dimension(uint32_t width, uint32_t height);
+
     ViewportBuilder& minDepth(float value);
 
     ViewportBuilder& maxDepth(float value);

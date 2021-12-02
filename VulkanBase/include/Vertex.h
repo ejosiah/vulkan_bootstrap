@@ -46,6 +46,21 @@ struct ClipSpace{
     }
 };
 
+struct Ndc{
+    static constexpr std::array<glm::vec4, 8> points{
+            glm::vec4{-1, 1, 0, 1}, glm::vec4{1, 1, 0, 1},
+            glm::vec4{-1, -1, 0, 1}, glm::vec4{1, -1, 0, 1},
+            glm::vec4{-1, 1, 1, 1}, glm::vec4{1, 1, 1, 1},
+            glm::vec4{-1, -1, 1, 1}, glm::vec4{1, -1, 1, 1}
+    };
+
+    static constexpr std::array<glm::uint32_t, 24> indices{
+            0, 1, 2, 3, 0, 2, 1, 3,
+            4, 5, 6, 7, 4, 6, 5, 7,
+            0, 4, 1, 5, 2, 6, 3, 7
+    };
+};
+
 struct Vertex{
     glm::vec4 position;
     glm::vec4 color;

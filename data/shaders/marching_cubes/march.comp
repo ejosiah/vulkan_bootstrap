@@ -1,6 +1,8 @@
 #version 460 core
 #extension GL_EXT_scalar_block_layout : enable
 
+// http://paulbourke.net/geometry/polygonise/
+
 #define NUM_VERTICES 8
 #define NUM_EDGES 12
 #define MAX_TRIANGLE_VERTICES 16
@@ -118,7 +120,7 @@ vec3 calcNormal( in vec3 pos )
     vec3 n = vec3(0.0);
     for( uint i=ZERO; i<4; i++ )
     {
-        vec3 e = 0.5773*(2.0*vec3((((i+3)>>1)&1),((i>>1)&1),(i&1))-1.0);
+        vec3 e = 0.5773*(2.0*vec3((((i+3)>>1u)&1u),((i>>1u)&1u),(i&1u))-1.0);
         n += e*map(pos+0.0005*e).x;
         //if( n.x+n.y+n.z>100.0 ) break;
     }

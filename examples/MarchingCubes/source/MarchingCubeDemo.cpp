@@ -10,7 +10,7 @@ MarchingCubeDemo::MarchingCubeDemo(Settings settings) : VulkanBaseApp("Marching 
 void MarchingCubeDemo::initApp() {
     nextConfig = &mapToKey(Key::SPACE_BAR, "next_config", Action::detectInitialPressOnly());
     commandPool = device.createCommandPool(*device.queueFamilyIndex.graphics, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
-    commandBuffers = commandPool.allocate(swapChainImageCount);
+    commandBuffers = commandPool.allocateCommandBuffers(swapChainImageCount);
     initCamera();
     initSdf();
     initVertexBuffer();

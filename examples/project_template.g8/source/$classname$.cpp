@@ -1,7 +1,17 @@
 #include "$classname$.hpp"
+#include "GraphicsPipelineBuilder.hpp"
+#include "DescriptorSetBuilder.hpp"
 
 $classname$::$classname$(const Settings& settings) : VulkanBaseApp("$title$", settings) {
-
+    fileManager.addSearchPath(".");
+    fileManager.addSearchPath("../../examples/$name$");
+    fileManager.addSearchPath("../../examples/$name$/spv");
+    fileManager.addSearchPath("../../examples/$name$/models");
+    fileManager.addSearchPath("../../examples/$name$/textures");
+    fileManager.addSearchPath("../../data/shaders");
+    fileManager.addSearchPath("../../data/models");
+    fileManager.addSearchPath("../../data/textures");
+    fileManager.addSearchPath("../../data");
 }
 
 void $classname$::initApp() {
