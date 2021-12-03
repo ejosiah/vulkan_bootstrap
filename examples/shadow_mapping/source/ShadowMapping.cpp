@@ -1,3 +1,4 @@
+#include <ImGuiPlugin.hpp>
 #include "ShadowMapping.hpp"
 #include "GraphicsPipelineBuilder.hpp"
 #include "DescriptorSetBuilder.hpp"
@@ -21,7 +22,8 @@ void ShadowMapping::initApp() {
     initShadowMap();
     initFrustum();
     createRenderPipeline();
-    updateShadowMapDescriptorSet();
+    createUboBuffer();
+    updateDescriptorSets();
     createComputePipeline();
 }
 
@@ -66,8 +68,8 @@ void ShadowMapping::createRenderPipeline() {
     render.pipeline =
         builder
             .shaderStage()
-                .vertexShader(load("cube.vert.spv"))
-                .fragmentShader(load("cube.frag.spv"))
+                .vertexShader(load("render.vert.spv"))
+                .fragmentShader(load("render.frag.spv"))
             .vertexInputState()
                 .addVertexBindingDescription(0, sizeof(Vertex), VK_VERTEX_INPUT_RATE_VERTEX)
                 .addVertexBindingDescription(1, sizeof(glm::mat4), VK_VERTEX_INPUT_RATE_INSTANCE)
@@ -104,7 +106,8 @@ void ShadowMapping::createRenderPipeline() {
                     .attachment()
                     .add()
                 .layout()
-                    .addPushConstantRange(VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Camera) + sizeof(glm::mat4))
+                    .addPushConstantRange(VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(int))
+                    .addDescriptorSetLayout(render.uboDescriptorSetLayout)
                     .addDescriptorSetLayout(render.shadowMapDescriptorSetLayout)
                 .renderPass(renderPass)
                 .subpass(0)
@@ -133,7 +136,11 @@ void ShadowMapping::onSwapChainDispose() {
 }
 
 void ShadowMapping::onSwapChainRecreation() {
+    cameraController->perspective(float(swapChain.width())/float(swapChain.height()));
+    initShadowMap();
+    initFrustum();
     createRenderPipeline();
+    updateShadowMapDescriptorSet();
     createComputePipeline();
 }
 
@@ -169,15 +176,20 @@ VkCommandBuffer *ShadowMapping::buildCommandBuffers(uint32_t imageIndex, uint32_
 
     vkCmdBeginRenderPass(commandBuffer, &rPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
+    static std::array<VkDescriptorSet, 2> sets;
+    sets[0] = render.uboDescriptorSet;
+    sets[1] = render.shadowMapDescriptorSet;
+
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, render.pipeline);
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, render.layout, 0, 1, &render.shadowMapDescriptorSet, 0, nullptr);
-    cameraController->push(commandBuffer, render.layout);
-//    Camera camera{ glm::mat4{1}, shadowMap.lightView, shadowMap.lightProjection};
-//    vkCmdPushConstants(commandBuffer, render.layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Camera), &camera);
-    vkCmdPushConstants(commandBuffer, render.layout, VK_SHADER_STAGE_VERTEX_BIT, sizeof(Camera), sizeof(glm::mat4), &shadowMap.lightSpaceMatrix);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, render.layout, 0, COUNT(sets), sets.data(), 0, nullptr);
+    vkCmdPushConstants(commandBuffer, render.layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(int), &lightType );
     drawCubes(commandBuffer);
 
-    drawFrustum(commandBuffer);
+    if(displayFrustum) {
+        drawFrustum(commandBuffer);
+    }
+
+    displayUI(commandBuffer);
     vkCmdEndRenderPass(commandBuffer);
 
     vkEndCommandBuffer(commandBuffer);
@@ -208,6 +220,7 @@ void ShadowMapping::constructShadowMap(VkCommandBuffer commandBuffer) {
     vkCmdBeginRenderPass(commandBuffer, &rPassInfo, VK_SUBPASS_CONTENTS_INLINE);
     shadowMap.lightSpaceMatrix = shadowMap.lightProjection * shadowMap.lightView;
 
+//    vkCmdSetDepthBias(commandBuffer, shadowMap.depthBiasConstant, 0, shadowMap.depthBiasSlope);
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, shadowMap.pipeline);
     vkCmdPushConstants(commandBuffer, shadowMap.layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &shadowMap.lightSpaceMatrix);
     drawCubes(commandBuffer);
@@ -224,6 +237,8 @@ void ShadowMapping::drawCubes(VkCommandBuffer commandBuffer) {
 
 void ShadowMapping::update(float time) {
     cameraController->update(time);
+    updateUbo();
+    uboBuffer.copy(&ubo, sizeof(ubo));
 }
 
 void ShadowMapping::checkAppInputs() {
@@ -231,8 +246,7 @@ void ShadowMapping::checkAppInputs() {
 }
 
 void ShadowMapping::cleanup() {
-    vkDestroyEvent(device, createShadowMapEvent, VK_NULL_HANDLE);
-    vkDestroyEvent(device, shadowMapReadyEvent, VK_NULL_HANDLE);
+
 }
 
 void ShadowMapping::onPause() {
@@ -376,13 +390,16 @@ void ShadowMapping::initShadowMap() {
                         .extent(shadowMap.size, shadowMap.size)
                     .add()
                 .rasterizationState()
-                    .cullBackFace()
+                    .enableDepthBias()
+                    .depthBiasConstantFactor(shadowMap.depthBiasConstant)
+                    .depthBiasSlopeFactor(shadowMap.depthBiasSlope)
+                    .cullFrontFace()
                     .frontFaceCounterClockwise()
                     .polygonModeFill()
                 .depthStencilState()
                     .enableDepthWrite()
                     .enableDepthTest()
-                    .compareOpLess()
+                    .compareOpLessOrEqual()
                     .minDepthBounds(0)
                     .maxDepthBounds(1)
                 .colorBlendState()
@@ -398,78 +415,37 @@ void ShadowMapping::initShadowMap() {
     };
 
     auto constructLightSpaceMatrix = [&]{
-        shadowMap.lightProjection = vkn::ortho(-10.f, 10.f, -10.f, 10.f, 1.0f, 100.f);
+        if(lightType == LightType::DIRECTIONAL) {
+            shadowMap.lightProjection = vkn::ortho(-20.f, 20.f, -20.f, 20.f, 1.0f, 100.f);
+        }else{
+            shadowMap.lightProjection = vkn::perspective(60.f, 1.f, 1.f, 100.f);
+        }
+
         shadowMap.lightView = glm::lookAt(lightDir.xyz(), glm::vec3(0), {0, 1, 0});
     };
 
-    auto createEvents = [&]{
-        VkEventCreateInfo info{ VK_STRUCTURE_TYPE_EVENT_CREATE_INFO, VK_NULL_HANDLE };
-        vkCreateEvent(device, &info, nullptr, &createShadowMapEvent);
-        vkCreateEvent(device, &info, VK_NULL_HANDLE, &shadowMapReadyEvent);
-        device.graphicsCommandPool().oneTimeCommand([&](auto commandBuffer){
-            vkCmdSetEvent(commandBuffer, createShadowMapEvent, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
-        });
-    };
+
 
     createFrameBufferAttachment();
     createRenderPass();
     createFrameBuffer();
     createPipeline();
     constructLightSpaceMatrix();
-    createEvents();
 }
 
-void ShadowMapping::waitToCreateShadowMap(VkCommandBuffer commandBuffer) {
-    vkCmdWaitEvents(
-            commandBuffer,
-            1,
-            &createShadowMapEvent,
-            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-            0,
-            VK_NULL_HANDLE,
-            0,
-            VK_NULL_HANDLE,
-            0,
-            VK_NULL_HANDLE
-            );
-}
-
-void ShadowMapping::waitForShadowMapToBeReady(VkCommandBuffer commandBuffer) {
-    VkImageMemoryBarrier imageMemoryBarrier{
-      VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-      VK_NULL_HANDLE,
-      VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-      VK_ACCESS_SHADER_READ_BIT,
-      VK_IMAGE_LAYOUT_UNDEFINED,
-      VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL,
-    };
-    imageMemoryBarrier.image = shadowMap.framebufferAttachment.image;
-    imageMemoryBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-    imageMemoryBarrier.subresourceRange.layerCount = 1;
-    imageMemoryBarrier.subresourceRange.levelCount = 1;
-    imageMemoryBarrier.subresourceRange.baseArrayLayer = 0;
-    imageMemoryBarrier.subresourceRange.baseMipLevel = 0;
-    vkCmdWaitEvents(
-            commandBuffer,
-            1,
-            &createShadowMapEvent,
-            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-            0,
-            VK_NULL_HANDLE,
-            0,
-            VK_NULL_HANDLE,
-            1,
-            &imageMemoryBarrier
-    );
-}
 
 void ShadowMapping::createDescriptorSetLayouts() {
-    auto builder = device.descriptorSetLayoutBuilder();
+
+    render.uboDescriptorSetLayout =
+        device.descriptorSetLayoutBuilder()
+            .binding(0)
+                .descriptorType(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
+                .descriptorCount(1)
+                .shaderStages(VK_SHADER_STAGE_VERTEX_BIT)
+            .createLayout();
 
     render.shadowMapDescriptorSetLayout =
-        builder
+        device.descriptorSetLayoutBuilder()
             .binding(0)
                 .descriptorCount(1)
                 .descriptorType(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
@@ -562,6 +538,57 @@ void ShadowMapping::drawFrustum(VkCommandBuffer commandBuffer) {
     vkCmdDrawIndexed(commandBuffer, indexCount, 1, 0, 0, 0);
 }
 
+void ShadowMapping::displayUI(VkCommandBuffer commandBuffer) {
+    auto& imGuiPlugin = plugin<ImGuiPlugin>(IM_GUI_PLUGIN);
+
+    static int option = 0;
+    int currentOption = option;
+    ImGui::Begin("Shadow mapping");
+    ImGui::SetWindowSize("Shadow mapping", {250, 100});
+    ImGui::RadioButton("directional light", &option, 0);
+    ImGui::RadioButton("Positional light", &option, 1);
+    ImGui::Checkbox("frustum", &displayFrustum);
+    ImGui::End();
+
+    swapChainInvalidated = currentOption != option;
+    lightType = static_cast<LightType>(option);
+
+    imGuiPlugin.draw(commandBuffer);
+}
+
+void ShadowMapping::updateDescriptorSets() {
+    updateUboDescriptorSet();
+    updateShadowMapDescriptorSet();
+}
+
+void ShadowMapping::updateUboDescriptorSet() {
+    render.uboDescriptorSet = descriptorPool.allocate({ render.uboDescriptorSetLayout }).front();
+
+    auto writes = initializers::writeDescriptorSets<1>();
+    writes[0].dstSet = render.uboDescriptorSet;
+    writes[0].dstBinding = 0;
+    writes[0].descriptorCount = 1;
+    writes[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+
+    VkDescriptorBufferInfo bufferInfo{ uboBuffer, 0, VK_WHOLE_SIZE};
+    writes[0].pBufferInfo = &bufferInfo;
+
+    device.updateDescriptorSets(writes);
+}
+
+void ShadowMapping::createUboBuffer() {
+    updateUbo();
+    uboBuffer = device.createCpuVisibleBuffer(&ubo, sizeof(ubo), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
+}
+
+void ShadowMapping::updateUbo() {
+    auto& camera = cameraController->cam();
+    ubo.model = camera.model;
+    ubo.view = camera.view;
+    ubo.projection = camera.proj;
+    ubo.lightSpaceMatrix = shadowMap.lightSpaceMatrix;
+}
+
 
 int main(){
     try{
@@ -570,8 +597,10 @@ int main(){
         settings.depthTest = true;
         settings.enabledFeatures.wideLines = true;
 //        settings.deviceExtensions.push_back(VK_KHR_SEPARATE_DEPTH_STENCIL_LAYOUTS_EXTENSION_NAME);
+        std::unique_ptr<Plugin> imGui = std::make_unique<ImGuiPlugin>();
 
         auto app = ShadowMapping{ settings };
+        app.addPlugin(imGui);
         app.run();
     }catch(std::runtime_error& err){
         spdlog::error(err.what());

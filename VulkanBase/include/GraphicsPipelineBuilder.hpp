@@ -34,6 +34,8 @@ public:
 
     virtual PipelineLayoutBuilder& layout();
 
+    virtual DynamicStateBuilder& dynamicState();
+
     GraphicsPipelineBuilder& allowDerivatives();
 
     GraphicsPipelineBuilder& setDerivatives();
@@ -80,6 +82,7 @@ private:
     std::unique_ptr<MultisampleStateBuilder> _multisampleStateBuilder = nullptr;
     std::unique_ptr<DepthStencilStateBuilder> _depthStencilStateBuilder = nullptr;
     std::unique_ptr<ColorBlendStateBuilder> _colorBlendStateBuilder = nullptr ;
+    std::unique_ptr<DynamicStateBuilder> _dynamicStateBuilder = nullptr;
     VulkanPipeline* _basePipeline = nullptr;
     VkPipelineCache pipelineCache_ = VK_NULL_HANDLE;
 
@@ -94,3 +97,4 @@ private:
 #include "MultisampleStateBuilder.hpp"
 #include "DepthStencilStateBuilder.hpp"
 #include "ColorBlendStateBuilder.hpp"
+#include "DynamicStateBuilder.hpp"

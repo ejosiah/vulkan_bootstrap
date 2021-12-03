@@ -11,8 +11,10 @@ GraphicsPipelineBuilder::GraphicsPipelineBuilder(VulkanDevice *device)
 , _multisampleStateBuilder{ std::make_unique<MultisampleStateBuilder>(device, this)}
 , _depthStencilStateBuilder{ std::make_unique<DepthStencilStateBuilder>(device, this)}
 , _colorBlendStateBuilder{ std::make_unique<ColorBlendStateBuilder>(device, this)}
+, _dynamicStateBuilder{ std::make_unique<DynamicStateBuilder>(device, this)}
 , _name{""}
 {
+
 }
 
 GraphicsPipelineBuilder::GraphicsPipelineBuilder(VulkanDevice *device, GraphicsPipelineBuilder *parent)
@@ -131,6 +133,7 @@ VkGraphicsPipelineCreateInfo GraphicsPipelineBuilder::createInfo() {
     auto& multisampleState = _multisampleStateBuilder->buildMultisampleState();
     auto& depthStencilState = _depthStencilStateBuilder->buildDepthStencilState();
     auto& colorBlendState = _colorBlendStateBuilder->buildColorBlendState();
+    auto& dynamicState = _dynamicStateBuilder->buildPipelineDynamicState();
 
     auto info = initializers::graphicsPipelineCreateInfo();
     info.flags = _flags;
@@ -143,6 +146,7 @@ VkGraphicsPipelineCreateInfo GraphicsPipelineBuilder::createInfo() {
     info.pMultisampleState = &multisampleState;
     info.pDepthStencilState = &depthStencilState;
     info.pColorBlendState = &colorBlendState;
+    info.pDynamicState = &dynamicState;
 
     if(_flags & VK_PIPELINE_CREATE_DERIVATIVE_BIT){
         assert(_basePipeline);
@@ -230,4 +234,11 @@ GraphicsPipelineBuilder &GraphicsPipelineBuilder::pipelineCache(VkPipelineCache 
     }
     pipelineCache_ = pCache;
     return *this;
+}
+
+DynamicStateBuilder &GraphicsPipelineBuilder::dynamicState() {
+    if(parent()){
+        return parent()->dynamicState();
+    }
+    return *_dynamicStateBuilder;
 }

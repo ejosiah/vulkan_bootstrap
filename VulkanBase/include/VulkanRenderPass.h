@@ -42,6 +42,9 @@ struct VulkanRenderPass{
 
     VulkanRenderPass& operator=(VulkanRenderPass&& source) noexcept {
         if(this == &source) return *this;
+
+        this->~VulkanRenderPass();
+
         this->device = source.device;
         this->renderPass = source.renderPass;
 

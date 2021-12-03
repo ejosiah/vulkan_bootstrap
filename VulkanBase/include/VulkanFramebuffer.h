@@ -39,6 +39,9 @@ struct VulkanFramebuffer{
 
     VulkanFramebuffer& operator=(VulkanFramebuffer&& source) noexcept {
         if(this == &source) return *this;
+
+        this->~VulkanFramebuffer();
+
         this->device = source.device;
         this->frameBuffer = source.frameBuffer;
 

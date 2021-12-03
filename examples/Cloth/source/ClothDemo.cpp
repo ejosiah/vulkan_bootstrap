@@ -10,7 +10,7 @@ void ClothDemo::initApp() {
     initQueryPools();
     createDescriptorPool();
     commandPool = device.createCommandPool(*device.queueFamilyIndex.graphics, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
-    commandBuffers = commandPool.allocate(swapChainImageCount);
+    commandBuffers = commandPool.allocateCommandBuffers(swapChainImageCount);
     createCloth();
     createSphere();
     createFloor();
