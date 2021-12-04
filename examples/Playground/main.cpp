@@ -8,6 +8,9 @@
 #include "Statistics.hpp"
 #include "FourWayRadixSort.hpp"
 #include "xforms.h"
+#include <assimp/scene.h>
+#include <assimp/Importer.hpp>
+#include <assimp/postprocess.h>
 
 static std::vector<const char*> instanceExtensions{VK_EXT_DEBUG_UTILS_EXTENSION_NAME};
 static std::vector<const char*> validationLayers{"VK_LAYER_KHRONOS_validation"};
@@ -140,31 +143,74 @@ float ndc_to_d(float z, float n, float f){
     return num/denum;
 }
 
+constexpr uint32_t flags =
+        aiProcess_GenSmoothNormals
+        | aiProcess_Triangulate
+        | aiProcess_CalcTangentSpace
+        | aiProcess_JoinIdenticalVertices
+        | aiProcess_ValidateDataStructure;
+
+
+using namespace Assimp;
+
+uint32_t numMeshes(const aiScene* scene, const aiNode* node){
+    if(node->mNumChildren < 1){
+        return node->mNumMeshes;
+    }
+    auto count = node->mNumMeshes;
+    for(auto i = 0; i < node->mNumChildren; i++){
+        count += numMeshes(scene, node->mChildren[i]);
+    }
+    return count;
+}
+
+uint32_t nodeDepth(const aiScene* scene, const aiNode* node){
+    if(node->mNumChildren < 1) return 1;
+
+    uint32_t maxDepth = std::numeric_limits<uint32_t>::min();
+    for(auto i = 0; i < node->mNumChildren; i++){
+        uint32_t depth = 1 + nodeDepth(scene, node->mChildren[i]);
+        maxDepth = std::max(depth, maxDepth);
+    }
+    return maxDepth;
+}
+
+void logBones(const aiScene* scene){
+
+
+    std::function<void(aiNode*)> logger = [&](aiNode* node) {
+
+        if(node->mNumMeshes > 0){
+            for(int i = 0; i < node->mNumMeshes; i++){
+                const auto mesh = scene->mMeshes[node->mMeshes[i]];
+                if(mesh->HasBones()){
+                    for(int bid = 0; bid < mesh->mNumBones; bid++){
+                        const auto bone = mesh->mBones[bid];
+                        fmt::print("\t{}\n", bone->mName.C_Str());
+                        fmt::print("\t\tweights: {}\n", bone->mNumWeights);
+//                        for(int wid = 0; wid < bone->mNumWeights; wid++){
+//                            fmt::print("\t\tvertexId: {}, weight: {}\n", bone->mWeights[wid].mVertexId, bone->mWeights[wid].mWeight);
+//                        }
+                    }
+                }
+            }
+        }
+        for(int i = 0; i < node->mNumChildren; i++){
+            logger(node->mChildren[i]);
+        }
+    };
+    fmt::print("bones:\n");
+    logger(scene->mRootNode);
+}
+
 int main() {
     using namespace glm;
-    vec4 lightDir{3, 7, 6, 1};
-    auto lightProjection = vkn::ortho(-10.0f, 10.0f, -10.0f, 10.0f, 1.0f, 200.0f);
-//    auto view = glm::lookAt(lightDir.xyz(), glm::vec3(0), {0, 1, 0});
-    auto view = mat4(1);
-    auto lightSpaceMatrix = lightProjection * view;
-    auto center = lightSpaceMatrix * vec4(0, 0, 0, 1);
+    Importer importer;
+    const auto scene = importer.ReadFile(R"(C:\Users\Josiah\CLionProjects\vulkan_bootstrap\data\models\character\Wave_Hip_Hop_Dance.fbx)", flags);
+    const auto rootNode = scene->mRootNode;
+    fmt::print("num Animations: {}\n", scene->mNumAnimations);
+    fmt::print("node depth: {}\n", nodeDepth(scene, rootNode));
+    fmt::print("num meshes: {}\n", numMeshes(scene, rootNode));
+    logBones(scene);
 
-    std::vector<vec3> points{
-            {-1, 1, 0}, {1, 1, 0},
-            {-1, -1, 0}, {1, -1, 0},
-            {-1, 1, 1}, {1, 1, 1},
-            {-1, -1, 1}, {1, -1, 1}
-    };
-
-    std::vector<uint32_t> indices{
-        0, 1, 2, 3, 0, 2, 1, 3,
-        4, 5, 6, 7, 4, 6, 5, 7,
-        0, 4, 1, 5, 2, 7, 3, 6
-    };
-
-    for(auto& point : points){
-        auto worldSpaceMatrix = inverse(lightSpaceMatrix);
-        auto worldSpacePoint = vkn::GL_TO_VKN_CLIP * vec4(point, 1);
-        fmt::print("{}\n", worldSpacePoint.xyz());
-    }
 }
