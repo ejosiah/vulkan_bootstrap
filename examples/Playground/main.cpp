@@ -211,6 +211,7 @@ int main() {
     fmt::print("num Animations: {}\n", scene->mNumAnimations);
     fmt::print("node depth: {}\n", nodeDepth(scene, rootNode));
     fmt::print("num meshes: {}\n", numMeshes(scene, rootNode));
+
     logBones(scene);
 
 }
