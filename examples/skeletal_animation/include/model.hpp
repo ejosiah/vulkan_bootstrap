@@ -6,7 +6,7 @@
 #include <assimp/postprocess.h>
 
 namespace model {
-    static constexpr int NUN_BONES_PER_VERTEX = 4;
+    static constexpr int NUN_BONES_PER_VERTEX = 5;
     constexpr uint32_t DEFAULT_PROCESS_FLAGS = aiProcess_GenSmoothNormals | aiProcess_Triangulate | aiProcess_CalcTangentSpace | aiProcess_JoinIdenticalVertices | aiProcess_ValidateDataStructure;
 
 

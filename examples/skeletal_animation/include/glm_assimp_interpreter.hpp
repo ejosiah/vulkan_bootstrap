@@ -3,15 +3,15 @@
 #include <assimp/types.h>
 #include <glm/glm.hpp>
 
-inline glm::vec3 to_vec3(const Assimp::aiVector3D& v){
+inline glm::vec3 to_vec3(const aiVector3D& v){
     return {v.x, v.y, v.z};
 }
 
-inline glm::vec4 to_vec4(const Assimp::aiColor4D& c){
+inline glm::vec4 to_vec4(const aiColor4D& c){
     return {c.r, c.g, c.b, c.a};
 }
 
-inline glm::mat to_mat4(const aiMatrix4x4& matrix){
+inline glm::mat4 to_mat4(const aiMatrix4x4& matrix){
     glm::mat4 mat;
     //the a,b,c,d in assimp is the row ; the 1,2,3,4 is the column
     mat[0][0] = matrix.a1; mat[1][0] = matrix.a2; mat[2][0] = matrix.a3; mat[3][0] = matrix.a4;

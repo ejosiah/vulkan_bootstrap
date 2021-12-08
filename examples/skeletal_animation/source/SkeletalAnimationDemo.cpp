@@ -66,7 +66,7 @@ void SkeletalAnimationDemo::createRenderPipeline() {
         builder
             .shaderStage()
                 .vertexShader(load("render.vert.spv"))
-                .fragmentShader(load("render.frag.spv"));
+                .fragmentShader(load("render.frag.spv"))
             .vertexInputState()
                 .addVertexBindingDescriptions(Vertex::bindingDisc())
                 .addVertexAttributeDescriptions(Vertex::attributeDisc())
@@ -174,7 +174,7 @@ void SkeletalAnimationDemo::onPause() {
 }
 
 void SkeletalAnimationDemo::initModel() {
-    model = Model::load("../../data/models/character/Wave_Hip_Hop_Dance.fbx");
+//    model = Model::load("../../data/models/character/Wave_Hip_Hop_Dance.fbx");
 }
 
 void SkeletalAnimationDemo::initCamera() {
@@ -199,7 +199,11 @@ int main(){
         settings.depthTest = true;
 
         auto app = SkeletalAnimationDemo{ settings };
-        app.run();
+//        app.run();
+        std::shared_ptr<model::Model> m = model::load("../../data/models/character/Wave_Hip_Hop_Dance.fbx");
+        for(auto& bone : m->bones){
+            fmt::print("{}\n", bone.name);
+        }
     }catch(std::runtime_error& err){
         spdlog::error(err.what());
     }

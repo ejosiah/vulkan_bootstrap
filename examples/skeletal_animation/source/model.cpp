@@ -127,7 +127,7 @@ std::shared_ptr<model::Model> model::load(const std::string &path, uint32_t flag
     auto numBones = model->bones.size();
     auto numVertices = 0u;
     for(auto& mesh : meshes) numVertices += mesh.vertices.size();
-    spdlog::info("model {}, num meshes: {}, num vertices: {}, num bones {}", numMeshes, numVertices, numBones);
+    spdlog::info("model {}, num meshes: {}, num vertices: {}, num bones {}", path, numMeshes, numVertices, numBones);
 
     return model;
 }

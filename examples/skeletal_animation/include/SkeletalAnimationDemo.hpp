@@ -51,7 +51,7 @@ protected:
     VulkanCommandPool commandPool;
     std::vector<VkCommandBuffer> commandBuffers;
     VulkanPipelineCache pipelineCache;
-    Model model;
+    model::Model model;
 
     std::unique_ptr<CameraController> cameraController;
 };

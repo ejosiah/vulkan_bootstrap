@@ -184,6 +184,7 @@ void logBones(const aiScene* scene){
             for(int i = 0; i < node->mNumMeshes; i++){
                 const auto mesh = scene->mMeshes[node->mMeshes[i]];
                 if(mesh->HasBones()){
+                    fmt::print("num bones: {}\n", mesh->mNumBones);
                     for(int bid = 0; bid < mesh->mNumBones; bid++){
                         const auto bone = mesh->mBones[bid];
                         fmt::print("\t{}\n", bone->mName.C_Str());
@@ -206,11 +207,12 @@ void logBones(const aiScene* scene){
 int main() {
     using namespace glm;
     Importer importer;
-    const auto scene = importer.ReadFile(R"(C:\Users\Josiah\CLionProjects\vulkan_bootstrap\data\models\character\Wave_Hip_Hop_Dance.fbx)", flags);
+    const auto scene = importer.ReadFile("../../data/models/character/Wave_Hip_Hop_Dance.fbx", flags);
     const auto rootNode = scene->mRootNode;
     fmt::print("num Animations: {}\n", scene->mNumAnimations);
     fmt::print("node depth: {}\n", nodeDepth(scene, rootNode));
     fmt::print("num meshes: {}\n", numMeshes(scene, rootNode));
+    fmt::print("num bones: {}\n", scene->mAnimations[0]->mNumChannels);
 
     logBones(scene);
 
