@@ -204,7 +204,7 @@ std::shared_ptr<mdl::Model> mdl::load(const VulkanDevice& device, const std::str
     std::vector<mdl::Mesh> meshes;
 
     load(*model, meshes, scene->mRootNode, scene);
-    connectBones(scene, *model);
+//    connectBones(scene, *model);
 
     auto numMeshes = meshes.size();
     auto numBones = model->bones.size();

@@ -3,17 +3,19 @@
 #include <assimp/Importer.hpp>
 #include "glm_assimp_interpreter.hpp"
 
-void loadNodes(anim::Animation& animation, const aiNode* aiNode){
+int loadNodes(anim::Animation& animation, const aiNode* aiNode, int parentId = -1){
     int id = int(animation.nodes.size());
     std::string name = aiNode->mName.C_Str();
     glm::mat4 transform = to_mat4(aiNode->mTransformation);
 
-    anim::AnimationNode node{id, name, transform};
+    anim::AnimationNode node{id, name, transform, parentId};
     animation.nodes.push_back(node);
     for(int i = 0; i < aiNode->mNumChildren; i++){
         auto childNode = aiNode->mChildren[i];
-        loadNodes(animation, childNode);
+        auto childId = loadNodes(animation, childNode, id);
+        animation.nodes[id].children.push_back(childId);
     }
+    return id;
 }
 
 std::vector<anim::Animation> anim::load(mdl::Model* model, const std::string &path, uint32_t flags) {
@@ -58,41 +60,62 @@ void anim::Animation::update(float time) {
     elapsedTimeInSeconds += time;
     assert(model);
 
-    static auto applyParentTransforms = [&](mdl::Bone& bone){
+    static auto applyParentTransforms = [&](AnimationNode& node){
         glm::mat4 transform{1};
-        auto parentId = bone.parent;
-        while(parentId != mdl::NULL_BONE){
-            transform = model->bones[parentId].transform * transform;
-            parentId = model->bones[parentId].parent;
+        auto parentId = node.parentId;
+        while(parentId != -1){
+            transform = nodes[parentId].globalTransform * transform;
+            parentId = nodes[parentId].parentId;
         }
         return transform;
     };
 
     auto tick = glm::mod(elapsedTimeInSeconds * ticksPerSecond, duration);
-    spdlog::info("tick: {}", tick);
+//    spdlog::info("tick: {}", tick);
     auto& bones = model->bones;
-    auto transforms = reinterpret_cast<glm::mat4*>(model->buffers.boneTransforms.map());
     // Bone hierarchy is in reverse
     // so leave bones are processed last in the hierarchy
-    for(int i = bones.size() - 1; i >= 0; i--){
-        auto& bone = bones[i];
-        auto transform = bone.transform;
-        auto itr = channels.find(bone.name);
-        if(itr != channels.end()) {
-            auto& animation = itr->second;
-            auto position = interpolateTranslation(animation, tick);
-            auto scale = interpolateScale(animation, tick);
-            auto qRotate = interpolateRotation(animation, tick);
-            auto rotate = glm::mat4(qRotate);
+//    for(int i = bones.size() - 1; i >= 0; i--){
+//        auto& bone = bones[i];
+//        auto transform = bone.transform;
+//        auto itr = channels.find(bone.name);
+//        if(itr != channels.end()) {
+//            auto& animation = itr->second;
+//            auto position = interpolateTranslation(animation, tick);
+//            auto scale = interpolateScale(animation, tick);
+//            auto qRotate = interpolateRotation(animation, tick);
+//            auto rotate = glm::mat4(qRotate);
+//
+//            transform =  glm::translate(glm::mat4(1), position) * rotate * glm::scale(glm::mat4(1), scale);
+//
+//        }
+         auto globalInverseXform = model->globalInverseTransform;
+        for(auto& node : nodes){
+            auto nodeTransform = node.transform;
+            auto itr = channels.find(node.name);
+            if(itr != channels.end()){
+                auto& animation = itr->second;
+                auto position = interpolateTranslation(animation, tick);
+                auto scale = interpolateScale(animation, tick);
+                auto qRotate = interpolateRotation(animation, tick);
+                auto rotate = glm::mat4(qRotate);
 
-            transform =  glm::translate(glm::mat4(1), position) * rotate * glm::scale(glm::mat4(1), scale);
+                nodeTransform =  glm::translate(glm::mat4(1), position) * rotate * glm::scale(glm::mat4(1), scale);
+            }
+            node.globalTransform = applyParentTransforms(node) * nodeTransform;
 
+            auto bItr = model->bonesMapping.find(node.name);
+            if(bItr != model->bonesMapping.end()) {
+                auto& bone = model->bones[bItr->second];
+                bone.transform = globalInverseXform * node.globalTransform * bone.offsetMatrix;
+            }
         }
 
-        auto globalInverseXform = model->globalInverseTransform;
-        transforms[i] = globalInverseXform * applyParentTransforms(bone) * transform * bone.offsetMatrix;
-    }
-    model->buffers.boneTransforms.unmap();
+        auto transforms = reinterpret_cast<glm::mat4*>(model->buffers.boneTransforms.map());
+        for(int i = 0; i < model->bones.size(); i++){
+            transforms[i] = model->bones[i].transform;
+        }
+        model->buffers.boneTransforms.unmap();
 }
 
 void anim::Animation::update0(float time) {

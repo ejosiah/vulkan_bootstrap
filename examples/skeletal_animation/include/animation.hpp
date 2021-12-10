@@ -38,6 +38,8 @@ namespace anim{
         int id{-1};
         std::string name;
         glm::mat4 transform{1};
+        int parentId{-1};
+        glm::mat4 globalTransform{1};
         std::vector<int> children;
     };
 

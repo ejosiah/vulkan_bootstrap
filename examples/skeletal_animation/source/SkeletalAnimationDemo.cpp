@@ -168,7 +168,7 @@ VkCommandBuffer *SkeletalAnimationDemo::buildCommandBuffers(uint32_t imageIndex,
 }
 
 void SkeletalAnimationDemo::update(float time) {
-    animation.update(time);
+//    animation.update(time);
     cameraController->update(time);
 }
 
@@ -185,12 +185,21 @@ void SkeletalAnimationDemo::onPause() {
     VulkanBaseApp::onPause();
 }
 
+void walkBoneHierarchy1(const anim::Animation& animation, const anim::AnimationNode& node, int depth){
+    const auto& nodes = animation.nodes;
+    fmt::print("{: >{}}{}[{}, {}]\n", "", depth + 1, node.name, node.id, node.parentId);
+    for(const auto& i : node.children){
+        walkBoneHierarchy1(animation, nodes[i], depth + 1);
+    }
+}
+
 void SkeletalAnimationDemo::initModel() {
     auto path = std::string{ "../../data/models/character/Wave_Hip_Hop_Dance.fbx" };
     model = mdl::load(device, path);
     model->updateDescriptorSet(device, descriptorPool);
     animation = anim::load(model.get(), path).front();
     spdlog::info("model bounds: [{}, {}], height: {}", model->bounds.min, model->bounds.max, model->height());
+    walkBoneHierarchy1(animation, animation.nodes[0], 0);
 }
 
 void SkeletalAnimationDemo::initCamera() {
