@@ -34,14 +34,25 @@ namespace anim{
         int rotationKey(Tick tick) const;
     };
 
+    struct AnimationNode{
+        int id{-1};
+        std::string name;
+        glm::mat4 transform{1};
+        std::vector<int> children;
+    };
+
     struct Animation{
         std::string name;
         Tick duration{0};
         float ticksPerSecond{25};
         mdl::Model* model{nullptr};
         std::unordered_map<std::string, BoneAnimation> channels;
+        std::vector<AnimationNode> nodes;
+        float elapsedTimeInSeconds{0};
 
         void update(float time);
+
+        void update0(float time);
 
     private:
         glm::vec3 interpolateTranslation(const BoneAnimation& boneAnimation, Tick tick);

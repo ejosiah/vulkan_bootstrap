@@ -3,6 +3,8 @@
 #include <assimp/Importer.hpp>
 #include <model.hpp>
 #include "glm_assimp_interpreter.hpp"
+#include "DescriptorSetBuilder.hpp"
+#include "VulkanInitializers.h"
 
 VkPrimitiveTopology toVulkan(uint32_t MeshType){
     switch (MeshType) {
@@ -215,7 +217,7 @@ std::shared_ptr<mdl::Model> mdl::load(const VulkanDevice& device, const std::str
     return model;
 }
 
-void mdl::Model::createBuffers(const VulkanDevice& device, const std::vector<Mesh>& meshes) {
+void mdl::Model::createBuffers(const VulkanDevice& device, std::vector<Mesh>& meshes) {
     auto numIndices = 0u;
     auto numVertices = 0u;
     glm::vec3 min{MAX_FLOAT};
@@ -225,6 +227,13 @@ void mdl::Model::createBuffers(const VulkanDevice& device, const std::vector<Mes
     for(auto& mesh : meshes){
         numIndices += mesh.indices.size();
         numVertices += mesh.vertices.size();
+
+        if(mesh.bones.empty()){
+            mesh.bones.resize(numVertices);
+            VertexBoneInfo boneInfo{};
+            boneInfo.weights[0] = 1;
+            std::fill(begin(mesh.bones), end(mesh.bones), boneInfo);
+        }
 
         for(const auto& vertex : mesh.vertices){
 //            mesh.bounds.min = glm::min(glm::vec3(vertex.position), mesh.bounds.min);
@@ -242,7 +251,9 @@ void mdl::Model::createBuffers(const VulkanDevice& device, const std::vector<Mes
     auto offset = 0;
     std::vector<char> indexBuffer(numIndices * sizeof(uint32_t));
     std::vector<char> vertexBuffer(numVertices * sizeof(Vertex));
+    std::vector<char> vertexBoneBuffer(numVertices * sizeof(VertexBoneInfo));
     std::vector<glm::ivec4> offsetBuffer;
+
 
     uint32_t numPrimitives = 0;
     for(int i = 0; i < meshes.size(); i++){
@@ -251,6 +262,10 @@ void mdl::Model::createBuffers(const VulkanDevice& device, const std::vector<Mes
         auto size = numVertices * sizeof(Vertex);
         void* dest = vertexBuffer.data() + firstVertex * sizeof(Vertex);
         std::memcpy(dest, mesh.vertices.data(), size);
+
+        size = numVertices * sizeof(VertexBoneInfo);
+        dest = vertexBoneBuffer.data() + firstVertex * sizeof(VertexBoneInfo);
+        std::memcpy(dest, mesh.bones.data(), size);
 
         size = mesh.indices.size() * sizeof(mesh.indices[0]);
         dest = indexBuffer.data() + firstIndex * sizeof(mesh.indices[0]);
@@ -268,8 +283,15 @@ void mdl::Model::createBuffers(const VulkanDevice& device, const std::vector<Mes
         firstIndex += mesh.indices.size();
         numPrimitives += primitives[i].numTriangles();
     }
-    buffers.vertices = device.createDeviceLocalBuffer(vertexBuffer.data(), numVertices * sizeof(Vertex), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-    buffers.indices = device.createDeviceLocalBuffer(indexBuffer.data(), numIndices * sizeof(uint32_t), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+    buffers.vertices = device.createDeviceLocalBuffer(vertexBuffer.data(), BYTE_SIZE(vertexBuffer), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+    buffers.indices = device.createDeviceLocalBuffer(indexBuffer.data(), BYTE_SIZE(indexBuffer), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+    buffers.vertexBones = device.createDeviceLocalBuffer(vertexBoneBuffer.data(), BYTE_SIZE(vertexBoneBuffer), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+
+    std::vector<glm::mat4> bonesXforms(numVertices, glm::mat4{1});
+    buffers.boneTransforms = device.createCpuVisibleBuffer(bonesXforms.data(), BYTE_SIZE(bonesXforms), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+
+    createDescriptorSetLayout(device);
+
 }
 
 float mdl::Model::height() const {
@@ -286,8 +308,12 @@ uint32_t mdl::Model::numTriangles() const {
 
 void mdl::Model::render(VkCommandBuffer commandBuffer) const {
     auto numPrims = primitives.size();
-    VkDeviceSize offset = 0;
-    vkCmdBindVertexBuffers(commandBuffer, 0, 1, &buffers.vertices.buffer, &offset);
+    static std::array<VkBuffer, 2> bindBuffers;
+    bindBuffers[0] = buffers.vertices.buffer;
+    bindBuffers[1] = buffers.vertexBones.buffer;
+    static std::array<VkDeviceSize , 2> offsets{0, 0};
+
+    vkCmdBindVertexBuffers(commandBuffer, 0, 2, bindBuffers.data(), offsets.data());
     vkCmdBindIndexBuffer(commandBuffer, buffers.indices, 0, VK_INDEX_TYPE_UINT32);
     for (auto i = 0; i < numPrims; i++) {
         primitives[i].drawIndexed(commandBuffer);
@@ -296,4 +322,29 @@ void mdl::Model::render(VkCommandBuffer commandBuffer) const {
 
 glm::vec3 mdl::Model::diagonal() const {
     return bounds.max - bounds.min;
+}
+
+void mdl::Model::createDescriptorSetLayout(const VulkanDevice &device) {
+    descriptor.setLayout =
+        device.descriptorSetLayoutBuilder()
+            .binding(kLayoutBinding_BONE)
+                .descriptorType(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
+                .descriptorCount(1)
+                .shaderStages(VK_SHADER_STAGE_VERTEX_BIT)
+            .createLayout();
+}
+
+void mdl::Model::updateDescriptorSet(const VulkanDevice &device, const VulkanDescriptorPool &descriptorPool) {
+    descriptor.set = descriptorPool.allocate( {descriptor.setLayout}).front();
+    
+    auto writes = initializers::writeDescriptorSets<1>();
+    writes[kLayoutBinding_BONE].dstSet = descriptor.set;
+    writes[kLayoutBinding_BONE].dstBinding = kLayoutBinding_BONE;
+    writes[kLayoutBinding_BONE].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    writes[kLayoutBinding_BONE].descriptorCount = 1;
+    VkDescriptorBufferInfo boneBufferInfo{ buffers.boneTransforms, 0, VK_WHOLE_SIZE };
+    writes[kLayoutBinding_BONE].pBufferInfo = &boneBufferInfo;
+
+    device.updateDescriptorSets(writes);
+    
 }

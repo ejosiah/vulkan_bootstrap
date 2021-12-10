@@ -7,7 +7,7 @@
 #include <assimp/postprocess.h>
 
 namespace mdl {
-    static constexpr int NUN_BONES_PER_VERTEX = 5;
+    static constexpr int NUN_BONES_PER_VERTEX = 8;
     constexpr uint32_t DEFAULT_PROCESS_FLAGS = aiProcess_GenSmoothNormals | aiProcess_Triangulate | aiProcess_CalcTangentSpace | aiProcess_JoinIdenticalVertices | aiProcess_ValidateDataStructure;
     constexpr int NULL_BONE = -1;
 
@@ -48,6 +48,11 @@ namespace mdl {
         glm::mat4 globalInverseTransform{1};
         std::vector<std::tuple<glm::vec3, glm::vec3>> boneBounds;
 
+        struct{
+            VulkanDescriptorSetLayout setLayout;
+            VkDescriptorSet set;
+        } descriptor;
+
         struct {
             VulkanBuffer vertices;
             VulkanBuffer indices;
@@ -71,7 +76,13 @@ namespace mdl {
 
         void render(VkCommandBuffer commandBuffer) const;
 
-        void createBuffers(const VulkanDevice& device, const std::vector<Mesh>& meshes);
+        void createBuffers(const VulkanDevice& device, std::vector<Mesh>& meshes);
+
+        void createDescriptorSetLayout(const VulkanDevice& device);
+
+        void updateDescriptorSet(const VulkanDevice& device, const VulkanDescriptorPool& descriptorPool);
+
+        static constexpr uint32_t kLayoutBinding_BONE = 0;
 
     };
 

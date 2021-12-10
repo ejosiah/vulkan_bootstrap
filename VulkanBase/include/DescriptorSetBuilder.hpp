@@ -4,12 +4,12 @@
 
 class DescriptorSetLayoutBuilder {
 public:
-    explicit DescriptorSetLayoutBuilder(VulkanDevice& device) : device(device){}
+    explicit DescriptorSetLayoutBuilder(const VulkanDevice& device) : device(device){}
 
     class DescriptorSetLayoutBindingBuilder{
     public:
         explicit DescriptorSetLayoutBindingBuilder(
-                VulkanDevice& device, 
+                const VulkanDevice& device,
                 std::vector<VkDescriptorSetLayoutBinding>& bindings, 
                 uint32_t bindingValue
         )
@@ -20,34 +20,34 @@ public:
         };
 
 
-        DescriptorSetLayoutBindingBuilder binding(uint32_t value){
+        DescriptorSetLayoutBindingBuilder binding(uint32_t value) const {
             assertBinding();
             bindings.push_back(_binding);
             return DescriptorSetLayoutBindingBuilder{ device, bindings, value};
         }
 
-        DescriptorSetLayoutBindingBuilder& descriptorCount(uint32_t count){
+        const DescriptorSetLayoutBindingBuilder& descriptorCount(uint32_t count) const{
             _binding.descriptorCount = count;
             return *this;
         }
 
-        DescriptorSetLayoutBindingBuilder& descriptorType(VkDescriptorType type){
+        const DescriptorSetLayoutBindingBuilder& descriptorType(VkDescriptorType type) const{
             _binding.descriptorType = type;
             return *this;
         }
 
-        DescriptorSetLayoutBindingBuilder& shaderStages(VkShaderStageFlags flags){
+        const DescriptorSetLayoutBindingBuilder& shaderStages(VkShaderStageFlags flags) const{
             _binding.stageFlags = flags;
             return *this;
         }
 
-        DescriptorSetLayoutBindingBuilder& immutableSamplers(const VkSampler* samplers){
+        const DescriptorSetLayoutBindingBuilder& immutableSamplers(const VkSampler* samplers) const{
             _binding.pImmutableSamplers = samplers;
             return *this;
         }
         
         [[nodiscard]] 
-        VulkanDescriptorSetLayout createLayout(VkDescriptorSetLayoutCreateFlags flags = 0) const{
+        VulkanDescriptorSetLayout createLayout(VkDescriptorSetLayoutCreateFlags flags = 0) const {
             assertBinding();
             bindings.push_back(_binding);
             return device.createDescriptorSetLayout(bindings, flags);
@@ -58,16 +58,16 @@ public:
         }
 
     private:
-        VkDescriptorSetLayoutBinding _binding{};
+        mutable VkDescriptorSetLayoutBinding _binding{};
         std::vector<VkDescriptorSetLayoutBinding>& bindings;
-        VulkanDevice& device;
+        const VulkanDevice& device;
     };
 
-    DescriptorSetLayoutBindingBuilder binding(uint32_t value){
+    DescriptorSetLayoutBindingBuilder binding(uint32_t value) const {
         return DescriptorSetLayoutBindingBuilder{ device, bindings, value};
     }
 
 private:
-    std::vector<VkDescriptorSetLayoutBinding> bindings;
-    VulkanDevice& device;
+    mutable std::vector<VkDescriptorSetLayoutBinding> bindings;
+    const VulkanDevice& device;
 };

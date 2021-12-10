@@ -52,7 +52,8 @@ protected:
     VulkanCommandPool commandPool;
     std::vector<VkCommandBuffer> commandBuffers;
     VulkanPipelineCache pipelineCache;
-    std::shared_ptr<mdl::Model> model;
 
+    std::shared_ptr<mdl::Model> model;
+    anim::Animation animation;
     std::unique_ptr<OrbitingCameraController> cameraController;
 };

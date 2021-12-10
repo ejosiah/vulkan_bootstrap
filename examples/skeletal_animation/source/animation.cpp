@@ -3,6 +3,19 @@
 #include <assimp/Importer.hpp>
 #include "glm_assimp_interpreter.hpp"
 
+void loadNodes(anim::Animation& animation, const aiNode* aiNode){
+    int id = int(animation.nodes.size());
+    std::string name = aiNode->mName.C_Str();
+    glm::mat4 transform = to_mat4(aiNode->mTransformation);
+
+    anim::AnimationNode node{id, name, transform};
+    animation.nodes.push_back(node);
+    for(int i = 0; i < aiNode->mNumChildren; i++){
+        auto childNode = aiNode->mChildren[i];
+        loadNodes(animation, childNode);
+    }
+}
+
 std::vector<anim::Animation> anim::load(mdl::Model* model, const std::string &path, uint32_t flags) {
     Assimp::Importer importer;
     const auto scene = importer.ReadFile(path.data(), flags);
@@ -22,42 +35,46 @@ std::vector<anim::Animation> anim::load(mdl::Model* model, const std::string &pa
                 boneAnimation.translationKeys.push_back(translation);
             }
             for(auto k = 0; k < channel->mNumScalingKeys; k++){
-                const auto key = channel->mScalingKeys;
-                Scale scale{ to_vec3(key->mValue), float(key->mTime) };
+                const auto key = channel->mScalingKeys[k];
+
+                Scale scale{ to_vec3(key.mValue), float(key.mTime) };
                 boneAnimation.scaleKeys.push_back(scale);
             }
 
             for(auto k = 0; k < channel->mNumRotationKeys; k++){
-                const auto key = channel->mRotationKeys;
-                QRotation rotation{to_quat(key->mValue), float(key->mTime) };
+                const auto key = channel->mRotationKeys[k];
+                QRotation rotation{to_quat(key.mValue), float(key.mTime) };
                 boneAnimation.rotationKeys.push_back(rotation);
             }
             animation.channels[boneAnimation.name] = boneAnimation;
         }
+        loadNodes(animation, scene->mRootNode);
         animations.push_back(animation);
     }
     return animations;
 }
 
 void anim::Animation::update(float time) {
+    elapsedTimeInSeconds += time;
     assert(model);
 
     static auto applyParentTransforms = [&](mdl::Bone& bone){
         glm::mat4 transform{1};
         auto parentId = bone.parent;
         while(parentId != mdl::NULL_BONE){
-            transform = model->bones[bone.parent].transform * transform;
-            parentId = model->bones[bone.parent].parent;
+            transform = model->bones[parentId].transform * transform;
+            parentId = model->bones[parentId].parent;
         }
         return transform;
     };
 
-    auto tick = glm::mod(time * ticksPerSecond, duration);
+    auto tick = glm::mod(elapsedTimeInSeconds * ticksPerSecond, duration);
+    spdlog::info("tick: {}", tick);
     auto& bones = model->bones;
-
+    auto transforms = reinterpret_cast<glm::mat4*>(model->buffers.boneTransforms.map());
     // Bone hierarchy is in reverse
     // so leave bones are processed last in the hierarchy
-    for(auto i = bones.size() - 1; i >= 0; i--){
+    for(int i = bones.size() - 1; i >= 0; i--){
         auto& bone = bones[i];
         auto transform = bone.transform;
         auto itr = channels.find(bone.name);
@@ -68,14 +85,53 @@ void anim::Animation::update(float time) {
             auto qRotate = interpolateRotation(animation, tick);
             auto rotate = glm::mat4(qRotate);
 
-            transform =  glm::translate(transform, position) * rotate * glm::scale(transform, scale);
+            transform =  glm::translate(glm::mat4(1), position) * rotate * glm::scale(glm::mat4(1), scale);
 
         }
 
         auto globalInverseXform = model->globalInverseTransform;
-        auto transforms = reinterpret_cast<glm::mat4*>(model->buffers.boneTransforms.map());
         transforms[i] = globalInverseXform * applyParentTransforms(bone) * transform * bone.offsetMatrix;
     }
+    model->buffers.boneTransforms.unmap();
+}
+
+void anim::Animation::update0(float time) {
+    elapsedTimeInSeconds += time;
+    assert(model);
+
+    auto tick = glm::mod(elapsedTimeInSeconds * ticksPerSecond, duration);
+    spdlog::info("tick: {}", tick);
+    auto& bones = model->bones;
+    auto transforms = reinterpret_cast<glm::mat4*>(model->buffers.boneTransforms.map());
+    auto globalInverseXform = model->globalInverseTransform;
+    std::vector<glm::mat4> hTransforms;
+
+    std::function<void(mdl::Bone&, glm::mat4)> walkBoneHierarchy = [&](mdl::Bone& bone, glm::mat4 parentTransform){
+        auto transform = bone.transform;
+        auto itr = channels.find(bone.name);
+        if(itr != channels.end()) {
+            auto& animation = itr->second;
+            auto position = interpolateTranslation(animation, tick);
+            auto scale = interpolateScale(animation, tick);
+            auto qRotate = interpolateRotation(animation, tick);
+            auto rotate = glm::mat4(qRotate);
+
+            transform =  glm::translate(glm::mat4(1), position) * rotate * glm::scale(glm::mat4(1), scale);
+        }
+        auto globalTransform = parentTransform * transform;
+        auto finalTransform = globalInverseXform * globalTransform * bone.offsetMatrix;
+        hTransforms.push_back(finalTransform);
+
+        for(int childId : bone.children){
+            walkBoneHierarchy(model->bones[childId], globalTransform);
+        }
+    };
+
+    walkBoneHierarchy(model->bones[model->rootBone], glm::mat4(1));
+    auto dest = model->buffers.boneTransforms.map();
+    std::memcpy(dest, hTransforms.data(), BYTE_SIZE(hTransforms));
+    model->buffers.boneTransforms.unmap();
+
 }
 
 glm::vec3 anim::Animation::interpolateTranslation(const anim::BoneAnimation &boneAnimation, anim::Tick tick) {
@@ -84,7 +140,7 @@ glm::vec3 anim::Animation::interpolateTranslation(const anim::BoneAnimation &bon
     }
 
     auto index = boneAnimation.translationKey(tick);
-
+    assert(index >= 0);
     auto currentKeyFrame = boneAnimation.translationKeys[index];
     auto nextKeyFrame = boneAnimation.translationKeys[index + 1];
 
@@ -101,7 +157,7 @@ glm::vec3 anim::Animation::interpolateScale(const anim::BoneAnimation &boneAnima
     }
 
     auto index = boneAnimation.scaleKey(tick);
-
+    assert(index >= 0);
     auto currentKeyFrame = boneAnimation.scaleKeys[index];
     auto nextKeyFrame = boneAnimation.scaleKeys[index + 1];
 
@@ -118,7 +174,7 @@ glm::quat anim::Animation::interpolateRotation(const anim::BoneAnimation &boneAn
     }
 
     auto index = boneAnimation.rotationKey(tick);
-
+    assert(index >= 0);
     auto currentKeyFrame = boneAnimation.rotationKeys[index];
     auto nextKeyFrame = boneAnimation.rotationKeys[index + 1];
 

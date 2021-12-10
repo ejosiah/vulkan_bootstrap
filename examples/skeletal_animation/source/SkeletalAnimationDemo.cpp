@@ -15,10 +15,10 @@ SkeletalAnimationDemo::SkeletalAnimationDemo(const Settings& settings) : VulkanB
 }
 
 void SkeletalAnimationDemo::initApp() {
-    initModel();
-    initCamera();
     createDescriptorPool();
     createCommandPool();
+    initModel();
+    initCamera();
     createPipelineCache();
     createRenderPipeline();
     createComputePipeline();
@@ -69,7 +69,12 @@ void SkeletalAnimationDemo::createRenderPipeline() {
                 .fragmentShader(load("render.frag.spv"))
             .vertexInputState()
                 .addVertexBindingDescriptions(Vertex::bindingDisc())
+                .addVertexBindingDescription(1, sizeof(mdl::VertexBoneInfo), VK_VERTEX_INPUT_RATE_VERTEX)
                 .addVertexAttributeDescriptions(Vertex::attributeDisc())
+                .addVertexAttributeDescription(6, 1, VK_FORMAT_R32G32B32A32_UINT, (size_t)&(((mdl::VertexBoneInfo*)0)->boneIds[0]))
+                .addVertexAttributeDescription(7, 1, VK_FORMAT_R32G32B32A32_UINT, (size_t)&(((mdl::VertexBoneInfo*)0)->boneIds[4]))
+                .addVertexAttributeDescription(8, 1, VK_FORMAT_R32G32B32A32_SFLOAT, (size_t)&(((mdl::VertexBoneInfo*)0)->weights[0]))
+                .addVertexAttributeDescription(9, 1, VK_FORMAT_R32G32B32A32_SFLOAT, (size_t)&(((mdl::VertexBoneInfo*)0)->weights[4]))
             .inputAssemblyState()
                 .triangles()
             .viewportState()
@@ -97,6 +102,7 @@ void SkeletalAnimationDemo::createRenderPipeline() {
                     .add()
                 .layout()
                     .addPushConstantRange(Camera::pushConstant())
+                    .addDescriptorSetLayout(model->descriptor.setLayout)
                 .renderPass(renderPass)
                 .subpass(0)
                 .name("render")
@@ -150,6 +156,7 @@ VkCommandBuffer *SkeletalAnimationDemo::buildCommandBuffers(uint32_t imageIndex,
     vkCmdBeginRenderPass(commandBuffer, &rPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, render.pipeline);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, render.layout, 0, 1, &model->descriptor.set, 0, VK_NULL_HANDLE);
     cameraController->push(commandBuffer, render.layout);
     model->render(commandBuffer);
 
@@ -161,6 +168,7 @@ VkCommandBuffer *SkeletalAnimationDemo::buildCommandBuffers(uint32_t imageIndex,
 }
 
 void SkeletalAnimationDemo::update(float time) {
+    animation.update(time);
     cameraController->update(time);
 }
 
@@ -178,7 +186,10 @@ void SkeletalAnimationDemo::onPause() {
 }
 
 void SkeletalAnimationDemo::initModel() {
-    model = mdl::load(device, "../../data/models/character/Wave_Hip_Hop_Dance.fbx");
+    auto path = std::string{ "../../data/models/character/Wave_Hip_Hop_Dance.fbx" };
+    model = mdl::load(device, path);
+    model->updateDescriptorSet(device, descriptorPool);
+    animation = anim::load(model.get(), path).front();
     spdlog::info("model bounds: [{}, {}], height: {}", model->bounds.min, model->bounds.max, model->height());
 }
 

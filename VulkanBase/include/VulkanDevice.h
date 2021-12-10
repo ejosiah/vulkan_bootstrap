@@ -595,7 +595,7 @@ struct VulkanDevice{
     }
 
     [[nodiscard]]
-    DescriptorSetLayoutBuilder descriptorSetLayoutBuilder();
+    DescriptorSetLayoutBuilder descriptorSetLayoutBuilder() const ;
 
     [[nodiscard]]
     GraphicsPipelineBuilder graphicsPipelineBuilder();

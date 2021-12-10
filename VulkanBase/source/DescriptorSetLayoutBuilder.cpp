@@ -3,6 +3,6 @@
 
 #include "DescriptorSetBuilder.hpp"
 
-DescriptorSetLayoutBuilder VulkanDevice::descriptorSetLayoutBuilder() {
+DescriptorSetLayoutBuilder VulkanDevice::descriptorSetLayoutBuilder() const {
     return DescriptorSetLayoutBuilder{ *this };
 }
