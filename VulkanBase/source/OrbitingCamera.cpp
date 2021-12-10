@@ -1,3 +1,4 @@
+#include <OrbitingCamera.h>
 #include "OrbitingCamera.h"
 
 OrbitingCameraController::OrbitingCameraController(const VulkanDevice& device, uint32_t swapChainImageCount, const uint32_t& currentImageIndex,  InputManager& inputManager,  const OrbitingCameraSettings& settings)

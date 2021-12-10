@@ -1,5 +1,6 @@
 #include "VulkanBaseApp.h"
 #include "model.hpp"
+#include "animation.hpp"
 
 class SkeletalAnimationDemo : public VulkanBaseApp{
 public:
@@ -51,7 +52,7 @@ protected:
     VulkanCommandPool commandPool;
     std::vector<VkCommandBuffer> commandBuffers;
     VulkanPipelineCache pipelineCache;
-    model::Model model;
+    std::shared_ptr<mdl::Model> model;
 
-    std::unique_ptr<CameraController> cameraController;
+    std::unique_ptr<OrbitingCameraController> cameraController;
 };

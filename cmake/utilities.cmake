@@ -48,6 +48,8 @@ function(compile_glsl_directory)
         "${COMPILE_SRC_DIR}/*.comp"
     )
 
+    file(MAKE_DIRECTORY ${COMPILE_OUT_DIR})
+
     foreach(SHADER_SOURCE IN ITEMS ${GLSL_SOURCE_FILES})
         get_filename_component(SHADER_FILE_NAME ${SHADER_SOURCE} NAME)
         set(SPV_FILE "${COMPILE_OUT_DIR}/${SHADER_FILE_NAME}.spv")

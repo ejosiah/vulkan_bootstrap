@@ -5,58 +5,59 @@
 
 namespace anim{
 
-    template<T = glm::mat4>
+    using Tick = float;
+
+    template<typename T>
     struct KeyFrame{
         T value{};
-        double time{};
+        Tick tick{};
     };
 
-    using Translation = KeyFrame;
-    using Scale = KeyFrame;
+    using Translation = KeyFrame<glm::vec3>;
+    using Scale = KeyFrame<glm::vec3>;
     using QRotation = KeyFrame<glm::quat>;
-    using Tick = double;
 
-    struct BoneNode{
-        int id;
-        std::string name;
-        std::vector<int> children;
-    };
-
-    struct KeyFrame{
-        Scale scale;
-        Translation translation;
-        QRotation rotation;
-        std::string name;
-    };
 
     struct BoneAnimation{
         std::string name;
         std::vector<Translation> translationKeys;
         std::vector<Scale> scaleKeys;
         std::vector<QRotation> rotationKeys;
+
+        [[nodiscard]]
+        int translationKey(Tick tick) const;
+
+        [[nodiscard]]
+        int scaleKey(Tick tick) const;
+
+        [[nodiscard]]
+        int rotationKey(Tick tick) const;
     };
 
     struct Animation{
-        std::shared_ptr<Model> model;
-        std::shared_ptr<std::vector<BoneAnimation>> channels;
-        std::shared_ptr<std::unordered_map<id, BoneNode>> BoneHierarchy;
-        std::shared_ptr<std::vector<BoneNode>> boneNodes;
+        std::string name;
         Tick duration{0};
-        double ticksPerSecond{25};
+        float ticksPerSecond{25};
+        mdl::Model* model{nullptr};
+        std::unordered_map<std::string, BoneAnimation> channels;
 
         void update(float time);
+
+    private:
+        glm::vec3 interpolateTranslation(const BoneAnimation& boneAnimation, Tick tick);
+
+        glm::vec3 interpolateScale(const BoneAnimation& boneAnimation, Tick tick);
+
+        glm::quat interpolateRotation(const BoneAnimation& boneAnimation, Tick tick);
     };
 
     struct Character{
-        std::shared_ptr<Model> model;
-        std::shared_ptr<std::vector<BoneAnimation>> channels;
-        std::shared_ptr<std::unordered_map<id, BoneNode>> BoneHierarchy;
-        std::shared_ptr<std::vector<BoneNode>> boneNodes;
-        std::map<std::string, Animation> animations;
+        mdl::Model model;
+        std::unordered_map<std::string, Animation> animations;
         std::string currentAnimation;
 
         void update(float time);
     };
 
-    void load(Character& character, std::string path);
+    std::vector<Animation> load(mdl::Model* model, const std::string& path, uint32_t flags = mdl::DEFAULT_PROCESS_FLAGS);
 }

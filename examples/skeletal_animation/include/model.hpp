@@ -3,12 +3,13 @@
 #include "common.h"
 #include "Mesh.h"
 #include "VulkanModel.h"
+#include "VulkanDevice.h"
 #include <assimp/postprocess.h>
 
-namespace model {
+namespace mdl {
     static constexpr int NUN_BONES_PER_VERTEX = 5;
     constexpr uint32_t DEFAULT_PROCESS_FLAGS = aiProcess_GenSmoothNormals | aiProcess_Triangulate | aiProcess_CalcTangentSpace | aiProcess_JoinIdenticalVertices | aiProcess_ValidateDataStructure;
-
+    constexpr int NULL_BONE = -1;
 
     struct VertexBoneInfo {
         std::array<uint32_t, NUN_BONES_PER_VERTEX> boneIds;
@@ -31,17 +32,21 @@ namespace model {
     };
 
     struct Bone{
-        uint32_t id;
+        int id{NULL_BONE};
         std::string name;
         glm::mat4 offsetMatrix{1};
-        glm::mat4 finalTransform{1};
+        int parent{NULL_BONE};
+        std::vector<int> children;
+        glm::mat4 transform{1};
     };
 
     struct Model {
         std::vector<vkn::Primitive> primitives;
         std::vector<Bone> bones;
-        std::unordered_map<std::string, uint32_t> bonesMapping;
+        int rootBone;
+        std::unordered_map<std::string, int> bonesMapping;
         glm::mat4 globalInverseTransform{1};
+        std::vector<std::tuple<glm::vec3, glm::vec3>> boneBounds;
 
         struct {
             VulkanBuffer vertices;
@@ -59,11 +64,16 @@ namespace model {
         float height() const;
 
         [[nodiscard]]
+        glm::vec3 diagonal() const;
+
+        [[nodiscard]]
         uint32_t numTriangles() const;
 
         void render(VkCommandBuffer commandBuffer) const;
 
+        void createBuffers(const VulkanDevice& device, const std::vector<Mesh>& meshes);
+
     };
 
-    std::shared_ptr<Model> load(const std::string &path, uint32_t flags = mesh::DEFAULT_PROCESS_FLAGS);
+    std::shared_ptr<Model> load(const VulkanDevice& device, const std::string &path, uint32_t flags = mesh::DEFAULT_PROCESS_FLAGS);
 }

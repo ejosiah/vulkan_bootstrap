@@ -15,6 +15,10 @@ struct OrbitingCameraSettings : public BaseCameraSettings{
     float orbitMaxZoom = DEFAULT_ORBIT_MAX_ZOOM;
     float modelHeight = 1.0f;
     bool preferTargetYAxisOrbiting = true;
+    struct {
+        glm::vec3 min{MAX_FLOAT};
+        glm::vec3 max{MIN_FLOAT};
+    } model;
 };
 
 class OrbitingCameraController : public BaseCameraController {

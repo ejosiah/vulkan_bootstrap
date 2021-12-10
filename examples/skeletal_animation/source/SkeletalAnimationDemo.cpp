@@ -95,6 +95,8 @@ void SkeletalAnimationDemo::createRenderPipeline() {
                 .colorBlendState()
                     .attachment()
                     .add()
+                .layout()
+                    .addPushConstantRange(Camera::pushConstant())
                 .renderPass(renderPass)
                 .subpass(0)
                 .name("render")
@@ -147,7 +149,9 @@ VkCommandBuffer *SkeletalAnimationDemo::buildCommandBuffers(uint32_t imageIndex,
 
     vkCmdBeginRenderPass(commandBuffer, &rPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, render.pipeline);
+    cameraController->push(commandBuffer, render.layout);
+    model->render(commandBuffer);
 
     vkCmdEndRenderPass(commandBuffer);
 
@@ -157,11 +161,11 @@ VkCommandBuffer *SkeletalAnimationDemo::buildCommandBuffers(uint32_t imageIndex,
 }
 
 void SkeletalAnimationDemo::update(float time) {
-    VulkanBaseApp::update(time);
+    cameraController->update(time);
 }
 
 void SkeletalAnimationDemo::checkAppInputs() {
-    VulkanBaseApp::checkAppInputs();
+    cameraController->processInput();
 }
 
 void SkeletalAnimationDemo::cleanup() {
@@ -174,23 +178,32 @@ void SkeletalAnimationDemo::onPause() {
 }
 
 void SkeletalAnimationDemo::initModel() {
-//    model = Model::load("../../data/models/character/Wave_Hip_Hop_Dance.fbx");
+    model = mdl::load(device, "../../data/models/character/Wave_Hip_Hop_Dance.fbx");
+    spdlog::info("model bounds: [{}, {}], height: {}", model->bounds.min, model->bounds.max, model->height());
 }
 
 void SkeletalAnimationDemo::initCamera() {
-    CameraSettings settings{};
+    OrbitingCameraSettings settings{};
     settings.aspectRatio = static_cast<float>(swapChain.extent.width)/static_cast<float>(swapChain.extent.height);
     settings.rotationSpeed = 0.1f;
     settings.horizontalFov = true;
-    settings.zNear = 1.0;
-    settings.zFar = 100;
-    cameraController = std::make_unique<CameraController>(device, swapChain.imageCount(), currentImageIndex, dynamic_cast<InputManager&>(*this), settings);
-    cameraController->setMode(CameraMode::SPECTATOR);
-    auto target = (model.bounds.max + model.bounds.min) * 0.5f;
-    auto pos = target - glm::vec3(0, 0, 1);
-    cameraController->lookAt(pos, target, {0, 1, 0});
+    settings.offsetDistance = 900.f;
+    settings.orbitMaxZoom = settings.offsetDistance;
+    settings.modelHeight = model->height() - model->bounds.min.y;
+    settings.model.min = model->bounds.min;
+    settings.model.max = model->bounds.max;
+    cameraController = std::make_unique<OrbitingCameraController>(device, swapChain.imageCount(), currentImageIndex, dynamic_cast<InputManager&>(*this), settings);
+
 }
 
+void walkBoneHierarchy(const mdl::Model& model, const mdl::Bone& bone, int depth){
+    const std::vector<mdl::Bone>& bones = model.bones;
+    auto [min, max] = model.boneBounds[bone.id];
+    fmt::print("{: >{}}{}[min: {}, max: {}]\n", "", depth + 1, bone.name, min, max);
+    for(const auto& i : bone.children){
+        walkBoneHierarchy(model, bones[i], depth + 1);
+    }
+}
 
 int main(){
     try{
@@ -199,11 +212,43 @@ int main(){
         settings.depthTest = true;
 
         auto app = SkeletalAnimationDemo{ settings };
-//        app.run();
-        std::shared_ptr<model::Model> m = model::load("../../data/models/character/Wave_Hip_Hop_Dance.fbx");
-        for(auto& bone : m->bones){
-            fmt::print("{}\n", bone.name);
-        }
+        app.run();
+//        std::string path = "../../data/models/character/Wave_Hip_Hop_Dance.fbx";
+//        std::shared_ptr<model::Model> m = model::load(path);
+//        auto animation = anim::load(m.get(), path).front();
+//        fmt::print("animation:\n");
+//        fmt::print("\tname: {}\n", animation.name);
+//        fmt::print("\tduration: {}\n", animation.duration);
+//        fmt::print("\tticksPerSecond: {}\n", animation.ticksPerSecond);
+//        fmt::print("\tchannels: {}\n", animation.channels.size());
+//        walkBoneHierarchy(*m, m->bones[m->rootBone], 0);
+//        fmt::print("\n\n");
+////        for(auto& bone : m->bones){
+////            fmt::print("{}\n", bone.name);
+////        }
+//    auto duration = animation.duration/animation.ticksPerSecond;
+//    fmt::print("\tduration in seconds: {}\n", duration);
+//
+////    for(float t = 0; t < 17; t += 0.3f){
+////        auto tick = std::fmod((t * animation.ticksPerSecond), animation.duration);
+////        fmt::print("tick: {}\n", tick);
+////    }
+//    fmt::print("\n\n");
+//
+////    for(int i = 0; i < animation.channels.size(); i++){
+////        const auto channel = animation.channels[i];
+////        fmt::print("channel[name: {}, id: {}]\n", channel.name, i);
+////        for(auto j = 0; j < channel.translationKeys.size(); j++){
+////            auto key = channel.translationKeys[j];
+////            if(key.time > 0) {
+////                fmt::print("\tkey[id: {}, time: {}]\n", j, key.time);
+////            }
+////        }
+////        fmt::print("\n\n");
+////    }
+//    auto leftIndexFinger = m->bones[49];
+//    fmt::print("name: {}, parent: {}", leftIndexFinger.name, m->bones[leftIndexFinger.parent].name);
+
     }catch(std::runtime_error& err){
         spdlog::error(err.what());
     }
