@@ -168,7 +168,7 @@ VkCommandBuffer *SkeletalAnimationDemo::buildCommandBuffers(uint32_t imageIndex,
 }
 
 void SkeletalAnimationDemo::update(float time) {
-//    animation.update(time);
+    animation.update(time);
     cameraController->update(time);
 }
 
@@ -177,6 +177,7 @@ void SkeletalAnimationDemo::checkAppInputs() {
 }
 
 void SkeletalAnimationDemo::cleanup() {
+    model->buffers.boneTransforms.unmap();
     // TODO save pipeline cache
     VulkanBaseApp::cleanup();
 }

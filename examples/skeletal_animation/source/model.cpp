@@ -95,6 +95,7 @@ void map(const aiNode* node, const aiScene* scene, mdl::Model& model, aiMesh* ai
             if(vertexBoneWeightMapping.find(vertexId) != vertexBoneWeightMapping.end()){
                 int slot = 0;
                 mdl::VertexBoneInfo boneInfo{};
+                int bones  = vertexBoneWeightMapping[vertexId].size();
                 for(auto [boneId, weight] : vertexBoneWeightMapping[vertexId]){
                     assert(slot < mdl::NUN_BONES_PER_VERTEX);
                     boneInfo.boneIds[slot] = boneId;
