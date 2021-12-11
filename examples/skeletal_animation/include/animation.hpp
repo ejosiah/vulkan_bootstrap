@@ -43,6 +43,11 @@ namespace anim{
         std::vector<int> children;
     };
 
+    struct AnimationNodes{
+        std::vector<int> ids;
+        std::vector<std::string> names;
+    };
+
     struct Animation{
         std::string name;
         Tick duration{0};

@@ -11,7 +11,7 @@ layout(location = 0) in struct {
     vec2 uv;
 } v_in;
 
-const vec3 gAmb = vec3(0.3);
+const vec3 gAmb = vec3(0.5);
 
 layout(location = 0) out vec4 fragColor;
 

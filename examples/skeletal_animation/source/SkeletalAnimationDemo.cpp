@@ -172,7 +172,8 @@ VkCommandBuffer *SkeletalAnimationDemo::buildCommandBuffers(uint32_t imageIndex,
 }
 
 void SkeletalAnimationDemo::update(float time) {
-    animation.update0(time);
+    glfwSetWindowTitle(window, fmt::format("{} - FPS {}", title, framePerSecond).c_str());
+    animation.update(time);
     cameraController->update(time);
 }
 
@@ -229,7 +230,7 @@ void SkeletalAnimationDemo::initCamera() {
     cameraController = std::make_unique<CameraController>(device, swapChain.imageCount(), currentImageIndex, dynamic_cast<InputManager&>(*this), settings);
     cameraController->setMode(CameraMode::SPECTATOR);
     auto target = (model->bounds.max + model->bounds.min) * 0.5f;
-    auto pos = target + glm::vec3(1, 0, 0) * model->diagonal().z * 5.f;
+    auto pos = target + glm::vec3(0, 0, 1) * model->diagonal().z * 5.f;
     cameraController->lookAt(pos, target, {0, 1, 0});
 
 }
@@ -251,41 +252,6 @@ int main(){
 
         auto app = SkeletalAnimationDemo{ settings };
         app.run();
-//        std::string path = "../../data/models/character/Wave_Hip_Hop_Dance.fbx";
-//        std::shared_ptr<model::Model> m = model::load(path);
-//        auto animation = anim::load(m.get(), path).front();
-//        fmt::print("animation:\n");
-//        fmt::print("\tname: {}\n", animation.name);
-//        fmt::print("\tduration: {}\n", animation.duration);
-//        fmt::print("\tticksPerSecond: {}\n", animation.ticksPerSecond);
-//        fmt::print("\tchannels: {}\n", animation.channels.size());
-//        walkBoneHierarchy(*m, m->bones[m->rootBone], 0);
-//        fmt::print("\n\n");
-////        for(auto& bone : m->bones){
-////            fmt::print("{}\n", bone.name);
-////        }
-//    auto duration = animation.duration/animation.ticksPerSecond;
-//    fmt::print("\tduration in seconds: {}\n", duration);
-//
-////    for(float t = 0; t < 17; t += 0.3f){
-////        auto tick = std::fmod((t * animation.ticksPerSecond), animation.duration);
-////        fmt::print("tick: {}\n", tick);
-////    }
-//    fmt::print("\n\n");
-//
-////    for(int i = 0; i < animation.channels.size(); i++){
-////        const auto channel = animation.channels[i];
-////        fmt::print("channel[name: {}, id: {}]\n", channel.name, i);
-////        for(auto j = 0; j < channel.translationKeys.size(); j++){
-////            auto key = channel.translationKeys[j];
-////            if(key.time > 0) {
-////                fmt::print("\tkey[id: {}, time: {}]\n", j, key.time);
-////            }
-////        }
-////        fmt::print("\n\n");
-////    }
-//    auto leftIndexFinger = m->bones[49];
-//    fmt::print("name: {}, parent: {}", leftIndexFinger.name, m->bones[leftIndexFinger.parent].name);
 
     }catch(std::runtime_error& err){
         spdlog::error(err.what());

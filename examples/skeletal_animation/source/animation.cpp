@@ -63,27 +63,9 @@ void anim::Animation::update(float time) {
     static std::vector<glm::mat4> hTransforms;
     hTransforms.resize(model->bones.size());
 
-    static auto applyParentTransforms = [&](AnimationNode& node){
-        glm::mat4 transform{1};
-        auto parentId = node.parentId;
-        std::vector<glm::mat4> globalTransform;
-        while(parentId != -1){
-//            transform =  transform * nodes[parentId].globalTransform;
-            globalTransform.push_back(nodes[parentId].globalTransform);
-            parentId = nodes[parentId].parentId;
-        }
-        for(int i = globalTransform.size() - 1; i >= 0; i--){
-            transform = globalTransform[i] * transform;
-        }
-        return transform;
-    };
-
-    auto tick = glm::mod(elapsedTimeInSeconds * ticksPerSecond, ticksPerSecond);
+    auto tick = glm::mod(elapsedTimeInSeconds * ticksPerSecond, duration);
     auto globalInverseXform = model->globalInverseTransform;
-    static bool once = true;
     for(auto& node : nodes){
-        if(once)
-            spdlog::info("node[{}]", node.name);
         auto nodeTransform = node.transform;
         auto itr = channels.find(node.name);
         if(itr != channels.end()){
@@ -96,22 +78,17 @@ void anim::Animation::update(float time) {
 
             nodeTransform =  glm::translate(glm::mat4(1), position) * rotate * glm::scale(glm::mat4(1), scale);
         }
-        node.globalTransform = applyParentTransforms(node) * nodeTransform;
+        glm::mat4 parentTransform = node.parentId != -1 ? nodes[node.parentId].globalTransform : glm::mat4(1);
+        node.globalTransform = parentTransform * nodeTransform;
 
         auto bItr = model->bonesMapping.find(node.name);
         if(bItr != model->bonesMapping.end()) {
             auto& bone = model->bones[bItr->second];
             hTransforms[bone.id] = globalInverseXform * node.globalTransform * bone.offsetMatrix;
-//                bone.transform = globalInverseXform * node.globalTransform;
         }
     }
-    once = false;
     model->buffers.boneTransforms.copy(hTransforms.data(), BYTE_SIZE(hTransforms));
-//        auto transforms = reinterpret_cast<glm::mat4*>(model->buffers.boneTransforms.map());
-//        for(int i = 0; i < model->bones.size(); i++){
-//            transforms[i] = model->bones[i].transform;
-//        }
-//        model->buffers.boneTransforms.unmap();
+
 }
 
 void anim::Animation::update0(float time) {
