@@ -581,7 +581,7 @@ struct VulkanDevice{
     }
 
     template<VkObjectType objectType>
-    inline void setName(const std::string& objectName, void* ptr){
+    inline void setName(const std::string& objectName, void* ptr) const {
         VkDebugUtilsObjectNameInfoEXT nameInfo{};
         nameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
         nameInfo.pObjectName = objectName.c_str();

@@ -102,7 +102,7 @@ void SkeletalAnimationDemo::createRenderPipeline() {
                     .add()
                 .layout()
                     .addPushConstantRange(Camera::pushConstant())
-                    .addDescriptorSetLayout(model->descriptor.setLayout)
+                    .addDescriptorSetLayouts({ model->descriptor.boneLayout, model->descriptor.materialLayout })
                 .renderPass(renderPass)
                 .subpass(0)
                 .name("render")
@@ -142,7 +142,7 @@ VkCommandBuffer *SkeletalAnimationDemo::buildCommandBuffers(uint32_t imageIndex,
     vkBeginCommandBuffer(commandBuffer, &beginInfo);
 
     static std::array<VkClearValue, 2> clearValues;
-    clearValues[0].color = {0, 0, 1, 1};
+    clearValues[0].color = {0, 0, 0, 1};
     clearValues[1].depthStencil = {1.0, 0u};
 
     VkRenderPassBeginInfo rPassInfo = initializers::renderPassBeginInfo();
@@ -156,7 +156,11 @@ VkCommandBuffer *SkeletalAnimationDemo::buildCommandBuffers(uint32_t imageIndex,
     vkCmdBeginRenderPass(commandBuffer, &rPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, render.pipeline);
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, render.layout, 0, 1, &model->descriptor.set, 0, VK_NULL_HANDLE);
+
+    static std::array<VkDescriptorSet, 2> sets;
+    sets[0] = model->descriptor.sets[0];
+    sets[1] = model->descriptor.sets[1];
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, render.layout, 0, COUNT(sets), sets.data(), 0, VK_NULL_HANDLE);
     cameraController->push(commandBuffer, render.layout);
     model->render(commandBuffer);
 
@@ -168,7 +172,7 @@ VkCommandBuffer *SkeletalAnimationDemo::buildCommandBuffers(uint32_t imageIndex,
 }
 
 void SkeletalAnimationDemo::update(float time) {
-    animation.update(time);
+    animation.update0(time);
     cameraController->update(time);
 }
 
@@ -177,9 +181,6 @@ void SkeletalAnimationDemo::checkAppInputs() {
 }
 
 void SkeletalAnimationDemo::cleanup() {
-    model->buffers.boneTransforms.unmap();
-    // TODO save pipeline cache
-    VulkanBaseApp::cleanup();
 }
 
 void SkeletalAnimationDemo::onPause() {
@@ -196,24 +197,40 @@ void walkBoneHierarchy1(const anim::Animation& animation, const anim::AnimationN
 
 void SkeletalAnimationDemo::initModel() {
     auto path = std::string{ "../../data/models/character/Wave_Hip_Hop_Dance.fbx" };
+//    auto path = std::string{ "../../data/models/character/Walking.fbx" };
     model = mdl::load(device, path);
     model->updateDescriptorSet(device, descriptorPool);
     animation = anim::load(model.get(), path).front();
     spdlog::info("model bounds: [{}, {}], height: {}", model->bounds.min, model->bounds.max, model->height());
-    walkBoneHierarchy1(animation, animation.nodes[0], 0);
+//    walkBoneHierarchy1(animation, animation.nodes[0], 0);
 }
 
 void SkeletalAnimationDemo::initCamera() {
-    OrbitingCameraSettings settings{};
+//    OrbitingCameraSettings settings{};
+//    settings.aspectRatio = static_cast<float>(swapChain.extent.width)/static_cast<float>(swapChain.extent.height);
+//    settings.rotationSpeed = 0.1f;
+//    settings.horizontalFov = true;
+//    settings.zFar = 2000;
+//    settings.offsetDistance = glm::max(model->diagonal().z, glm::max(model->diagonal().x, model->diagonal().y)) * 2;
+//    settings.orbitMaxZoom = settings.offsetDistance;
+//    settings.modelHeight = model->height();
+//    settings.model.min = model->bounds.min;
+//    settings.model.max = model->bounds.max;
+//    cameraController = std::make_unique<OrbitingCameraController>(device, swapChain.imageCount(), currentImageIndex, dynamic_cast<InputManager&>(*this), settings);
+
+    CameraSettings settings{};
     settings.aspectRatio = static_cast<float>(swapChain.extent.width)/static_cast<float>(swapChain.extent.height);
     settings.rotationSpeed = 0.1f;
     settings.horizontalFov = true;
-    settings.offsetDistance = 900.f;
-    settings.orbitMaxZoom = settings.offsetDistance;
-    settings.modelHeight = model->height() - model->bounds.min.y;
-    settings.model.min = model->bounds.min;
-    settings.model.max = model->bounds.max;
-    cameraController = std::make_unique<OrbitingCameraController>(device, swapChain.imageCount(), currentImageIndex, dynamic_cast<InputManager&>(*this), settings);
+    settings.zNear = 1.0;
+    settings.zFar = 2000;
+    settings.velocity = glm::vec3(200);
+    settings.acceleration = glm::vec3(100);
+    cameraController = std::make_unique<CameraController>(device, swapChain.imageCount(), currentImageIndex, dynamic_cast<InputManager&>(*this), settings);
+    cameraController->setMode(CameraMode::SPECTATOR);
+    auto target = (model->bounds.max + model->bounds.min) * 0.5f;
+    auto pos = target + glm::vec3(1, 0, 0) * model->diagonal().z * 5.f;
+    cameraController->lookAt(pos, target, {0, 1, 0});
 
 }
 

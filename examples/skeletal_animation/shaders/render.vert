@@ -21,6 +21,13 @@ layout(push_constant) uniform MVP{
     mat4 projection;
 };
 
+layout(location = 0) out struct {
+    vec3 position;
+    vec3 normal;
+    vec3 lightPos;
+    vec2 uv;
+} v_out;
+
 void main(){
     mat4 boneTransform = gBones[boneIds0[0]] * weights0[0];
     boneTransform += gBones[boneIds0[1]] * weights0[1];
@@ -33,5 +40,11 @@ void main(){
     boneTransform += gBones[boneIds1[3]] * weights1[3];
 
     vec4 worldPos = model * boneTransform * position;
+    vec3 worldNormal = inverse(transpose(mat3(model * boneTransform))) * normal;
+
+    v_out.position = worldPos.xyz;
+    v_out.normal = worldNormal;
+    v_out.uv = uv;
+    v_out.lightPos = (view * vec4(0, 0, 0, 1)).xyz;
     gl_Position = projection * view * worldPos;
 }

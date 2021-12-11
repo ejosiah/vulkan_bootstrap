@@ -55,5 +55,6 @@ protected:
 
     std::shared_ptr<mdl::Model> model;
     anim::Animation animation;
-    std::unique_ptr<OrbitingCameraController> cameraController;
+//    std::unique_ptr<OrbitingCameraController> cameraController;
+    std::unique_ptr<CameraController> cameraController;
 };
