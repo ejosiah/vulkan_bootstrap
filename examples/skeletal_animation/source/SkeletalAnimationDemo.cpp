@@ -174,6 +174,7 @@ VkCommandBuffer *SkeletalAnimationDemo::buildCommandBuffers(uint32_t imageIndex,
 void SkeletalAnimationDemo::update(float time) {
     glfwSetWindowTitle(window, fmt::format("{} - FPS {}", title, framePerSecond).c_str());
     animation.update(time);
+//    animation.update_dod(time);
     cameraController->update(time);
 }
 
@@ -204,6 +205,57 @@ void SkeletalAnimationDemo::initModel() {
     animation = anim::load(model.get(), path).front();
     spdlog::info("model bounds: [{}, {}], height: {}", model->bounds.min, model->bounds.max, model->height());
 //    walkBoneHierarchy1(animation, animation.nodes[0], 0);
+    auto& animNodes = animation.animNodes;
+    for(auto& node : animation.nodes){
+        animNodes.ids.push_back(node.id);
+        animNodes.names.push_back(node.name);
+        animNodes.baseTransforms.push_back(node.transform);
+        animNodes.nodeTransforms.emplace_back(1);
+        animNodes.parentIds.push_back(node.parentId);
+        animNodes.globalTransforms.emplace_back(1);
+        animNodes.finalTransforms.emplace_back(1);
+        if(animation.channels.find(node.name) != animation.channels.end()){
+            auto& channel = animation.channels[node.name];
+            std::vector<anim::Translation> tKeys;
+            for(auto key : channel.translationKeys){
+                tKeys.push_back(key);
+            }
+            animNodes.translationKeys.push_back(tKeys);
+
+            std::vector<anim::Scale> sKeys;
+            for(auto key : channel.scaleKeys){
+                sKeys.push_back(key);
+            }
+            animNodes.scaleKeys.push_back(sKeys);
+
+            std::vector<anim::QRotation> rKeys;
+            for(auto key : channel.rotationKeys){
+                rKeys.push_back(key);
+            }
+            animNodes.rotationKeys.push_back(rKeys);
+        }else{
+            std::vector<anim::Translation> tKeys{{ glm::vec3(0), 0.0f}};
+            animNodes.translationKeys.push_back(tKeys);
+
+            std::vector<anim::Scale> sKeys{{ glm::vec3(1), 0.0f}};
+            animNodes.scaleKeys.push_back(sKeys);
+
+            std::vector<anim::QRotation> rKeys{{ glm::quat(1, 0, 0, 0), 0.0f}};
+            animNodes.rotationKeys.push_back(rKeys);
+        }
+
+        animNodes.transforms.push_back({});
+
+        auto itr = model->bonesMapping.find(node.name);
+
+        if(itr != model->bonesMapping.end()){
+            animNodes.hasBone.push_back(true);
+            animNodes.offsetMatrix.push_back(model->bones[itr->second].offsetMatrix);
+        }else{
+            animNodes.hasBone.push_back(false);
+            animNodes.offsetMatrix.emplace_back(1);
+        }
+    }
 }
 
 void SkeletalAnimationDemo::initCamera() {

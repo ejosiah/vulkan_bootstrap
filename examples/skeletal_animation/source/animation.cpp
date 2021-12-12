@@ -189,10 +189,11 @@ void anim::Animation::update_dod(float time) {
     elapsedTimeInSeconds += time;
     auto tick = glm::mod(elapsedTimeInSeconds * ticksPerSecond, duration);
 
-    int size = animNodes.translationKeys.size();
+    int size = animNodes.ids.size();
     std::vector<AnimTransforms>& transforms = animNodes.transforms;
 
     for(int nodeId = 0; nodeId < size; nodeId++){
+        if(channels.find(nodes[nodeId].name) == channels.end()) continue;
         if(animNodes.translationKeys[nodeId].size() == 1){
             transforms[nodeId].position = animNodes.translationKeys[nodeId][0].value;
         }else{
@@ -213,6 +214,7 @@ void anim::Animation::update_dod(float time) {
     }
 
     for(int nodeId = 0; nodeId < size; nodeId++){
+        if(channels.find(nodes[nodeId].name) == channels.end()) continue;
         if(animNodes.scaleKeys[nodeId].size() == 1){
             transforms[nodeId].scale = animNodes.scaleKeys[nodeId][0].value;
         }else{
@@ -233,6 +235,7 @@ void anim::Animation::update_dod(float time) {
     }
 
     for(int nodeId = 0; nodeId < size; nodeId++){
+        if(channels.find(nodes[nodeId].name) == channels.end()) continue;
         if(animNodes.rotationKeys[nodeId].size() == 1){
             auto qRotate = animNodes.rotationKeys[nodeId][0].value;
             transforms[nodeId].rotation = glm::normalize(qRotate);
@@ -252,6 +255,10 @@ void anim::Animation::update_dod(float time) {
                 }
             }
         }
+    }
+
+    for(auto nodeId = 0; nodeId < size; nodeId++){
+        animNodes.nodeTransforms[nodeId] = animNodes.baseTransforms[nodeId];
     }
 
     for(auto nodeId = 0; nodeId < size; nodeId++){
