@@ -184,6 +184,110 @@ glm::quat anim::Animation::interpolateRotation(const anim::BoneAnimation &boneAn
     return glm::normalize(rotation);
 }
 
+void anim::Animation::update_dod(float time) {
+    assert(model);
+    elapsedTimeInSeconds += time;
+    auto tick = glm::mod(elapsedTimeInSeconds * ticksPerSecond, duration);
+
+    int size = animNodes.translationKeys.size();
+    std::vector<AnimTransforms>& transforms = animNodes.transforms;
+
+    for(int nodeId = 0; nodeId < size; nodeId++){
+        if(animNodes.translationKeys[nodeId].size() == 1){
+            transforms[nodeId].position = animNodes.translationKeys[nodeId][0].value;
+        }else{
+            for(int keyId = 0; keyId < animNodes.translationKeys[nodeId].size() - 1; keyId++){
+                if(tick < animNodes.translationKeys[nodeId][keyId + 1].tick){
+                    auto currentKeyFrame = animNodes.translationKeys[nodeId][keyId];
+                    auto nextKeyFrame = animNodes.translationKeys[nodeId][keyId + 1];
+
+                    auto length = nextKeyFrame.tick - currentKeyFrame.tick;
+                    auto position = tick - currentKeyFrame.tick;
+                    float t = position/length;
+                    assert(t >= 0.f && t <= 1.f);
+                    transforms[nodeId].position = mix(currentKeyFrame.value, nextKeyFrame.value, t);
+                    break;
+                }
+            }
+        }
+    }
+
+    for(int nodeId = 0; nodeId < size; nodeId++){
+        if(animNodes.scaleKeys[nodeId].size() == 1){
+            transforms[nodeId].scale = animNodes.scaleKeys[nodeId][0].value;
+        }else{
+            for(int keyId = 0; keyId < animNodes.scaleKeys[nodeId].size() - 1; keyId++){
+                if(tick < animNodes.scaleKeys[nodeId][keyId + 1].tick){
+                    auto currentKeyFrame = animNodes.scaleKeys[nodeId][keyId];
+                    auto nextKeyFrame = animNodes.scaleKeys[nodeId][keyId + 1];
+
+                    auto length = nextKeyFrame.tick - currentKeyFrame.tick;
+                    auto position = tick - currentKeyFrame.tick;
+                    float t = position/length;
+                    assert(t >= 0.f && t <= 1.f);
+                    transforms[nodeId].scale = mix(currentKeyFrame.value, nextKeyFrame.value, t);
+                    break;
+                }
+            }
+        }
+    }
+
+    for(int nodeId = 0; nodeId < size; nodeId++){
+        if(animNodes.rotationKeys[nodeId].size() == 1){
+            auto qRotate = animNodes.rotationKeys[nodeId][0].value;
+            transforms[nodeId].rotation = glm::normalize(qRotate);
+        }else{
+            for(int keyId = 0; keyId < animNodes.rotationKeys[nodeId].size() - 1; keyId++){
+                if(tick < animNodes.rotationKeys[nodeId][keyId + 1].tick){
+                    auto currentKeyFrame = animNodes.rotationKeys[nodeId][keyId];
+                    auto nextKeyFrame = animNodes.rotationKeys[nodeId][keyId + 1];
+
+                    auto length = nextKeyFrame.tick - currentKeyFrame.tick;
+                    auto position = tick - currentKeyFrame.tick;
+                    float t = position/length;
+                    assert(t >= 0.f && t <= 1.f);
+                    auto qRotate = slerp(currentKeyFrame.value, nextKeyFrame.value, t);
+                    transforms[nodeId].rotation = glm::normalize(qRotate);
+                    break;
+                }
+            }
+        }
+    }
+
+    for(auto nodeId = 0; nodeId < size; nodeId++){
+        if(animNodes.hasBone[nodeId]){
+            auto translation = glm::translate(glm::mat4(1), animNodes.transforms[nodeId].position);
+            auto rotation = glm::mat4(animNodes.transforms[nodeId].rotation);
+            auto scale = glm::scale(glm::mat4(1), animNodes.transforms[nodeId].scale);
+            animNodes.nodeTransforms[nodeId] = translation * rotation * scale;
+        }
+    }
+
+    for(auto nodeId = 0; nodeId < size; nodeId++){
+        glm::mat4 parentTransform = animNodes.parentIds[nodeId] != -1 ? animNodes.globalTransforms[animNodes.parentIds[nodeId]] : glm::mat4(1);
+        animNodes.globalTransforms[nodeId] = parentTransform * animNodes.nodeTransforms[nodeId];
+    }
+
+    auto globalInverseXform = model->globalInverseTransform;
+    for(auto nodeId = 0; nodeId < size; nodeId++){
+        if(animNodes.hasBone[nodeId]){
+            animNodes.finalTransforms[nodeId] = globalInverseXform * animNodes.globalTransforms[nodeId] * animNodes.offsetMatrix[nodeId];
+        }
+    }
+
+    int boneId = 0;
+    auto boneTransforms = reinterpret_cast<glm::mat4*>(model->buffers.boneTransforms.map());
+    for(auto nodeId = 0; nodeId < size; nodeId++){
+        if(animNodes.hasBone[nodeId]){
+            boneTransforms[boneId] = animNodes.finalTransforms[nodeId];
+            boneId++;
+        }
+    }
+    model->buffers.boneTransforms.unmap();
+}
+
+
+
 int anim::BoneAnimation::translationKey(anim::Tick tick) const {
     for(auto i = 0; i < translationKeys.size() - 1; i++){
         if(tick < translationKeys[i + 1].tick){

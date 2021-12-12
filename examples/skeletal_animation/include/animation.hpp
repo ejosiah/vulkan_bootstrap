@@ -43,9 +43,27 @@ namespace anim{
         std::vector<int> children;
     };
 
+    struct AnimTransforms{
+        glm::vec3 position;
+        glm::vec3 scale;
+        glm::quat rotation;
+    };
+
     struct AnimationNodes{
         std::vector<int> ids;
         std::vector<std::string> names;
+        std::vector<glm::mat4> baseTransforms;
+        std::vector<glm::mat4> nodeTransforms;
+        std::vector<int> parentIds;
+        std::vector<glm::mat4> globalTransforms;
+        std::vector<std::vector<int>> children;
+        std::vector<glm::mat4> finalTransforms;
+        std::vector<std::vector<Translation>> translationKeys;
+        std::vector<std::vector<Scale>> scaleKeys;
+        std::vector<std::vector<QRotation>> rotationKeys;
+        std::vector<AnimTransforms> transforms;
+        std::vector<bool> hasBone;
+        std::vector<glm::mat4> offsetMatrix;
     };
 
     struct Animation{
@@ -55,7 +73,10 @@ namespace anim{
         mdl::Model* model{nullptr};
         std::unordered_map<std::string, BoneAnimation> channels;
         std::vector<AnimationNode> nodes;
+        AnimationNodes animNodes;
         float elapsedTimeInSeconds{0};
+
+        void update_dod(float time);
 
         void update(float time);
 
