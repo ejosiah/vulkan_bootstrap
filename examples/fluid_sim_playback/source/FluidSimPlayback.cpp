@@ -16,7 +16,7 @@ void FluidSimPlayback::initApp() {
 
 void FluidSimPlayback::loadAnimation() {
     animation = buildAnimation(R"(C:\Users\joebh\OneDrive\media\water_drop_pcs\)", numFrames, numPoints, fps);
-//    animation = buildAnimation(R"(C:\Users\joebh\OneDrive\media\dam_break\)", numFrames, numPoints, fps);
+//    dance = buildAnimation(R"(C:\Users\joebh\OneDrive\media\dam_break\)", numFrames, numPoints, fps);
     vertexBuffer = device.createBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                                  VMA_MEMORY_USAGE_CPU_TO_GPU, numPoints * sizeof(glm::vec4));
 }

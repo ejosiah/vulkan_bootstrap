@@ -66,7 +66,7 @@ struct Animation1{
 Animation buildAnimation(const std::string& dir, uint32_t & numFrames, uint32_t& numPoints, uint32_t& fps){
 
     std::ifstream fin(dir + "meta.txt");
-    if(!fin.good()) throw std::runtime_error{"unable to load animation metadata"};
+    if(!fin.good()) throw std::runtime_error{"unable to load dance metadata"};
     fin >> numPoints >> numFrames >> fps;
     fin.close();
 

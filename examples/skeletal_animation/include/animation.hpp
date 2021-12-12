@@ -55,11 +55,12 @@ namespace anim{
         mdl::Model* model{nullptr};
         std::unordered_map<std::string, BoneAnimation> channels;
         std::vector<AnimationNode> nodes;
-        float elapsedTimeInSeconds{0};
+        float elapsedTime{0};
+        bool loop{true};
 
         void update(float time);
 
-        void update0(float time);
+        bool finished() const;
 
     private:
         glm::vec3 interpolateTranslation(const BoneAnimation& boneAnimation, Tick tick);
@@ -73,9 +74,17 @@ namespace anim{
         mdl::Model model;
         std::unordered_map<std::string, Animation> animations;
         std::string currentAnimation;
+        std::string currentState;
 
         void update(float time);
     };
 
+    struct State{
+        std::string name;
+        Animation animation;
+    };
+
     std::vector<Animation> load(mdl::Model* model, const std::string& path, uint32_t flags = mdl::DEFAULT_PROCESS_FLAGS);
+
+    Animation transition(Animation& from, Animation& to, float durationInSeconds);
 }

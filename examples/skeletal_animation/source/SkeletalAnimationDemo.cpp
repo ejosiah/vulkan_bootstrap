@@ -12,6 +12,9 @@ SkeletalAnimationDemo::SkeletalAnimationDemo(const Settings& settings) : VulkanB
     fileManager.addSearchPath("../../data/models");
     fileManager.addSearchPath("../../data/textures");
     fileManager.addSearchPath("../../data");
+    jump = &mapToKey(Key::SPACE_BAR, "jump", Action::detectInitialPressOnly());
+    dance = &mapToKey(Key::O, "dance", Action::detectInitialPressOnly());
+    walk = &mapToKey(Key::P, "walk", Action::detectInitialPressOnly());
 }
 
 void SkeletalAnimationDemo::initApp() {
@@ -173,12 +176,31 @@ VkCommandBuffer *SkeletalAnimationDemo::buildCommandBuffers(uint32_t imageIndex,
 
 void SkeletalAnimationDemo::update(float time) {
     glfwSetWindowTitle(window, fmt::format("{} - FPS {}", title, framePerSecond).c_str());
-    animation.update(time);
     cameraController->update(time);
+    vampire.update(time);
+    if(vampire.currentState != "idle" && vampire.animations[vampire.currentState].finished()){
+        vampire.animations[vampire.currentState].elapsedTime = 0;
+        vampire.currentState  = "idle";
+    }
 }
 
 void SkeletalAnimationDemo::checkAppInputs() {
     cameraController->processInput();
+
+    if(jump->isPressed()){
+        vampire.animations[vampire.currentState].elapsedTime = 0;
+        vampire.currentState = "back_flip";
+    }
+
+    if(dance->isPressed()){
+        vampire.animations[vampire.currentState].elapsedTime = 0;
+        vampire.currentState = "dance";
+    }
+
+    if(walk->isPressed()){
+        vampire.animations[vampire.currentState].elapsedTime = 0;
+        vampire.currentState = "walk";
+    }
 }
 
 void SkeletalAnimationDemo::cleanup() {
@@ -198,12 +220,28 @@ void walkBoneHierarchy1(const anim::Animation& animation, const anim::AnimationN
 
 void SkeletalAnimationDemo::initModel() {
     auto path = std::string{ "../../data/models/character/Wave_Hip_Hop_Dance.fbx" };
+    auto path0 = std::string{ "../../data/models/character/Backflip.fbx" };
 //    auto path = std::string{ "../../data/models/character/Walking.fbx" };
     model = mdl::load(device, path);
     model->updateDescriptorSet(device, descriptorPool);
-    animation = anim::load(model.get(), path).front();
+    auto dance = anim::load(model.get(), "../../data/models/character/Wave_Hip_Hop_Dance.fbx" ).front();
+    auto backFlip = anim::load(model.get(), "../../data/models/character/Backflip.fbx" ).front();
+    auto idle = anim::load(model.get(), "../../data/models/character/Idle.fbx" ).front();
+    auto walking = anim::load(model.get(), "../../data/models/character/Walking.fbx" ).front();
+    dance.name = "dance";
+
+    backFlip.name = "back_flip";
+    backFlip.loop = false;
+
+    idle.name = "idle";
+    walking.name = "walk";
+    vampire.animations["dance"] = dance;
+    vampire.animations["back_flip"] = backFlip;
+    vampire.animations["idle"] = idle;
+    vampire.animations["walk"] = walking;
+    vampire.currentState = "idle";
     spdlog::info("model bounds: [{}, {}], height: {}", model->bounds.min, model->bounds.max, model->height());
-//    walkBoneHierarchy1(animation, animation.nodes[0], 0);
+//    walkBoneHierarchy1(dance, dance.nodes[0], 0);
 }
 
 void SkeletalAnimationDemo::initCamera() {

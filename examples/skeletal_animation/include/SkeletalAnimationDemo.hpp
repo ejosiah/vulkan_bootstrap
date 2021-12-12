@@ -54,7 +54,11 @@ protected:
     VulkanPipelineCache pipelineCache;
 
     std::shared_ptr<mdl::Model> model;
-    anim::Animation animation;
+    anim::Animation backFlip;
+    anim::Character vampire;
 //    std::unique_ptr<OrbitingCameraController> cameraController;
     std::unique_ptr<CameraController> cameraController;
+    Action* jump;
+    Action* dance;
+    Action* walk;
 };

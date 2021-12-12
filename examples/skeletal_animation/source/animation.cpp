@@ -56,14 +56,65 @@ std::vector<anim::Animation> anim::load(mdl::Model* model, const std::string &pa
     return animations;
 }
 
+anim::Animation anim::transition(anim::Animation &from, anim::Animation &to, float durationInSeconds) {
+    Animation animation;
+    animation.name = fmt::format("{}_{}", from.name, to.name);
+    animation.loop = false;
+    animation.ticksPerSecond = from.ticksPerSecond;
+    animation.nodes = from.nodes;
+    animation.duration = durationInSeconds * from.ticksPerSecond + 1;
+    animation.model = from.model;
+
+    for(const auto& [name, channel] : from.channels){
+        BoneAnimation boneAnim;
+        boneAnim.name = channel.name;
+
+        auto tick = glm::clamp(from.elapsedTime * from.ticksPerSecond, 0.f, from.duration - 1);
+        auto index = channel.translationKey(tick);
+        auto tKey = channel.translationKeys[index];
+        tKey.tick = 0;
+        boneAnim.translationKeys.push_back(tKey);
+
+
+        index = channel.scaleKey(tick);
+        auto sKey = channel.scaleKeys[index];
+        sKey.tick = 0;
+        boneAnim.scaleKeys.push_back(sKey);
+
+
+        index = channel.rotationKey(tick);
+        auto rKey = channel.rotationKeys[index];
+        rKey.tick = 0;
+        boneAnim.rotationKeys.push_back(rKey);
+
+
+
+        tKey = to.channels[name].translationKeys[0];
+        sKey = to.channels[name].scaleKeys[0];
+        rKey = to.channels[name].rotationKeys[0];
+        for(int i = 1; i < int(animation.duration - 1); i++){
+            tKey.tick = sKey.tick = rKey.tick = float(i);
+            boneAnim.translationKeys.push_back(tKey);
+            boneAnim.scaleKeys.push_back(sKey);
+            boneAnim.rotationKeys.push_back(rKey);
+        }
+
+        animation.channels[name] = boneAnim;
+
+
+    }
+    return animation;
+}
+
 void anim::Animation::update(float time) {
-    elapsedTimeInSeconds += time;
     assert(model);
+    elapsedTime += time;
 
     static std::vector<glm::mat4> hTransforms;
     hTransforms.resize(model->bones.size());
 
-    auto tick = glm::mod(elapsedTimeInSeconds * ticksPerSecond, duration);
+    auto tick = elapsedTime * ticksPerSecond;
+    tick = loop ? glm::mod(tick, duration) : glm::clamp(tick, 0.f, duration - 1);
     auto globalInverseXform = model->globalInverseTransform;
     for(auto& node : nodes){
         auto nodeTransform = node.transform;
@@ -89,45 +140,6 @@ void anim::Animation::update(float time) {
     }
     model->buffers.boneTransforms.copy(hTransforms.data(), BYTE_SIZE(hTransforms));
 
-}
-
-void anim::Animation::update0(float time) {
-    elapsedTimeInSeconds += time;
-    assert(model);
-
-    auto tick = glm::mod(elapsedTimeInSeconds * ticksPerSecond, duration);
-    auto& bones = model->bones;
-    auto globalInverseXform = model->globalInverseTransform;
-    static std::vector<glm::mat4> hTransforms;
-    hTransforms.resize(model->bones.size());
-
-    std::function<void(anim::AnimationNode&, glm::mat4)> walkBoneHierarchy = [&](anim::AnimationNode& node, glm::mat4 parentTransform){
-        auto transform = node.transform;
-        auto itr = channels.find(node.name);
-        if(itr != channels.end()) {
-            auto& animation = itr->second;
-            auto position = interpolateTranslation(animation, tick);
-            auto scale = interpolateScale(animation, tick);
-            auto qRotate = interpolateRotation(animation, tick);
-            auto rotate = glm::mat4(qRotate);
-
-            transform =  glm::translate(glm::mat4(1), position) * rotate * glm::scale(glm::mat4(1), scale);
-        }
-        node.globalTransform = parentTransform * transform;
-        auto bItr = model->bonesMapping.find(node.name);
-        if(bItr != model->bonesMapping.end()) {
-            auto& bone = model->bones[bItr->second];
-            auto finalTransform = globalInverseXform * node.globalTransform * bone.offsetMatrix;
-            hTransforms[bone.id] = finalTransform;
-        }
-
-
-        for(int childId : node.children){
-            walkBoneHierarchy(nodes[childId], node.globalTransform);
-        }
-    };
-    walkBoneHierarchy(nodes[0], glm::mat4(1));
-    model->buffers.boneTransforms.copy(hTransforms.data(), BYTE_SIZE(hTransforms));
 }
 
 glm::vec3 anim::Animation::interpolateTranslation(const anim::BoneAnimation &boneAnimation, anim::Tick tick) {
@@ -184,6 +196,10 @@ glm::quat anim::Animation::interpolateRotation(const anim::BoneAnimation &boneAn
     return glm::normalize(rotation);
 }
 
+bool anim::Animation::finished() const {
+    return !loop && elapsedTime * ticksPerSecond > duration;
+}
+
 int anim::BoneAnimation::translationKey(anim::Tick tick) const {
     for(auto i = 0; i < translationKeys.size() - 1; i++){
         if(tick < translationKeys[i + 1].tick){
@@ -209,4 +225,8 @@ int anim::BoneAnimation::rotationKey(anim::Tick tick) const {
         }
     }
     return -1;
+}
+
+void anim::Character::update(float time) {
+    animations[currentState].update(time);
 }
