@@ -67,6 +67,7 @@ void SkeletalAnimationDemo::createRenderPipeline() {
     auto builder = device.graphicsPipelineBuilder();
     render.pipeline =
         builder
+            .allowDerivatives()
             .shaderStage()
                 .vertexShader(load("render.vert.spv"))
                 .fragmentShader(load("render.frag.spv"))
@@ -111,6 +112,23 @@ void SkeletalAnimationDemo::createRenderPipeline() {
                 .name("render")
                 .pipelineCache(pipelineCache)
             .build(render.layout);
+
+    outline.pipeline =
+        builder
+            .basePipeline(render.pipeline)
+            .shaderStage()
+                .vertexShader(load("outline.vert.spv"))
+                .fragmentShader(load("outline.frag.spv"))
+            .rasterizationState()
+                .frontFaceClockwise()
+                .cullBackFace()
+            .layout()
+                .clear()
+                .addPushConstantRange(Camera::pushConstant())
+                .addDescriptorSetLayout( model->descriptor.boneLayout)
+            .name("outline")
+        .build(outline.layout);
+
 }
 
 void SkeletalAnimationDemo::createComputePipeline() {
@@ -145,7 +163,7 @@ VkCommandBuffer *SkeletalAnimationDemo::buildCommandBuffers(uint32_t imageIndex,
     vkBeginCommandBuffer(commandBuffer, &beginInfo);
 
     static std::array<VkClearValue, 2> clearValues;
-    clearValues[0].color = {0, 0, 0, 1};
+    clearValues[0].color = {0.4, 0.4, 0.4, 1};
     clearValues[1].depthStencil = {1.0, 0u};
 
     VkRenderPassBeginInfo rPassInfo = initializers::renderPassBeginInfo();
@@ -158,11 +176,19 @@ VkCommandBuffer *SkeletalAnimationDemo::buildCommandBuffers(uint32_t imageIndex,
 
     vkCmdBeginRenderPass(commandBuffer, &rPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, render.pipeline);
 
     static std::array<VkDescriptorSet, 2> sets;
     sets[0] = model->descriptor.sets[0];
     sets[1] = model->descriptor.sets[1];
+
+
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, outline.pipeline);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, outline.layout, 0, 1, sets.data(), 0, VK_NULL_HANDLE);
+    cameraController->push(commandBuffer, outline.layout);
+    model->render(commandBuffer);
+
+
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, render.pipeline);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, render.layout, 0, COUNT(sets), sets.data(), 0, VK_NULL_HANDLE);
     cameraController->push(commandBuffer, render.layout);
     model->render(commandBuffer);

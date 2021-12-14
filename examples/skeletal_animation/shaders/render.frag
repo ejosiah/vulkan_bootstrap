@@ -19,9 +19,13 @@ float saturate(float value){
     return clamp(value, 0, 1);
 }
 
+const float levels = 2;
+const float scaleFactor = 1/levels;
+
 void main(){
 
-    vec3 L = normalize(v_in.lightPos - v_in.position);
+//    vec3 L = normalize(v_in.lightPos - v_in.position);
+    vec3 L = normalize(vec3(1, 1, 1));
     vec3 E = L;
     vec3 N = normalize(v_in.normal);
     vec3 H = normalize(E + L);
@@ -29,7 +33,7 @@ void main(){
     vec3 albedo = texture(diffuseMap, v_in.uv).rgb;
     vec3 ambient = texture(ambientMap, v_in.uv).rgb;
     vec3 specular = texture(specularMap, v_in.uv).rgb;
-
-    vec3 color = gAmb * ambient + saturate(dot(L, N)) * albedo + saturate(pow(dot(N, H), 50)) * specular;
+    float LdotN = saturate(dot(L, N));
+    vec3 color = gAmb * ambient + floor(LdotN * levels) * scaleFactor * albedo;
     fragColor = vec4(color, 1);
 }

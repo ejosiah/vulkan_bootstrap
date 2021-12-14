@@ -214,6 +214,7 @@ GraphicsPipelineBuilder &GraphicsPipelineBuilder::reuse() {
 }
 
 GraphicsPipelineBuilder &GraphicsPipelineBuilder::basePipeline(VulkanPipeline &pipeline) {
+    setDerivatives();
     if(parent()){
         parent()->basePipeline(pipeline);
     }

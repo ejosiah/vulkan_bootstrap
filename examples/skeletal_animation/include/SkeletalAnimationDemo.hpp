@@ -46,6 +46,11 @@ protected:
     struct {
         VulkanPipelineLayout layout;
         VulkanPipeline pipeline;
+    } outline;
+
+    struct {
+        VulkanPipelineLayout layout;
+        VulkanPipeline pipeline;
     } compute;
 
     VulkanDescriptorPool descriptorPool;
