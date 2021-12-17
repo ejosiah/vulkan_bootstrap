@@ -2,7 +2,7 @@
 
 layout(location = 0) in vec4 position;
 layout(location = 1) in vec3 normal;
-layout(location = 2) in vec3 tanget;
+layout(location = 2) in vec3 tangent;
 layout(location = 3) in vec3 bitangent;
 layout(location = 4) in vec3 color;
 layout(location = 5) in vec2 uv;
@@ -41,10 +41,11 @@ void main(){
 
     vec4 worldPos = model * boneTransform * position;
     vec3 worldNormal = inverse(transpose(mat3(model * boneTransform))) * normal;
+    mat3 osm = inverse(mat3(normalize(tangent), normalize(bitangent), normalize(normal)));
 
-    v_out.position = worldPos.xyz;
+    v_out.position = osm * worldPos.xyz;
     v_out.normal = worldNormal;
     v_out.uv = uv;
-    v_out.lightPos = (view * vec4(0, 0, 0, 1)).xyz;
+    v_out.lightPos = osm * (view * vec4(0, 0, 0, 1)).xyz;
     gl_Position = projection * view * worldPos;
 }

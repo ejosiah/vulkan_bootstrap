@@ -106,6 +106,7 @@ conan.lock
 release
 
 cmake-build-debug
+cmake-build-release
 build
 .idea
 

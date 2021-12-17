@@ -7,6 +7,8 @@
 #include "VulkanInitializers.h"
 #include "Texture.h"
 #include  <stb_image.h>
+#define AI_MATKEY_COLOR_NULL nullptr,0,0
+
 
 namespace mdl {
 
@@ -47,7 +49,9 @@ namespace mdl {
         }else{
             uint32_t size = 3;
             glm::vec3 color = defaultColor;
-            aiMaterial->Get(pKey, type, idx, &color, &size);
+            if(pKey) {
+                aiMaterial->Get(pKey, type, idx, &color, &size);
+            }
 
             texture.data = new uint8_t[256u * 256u * 4];
             texture.width = texture.height = 256u;
@@ -71,6 +75,8 @@ namespace mdl {
             loadTexture(scene, aiMaterial, mesh.material.ambient, aiTextureType_DIFFUSE, AI_MATKEY_COLOR_DIFFUSE, glm::vec3(0.6));
         }
         loadTexture(scene, aiMaterial, mesh.material.specular, aiTextureType_SPECULAR, AI_MATKEY_COLOR_SPECULAR);
+
+        loadTexture(scene, aiMaterial, mesh.material.normal, aiTextureType_NORMALS, AI_MATKEY_COLOR_NULL, {0.5, 0.5, 1.0});
 
     }
 
@@ -416,6 +422,10 @@ namespace mdl {
                     .descriptorType(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
                     .descriptorCount(1)
                     .shaderStages(VK_SHADER_STAGE_FRAGMENT_BIT)
+                .binding(kLayoutBinding_MATERIAL_NORMAL)
+                    .descriptorType(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
+                    .descriptorCount(1)
+                    .shaderStages(VK_SHADER_STAGE_FRAGMENT_BIT)
                 .createLayout();
     }
 
@@ -472,6 +482,14 @@ namespace mdl {
             imageInfos[set + kSetBinding_SPECULAR] = { material.specular.sampler, material.specular.imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL };
             writes[set + kSetBinding_SPECULAR].pImageInfo = &imageInfos[set + kSetBinding_SPECULAR];
 
+            writes[set + kSetBinding_NORMAL].dstSet = descriptor.sets[set];
+            writes[set + kSetBinding_NORMAL].dstBinding = kSetBinding_NORMAL;
+            writes[set + kSetBinding_NORMAL].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+            writes[set + kSetBinding_NORMAL].descriptorCount = 1;
+
+            imageInfos[set + kSetBinding_NORMAL] = { material.normal.sampler, material.normal.imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL };
+            writes[set + kSetBinding_NORMAL].pImageInfo = &imageInfos[set + kSetBinding_NORMAL];
+
         }
         device.updateDescriptorSets(writes);
 
@@ -503,6 +521,12 @@ namespace mdl {
             material.specular.image = std::move(texture.image);
             material.specular.imageView = std::move(texture.imageView);
             material.specular.sampler = std::move(texture.sampler);
+
+            textures::create(device, texture, VK_IMAGE_TYPE_2D, meshMaterial.normal.format, meshMaterial.normal.data
+                            , {meshMaterial.normal.width, meshMaterial.normal.height, 1});
+            material.normal.image = std::move(texture.image);
+            material.normal.imageView = std::move(texture.imageView);
+            material.normal.sampler = std::move(texture.sampler);
 
             materials.push_back(std::move(material));
         }

@@ -36,10 +36,14 @@
 #include "Settings.hpp"
 #include "VulkanDrawable.hpp"
 #include "utility/filemanager.hpp"
-#ifdef NDBUG
-constexpr bool enableValidation = false;
-#else
+#include <entt/entt.hpp>
+#include "Entity.hpp"
+#include "components.h"
+
+#ifdef _DEBUG
 constexpr bool enableValidation = true;
+#else
+constexpr bool enableValidation = false;
 #endif
 
 #define REPORT_ERROR(result, msg) if(result != VK_SUCCESS) throw std::runtime_error{msg}
@@ -250,6 +254,9 @@ protected:
 
     byte_string load(const std::string& resource);
 
+    Entity createEntity(const std::string& name);
+
+    void destroyEntity(Entity entity);
 
 private:
     void setPaused(bool flag);
@@ -261,6 +268,7 @@ protected:
     VulkanDevice device;
     VulkanSwapChain swapChain;
     VulkanRenderPass renderPass;
+    entt::registry registry;
 
     std::vector<VulkanFramebuffer> framebuffers;
 

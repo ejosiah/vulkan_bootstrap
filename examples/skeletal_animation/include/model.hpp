@@ -34,6 +34,7 @@ namespace mdl {
             MeshTexture diffuse;
             MeshTexture ambient;
             MeshTexture specular;
+            MeshTexture normal;
         } material;
 
         VkPrimitiveTopology primitiveTopology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
@@ -64,6 +65,7 @@ namespace mdl {
         ModelTexture diffuse;
         ModelTexture ambient;
         ModelTexture specular;
+        ModelTexture normal;
     };
 
     struct Model {
@@ -120,12 +122,14 @@ namespace mdl {
         static constexpr uint32_t kSetBinding_DIFFUSE = 0;
         static constexpr uint32_t kSetBinding_AMBIENT = 1;
         static constexpr uint32_t kSetBinding_SPECULAR = 2;
-        static constexpr uint32_t kSetBinding_SIZE = 3;
+        static constexpr uint32_t kSetBinding_NORMAL = 3;
+        static constexpr uint32_t kSetBinding_SIZE = 4;
 
         static constexpr uint32_t kLayoutBinding_BONE = 0;
         static constexpr uint32_t kLayoutBinding_MATERIAL_DIFFIUSE = 0;
         static constexpr uint32_t kLayoutBinding_MATERIAL_AMBIENT = 1;
         static constexpr uint32_t kLayoutBinding_MATERIAL_SPECULAR = 2;
+        static constexpr uint32_t kLayoutBinding_MATERIAL_NORMAL = 3;
 
     };
 
