@@ -27,6 +27,7 @@ option(BUILD_EXAMPLES "build project examples" TRUE)
 
 include_directories(3rdParty/include)
 include_directories(VulkanBase/include)
+include_directories(VulkanBase/include/utility)
 include_directories(ImGuiPlugin/include)
 include_directories(BulletPhysicsPlugin/include)
 #include_directories(camera/include)

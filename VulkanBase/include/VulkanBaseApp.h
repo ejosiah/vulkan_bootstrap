@@ -35,7 +35,7 @@
 #include "Plugin.hpp"
 #include "Settings.hpp"
 #include "VulkanDrawable.hpp"
-#include "utility/filemanager.hpp"
+#include "filemanager.hpp"
 #include <entt/entt.hpp>
 #include "Entity.hpp"
 #include "components.h"
