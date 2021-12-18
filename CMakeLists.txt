@@ -29,7 +29,7 @@ include_directories(3rdParty/include)
 include_directories(VulkanBase/include)
 include_directories(ImGuiPlugin/include)
 include_directories(BulletPhysicsPlugin/include)
-include_directories(camera/include)
+#include_directories(camera/include)
 
 if(${BUILD_EXAMPLES})
     add_subdirectory(examples)
