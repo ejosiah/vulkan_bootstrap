@@ -688,8 +688,8 @@ byte_string VulkanBaseApp::load(const std::string &resource) {
 Entity VulkanBaseApp::createEntity(const std::string &name) {
     Entity entity{ registry.create(), &registry };
     entity.add<component::Transform>();
-    auto& tag = entity.add<component::Tag>();
-    tag.value = name.empty() ? fmt::format("{}_{}", "Entity", registry.size()) : name;
+    auto& nameTag = entity.add<component::Name>();
+    nameTag.value = name.empty() ? fmt::format("{}_{}", "Entity", registry.size()) : name;
     return entity;
 }
 

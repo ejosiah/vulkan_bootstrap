@@ -5,7 +5,7 @@
 #include "VulkanModel.h"
 
 namespace component{
-    struct Tag{
+    struct Name{
         std::string value;
     };
 
@@ -14,6 +14,7 @@ namespace component{
     };
 
     struct Transform{
+        Transform* parent{nullptr};
         glm::vec3 translation{ glm::vec3(0) };
         glm::vec3 scale{ glm::vec3(1) };
         glm::quat rotation{ 1, 0, 0, 0};
@@ -37,3 +38,8 @@ namespace component{
         }
     };
 }
+
+template<>
+struct entt::component_traits<component::Transform> : entt::basic_component_traits{
+    using in_place_delete = std::true_type;
+};
