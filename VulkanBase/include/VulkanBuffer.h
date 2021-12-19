@@ -94,6 +94,7 @@ struct VulkanBuffer{
             auto itr = refCounts.find(buffer);
             assert(itr != refCounts.end());
             if(itr->second == 1) {
+                spdlog::debug("no more references to VkBuffer[{}], destroying now ...", (uint64_t)buffer);
                 refCounts.erase(itr);
                 if (mapped) {
                     unmap();
@@ -140,11 +141,13 @@ struct VulkanBuffer{
     static void incrementRef(VkBuffer buffer){
         ensureRef(buffer);
         refCounts[buffer]++;
+        spdlog::debug("{} current references to VkBuffer[{}]", refCounts[buffer], (uint64_t)buffer);
     }
 
     static void decrementRef(VkBuffer buffer){
         ensureRef(buffer);
         refCounts[buffer]--;
+        spdlog::debug("{} current references to VkBuffer[{}]", refCounts[buffer], (uint64_t)buffer);
     }
 
     static void ensureRef(VkBuffer buffer){
