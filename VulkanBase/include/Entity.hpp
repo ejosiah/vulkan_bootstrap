@@ -5,15 +5,16 @@ class Entity{
 public:
     Entity() = default;
 
-    Entity(entt::entity handle, entt::registry* registry)
-    :m_handle(handle)
-    ,m_registry(registry)
+    Entity(entt::registry& registry)
+    :m_handle(registry.create())
+    ,m_registry(&registry)
     {}
 
     template<typename T, typename... Args>
-    T& add(Args&&... args){
+    decltype(auto) add(Args&&... args){
         return m_registry->emplace<T>(m_handle, std::forward<Args>(args)...);
     }
+
 
     template<typename T>
     T& get() const{
@@ -45,5 +46,5 @@ public:
 
 private:
     entt::entity m_handle{entt::null};
-    entt::registry* m_registry;
+    entt::registry* m_registry{nullptr};
 };
