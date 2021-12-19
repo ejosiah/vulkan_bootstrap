@@ -40,7 +40,7 @@
 #include "Entity.hpp"
 #include "components.h"
 
-#ifdef _DEBUG
+#ifndef NDEBUG
 constexpr bool enableValidation = true;
 #else
 constexpr bool enableValidation = false;
