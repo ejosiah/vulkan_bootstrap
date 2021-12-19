@@ -1,11 +1,9 @@
 #pragma once
 
+#include "common.h"
 #include <vulkan/vulkan.h>
 #include "vk_mem_alloc.h"
-
 struct VulkanBuffer{
-
-    DISABLE_COPY(VulkanBuffer)
 
     VulkanBuffer() = default;
 
@@ -16,13 +14,31 @@ struct VulkanBuffer{
     , size(size)
     , name(name)
     , mappable(mappable)
-    {}
+    {
+        refCounts[buffer] = 1;
+    }
+
+    VulkanBuffer(const VulkanBuffer& source){
+        operator=(source);
+    }
+
+    VulkanBuffer& operator=(const VulkanBuffer& source){
+        if(&source == this) return *this;
+
+        allocator = source.allocator;
+        buffer = source.buffer;
+        allocation = source.allocation;
+        name = source.name;
+        size = source.size;
+        incrementRef(buffer);
+        return *this;
+    }
 
     VulkanBuffer(VulkanBuffer&& source) noexcept {
         operator=(static_cast<VulkanBuffer&&>(source));
     }
 
-    VulkanBuffer& operator=(VulkanBuffer&& source) noexcept{
+    VulkanBuffer& operator=(VulkanBuffer&& source) noexcept {
         if(&source == this) return *this;
 
         this->~VulkanBuffer();
@@ -75,10 +91,17 @@ struct VulkanBuffer{
 
     ~VulkanBuffer(){
         if(buffer){
-            if(mapped){
-                unmap();
+            auto itr = refCounts.find(buffer);
+            assert(itr != refCounts.end());
+            if(itr->second == 1) {
+                refCounts.erase(itr);
+                if (mapped) {
+                    unmap();
+                }
+                vmaDestroyBuffer(allocator, buffer, allocation);
+            }else{
+                decrementRef(buffer);
             }
-            vmaDestroyBuffer(allocator, buffer, allocation);
         }
     }
 
@@ -114,12 +137,27 @@ struct VulkanBuffer{
         vkCmdFillBuffer(commandBuffer, buffer, 0, size, 0);
     }
 
+    static void incrementRef(VkBuffer buffer){
+        ensureRef(buffer);
+        refCounts[buffer]++;
+    }
+
+    static void decrementRef(VkBuffer buffer){
+        ensureRef(buffer);
+        refCounts[buffer]--;
+    }
+
+    static void ensureRef(VkBuffer buffer){
+        assert(refCounts.find(buffer) != refCounts.end());
+    }
+
     VmaAllocator allocator = VK_NULL_HANDLE;
     VkBuffer buffer = VK_NULL_HANDLE;
     VmaAllocation allocation = VK_NULL_HANDLE;
     VkDeviceSize  size = 0;
-    std::string name;
+    std::string name{};
     void* mapped = nullptr;
     bool isMapped = false;
     bool mappable = false;
+    static std::map<VkBuffer, std::atomic_uint32_t> refCounts;
 };
