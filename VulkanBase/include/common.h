@@ -174,6 +174,7 @@ inline std::function<float()> canonicalRng(uint32_t seed = std::random_device{}(
     return rngFunc<float>(0.0f, 1.0f, seed);
 }
 
+
 template<glm::length_t L, typename T, glm::qualifier Q>
 bool vectorEquals(glm::vec<L, T, Q> v0, glm::vec<L, T, Q> v1, float eps = 1e-4){
     return glm::all(glm::epsilonEqual(v0, v1, eps));

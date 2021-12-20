@@ -696,3 +696,59 @@ Entity VulkanBaseApp::createEntity(const std::string &name) {
 void VulkanBaseApp::destroyEntity(Entity entity) {
     registry.destroy(entity);
 }
+
+glm::vec3 VulkanBaseApp::mousePositionToWorldSpace(const Camera &camera) {
+    auto mousePos = glm::vec3(mouse.position, 1);
+    glm::vec4 viewport{0, 0, swapChain.width(), swapChain.height()};
+    return glm::unProject(mousePos, camera.view, camera.proj, viewport);
+}
+
+void VulkanBaseApp::renderEntities(VkCommandBuffer commandBuffer) {
+    auto camView = registry.view<const component::Camera>();
+
+    Camera* camera;
+    for(auto entity : camView){
+        auto cam = camView.get<const component::Camera>(entity);
+        if(cam.main){
+            camera = cam.camera;
+            break;
+        }
+    }
+    if(!camera){
+        spdlog::error("no camera entity set");
+    }
+    assert(camera);
+
+    auto view = registry.view<const component::Render, const component::Transform>();
+    static std::vector<VkBuffer> buffers;
+    view.each([&](const component::Render& renderComp, const auto& transform){
+        if(renderComp.instanceCount > 0) {
+            auto model = transform.get();
+            std::vector<VkDeviceSize> offsets(renderComp.vertexBuffers.size(), 0);
+            buffers.clear();
+            for(auto& buffer : renderComp.vertexBuffers){
+                buffers.push_back(buffer.buffer);
+            }
+            vkCmdBindVertexBuffers(commandBuffer, 0, COUNT(buffers), buffers.data(), offsets.data());
+            if (renderComp.indexCount > 0) {
+                vkCmdBindIndexBuffer(commandBuffer, renderComp.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+            }
+            for (const auto &pipeline : renderComp.pipelines) {
+                vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.pipeline);
+                vkCmdPushConstants(commandBuffer, pipeline.layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Camera), camera);
+                if (!pipeline.descriptorSets.empty()) {
+                    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.layout, 0,
+                                            COUNT(pipeline.descriptorSets), pipeline.descriptorSets.data(), 0,
+                                            VK_NULL_HANDLE);
+                }
+                for (auto primitive : renderComp.primitives) {
+                    if (renderComp.indexCount > 0) {
+                        primitive.drawIndexed(commandBuffer, 0, renderComp.instanceCount);
+                    } else {
+                        primitive.draw(commandBuffer, 0, renderComp.instanceCount);
+                    }
+                }
+            }
+        }
+    });
+}

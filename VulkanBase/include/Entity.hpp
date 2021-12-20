@@ -5,7 +5,7 @@ class Entity{
 public:
     Entity() = default;
 
-    Entity(entt::registry& registry)
+    explicit Entity(entt::registry& registry)
     :m_handle(registry.create())
     ,m_registry(&registry)
     {}

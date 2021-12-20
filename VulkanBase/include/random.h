@@ -1,3 +1,4 @@
+#pragma once
 #include "common.h"
 
 inline auto rng(float  lowerBound, float  upperBound){
@@ -17,6 +18,10 @@ inline glm::vec3 randomVec3(const glm::vec3& lower = glm::vec3(-1), const glm::v
 
     return { rngX(), rngY(), rngZ() };
 }
+
+//inline glm::vec3 randomVec3(float lower, float upper){
+//    return randomVec3(glm::vec3(lower), glm::vec3(upper));
+//}
 
 inline glm::vec4 randomColor(){
     return glm::vec4(randomVec3(glm::vec3(0)), 1.0f);

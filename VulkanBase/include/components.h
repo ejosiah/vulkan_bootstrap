@@ -19,14 +19,14 @@ namespace component{
     };
 
     struct Transform{
-        Transform* parent{nullptr};
         glm::vec3 translation{ glm::vec3(0) };
+        glm::quat rotation{1, 0, 0, 0};
         glm::vec3 scale{ glm::vec3(1) };
-        glm::vec3 rotation{0};
+        Transform* parent{nullptr};
 
         [[nodiscard]]
         glm::mat4 get() const {
-            glm::mat4 rotate = glm::mat4(glm::quat(rotation));
+            glm::mat4 rotate = glm::mat4(rotation);
             auto localTransform = glm::translate(glm::mat4(1), translation) * rotate * glm::scale(glm::mat4(1), scale);
             if(parent){
                 return parent->get() * localTransform;
@@ -37,6 +37,7 @@ namespace component{
 
     struct Camera{
         ::Camera* camera{ nullptr };
+        bool main{ true };
     };
 
     struct Pipeline{
@@ -49,8 +50,8 @@ namespace component{
 
     struct Render{
         std::vector<Pipeline> pipelines;
-        std::vector<VkBuffer> vertexBuffers;
-        VkBuffer indexBuffer;
+        std::vector<VulkanBuffer> vertexBuffers;
+        VulkanBuffer indexBuffer;
         std::vector<vkn::Primitive> primitives;
         uint32_t indexCount{0};
         uint32_t instanceCount{1};

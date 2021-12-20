@@ -258,6 +258,10 @@ protected:
 
     void destroyEntity(Entity entity);
 
+    glm::vec3 mousePositionToWorldSpace(const Camera& camera);
+
+    void renderEntities(VkCommandBuffer commandBuffer);
+
 private:
     void setPaused(bool flag);
 
