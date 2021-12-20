@@ -13,7 +13,10 @@ protected:
 
     void createCube();
 
-    void createCubeInstance(glm::vec3 color, const component::Transform& transform = {});
+    void createCubeInstance(glm::vec3 color
+                            ,  const glm::vec3& position = {0, 0, 0}
+                            , const glm::vec3& scale = {1, 1, 1}
+                            , const glm::quat& rotation = {1, 0, 0, 0});
 
     void createDescriptorPool();
 

@@ -256,6 +256,8 @@ protected:
 
     Entity createEntity(const std::string& name);
 
+    void updateEntityTransforms();
+
     void destroyEntity(Entity entity);
 
     glm::vec3 mousePositionToWorldSpace(const Camera& camera);

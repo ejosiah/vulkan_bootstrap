@@ -211,24 +211,25 @@ void EnttDemo::createCube() {
     auto vertexCount = cube.vertices.size();
     renderComponent.primitives.push_back(vkn::Primitive::indexed(indexCount, 0, vertexCount, 0));
 
-    component::Pipeline pipeline{render.pipeline, render.layout, 0};
-    renderComponent.pipelines.push_back(pipeline);
+    auto& pipelines = cubeEntity.add<component::Pipelines>();
+    pipelines.add({render.pipeline, render.layout});
 }
 
-void EnttDemo::createCubeInstance(glm::vec3 color, const component::Transform& transform) {
+void EnttDemo::createCubeInstance(glm::vec3 color, const glm::vec3& position, const glm::vec3& scale, const glm::quat& rotation) {
     auto& cubeRender = cubeEntity.get<component::Render>();
-    InstanceData* instances = reinterpret_cast<InstanceData*>(cubeRender.vertexBuffers[1].map());
-    instances[cubeRender.instanceCount].transform = transform.get();
-    instances[cubeRender.instanceCount].color = color;
-    cubeRender.vertexBuffers[1].unmap();
-
     auto entity = createEntity(fmt::format("cube_{}", cubeRender.instanceCount));
     entity.add<Cube>();
     entity.add<Color>().value = color;
-    entity.get<component::Transform>() = transform;
+    entity.get<component::Position>().value = position;
+    entity.get<component::Scale>().value = scale;
+    entity.get<component::Rotation>().value = rotation;
+
+    updateEntityTransforms();
+    InstanceData* instances = reinterpret_cast<InstanceData*>(cubeRender.vertexBuffers[1].map());
+    instances[cubeRender.instanceCount].transform = entity.get<component::Transform>().value;
+    instances[cubeRender.instanceCount].color = color;
+    cubeRender.vertexBuffers[1].unmap();
     cubeRender.instanceCount++;
-
-
 }
 
 void EnttDemo::initCamera() {
@@ -252,13 +253,15 @@ void EnttDemo::createSkyBox() {
     renderComponent.vertexBuffers.push_back(skyBox.cube.vertices);
     renderComponent.indexBuffer = skyBox.cube.indices;
 
-    component::Pipeline pipeline{ *skyBox.pipeline, *skyBox.layout, 0, {}, { skyBox.descriptorSet } };
-    renderComponent.pipelines.push_back(pipeline);
+
 
     auto indexCount = skyBox.cube.indices.size/sizeof(uint32_t);
     auto vertexCount = skyBox.cube.vertices.size/sizeof(glm::vec3);
     renderComponent.primitives.push_back(vkn::Primitive::indexed(indexCount, 0, vertexCount, 0));
     renderComponent.indexCount = indexCount;
+
+    auto& pipelines = entity.add<component::Pipelines>();
+    pipelines.add({ *skyBox.pipeline, *skyBox.layout, 0, {}, { skyBox.descriptorSet } });
 }
 
 void EnttDemo::randomCube() {
@@ -271,10 +274,9 @@ void EnttDemo::randomCube() {
     auto scale = glm::vec3(1);
 
 
-    component::Transform transform{ position, rotation, scale};
 
     auto color = randomColor();
-    createCubeInstance(color, transform);
+    createCubeInstance(color, position, scale, rotation);
 }
 
 int main(){
