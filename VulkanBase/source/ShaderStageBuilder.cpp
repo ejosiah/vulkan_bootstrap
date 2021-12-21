@@ -32,6 +32,11 @@ ShaderStageBuilder &ShaderStageBuilder::fragmentShader(const byte_string &data) 
     return *this;
 }
 
+ShaderStageBuilder &ShaderStageBuilder::fragmentShader(const std::vector<uint32_t>& data) {
+    _fragmentModule = VulkanShaderModule{ data, device()};
+    return *this;
+}
+
 ShaderStageBuilder &ShaderStageBuilder::geometryShader(const std::string &path) {
     _geometryModule = VulkanShaderModule{ path, device()};
     return *this;

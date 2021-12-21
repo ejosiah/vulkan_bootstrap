@@ -21,7 +21,10 @@ public:
    ShaderStageBuilder& fragmentShader(const std::string& path);
 
    [[nodiscard]]
-   ShaderStageBuilder& fragmentShader(const byte_string& path);
+   ShaderStageBuilder& fragmentShader(const byte_string& data);
+
+   [[nodiscard]]
+   ShaderStageBuilder& fragmentShader(const std::vector<uint32_t>& data);
 
    [[nodiscard]]
    ShaderStageBuilder& geometryShader(const std::string& path);
