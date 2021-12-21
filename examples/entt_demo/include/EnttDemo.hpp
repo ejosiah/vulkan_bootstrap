@@ -13,9 +13,14 @@ protected:
 
     void createCube();
 
-    void createCubeInstance(glm::vec3 color, const component::Transform& transform = {});
+    void createCubeInstance(glm::vec3 color
+                            ,  const glm::vec3& position = {0, 0, 0}
+                            , const glm::vec3& scale = {1, 1, 1}
+                            , const glm::quat& rotation = {1, 0, 0, 0});
 
     void createDescriptorPool();
+
+    void randomCube();
 
     void createSkyBox();
 
@@ -32,8 +37,6 @@ protected:
     void onSwapChainRecreation() override;
 
     VkCommandBuffer *buildCommandBuffers(uint32_t imageIndex, uint32_t &numCommandBuffers) override;
-
-    void renderEntities(VkCommandBuffer commandBuffer);
 
     void update(float time) override;
 
@@ -61,6 +64,7 @@ protected:
     std::vector<VkCommandBuffer> commandBuffers;
     VulkanPipelineCache pipelineCache;
     Entity cubeEntity;
+    Entity cameraEntity;
     uint32_t cubeInstanceCount{0};
     struct Cube{};
 
@@ -72,10 +76,5 @@ protected:
         glm::mat4 transform;
         glm::vec3 color;
     };
-
-    struct {
-        VulkanBuffer vertices;
-        VulkanBuffer instances;
-        VulkanBuffer indexes;
-    } cubeBuffers;
+    Action* createInstanceAction;
 };

@@ -687,12 +687,86 @@ byte_string VulkanBaseApp::load(const std::string &resource) {
 
 Entity VulkanBaseApp::createEntity(const std::string &name) {
     Entity entity{ registry };
+    entity.add<component::Position>();
+    entity.add<component::Rotation>();
+    entity.add<component::Scale>();
     entity.add<component::Transform>();
     auto& nameTag = entity.add<component::Name>();
     nameTag.value = name.empty() ? fmt::format("{}_{}", "Entity", registry.size()) : name;
     return entity;
 }
 
+void VulkanBaseApp::updateEntityTransforms() {
+    auto view = registry.view<component::Position, component::Rotation, component::Scale, component::Transform>();
+
+    for(auto entity : view){
+        auto& position = view.get<component::Position>(entity);
+        auto& scale = view.get<component::Scale>(entity);
+        auto& rotation = view.get<component::Rotation>(entity);
+        auto& transform = view.get<component::Transform>(entity);
+        auto localTransform = glm::translate(glm::mat4(1), position.value) * glm::mat4(rotation.value) * glm::scale(glm::mat4(1), scale.value);
+
+        transform.value = transform.parent ? transform.parent->value * localTransform : localTransform;
+    }
+}
+
+
 void VulkanBaseApp::destroyEntity(Entity entity) {
     registry.destroy(entity);
+}
+
+glm::vec3 VulkanBaseApp::mousePositionToWorldSpace(const Camera &camera) {
+    auto mousePos = glm::vec3(mouse.position, 1);
+    glm::vec4 viewport{0, 0, swapChain.width(), swapChain.height()};
+    return glm::unProject(mousePos, camera.view, camera.proj, viewport);
+}
+
+void VulkanBaseApp::renderEntities(VkCommandBuffer commandBuffer) {
+    auto camView = registry.view<const component::Camera>();
+
+    Camera* camera;
+    for(auto entity : camView){
+        auto cam = camView.get<const component::Camera>(entity);
+        if(cam.main){
+            camera = cam.camera;
+            break;
+        }
+    }
+    if(!camera){
+        spdlog::error("no camera entity set");
+    }
+    assert(camera);
+
+    auto view = registry.view<const component::Render, const component::Transform,  const component::Pipelines>();
+    static std::vector<VkBuffer> buffers;
+    view.each([&](const component::Render& renderComp, const auto& transform,  const auto& pipelines){
+        if(renderComp.instanceCount > 0) {
+            auto model = transform.value;
+            std::vector<VkDeviceSize> offsets(renderComp.vertexBuffers.size(), 0);
+            buffers.clear();
+            for(auto& buffer : renderComp.vertexBuffers){
+                buffers.push_back(buffer.buffer);
+            }
+            vkCmdBindVertexBuffers(commandBuffer, 0, COUNT(buffers), buffers.data(), offsets.data());
+            if (renderComp.indexCount > 0) {
+                vkCmdBindIndexBuffer(commandBuffer, renderComp.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+            }
+            for (const auto &pipeline : pipelines) {
+                vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.pipeline);
+                vkCmdPushConstants(commandBuffer, pipeline.layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Camera), camera);
+                if (!pipeline.descriptorSets.empty()) {
+                    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.layout, 0,
+                                            COUNT(pipeline.descriptorSets), pipeline.descriptorSets.data(), 0,
+                                            VK_NULL_HANDLE);
+                }
+                for (auto primitive : renderComp.primitives) {
+                    if (renderComp.indexCount > 0) {
+                        primitive.drawIndexed(commandBuffer, 0, renderComp.instanceCount);
+                    } else {
+                        primitive.draw(commandBuffer, 0, renderComp.instanceCount);
+                    }
+                }
+            }
+        }
+    });
 }

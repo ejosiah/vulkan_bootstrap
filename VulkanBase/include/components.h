@@ -18,25 +18,27 @@ namespace component{
         entt::entity base_entity;
     };
 
-    struct Transform{
-        Transform* parent{nullptr};
-        glm::vec3 translation{ glm::vec3(0) };
-        glm::vec3 scale{ glm::vec3(1) };
-        glm::vec3 rotation{0};
 
-        [[nodiscard]]
-        glm::mat4 get() const {
-            glm::mat4 rotate = glm::mat4(glm::quat(rotation));
-            auto localTransform = glm::translate(glm::mat4(1), translation) * rotate * glm::scale(glm::mat4(1), scale);
-            if(parent){
-                return parent->get() * localTransform;
-            }
-            return localTransform;
-        }
+    struct Position{
+        glm::vec3 value{0};
+    };
+
+    struct Scale{
+        glm::vec3 value{1};
+    };
+
+    struct Rotation{
+        glm::quat value{1, 0, 0, 0};
+    };
+
+    struct Transform{
+        glm::mat4 value{1};
+        Transform* parent{nullptr};
     };
 
     struct Camera{
         ::Camera* camera{ nullptr };
+        bool main{ true };
     };
 
     struct Pipeline{
@@ -47,10 +49,35 @@ namespace component{
         std::vector<VkDescriptorSet> descriptorSets;
     };
 
-    struct Render{
+    struct Pipelines{
         std::vector<Pipeline> pipelines;
-        std::vector<VkBuffer> vertexBuffers;
-        VkBuffer indexBuffer;
+
+        void add(const Pipeline& pipeline){
+            pipelines.push_back(pipeline);
+        }
+
+        std::vector<Pipeline>::iterator begin() {
+            return pipelines.begin();
+        }
+
+        std::vector<Pipeline>::iterator end()  {
+            return pipelines.end();
+        }
+
+        [[nodiscard]]
+        std::vector<Pipeline>::const_iterator begin() const {
+            return pipelines.cbegin();
+        }
+
+        [[nodiscard]]
+        std::vector<Pipeline>::const_iterator end() const {
+            return pipelines.cend();
+        }
+    };
+
+    struct Render{
+        std::vector<VulkanBuffer> vertexBuffers;
+        VulkanBuffer indexBuffer;
         std::vector<vkn::Primitive> primitives;
         uint32_t indexCount{0};
         uint32_t instanceCount{1};

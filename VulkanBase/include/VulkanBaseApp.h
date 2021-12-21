@@ -256,7 +256,13 @@ protected:
 
     Entity createEntity(const std::string& name);
 
+    void updateEntityTransforms();
+
     void destroyEntity(Entity entity);
+
+    glm::vec3 mousePositionToWorldSpace(const Camera& camera);
+
+    void renderEntities(VkCommandBuffer commandBuffer);
 
 private:
     void setPaused(bool flag);

@@ -1,6 +1,7 @@
 #include "EnttDemo.hpp"
 #include "GraphicsPipelineBuilder.hpp"
 #include "DescriptorSetBuilder.hpp"
+#include "random.h"
 
 EnttDemo::EnttDemo(const Settings& settings) : VulkanBaseApp("entt demo", settings) {
     fileManager.addSearchPath(".");
@@ -12,6 +13,7 @@ EnttDemo::EnttDemo(const Settings& settings) : VulkanBaseApp("entt demo", settin
     fileManager.addSearchPath("../../data/models");
     fileManager.addSearchPath("../../data/textures");
     fileManager.addSearchPath("../../data");
+    createInstanceAction = &mapToMouse(0, "create_cube", Action::detectInitialPressOnly());
 }
 
 void EnttDemo::initApp() {
@@ -24,7 +26,7 @@ void EnttDemo::initApp() {
     createRenderPipeline();
     createComputePipeline();
     createCube();
-    createCubeInstance({1, 0, 0});
+//    createCubeInstance({1, 0, 0});
 }
 
 void EnttDemo::createDescriptorPool() {
@@ -174,6 +176,10 @@ void EnttDemo::update(float time) {
 
 void EnttDemo::checkAppInputs() {
     cameraController->processInput();
+
+    if(createInstanceAction->isPressed()){
+        randomCube();
+    }
 }
 
 void EnttDemo::cleanup() {
@@ -191,38 +197,39 @@ void EnttDemo::createCube() {
 
     auto cube = primitives::cube();
 
-    cubeBuffers.vertices = device.createDeviceLocalBuffer(cube.vertices.data(), BYTE_SIZE(cube.vertices), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-    cubeBuffers.indexes = device.createDeviceLocalBuffer(cube.indices.data(), BYTE_SIZE(cube.indices), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
-    cubeBuffers.instances = device.createBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, sizeof(InstanceData) * 1000, "cube_xforms");
+    auto vertices = device.createDeviceLocalBuffer(cube.vertices.data(), BYTE_SIZE(cube.vertices), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+    auto indexes = device.createDeviceLocalBuffer(cube.indices.data(), BYTE_SIZE(cube.indices), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+    auto instances = device.createBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, sizeof(InstanceData) * 1000, "cube_xforms");
     auto& renderComponent = cubeEntity.get<component::Render>();
     renderComponent.instanceCount = 0;
     renderComponent.indexCount = cube.indices.size();
-    renderComponent.vertexBuffers.push_back(cubeBuffers.vertices);
-    renderComponent.vertexBuffers.push_back(cubeBuffers.instances);
-    renderComponent.indexBuffer = cubeBuffers.indexes;
+    renderComponent.vertexBuffers.push_back(vertices);
+    renderComponent.vertexBuffers.push_back(instances);
+    renderComponent.indexBuffer = indexes;
 
     auto indexCount = cube.indices.size();
     auto vertexCount = cube.vertices.size();
     renderComponent.primitives.push_back(vkn::Primitive::indexed(indexCount, 0, vertexCount, 0));
 
-    component::Pipeline pipeline{render.pipeline, render.layout, 0};
-    renderComponent.pipelines.push_back(pipeline);
+    auto& pipelines = cubeEntity.add<component::Pipelines>();
+    pipelines.add({render.pipeline, render.layout});
 }
 
-void EnttDemo::createCubeInstance(glm::vec3 color, const component::Transform& transform) {
+void EnttDemo::createCubeInstance(glm::vec3 color, const glm::vec3& position, const glm::vec3& scale, const glm::quat& rotation) {
     auto& cubeRender = cubeEntity.get<component::Render>();
-    InstanceData* instances = reinterpret_cast<InstanceData*>(cubeBuffers.instances.map());
-    instances[cubeRender.instanceCount].transform = transform.get();
-    instances[cubeRender.instanceCount].color = color;
-    cubeBuffers.instances.unmap();
-
     auto entity = createEntity(fmt::format("cube_{}", cubeRender.instanceCount));
     entity.add<Cube>();
     entity.add<Color>().value = color;
-    entity.get<component::Transform>() = transform;
+    entity.get<component::Position>().value = position;
+    entity.get<component::Scale>().value = scale;
+    entity.get<component::Rotation>().value = rotation;
+
+    updateEntityTransforms();
+    InstanceData* instances = reinterpret_cast<InstanceData*>(cubeRender.vertexBuffers[1].map());
+    instances[cubeRender.instanceCount].transform = entity.get<component::Transform>().value;
+    instances[cubeRender.instanceCount].color = color;
+    cubeRender.vertexBuffers[1].unmap();
     cubeRender.instanceCount++;
-
-
 }
 
 void EnttDemo::initCamera() {
@@ -232,6 +239,9 @@ void EnttDemo::initCamera() {
     cameraController = std::make_unique<CameraController>(device, swapChain.imageCount(), currentImageIndex, dynamic_cast<InputManager&>(*this), settings);
     cameraController->setMode(CameraMode::SPECTATOR);
     cameraController->lookAt(glm::vec3(5), {0, 0, 0}, {0, 1, 0});
+
+    cameraEntity = createEntity("camera");
+    cameraEntity.add<component::Camera>().camera = const_cast<Camera*>(&cameraController->cam());
 }
 
 void EnttDemo::createSkyBox() {
@@ -243,49 +253,35 @@ void EnttDemo::createSkyBox() {
     renderComponent.vertexBuffers.push_back(skyBox.cube.vertices);
     renderComponent.indexBuffer = skyBox.cube.indices;
 
-    component::Pipeline pipeline{ *skyBox.pipeline, *skyBox.layout, 0, {}, { skyBox.descriptorSet } };
-    renderComponent.pipelines.push_back(pipeline);
+
 
     auto indexCount = skyBox.cube.indices.size/sizeof(uint32_t);
     auto vertexCount = skyBox.cube.vertices.size/sizeof(glm::vec3);
     renderComponent.primitives.push_back(vkn::Primitive::indexed(indexCount, 0, vertexCount, 0));
     renderComponent.indexCount = indexCount;
+
+    auto& pipelines = entity.add<component::Pipelines>();
+    pipelines.add({ *skyBox.pipeline, *skyBox.layout, 0, {}, { skyBox.descriptorSet } });
 }
 
-void EnttDemo::renderEntities(VkCommandBuffer commandBuffer) {
-    auto view = registry.view<const component::Render, const component::Transform>();
-    auto camera = cameraController->cam();
-    view.each([&](const component::Render& renderComp, const auto& transform){
-        if(renderComp.instanceCount > 0) {
-            auto model = transform.get();
-            std::vector<VkDeviceSize> offsets(renderComp.vertexBuffers.size(), 0);
-            vkCmdBindVertexBuffers(commandBuffer, 0, COUNT(renderComp.vertexBuffers), renderComp.vertexBuffers.data(),
-                                   offsets.data());
-            if (renderComp.indexCount > 0) {
-                vkCmdBindIndexBuffer(commandBuffer, renderComp.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-            }
-            for (const auto &pipeline : renderComp.pipelines) {
-                vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.pipeline);
-                cameraController->push(commandBuffer, pipeline.layout, model);
-                if (!pipeline.descriptorSets.empty()) {
-                    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.layout, 0,
-                                            COUNT(pipeline.descriptorSets), pipeline.descriptorSets.data(), 0,
-                                            VK_NULL_HANDLE);
-                }
-                for (auto primitive : renderComp.primitives) {
-                    if (renderComp.indexCount > 0) {
-                        primitive.drawIndexed(commandBuffer, 0, renderComp.instanceCount);
-                    } else {
-                        primitive.draw(commandBuffer, 0, renderComp.instanceCount);
-                    }
-                }
-            }
-        }
-    });
+void EnttDemo::randomCube() {
+    static auto rngAngle = rng(-glm::pi<float>(), -glm::pi<float>());
+    auto dir = mousePositionToWorldSpace(cameraController->cam());
+    dir = glm::normalize(dir);
+    auto position = cameraController->position() + dir * 10.0f;
+    auto rAxis = glm::normalize(randomVec3());
+    auto rotation = glm::angleAxis(rngAngle(), rAxis);
+    auto scale = glm::vec3(1);
+
+
+
+    auto color = randomColor();
+    createCubeInstance(color, position, scale, rotation);
 }
 
 int main(){
     try{
+//        spdlog::set_level(spdlog::level::debug);
         Settings settings;
         settings.depthTest = true;
 
