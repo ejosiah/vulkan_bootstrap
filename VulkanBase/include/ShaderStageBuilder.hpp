@@ -15,6 +15,9 @@ public:
    ShaderStageBuilder& vertexShader(const byte_string& data);
 
    [[nodiscard]]
+   ShaderStageBuilder& vertexShader(const std::vector<uint32_t>& data);
+
+   [[nodiscard]]
    ShaderStageBuilder& fragmentShader(const std::string& path);
 
    [[nodiscard]]

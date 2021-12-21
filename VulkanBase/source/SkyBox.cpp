@@ -124,10 +124,11 @@ void SkyBox::destroy() {
 }
 
 void SkyBox::createPipeline() {
+    std::vector<uint32_t> vertex{std::begin(__glsl_skybox_vert_spv), std::end(__glsl_skybox_vert_spv)};
     g_pipeline =
         device().graphicsPipelineBuilder()
             .shaderStage()
-                .vertexShader("../../data/shaders/skybox/skybox.vert.spv")
+                .vertexShader(vertex)
                 .fragmentShader("../../data/shaders/skybox/skybox.frag.spv")
             .vertexInputState()
                 .addVertexBindingDescription(0, sizeof(glm::vec3), VK_VERTEX_INPUT_RATE_VERTEX)

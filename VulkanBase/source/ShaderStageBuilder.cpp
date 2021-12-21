@@ -17,6 +17,11 @@ ShaderStageBuilder &ShaderStageBuilder::vertexShader(const byte_string &data) {
     return *this;
 }
 
+ShaderStageBuilder &ShaderStageBuilder::vertexShader(const std::vector<uint32_t> &data) {
+    _vertexModule = VulkanShaderModule{ data, device()};
+    return *this;
+}
+
 ShaderStageBuilder &ShaderStageBuilder::fragmentShader(const std::string &path) {
     _fragmentModule = VulkanShaderModule{ path, device()};
     return *this;
