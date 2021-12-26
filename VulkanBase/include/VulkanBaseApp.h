@@ -256,13 +256,13 @@ protected:
 
     Entity createEntity(const std::string& name);
 
-    void updateEntityTransforms();
+    void updateEntityTransforms(entt::registry& registry);
 
     void destroyEntity(Entity entity);
 
     glm::vec3 mousePositionToWorldSpace(const Camera& camera);
 
-    void renderEntities(VkCommandBuffer commandBuffer);
+    void renderEntities(VkCommandBuffer commandBuffer, entt::registry& registry);
 
 private:
     void setPaused(bool flag);
@@ -274,7 +274,7 @@ protected:
     VulkanDevice device;
     VulkanSwapChain swapChain;
     VulkanRenderPass renderPass;
-    entt::registry registry;
+    entt::registry m_registry;
 
     std::vector<VulkanFramebuffer> framebuffers;
 

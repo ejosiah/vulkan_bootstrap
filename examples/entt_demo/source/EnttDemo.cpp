@@ -13,7 +13,7 @@ EnttDemo::EnttDemo(const Settings& settings) : VulkanBaseApp("entt demo", settin
     fileManager.addSearchPath("../../data/models");
     fileManager.addSearchPath("../../data/textures");
     fileManager.addSearchPath("../../data");
-    createInstanceAction = &mapToMouse(0, "create_cube", Action::detectInitialPressOnly());
+    createInstanceAction = &mapToMouse(1, "create_cube", Action::detectInitialPressOnly());
 }
 
 void EnttDemo::initApp() {
@@ -26,7 +26,7 @@ void EnttDemo::initApp() {
     createRenderPipeline();
     createComputePipeline();
     createCube();
-//    createCubeInstance({1, 0, 0});
+   createCubeInstance({1, 1, 1}, {0, -1000, 0}, {1000, 1000, 1000});
 }
 
 void EnttDemo::createDescriptorPool() {

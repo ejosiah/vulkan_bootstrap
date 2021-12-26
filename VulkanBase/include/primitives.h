@@ -77,7 +77,7 @@ namespace primitives{
      * @param color color of the torus
      * @return vertices defining a torus
      */
-    Vertices torus(int rows, int columns, float innerRadius = 0.5f, float outerRadius = 1.0f, const glm::vec4& color = randomColor(), VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP);
+    Vertices torus(int rows, int columns, float innerRadius = 0.5f, float outerRadius = 1.0f, glm::mat4 xform = glm::mat4{1}, const glm::vec4& color = randomColor(), VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP);
 
     /**
      * Generates a parametric surface

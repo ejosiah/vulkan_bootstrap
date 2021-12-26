@@ -30,7 +30,9 @@ struct VulkanBuffer{
         allocation = source.allocation;
         name = source.name;
         size = source.size;
-        incrementRef(buffer);
+        if(buffer) {
+            incrementRef(buffer);
+        }
         return *this;
     }
 

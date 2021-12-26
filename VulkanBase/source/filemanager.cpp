@@ -18,6 +18,7 @@ byte_string FileManager::load(const std::string &resource) {
 }
 
 std::optional<fs::path> FileManager::getFullPath(const std::string &resource) {
+    // TODO add recursive path search
     assert(!searchPaths_.empty());
     fs::path path = resource;
     auto itr = begin(searchPaths_);

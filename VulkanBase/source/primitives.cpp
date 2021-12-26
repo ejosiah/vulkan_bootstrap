@@ -141,7 +141,7 @@ Vertices primitives::cylinder(int rows, int columns, float radius, float height,
     return surface(p, q, f, color, glm::mat4{1}, topology);
 }
 
-Vertices primitives::torus(int rows, int columns, float innerRadius, float outerRadius, const glm::vec4 &color, VkPrimitiveTopology topology) {
+Vertices primitives::torus(int rows, int columns, float innerRadius, float outerRadius,  glm::mat4 xform, const glm::vec4 &color, VkPrimitiveTopology topology) {
     auto p = columns;
     auto q = rows;
     auto R = innerRadius;
@@ -164,7 +164,7 @@ Vertices primitives::torus(int rows, int columns, float innerRadius, float outer
     };
 
 
-    return surface(p, q, f, color, glm::mat4{1}, topology);
+    return surface(p, q, f, color, xform, topology);
 }
 
 Vertices primitives::plane(int rows, int columns, float width, float height, const glm::mat4& xform, const glm::vec4 &color, VkPrimitiveTopology topology) {

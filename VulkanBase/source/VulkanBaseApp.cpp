@@ -686,17 +686,17 @@ byte_string VulkanBaseApp::load(const std::string &resource) {
 }
 
 Entity VulkanBaseApp::createEntity(const std::string &name) {
-    Entity entity{ registry };
+    Entity entity{m_registry };
     entity.add<component::Position>();
     entity.add<component::Rotation>();
     entity.add<component::Scale>();
     entity.add<component::Transform>();
     auto& nameTag = entity.add<component::Name>();
-    nameTag.value = name.empty() ? fmt::format("{}_{}", "Entity", registry.size()) : name;
+    nameTag.value = name.empty() ? fmt::format("{}_{}", "Entity", m_registry.size()) : name;
     return entity;
 }
 
-void VulkanBaseApp::updateEntityTransforms() {
+void VulkanBaseApp::updateEntityTransforms(entt::registry& registry) {
     auto view = registry.view<component::Position, component::Rotation, component::Scale, component::Transform>();
 
     for(auto entity : view){
@@ -712,7 +712,7 @@ void VulkanBaseApp::updateEntityTransforms() {
 
 
 void VulkanBaseApp::destroyEntity(Entity entity) {
-    registry.destroy(entity);
+    m_registry.destroy(entity);
 }
 
 glm::vec3 VulkanBaseApp::mousePositionToWorldSpace(const Camera &camera) {
@@ -721,10 +721,10 @@ glm::vec3 VulkanBaseApp::mousePositionToWorldSpace(const Camera &camera) {
     return glm::unProject(mousePos, camera.view, camera.proj, viewport);
 }
 
-void VulkanBaseApp::renderEntities(VkCommandBuffer commandBuffer) {
+void VulkanBaseApp::renderEntities(VkCommandBuffer commandBuffer, entt::registry& registry) {
     auto camView = registry.view<const component::Camera>();
 
-    Camera* camera;
+    Camera* camera{nullptr};
     for(auto entity : camView){
         auto cam = camView.get<const component::Camera>(entity);
         if(cam.main){
@@ -737,11 +737,12 @@ void VulkanBaseApp::renderEntities(VkCommandBuffer commandBuffer) {
     }
     assert(camera);
 
-    auto view = registry.view<const component::Render, const component::Transform,  const component::Pipelines>();
+    auto view = m_registry.view<const component::Render, const component::Transform,  const component::Pipelines>();
     static std::vector<VkBuffer> buffers;
     view.each([&](const component::Render& renderComp, const auto& transform,  const auto& pipelines){
         if(renderComp.instanceCount > 0) {
             auto model = transform.value;
+            camera->model = model;
             std::vector<VkDeviceSize> offsets(renderComp.vertexBuffers.size(), 0);
             buffers.clear();
             for(auto& buffer : renderComp.vertexBuffers){

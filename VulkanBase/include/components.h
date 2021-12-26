@@ -73,6 +73,10 @@ namespace component{
         std::vector<Pipeline>::const_iterator end() const {
             return pipelines.cend();
         }
+
+        void clear() {
+            pipelines.clear();
+        }
     };
 
     struct Render{
