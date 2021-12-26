@@ -737,7 +737,7 @@ void VulkanBaseApp::renderEntities(VkCommandBuffer commandBuffer, entt::registry
     }
     assert(camera);
 
-    auto view = m_registry.view<const component::Render, const component::Transform,  const component::Pipelines>();
+    auto view = registry.view<const component::Render, const component::Transform,  const component::Pipelines>();
     static std::vector<VkBuffer> buffers;
     view.each([&](const component::Render& renderComp, const auto& transform,  const auto& pipelines){
         if(renderComp.instanceCount > 0) {

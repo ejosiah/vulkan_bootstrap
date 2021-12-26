@@ -1,14 +1,6 @@
 #include "VulkanBaseApp.h"
 #include "ImGuiPlugin.hpp"
-
-struct RotationAxis{};
-struct XAxis{};
-struct YAxis{};
-struct ZAxis{};
-
-enum RotationOrder{
-    XYZ, XZY, YXZ, YZX, ZXY, ZYX
-};
+#include "scene.hpp"
 
 class RotationDemo : public VulkanBaseApp{
 public:
@@ -19,23 +11,13 @@ protected:
 
     void createCamera();
 
-    void createRotationAxis();
-
-    void loadModel();
-
-    void updateModelParentTransform();
-
-    Entity createAxis(const std::string& name, float innerR, float outerR, glm::vec3 color, glm::quat orientation);
+    void createScenes();
 
     void createDescriptorPool();
 
     void createCommandPool();
 
     void createPipelineCache();
-
-    void createRenderPipeline();
-
-    void createComputePipeline();
 
     void onSwapChainDispose() override;
 
@@ -54,24 +36,13 @@ protected:
     void renderUI(VkCommandBuffer commandBuffer);
 
 protected:
-    struct {
-        VulkanPipelineLayout layout;
-        VulkanPipeline pipeline;
-    } render;
-
-    struct {
-        VulkanPipelineLayout layout;
-        VulkanPipeline pipeline;
-    } compute;
 
     VulkanDescriptorPool descriptorPool;
     VulkanCommandPool commandPool;
     std::vector<VkCommandBuffer> commandBuffers;
     VulkanPipelineCache pipelineCache;
     std::unique_ptr<OrbitingCameraController> cameraController;
-    glm::vec3 axisRotation{0};
-    int rotationOrder = XYZ;
-    bool orderUpdated = false;
     bool moveCamera = false;
-    Entity spaceShip;
+    int currentScene = 1;
+    std::map<int, std::unique_ptr<Scene>> scenes;
 };

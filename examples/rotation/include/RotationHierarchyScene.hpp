@@ -13,8 +13,9 @@ enum RotationOrder{
 
 class RotationHierarchyScene : public Scene{
 public:
-    RotationHierarchyScene(VulkanDevice* device = nullptr, VulkanRenderPass* renderPass = nullptr, VulkanSwapChain* swapChain = nullptr)
-    : Scene(device, renderPass, swapChain)
+    RotationHierarchyScene(VulkanDevice* device = nullptr, VulkanRenderPass* renderPass = nullptr, VulkanSwapChain* swapChain = nullptr
+            , VulkanDescriptorPool* descriptorPool = nullptr, FileManager* fileManager = nullptr, Mouse* mouse = nullptr)
+    : Scene(device, renderPass, swapChain, descriptorPool, fileManager, mouse)
     {}
 
     void init() override {
@@ -26,21 +27,21 @@ public:
 
     void loadModel(){
         VulkanDrawable model;
-        phong::load("../../data/models/bigship1.obj", device, descriptorPool, model);
+        phong::load("../../data/models/bigship1.obj", *m_device, *m_descriptorPool, model);
 
         spaceShip = createEntity("model");
         auto& renderComp = spaceShip.add<component::Render>();
         renderComp.vertexBuffers.push_back(model.vertexBuffer);
         renderComp.indexBuffer = model.indexBuffer;
         renderComp.indexCount = model.numTriangles() * 3;
-        renderComp.indexCount = 1;
+        renderComp.instanceCount = 1;
 
         for(auto& mesh : model.meshes){
             renderComp.primitives.push_back(mesh);
         }
 
         auto& pipelines = spaceShip.add<component::Pipelines>();
-        component::Pipeline pipeline{ render.pipeline, render.layout };
+        component::Pipeline pipeline{ m_render.pipeline, m_render.layout };
         pipelines.add(pipeline);
     }
 
@@ -138,8 +139,8 @@ public:
     }
 
     void createRenderPipeline() override{
-        auto builder = device.graphicsPipelineBuilder();
-        render.pipeline =
+        auto builder = m_device->graphicsPipelineBuilder();
+        m_render.pipeline =
             builder
                 .shaderStage()
                   .vertexShader(load("torus.vert.spv"))
@@ -152,12 +153,12 @@ public:
                 .viewportState()
                     .viewport()
                         .origin(0, 0)
-                        .dimension(swapChain.extent)
+                        .dimension(m_swapChain->extent)
                         .minDepth(0)
                         .maxDepth(1)
                     .scissor()
                         .offset(0, 0)
-                        .extent(swapChain.extent)
+                        .extent(m_swapChain->extent)
                     .add()
                 .rasterizationState()
                     .cullBackFace()
@@ -174,10 +175,21 @@ public:
                     .add()
                 .layout()
                   .addPushConstantRange(Camera::pushConstant())
-                .renderPass(renderPass)
+                .renderPass(*m_renderPass)
                 .subpass(0)
                 .name("render")
-            .build(render.layout);
+            .build(m_render.layout);
+    }
+
+    void refresh() override {
+        createRenderPipeline();
+        auto view = m_registry.view<component::Pipelines>();
+        component::Pipeline pipeline{ m_render.pipeline, m_render.layout };
+        for(auto entity : view){
+            auto& pipelines = view.get<component::Pipelines>(entity);
+            pipelines.clear();
+            pipelines.add(pipeline);
+        }
     }
 
     void updateModelParentTransform(){
@@ -280,8 +292,8 @@ public:
     Entity createAxis(const std::string& name, float innerR, float outerR, glm::vec3 color, glm::quat orientation){
         auto torus = primitives::torus(50, 50, innerR, outerR, glm::mat4(orientation), glm::vec4(color, 1), VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
 
-        auto vertices = device.createDeviceLocalBuffer(torus.vertices.data(), BYTE_SIZE(torus.vertices), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-        auto indices = device.createDeviceLocalBuffer(torus.indices.data(), BYTE_SIZE(torus.indices), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+        auto vertices = m_device->createDeviceLocalBuffer(torus.vertices.data(), BYTE_SIZE(torus.vertices), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+        auto indices = m_device->createDeviceLocalBuffer(torus.indices.data(), BYTE_SIZE(torus.indices), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
 
         auto entity = createEntity(name);
         entity.add<RotationAxis>();
@@ -296,7 +308,7 @@ public:
         renderComp.indexCount = indexCount;
 
         auto& pipelines = entity.add<component::Pipelines>();
-        component::Pipeline pipeline{ render.pipeline, render.layout };
+        component::Pipeline pipeline{ m_render.pipeline, m_render.layout };
         pipelines.add(pipeline);
 
         return entity;
