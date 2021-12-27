@@ -3,6 +3,7 @@
 #include "DescriptorSetBuilder.hpp"
 #include "RotationHierarchyScene.hpp"
 #include "AngularMomentumScene.hpp"
+#include "InterpolationScene.hpp"
 
 RotationDemo::RotationDemo(const Settings& settings) : VulkanBaseApp("Rotation", settings) {
     fileManager.addSearchPath(".");
@@ -120,8 +121,9 @@ void RotationDemo::checkAppInputs() {
 }
 
 void RotationDemo::cleanup() {
-    // TODO save pipeline cache
-    VulkanBaseApp::cleanup();
+   for(auto& [_, scene] : scenes){
+       scene.get_deleter()(scene.get());
+   }
 }
 
 void RotationDemo::onPause() {
@@ -149,6 +151,7 @@ void RotationDemo::renderUI(VkCommandBuffer commandBuffer) {
     ImGui::Text("Scene:");
     ImGui::RadioButton("Rotation Hierarchy", &currentScene, 0);
     ImGui::RadioButton("Angular Momentum", &currentScene, 1);
+    ImGui::RadioButton("Interpolation", &currentScene, 2);
 
     scenes[currentScene]->renderUI(commandBuffer);
 
@@ -161,6 +164,7 @@ void RotationDemo::renderUI(VkCommandBuffer commandBuffer) {
 void RotationDemo::createScenes() {
     scenes[0] = std::make_unique<RotationHierarchyScene>(&device, &renderPass, &swapChain, &descriptorPool, &fileManager, &mouse);
     scenes[1] = std::make_unique<AngularMomentumScene>(&device, &renderPass, &swapChain, &descriptorPool, &fileManager, &mouse);
+    scenes[2] = std::make_unique<InterpolationScene>(&device, &renderPass, &swapChain, &descriptorPool, &fileManager, &mouse);
 
     for(auto& [_, scene] : scenes){
         scene->init();

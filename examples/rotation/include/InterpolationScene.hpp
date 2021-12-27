@@ -1,17 +1,19 @@
 #pragma once
+
 #include "Scene.hpp"
 
-class AngularMomentumScene : public Scene {
+class InterpolationScene : public Scene{
 public:
-    AngularMomentumScene(VulkanDevice* device = nullptr, VulkanRenderPass* renderPass = nullptr, VulkanSwapChain* swapChain = nullptr
+    InterpolationScene(VulkanDevice* device = nullptr, VulkanRenderPass* renderPass = nullptr, VulkanSwapChain* swapChain = nullptr
     , VulkanDescriptorPool* descriptorPool = nullptr, FileManager* fileManager = nullptr, Mouse* mouse = nullptr)
     : Scene(device, renderPass, swapChain, descriptorPool, fileManager, mouse)
     {}
-
-    void init() override {
+    
+    void init() final {
         createRenderPipeline();
         createSphere();
-        createAxis();
+        createAxis(m_axisAEntity, {1, 0, 0, 1});
+        createAxis(m_axisBEntity, {0, 1, 0, 1});
     }
 
     void createSphere(){
@@ -33,67 +35,63 @@ public:
         pipelines.add(pipeline);
     }
 
-    void createAxis(){
+    void createAxis(Entity& entity, glm::vec4 color){
         std::vector<Vertex> vertices{
-            {{0, 1.2, 0, 1}, {1, 1, 0, 1}}, {{0, -1.2, 0, 1}, {1, 1, 0, 1}}, // tail
-            {{0, 1.2, 0, 1}, {1, 1, 0, 1}}, {{-0.05, 1.150, 0, 1}, {1, 1, 0, 1}},  // left arrow
-            {{0, 1.2, 0, 1}, {1, 1, 0, 1}}, {{0.05, 1.150, 0, 1}, {1, 1, 0, 1}}  // right arrow
+                {{0, 1.2, 0, 1}, color}, {{0, -1.2, 0, 1}, color}, // tail
+                {{0, 1.2, 0, 1}, color}, {{-0.05, 1.150, 0, 1}, color},  // left arrow
+                {{0, 1.2, 0, 1}, color}, {{0.05, 1.150, 0, 1}, color}  // right arrow
         };
         auto vertexBuffer = m_device->createDeviceLocalBuffer(vertices.data(), BYTE_SIZE(vertices), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
 
-        m_axisEntity = createEntity("Axis");
-        auto& renderComp = m_axisEntity.add<component::Render>();
+        entity = createEntity("Axis");
+        auto& renderComp = entity.add<component::Render>();
         renderComp.vertexBuffers.push_back(vertexBuffer);
         renderComp.primitives.push_back(vkn::Primitive::Vertices(0, vertices.size()));
 
-        auto& pipelines = m_axisEntity.add<component::Pipelines>();
+        auto& pipelines = entity.add<component::Pipelines>();
         component::Pipeline pipeline{ m_axisRender.pipeline, m_axisRender.layout };
         pipelines.add(pipeline);
     }
 
-    void update(float dt) override {
-        if(m_flipAxis){
-            axis *= -1;
-            glm::quat flip = glm::angleAxis(glm::pi<float>(), right);
-            auto& transform = m_axisEntity.get<component::Transform>();
-            transform.value = glm::mat4(flip) * transform.value;
-            right *= -1;
-            m_flipAxis = false;
-        }
-        angularVelocity = glm::quat(0, speed * glm::normalize(axis));
-        orientation = orientation + 0.5f * dt * angularVelocity * orientation;
-        orientation = glm::normalize(orientation);
-        m_sphereEntity.get<component::Transform>().value = glm::mat4(orientation);
+    void update(float dt) final {
+        if(m_doLerp){
+            float t = glm::clamp(0.f, 1.f, m_elapsed/m_duration);
 
-    }
+            auto quatA = glm::quat(m_axisAEntity.get<component::Transform>().value);
+            auto quatB = glm::quat(m_axisBEntity.get<component::Transform>().value);
+            auto quatC = m_lerpMethod == 0 ? glm::lerp(quatA, quatB, t) : glm::slerp(quatA, quatB, t);
 
-    void render(VkCommandBuffer commandBuffer) override {
+            m_sphereEntity.get<component::Transform>().value = glm::mat4(quatC);
+            m_elapsed += dt;
 
-    }
-
-    void renderUI(VkCommandBuffer commandBuffer) override {
-        ImGui::SliderFloat("speed", &speed, 0, 30);
-
-        ImGui::Checkbox("Move Axis", &m_moveAxis); ImGui::SameLine();
-        m_flipAxis |= ImGui::Button("Flip Axis");
-
-    }
-
-    void checkInputs() override {
-        if (m_moveAxis) {
-            float pitch = -m_mouse->relativePosition.y * 0.01f;
-            float yaw = m_mouse->relativePosition.x * 0.01f;
-            if (pitch != 0 || yaw != 0) {
-                auto rotation = glm::mat3(glm::quat({pitch, yaw, 0.0f}));
-                axis = rotation * axis;
-                right = rotation * right;
-                auto &transform = m_axisEntity.get<component::Transform>();
-                transform.value = glm::mat4(rotation) * transform.value;
+            if(m_elapsed >= m_duration){
+                m_doLerp = false;
+                m_elapsed = 0.0f;
             }
         }
     }
 
-    void createRenderPipeline() override {
+    void render(VkCommandBuffer commandBuffer) final {
+
+    }
+
+    void renderUI(VkCommandBuffer commandBuffer) final {
+        ImGui::SliderFloat("duration", &m_duration, 0.5, 5);
+        ImGui::Text("Axis");
+        ImGui::Checkbox("Move Axis", &m_moveAxis);
+        if(m_moveAxis){
+            ImGui::SameLine();
+            ImGui::RadioButton("Axis A", &m_axisId, 0);
+            ImGui::SameLine();
+            ImGui::RadioButton("Axis B", &m_axisId, 1);
+        }
+        ImGui::Text("Interpolation");
+        ImGui::RadioButton("lerp", &m_lerpMethod, 0); ImGui::SameLine();
+        ImGui::RadioButton("slerp", &m_lerpMethod, 1);
+        m_doLerp |= ImGui::Button("Interpolate");
+    }
+
+    void createRenderPipeline() final {
         auto builder = m_device->graphicsPipelineBuilder();
         m_render.pipeline =
             builder
@@ -157,8 +155,22 @@ public:
             .build(m_axisRender.layout);
     }
 
+    void checkInputs() final {
+        if (m_moveAxis) {
+            float pitch = -m_mouse->relativePosition.y * 0.01f;
+            float yaw = m_mouse->relativePosition.x * 0.01f;
+            if (pitch != 0 || yaw != 0) {
+                auto& axis = m_axisId == 0 ? m_axisA : m_axisB;
+                auto rotation = glm::mat3(glm::quat({pitch, yaw, 0.0f}));
+                axis = rotation * axis;
+                auto entity = m_axisId == 0 ? m_axisAEntity : m_axisBEntity;
+                auto &transform = entity.get<component::Transform>();
+                transform.value = glm::mat4(rotation) * transform.value;
+            }
+        }
+    }
 
-    void refresh() override {
+    void refresh() final {
         dispose(m_axisRender.pipeline);
         dispose(m_render.pipeline);
 
@@ -169,21 +181,28 @@ public:
         pipelines->add(pipeline);
 
         pipeline = component::Pipeline{ m_axisRender.pipeline, m_axisRender.layout };
-        pipelines = &m_axisEntity.get<component::Pipelines>();
+        pipelines = &m_axisAEntity.get<component::Pipelines>();
+        pipelines->clear();
+        pipelines->add(pipeline);
+
+        pipeline = component::Pipeline{ m_axisRender.pipeline, m_axisRender.layout };
+        pipelines = &m_axisBEntity.get<component::Pipelines>();
         pipelines->clear();
         pipelines->add(pipeline);
     }
 
 private:
     Entity m_sphereEntity;
-    Entity m_axisEntity;
-    glm::quat angularVelocity{0, 0, 0, 0};
-    glm::vec3 axis{0, 1, 0};
-    glm::vec3 right{1, 0, 0};
-    float speed{5.0};
+    Entity m_axisAEntity;
+    Entity m_axisBEntity;
+    float m_duration{2};
+    float m_elapsed{0};
     bool m_moveAxis{false};
-    bool m_flipAxis{false};
-    glm::quat orientation{1, 0, 0, 0};
+    bool m_doLerp{false};
+    int m_axisId{0};
+    int m_lerpMethod{0};
+    glm::vec3 m_axisA{0, 1, 0};
+    glm::vec3 m_axisB{0, 1, 0};
     struct {
         VulkanPipelineLayout layout;
         VulkanPipeline pipeline;

@@ -1,7 +1,8 @@
 #version 460
 
+layout(location = 0) in vec4 vColor;
 layout(location = 0) out vec4 fragColor;
 
 void main(){
-    fragColor = vec4(1, 1, 0, 1);
+    fragColor = vColor;
 }
