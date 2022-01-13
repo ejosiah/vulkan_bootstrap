@@ -42,11 +42,11 @@ namespace component{
     };
 
     struct Pipeline{
-        VkPipeline pipeline{ VK_NULL_HANDLE };
-        VkPipelineLayout layout{ VK_NULL_HANDLE };
+        uint64_t pipeline{0};
+        uint64_t layout{0};
         uint32_t subpass{ 0 };
         std::vector<byte_string> ranges;
-        std::vector<VkDescriptorSet> descriptorSets;
+        std::vector<uint64_t> descriptorSets;
     };
 
     struct Pipelines{
