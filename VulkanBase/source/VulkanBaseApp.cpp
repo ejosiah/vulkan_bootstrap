@@ -753,11 +753,11 @@ void VulkanBaseApp::renderEntities(VkCommandBuffer commandBuffer, entt::registry
                 vkCmdBindIndexBuffer(commandBuffer, renderComp.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
             }
             for (const auto &pipeline : pipelines) {
-                vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.pipeline);
-                vkCmdPushConstants(commandBuffer, pipeline.layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Camera), camera);
+                vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,  (VkPipeline)pipeline.pipeline);
+                vkCmdPushConstants(commandBuffer, (VkPipelineLayout)pipeline.layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Camera), camera);
                 if (!pipeline.descriptorSets.empty()) {
-                    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.layout, 0,
-                                            COUNT(pipeline.descriptorSets), pipeline.descriptorSets.data(), 0,
+                    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, (VkPipelineLayout)pipeline.layout, 0,
+                                            COUNT(pipeline.descriptorSets), (VkDescriptorSet*)pipeline.descriptorSets.data(), 0,
                                             VK_NULL_HANDLE);
                 }
                 for (auto primitive : renderComp.primitives) {

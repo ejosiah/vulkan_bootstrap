@@ -11,6 +11,9 @@
 #include <assimp/scene.h>
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
+#include <iostream>
+#include "random.h"
+#include <functional>
 
 static std::vector<const char*> instanceExtensions{VK_EXT_DEBUG_UTILS_EXTENSION_NAME};
 static std::vector<const char*> validationLayers{"VK_LAYER_KHRONOS_validation"};
@@ -204,16 +207,53 @@ void logBones(const aiScene* scene){
     logger(scene->mRootNode);
 }
 
+#include <boost/uuid/uuid.hpp>
+#include <boost/uuid/uuid_generators.hpp>
+#include <boost/uuid/string_generator.hpp>
+#include <boost/uuid/uuid_io.hpp>
+#include <sstream>
+
+
+template<>
+struct fmt::formatter<boost::uuids::uuid>{
+
+    constexpr auto parse(format_parse_context& ctx) {
+        auto it = ctx.begin();
+        it++;
+        return it;
+    }
+
+    template <typename FormatContext>
+    auto format(const boost::uuids::uuid& uuid, FormatContext& ctx) {
+        return format_to(ctx.out(), "{}", to_string(uuid));
+    }
+};
+
+using gen = boost::uuids::random_generator;
+
+inline glm::mat4 qLeft(const glm::quat& q){
+    return {
+            {q.w, -q.x, -q.y, -q.z},
+            {q.x, q.w,  -q.z, q.y},
+            {q.y, q.z,  q.w,  -q.x},
+            {q.z, -q.y, q.x,  q.w}
+    };
+}
+
+inline glm::mat4 qRight(const glm::quat& q){
+    return {
+            {q.w, -q.x, -q.y, -q.z},
+            {q.x,  q.w,  q.z, -q.y},
+            {q.y, -q.z,  q.w,  q.x},
+            {q.z,  q.y, -q.x,  q.w}
+    };
+}
+
 int main() {
-    using namespace glm;
-    Importer importer;
-    const auto scene = importer.ReadFile("../../data/models/character/Wave_Hip_Hop_Dance.fbx", flags);
-    const auto rootNode = scene->mRootNode;
-    fmt::print("num Animations: {}\n", scene->mNumAnimations);
-    fmt::print("node depth: {}\n", nodeDepth(scene, rootNode));
-    fmt::print("num meshes: {}\n", numMeshes(scene, rootNode));
-    fmt::print("num bones: {}\n", scene->mAnimations[0]->mNumChannels);
 
-    logBones(scene);
-
+    glm::quat q(1, 0, 0, 0);
+    auto axis = glm::axis(q);
+    auto angle = glm::angle(q);
+    fmt::print("axis: {}, angle: {}", axis, glm::degrees(angle));
+    return 0;
 }

@@ -51,6 +51,10 @@ struct VulkanHandle{
         return &handle;
     }
 
+    operator uint64_t() const {
+        return (uint64_t)handle;
+    }
+
     operator bool() const {
         return handle != VK_NULL_HANDLE;
     }

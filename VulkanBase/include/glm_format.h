@@ -71,7 +71,7 @@ struct fmt::formatter<glm::qua<T, Q>> {
     auto format(const glm::qua<T, Q>& q, FormatContext& ctx) {
         return format_to(
                 ctx.out(),
-                presentation == 'f' ? "[{:.3f}, <{:.3f}, {:.3f}, {:.3f}>]" : "[{:.1e}, <{:.1e}, {:.1e}, {:.1e}>]",
+                presentation == 'f' ? "[{:.3f}, < {:.3f}, {:.3f}, {:.3f}>]" : "[{:.1e}, <{:.1e}, {:.1e}, {:.1e} >]",
                 q.w, q.x, q.y, q.z);
     }
 };

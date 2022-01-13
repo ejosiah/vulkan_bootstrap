@@ -133,7 +133,7 @@ void SPHFluidSimulation::createRenderDescriptorSet() {
 
 void SPHFluidSimulation::createCommandPool() {
     commandPool = device.createCommandPool(*device.queueFamilyIndex.graphics, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
-    commandBuffers = commandPool.allocate(swapChainImageCount);
+    commandBuffers = commandPool.allocateCommandBuffers(swapChainImageCount);
 }
 
 void SPHFluidSimulation::createPipelineCache() {
@@ -365,24 +365,24 @@ void SPHFluidSimulation::runPhysics() {
     sets[PARTICLE_IN] = particles.descriptorSets[inIndex];
     sets[PARTICLE_OUT] = particles.descriptorSets[outIndex];
 
-    device.graphicsCommandPool().oneTimeCommand([&](VkCommandBuffer commandBuffer){
-        buildHashPointGrid(commandBuffer, sets[PARTICLE_IN]);
-        addComputeBufferMemoryBarriers(commandBuffer, pointHashGrid.bucketBuffers());
-        buildNeighbourList(commandBuffer, sets[PARTICLE_IN]);
-        addComputeBufferMemoryBarriers(commandBuffer, pointHashGrid.neighbourBuffers());
-//        interpolator.updateDensity(commandBuffer, sets[PARTICLE_IN]);
+//    device.graphicsCommandPool().oneTimeCommand([&](VkCommandBuffer commandBuffer){
+//        buildHashPointGrid(commandBuffer, sets[PARTICLE_IN]);
+//        addComputeBufferMemoryBarriers(commandBuffer, pointHashGrid.bucketBuffers());
+//        buildNeighbourList(commandBuffer, sets[PARTICLE_IN]);
+//        addComputeBufferMemoryBarriers(commandBuffer, pointHashGrid.neighbourBuffers());
+////        interpolator.updateDensity(commandBuffer, sets[PARTICLE_IN]);
+////        addComputeBufferMemoryBarriers(commandBuffer, { &particles.buffers[0], &particles.buffers[1] });
+////        interpolator.updateColor(commandBuffer, sets[PARTICLE_IN]);
+//        applyExternalForces(commandBuffer, sets[PARTICLE_IN]);
+////        addComputeBufferMemoryBarriers(commandBuffer, { &forceDescriptor.forceBuffer });
+////        computePressure(commandBuffer, sets[PARTICLE_IN]);
+////        addComputeBufferMemoryBarriers(commandBuffer, { &particles.buffers[0], &particles.buffers[1] });
+////        interpolator.updatePressure(commandBuffer, sets[PARTICLE_IN]);
+////        addComputeBufferMemoryBarriers(commandBuffer, { &forceDescriptor.forceBuffer });
+//        timeIntegration(commandBuffer, sets, forceDescriptor.set);
 //        addComputeBufferMemoryBarriers(commandBuffer, { &particles.buffers[0], &particles.buffers[1] });
-//        interpolator.updateColor(commandBuffer, sets[PARTICLE_IN]);
-        applyExternalForces(commandBuffer, sets[PARTICLE_IN]);
-//        addComputeBufferMemoryBarriers(commandBuffer, { &forceDescriptor.forceBuffer });
-//        computePressure(commandBuffer, sets[PARTICLE_IN]);
-//        addComputeBufferMemoryBarriers(commandBuffer, { &particles.buffers[0], &particles.buffers[1] });
-//        interpolator.updatePressure(commandBuffer, sets[PARTICLE_IN]);
-//        addComputeBufferMemoryBarriers(commandBuffer, { &forceDescriptor.forceBuffer });
-        timeIntegration(commandBuffer, sets, forceDescriptor.set);
-        addComputeBufferMemoryBarriers(commandBuffer, { &particles.buffers[0], &particles.buffers[1] });
-        resolveCollision(commandBuffer, sets[PARTICLE_OUT]);
-    });
+//        resolveCollision(commandBuffer, sets[PARTICLE_OUT]);
+//    });
 
     static bool debug = false;
     if(debug){

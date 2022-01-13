@@ -52,6 +52,10 @@ struct VulkanPipelineLayout{
         return pipelineLayout;
     }
 
+    operator uint64_t(){
+        return (uint64_t)pipelineLayout;
+    }
+
     VkDevice device = VK_NULL_HANDLE;
     VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
 };
