@@ -104,7 +104,7 @@ protected:
 
     template<typename Func>
     void execute(Func&& func){
-        device.graphicsCommandPool().oneTimeCommand(func);
+        device.computeCommandPool().oneTimeCommand(func);
     }
 
     void createPipelines(){

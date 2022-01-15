@@ -161,8 +161,11 @@ struct VulkanDevice{
 
         ASSERT(vmaCreateAllocator(&allocatorInfo, &allocator));
 
-        auto commandPool = createCommandPool(*queueFamilyIndex.graphics, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
-        commandPools.emplace(std::make_pair(*queueFamilyIndex.graphics, std::move(commandPool)));
+        VulkanCommandPool  commandPool;
+        if(queueFamilyIndex.graphics) {
+            commandPool = createCommandPool(*queueFamilyIndex.graphics, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
+            commandPools.emplace(std::make_pair(*queueFamilyIndex.graphics, std::move(commandPool)));
+        }
 
         if(queueFamilyIndex.compute) {
             commandPool = createCommandPool(*queueFamilyIndex.compute, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
@@ -173,7 +176,7 @@ struct VulkanDevice{
             commandPool = createCommandPool(*queueFamilyIndex.transfer, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
             commandPools.emplace(std::make_pair(*queueFamilyIndex.transfer, std::move(commandPool)));
         }
-
+        assert(!commandPools.empty());
     }
 
     inline void initQueues(){
