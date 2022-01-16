@@ -64,9 +64,9 @@ protected:
         bool containsAll = true;
         linkedList.headBuffer.map<int>([&](auto headPtr){
             int head = headPtr[0];
-            linkedList.nodeBuffer.map<DeviceLinkedList<Element>::Node>([&](auto nodePtr){
+            linkedList.nodeBuffer.map<typename DeviceLinkedList<Element>::Node>([&](auto nodePtr){
                 for(auto& datum : data){
-                    DeviceLinkedList<Element>::Node node = nodePtr[head];
+                    typename DeviceLinkedList<Element>::Node node = nodePtr[head];
                     bool found = false;
                     for(int i = 0; i < listSize; i++){
                         found = node.entry == datum;

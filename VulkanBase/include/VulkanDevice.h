@@ -295,7 +295,9 @@ struct VulkanDevice{
 
         VulkanBuffer buffer = createBuffer(usage, VMA_MEMORY_USAGE_GPU_ONLY, size, "", queueIndices);
 
-        commandPoolFor(*this->queueFamilyIndex.graphics).oneTimeCommand([&](auto cmdBuffer){
+        auto qfIndex = queueFamilyIndex.graphics.has_value() ? queueFamilyIndex.graphics : queueFamilyIndex.compute;
+
+        commandPoolFor(*qfIndex).oneTimeCommand([&](auto cmdBuffer){
             VkBufferCopy copy{};
             copy.size = size;
             copy.dstOffset = 0;
