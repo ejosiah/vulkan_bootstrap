@@ -19,6 +19,8 @@ public:
 
     virtual ColorBlendAttachmentStateBuilder& attachment();
 
+    virtual ColorBlendAttachmentStateBuilder& attachments(uint32_t count);
+
     inline LogicOp<ColorBlendStateBuilder>& logicOp(){
         return _logicOp;
     }

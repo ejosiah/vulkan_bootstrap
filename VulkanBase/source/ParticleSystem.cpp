@@ -17,7 +17,7 @@ void ParticleSystem::createDescriptorSetLayouts() {
 void ParticleSystem::createDescriptorSets() {
     descriptorPool->allocate({ descriptorSetLayout, descriptorSetLayout }, descriptorSets);
 
-    std::array<VkWriteDescriptorSet, 2> writes = initializers::writeDescriptorSets<2>();
+    auto writes = initializers::writeDescriptorSets<2>();
 
     VkDescriptorBufferInfo info0{ buffers[0], 0, VK_WHOLE_SIZE};
     writes[0].dstSet = descriptorSets[0];

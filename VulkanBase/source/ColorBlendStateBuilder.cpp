@@ -29,6 +29,15 @@ ColorBlendAttachmentStateBuilder &ColorBlendStateBuilder::attachment() {
     return *_colorBlendAttachmentStateBuilder;
 }
 
+ColorBlendAttachmentStateBuilder &ColorBlendStateBuilder::attachments(uint32_t count) {
+    auto builder  = _colorBlendAttachmentStateBuilder;
+    builder->clear();
+    for(int i = 0; i < count; i++){
+        builder->add();
+    }
+    return *builder;
+}
+
 VkPipelineColorBlendStateCreateInfo &ColorBlendStateBuilder::buildColorBlendState() {
     auto& colorAttachmentStates = _colorBlendAttachmentStateBuilder->buildColorBlendAttachmentState();
     _info.attachmentCount = COUNT(colorAttachmentStates);

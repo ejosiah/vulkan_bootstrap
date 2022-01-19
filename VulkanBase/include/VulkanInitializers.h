@@ -298,8 +298,8 @@ namespace initializers{
     }
 
     template<size_t size>
-    inline std::array<VkWriteDescriptorSet, size> writeDescriptorSets(VkDescriptorSet descriptorSet = VK_NULL_HANDLE) {
-        std::array<VkWriteDescriptorSet, size> writes{};
+    inline std::vector<VkWriteDescriptorSet> writeDescriptorSets(VkDescriptorSet descriptorSet = VK_NULL_HANDLE) {
+        std::vector<VkWriteDescriptorSet> writes(size);
         for(auto& write : writes){
             write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
             write.dstSet = descriptorSet;

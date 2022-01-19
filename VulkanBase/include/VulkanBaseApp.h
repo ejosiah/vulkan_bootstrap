@@ -254,6 +254,8 @@ protected:
 
     byte_string load(const std::string& resource);
 
+    std::string resource(const std::string name);
+
     Entity createEntity(const std::string& name);
 
     void updateEntityTransforms(entt::registry& registry);

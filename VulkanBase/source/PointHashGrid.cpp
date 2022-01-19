@@ -144,7 +144,7 @@ void PointHashGrid::createNeighbourListDescriptorSets() {
     neighbourList.prefixScan.descriptorSet = sets[3];
     neighbourList.prefixScan.sumScanDescriptorSet = sets[4];
 
-    std::array<VkWriteDescriptorSet, 4> writes = initializers::writeDescriptorSets<4>();
+    auto writes = initializers::writeDescriptorSets<4>();
 
     VkDescriptorBufferInfo neighbourListInfo{ neighbourList.neighbourListBuffer, 0, VK_WHOLE_SIZE };
     writes[0].dstSet = neighbourList.descriptorSet;

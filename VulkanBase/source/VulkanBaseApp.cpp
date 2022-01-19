@@ -685,6 +685,12 @@ byte_string VulkanBaseApp::load(const std::string &resource) {
     return fileManager.load(resource);
 }
 
+std::string VulkanBaseApp::resource(const std::string name) {
+    auto res = fileManager.getFullPath(name);
+    assert(res.has_value());
+    return res->string();
+}
+
 Entity VulkanBaseApp::createEntity(const std::string &name) {
     Entity entity{m_registry };
     entity.add<component::Position>();

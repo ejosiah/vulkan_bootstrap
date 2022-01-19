@@ -14,6 +14,8 @@
 #include <iostream>
 #include "random.h"
 #include <functional>
+#include "Mesh.h"
+#include <fstream>
 
 static std::vector<const char*> instanceExtensions{VK_EXT_DEBUG_UTILS_EXTENSION_NAME};
 static std::vector<const char*> validationLayers{"VK_LAYER_KHRONOS_validation"};
@@ -178,6 +180,68 @@ uint32_t nodeDepth(const aiScene* scene, const aiNode* node){
     return maxDepth;
 }
 
+std::string saveToOFF(const std::string& filename){
+    std::fstream  fin(filename.data());
+    if(!fin.good()) throw std::runtime_error{"Failed to open file: " + filename};
+
+    std::vector<mesh::Mesh> meshes;
+    mesh::load(meshes, filename);
+    fin.close();
+
+    auto numVertices = 0;
+    auto numTriangles = 0;
+    for(auto& mesh : meshes){
+        numVertices += mesh.vertices.size();
+        numTriangles += mesh.indices.size()/3;
+    }
+    spdlog::info("loaded model with {} vertices and {} triangles", numVertices, numTriangles);
+
+    auto getName = [](fs::path p){
+        auto file = p.string();
+        auto start = file.find_last_of('\\') + 1;
+        auto end = file.find_last_of('.');
+        auto count = end - start;
+        return file.substr(start, count);
+    };
+
+    spdlog::info("saving model to OFF format...");
+    auto name = getName(filename) + ".off";
+    auto out_filename = "C:\\temp\\" + name;
+    auto startTime = std::chrono::steady_clock::now();
+
+    std::ofstream fout(out_filename);
+    if(fout.bad()) throw std::runtime_error{"unable to open for writing, filename: " + out_filename};
+
+    fout << "OFF" << "\n";
+//    fout << "# " << name << "\n\n";
+    fout << numVertices << " " << numTriangles << " " << "0\n";
+
+    for(auto& mesh : meshes){
+        for(auto& vertex : mesh.vertices){
+            fout << " " << vertex.position.x << " " << vertex.position.y << " " << vertex.position.z << "\n";
+        }
+        fout.flush();
+    }
+
+    for(auto& mesh : meshes){
+        auto size = mesh.indices.size();
+        for(int i = 0; i < size; i+= 3){
+            fout << "3 ";
+            fout << mesh.indices[i + 0] << " ";
+            fout << mesh.indices[i + 1] << " ";
+            fout << mesh.indices[i + 2] << " ";
+            fout << "\n";
+        }
+        fout.flush();
+    }
+    fout.close();
+    auto endTime = std::chrono::steady_clock::now();
+    auto duration = std::chrono::duration_cast<chrono::milliseconds>(endTime - startTime).count();
+    spdlog::info("model saved to {} in {} seconds", out_filename, duration/1000.0f);
+
+    return out_filename;
+}
+
 void logBones(const aiScene* scene){
 
 
@@ -251,9 +315,6 @@ inline glm::mat4 qRight(const glm::quat& q){
 
 int main() {
 
-    glm::quat q(1, 0, 0, 0);
-    auto axis = glm::axis(q);
-    auto angle = glm::angle(q);
-    fmt::print("axis: {}, angle: {}", axis, glm::degrees(angle));
+    saveToOFF("C:\\Users\\Josiah\\OneDrive\\media\\models\\bunny.obj");
     return 0;
 }

@@ -333,7 +333,7 @@ int main(){
         std::unique_ptr<Plugin> plugin = std::make_unique<ImGuiPlugin>();
 
         auto app = HighDynamicRangeDemo{ settings };
-        app.addPlugin(std::move(plugin));
+        app.addPlugin(plugin);
         app.run();
     }catch(std::runtime_error& err){
         spdlog::error(err.what());
