@@ -88,6 +88,6 @@ private:
         float sd{1.0};
         glm::vec2 avg{0};
         bool on{false};
-        int iterations{5};
+        int iterations{1};
     } blur;
 };

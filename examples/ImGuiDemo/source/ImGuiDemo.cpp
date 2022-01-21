@@ -4,7 +4,7 @@ ImGuiDemo::ImGuiDemo(const Settings& settings) :VulkanBaseApp("ImGui Demo", sett
 
 void ImGuiDemo::initApp() {
     commandPool = device.createCommandPool(*device.queueFamilyIndex.graphics, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
-    commandBuffers = commandPool.allocate(swapChainImageCount);
+    commandBuffers = commandPool.allocateCommandBuffers(swapChainImageCount);
 }
 
 void ImGuiDemo::onSwapChainDispose() {
