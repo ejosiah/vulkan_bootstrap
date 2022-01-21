@@ -1,0 +1,36 @@
+#version 460
+
+layout(local_size_x = 5) in;
+
+layout(set = 0, binding = 0) uniform sampler2D iImage;
+layout(set = 0, binding = 1, rgba32f) writeonly uniform image2D oImage;
+
+layout(push_constant) uniform CONTANTS{
+    float weigths[5];
+    int horizontal;
+};
+
+shared vec3 result;
+
+void main(){
+
+    vec2 uv = vec2(gl_GlobalInvocationID)/vec2(gl_NumWorkGroups.xy);
+    vec2 offset = 1/textureSize(iImage, 0);
+
+    int i = int(gl_LocalInvocationID.x);
+    vec2 coord = bool(horizontal) ? vec2(offset.x * i, 0) : vec2(0, offset.y * i);
+
+    vec3 value = texture(iImage, uv + coord).rgb * weigths[i];
+    value += texture(iImage, uv - coord).rgb * weigths[i];
+
+    barrier();
+
+    result += value;   // workGroupSize < warpSize so there is implicit synchronization here
+
+    barrier();
+
+    if(i == 0){
+        imageStore(oImage, ivec2(gl_GlobalInvocationID), vec4(result, 1));
+    }
+
+}

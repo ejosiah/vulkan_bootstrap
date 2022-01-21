@@ -98,7 +98,8 @@ protected:
         ColorBuffer colorAttachment;
         ColorBuffer compositeAttachment;
         DepthBuffer depthAttachment;
-        std::array<FramebufferAttachment, 2> brightnessAttachment;
+        FramebufferAttachment brightnessAttachment;
+        std::array<FramebufferAttachment, 2> blurAttachment;
         VulkanFramebuffer framebuffer;
         VulkanRenderPass renderPass;
         VulkanSampler sampler;
@@ -115,8 +116,6 @@ protected:
         struct {
             VulkanPipeline pipeline;
             VulkanPipelineLayout layout;
-            VkDescriptorSet brightnessSet;
-            VkDescriptorSet blurSet;
             uint32_t subpass = 1;
         } blur;
         struct {
@@ -134,8 +133,10 @@ protected:
         float exposure{1};
     } compositeConstants;
 
-    VulkanDescriptorSetLayout blurSetLayout;
     VulkanDescriptorSetLayout compositeSetLayout;
+
+    VulkanDescriptorSetLayout blurInLayout;
+    std::array<VkDescriptorSet, 3> blurInSet;
 
     Texture testTexture;
 

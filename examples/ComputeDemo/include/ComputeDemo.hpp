@@ -1,4 +1,6 @@
+#pragma once
 #include "VulkanBaseApp.h"
+#include <array>
 
 struct VertexInput{
     glm::vec2 position;
@@ -23,6 +25,12 @@ protected:
 
     void loadTexture();
 
+    void blurImage();
+
+    void updateBlurFunc();
+
+    void createSamplers();
+
     void createVertexBuffer();
 
     void createDescriptorSetLayout();
@@ -43,6 +51,8 @@ protected:
 
     void onSwapChainRecreation() override;
 
+    void renderUI(VkCommandBuffer commandBuffer);
+
 private:
     VulkanCommandPool commandPool;
     std::vector<VkCommandBuffer> commandBuffers;
@@ -52,14 +62,32 @@ private:
     VulkanBuffer vertexBuffer;
     VulkanBuffer vertexColorBuffer;
     VulkanDescriptorPool descriptorPool;
-    VulkanDescriptorSetLayout descriptorSetLayout;
+    VulkanDescriptorSetLayout textureSetLayout;
     VkDescriptorSet descriptorSet;
     Texture texture;
     struct {
-        VulkanDescriptorSetLayout descriptorSetLayout;
+        VulkanDescriptorSetLayout imageSetLayout;
         VulkanPipelineLayout pipelineLayout;
         VkDescriptorSet descriptorSet;
         VulkanPipeline pipeline;
         Texture texture;
     } compute;
+
+    VulkanSampler sampler;
+
+    struct {
+        VulkanPipeline pipeline;
+        VulkanPipelineLayout layout;
+        VkDescriptorSet inSet;
+        VkDescriptorSet outSet;
+
+        struct {
+            float weights[5][5];
+            int horizontal{true};
+        } constants;
+        float sd{1.0};
+        glm::vec2 avg{0};
+        bool on{false};
+        int iterations{5};
+    } blur;
 };

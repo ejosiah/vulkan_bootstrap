@@ -68,6 +68,11 @@ struct VulkanImage : public Copyable{
         return allocation;
     }
 
+    [[nodiscard]]
+    glm::uvec3 getDimensions(){
+        return {dimension.width, dimension.height, dimension.depth};
+    }
+
     void transitionLayout(const VulkanCommandPool& pool, VkImageLayout newLayout, const VkImageSubresourceRange& subresourceRange = DEFAULT_SUB_RANGE) {
         pool.oneTimeCommand([&](VkCommandBuffer commandBuffer) {
 
