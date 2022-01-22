@@ -16,7 +16,8 @@ BloomDemo::BloomDemo(const Settings& settings) : VulkanBaseApp("Bloom effect", s
 }
 
 void BloomDemo::initApp() {
-    initBloomFramebuffer();
+    initSceneFrameBuffer();
+    initPostProcessFrameBuffer();
     createDescriptorPool();
     createCommandPool();
     createDescriptorSetLayouts();
@@ -69,7 +70,7 @@ void BloomDemo::createPipelineCache() {
 
 void BloomDemo::createRenderPipeline() {
     auto builder = device.graphicsPipelineBuilder();
-    subpasses.scene.pipeline =
+    scene.pipeline =
         builder
             .allowDerivatives()
             .shaderStage()
@@ -107,14 +108,14 @@ void BloomDemo::createRenderPipeline() {
                     .addDescriptorSetLayout(lightLayoutSet)
                     .addDescriptorSetLayout(textureLayoutSet)
                 .renderPass(scene.renderPass)
-                .subpass(subpasses.scene.subpass)
+                .subpass(0)
                 .name("scene")
                 .pipelineCache(pipelineCache)
-            .build(subpasses.scene.layout);
+            .build(scene.layout);
 
     lightRender.pipeline =
         builder
-            .basePipeline(subpasses.scene.pipeline)
+            .basePipeline(scene.pipeline)
             .shaderStage()
                 .vertexShader(load("light.vert.spv"))
                 .fragmentShader(load("light.frag.spv"))
@@ -129,13 +130,13 @@ void BloomDemo::createRenderPipeline() {
             .subpass(0)
         .build(lightRender.layout);
 
-    subpasses.blur.pipeline  =
+    postProcess.pipeline  =
         builder
             .allowDerivatives()
-            .basePipeline(subpasses.scene.pipeline)
+            .basePipeline(scene.pipeline)
             .shaderStage()
                 .vertexShader(load("quad.vert.spv"))
-                .fragmentShader(load("blur.frag.spv"))
+                .fragmentShader(load("postprocess.frag.spv"))
             .vertexInputState().clear()
                 .addVertexBindingDescriptions(ClipSpace::bindingDescription())
                 .addVertexAttributeDescriptions(ClipSpace::attributeDescriptions())
@@ -144,32 +145,18 @@ void BloomDemo::createRenderPipeline() {
             .rasterizationState()
                 .cullNone()
             .colorBlendState()
-                .attachments(2)
+                .attachments(1)
             .layout().clear()
                 .addPushConstantRange(VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(uint32_t))
-                .addDescriptorSetLayout(blurInLayout)
-            .name("blur")
-            .subpass(subpasses.blur.subpass)
-        .build(subpasses.blur.layout);
-
-
-    subpasses.composite.pipeline =
-        builder
-            .basePipeline(subpasses.blur.pipeline)
-            .shaderStage()
-                .fragmentShader(load("composite.frag.spv"))
-            .layout().clear()
-                .addPushConstantRange(VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(compositeConstants))
-                .addDescriptorSetLayout(compositeSetLayout)
-            .colorBlendState()
-                .attachments(1)
-            .subpass(subpasses.composite.subpass)
-            .name("composite")
-        .build(subpasses.composite.layout);
+                .addDescriptorSetLayout(postProcessSetLayout)
+            .name("post_process")
+            .subpass(0)
+        .build(postProcess.layout);
+    
 
     quad.pipeline =
         builder
-            .basePipeline(subpasses.blur.pipeline)
+            .basePipeline(postProcess.pipeline)
             .shaderStage()
                 .fragmentShader(load("quad.frag.spv"))
             .layout().clear()
@@ -178,7 +165,17 @@ void BloomDemo::createRenderPipeline() {
             .renderPass(renderPass)
             .subpass(0)
         .build(quad.layout);
-
+    
+    // TODO compute pipeline builder
+    auto blurShader = VulkanShaderModule{load("blur.comp.spv"), device};
+    auto stage = initializers::computeShaderStage({ blurShader, VK_SHADER_STAGE_COMPUTE_BIT});
+    VkPushConstantRange range{VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(blur.constants)};
+    blur.layout = device.createPipelineLayout({ textureLayoutSet, blur.imageSetLayout }, {range});
+    
+    auto createInfo = initializers::computePipelineCreateInfo();
+    createInfo.stage = stage;
+    createInfo.layout = blur.layout;
+    blur.pipeline = device.createComputePipeline(createInfo);
 }
 
 
@@ -293,25 +290,25 @@ void BloomDemo::createDescriptorSetLayouts() {
                 .shaderStages(VK_SHADER_STAGE_FRAGMENT_BIT)
         .createLayout();
 
-    blurInLayout =
+    postProcessSetLayout =
         device.descriptorSetLayoutBuilder()
             .binding(0)
                 .descriptorType(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
                 .descriptorCount(1)
                 .shaderStages(VK_SHADER_STAGE_FRAGMENT_BIT)
+            .binding(1)
+                .descriptorType(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
+                .descriptorCount(1)
+                .shaderStages(VK_SHADER_STAGE_FRAGMENT_BIT)
             .createLayout();
-
-    compositeSetLayout =
+    
+    blur.imageSetLayout =
         device.descriptorSetLayoutBuilder()
             .binding(0)
-                .descriptorType(VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT)
-                .descriptorCount(1)
-                .shaderStages(VK_SHADER_STAGE_FRAGMENT_BIT)
-            .binding(1)
-                .descriptorType(VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT)
-                .descriptorCount(1)
-                .shaderStages(VK_SHADER_STAGE_FRAGMENT_BIT)
-            .createLayout();
+            .descriptorType(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
+            .descriptorCount(1)
+            .shaderStages(VK_SHADER_STAGE_COMPUTE_BIT)
+        .createLayout();
 }
 
 void BloomDemo::initTextures() {
@@ -355,64 +352,9 @@ void BloomDemo::updateDescriptorSets() {
     device.updateDescriptorSets(writes);
 
     // TODO update blur set
-    sets = descriptorPool.allocate({ blurInLayout, blurInLayout, blurInLayout});
-    blurInSet[2] = sets[0];  // 1st input is will come from scene brightness output
-    blurInSet[0] = sets[1]; // subsequent inputs will be ping/ponged between blur swap image buffers
-    blurInSet[1] = sets[2];
+    
+    // TODO post process set
 
-    std::array<VkImageView, 3> imageViews{
-        scene.blurAttachment[0].imageView,
-        scene.blurAttachment[1].imageView,
-        scene.brightnessAttachment.imageView,
-    };
-
-    writes = initializers::writeDescriptorSets<3>();
-    std::vector<VkDescriptorImageInfo> imageInfos(3);
-    for(int i = 0; i < 3; i++){
-        writes[i].dstSet = blurInSet[i];
-        writes[i].dstBinding = 0;
-        writes[i].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        writes[i].descriptorCount = 1;
-
-        imageInfos[i] = VkDescriptorImageInfo{ scene.sampler, imageViews[i], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL };
-        writes[i].pImageInfo = &imageInfos[i];
-    }
-    device.updateDescriptorSets(writes);
-
-    // composite writes
-    subpasses.composite.colorAttachmentsSet = descriptorPool.allocate({compositeSetLayout}).front();
-    writes = initializers::writeDescriptorSets<2>();
-    writes[0].dstSet = subpasses.composite.colorAttachmentsSet;
-    writes[0].dstBinding = 0;
-    writes[0].descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
-    writes[0].descriptorCount = 1;
-
-    VkDescriptorImageInfo colorImageInfo{VK_NULL_HANDLE, scene.colorAttachment.imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
-    writes[0].pImageInfo = &colorImageInfo;
-
-    writes[1].dstSet = subpasses.composite.colorAttachmentsSet;
-    writes[1].dstBinding = 1;
-    writes[1].descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
-    writes[1].descriptorCount = 1;
-
-//    VkDescriptorImageInfo blurImageInfo{VK_NULL_HANDLE, scene.brightnessAttachment[0].imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
-    VkDescriptorImageInfo blurImageInfo{VK_NULL_HANDLE, scene.blurAttachment[1].imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
-    writes[1].pImageInfo = &blurImageInfo;
-    device.updateDescriptorSets(writes);
-
-    // final image writes
-    writes = initializers::writeDescriptorSets<1>();
-
-    writes[0].dstSet = quad.descriptorSet;
-    writes[0].dstBinding = 0;
-    writes[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    writes[0].descriptorCount =  1;
-
-    VkDescriptorImageInfo finalImageInfo{testTexture.sampler, testTexture.imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
-//    VkDescriptorImageInfo finalImageInfo{scene.sampler, scene.compositeAttachment.imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
-    writes[0].pImageInfo = &finalImageInfo;
-
-    device.updateDescriptorSets(writes);
 
 }
 
@@ -467,215 +409,6 @@ void BloomDemo::createSceneObjects() {
 
 }
 
-void BloomDemo::initBloomFramebuffer() {
-    const auto colorFormat = VK_FORMAT_R32G32B32A32_SFLOAT;
-    const auto depthFormat = findDepthFormat();
-
-    auto createFrameBufferAttachments = [&] {
-        auto subresourceRange = initializers::imageSubresourceRange(VK_IMAGE_ASPECT_COLOR_BIT);
-
-        auto createImageInfo = initializers::imageCreateInfo(VK_IMAGE_TYPE_2D, colorFormat,
-                                                                 VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
-                                                                    | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT,
-                                                             swapChain.width(),
-                                                             swapChain.height());
-
-        scene.colorAttachment.image = device.createImage(createImageInfo);
-        scene.colorAttachment.imageView = scene.colorAttachment.image.createView(colorFormat, VK_IMAGE_VIEW_TYPE_2D,
-                                                                                 subresourceRange);
-
-        device.setName<VK_OBJECT_TYPE_IMAGE>("color", scene.colorAttachment.image.image);
-        device.setName<VK_OBJECT_TYPE_IMAGE_VIEW>("color", scene.colorAttachment.imageView.handle);
-
-
-        createImageInfo.usage |= VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-        scene.brightnessAttachment.image = device.createImage(createImageInfo);
-        scene.brightnessAttachment.imageView = scene.brightnessAttachment.image.createView(colorFormat,
-                                                                                                 VK_IMAGE_VIEW_TYPE_2D,
-                                                                                                 subresourceRange);
-
-        device.setName<VK_OBJECT_TYPE_IMAGE>("brightness", scene.brightnessAttachment.image.image);
-        device.setName<VK_OBJECT_TYPE_IMAGE_VIEW>("brightness", scene.brightnessAttachment.imageView.handle);
-
-        scene.blurAttachment[0].image = device.createImage(createImageInfo);
-        scene.blurAttachment[0].imageView = scene.blurAttachment[0].image.createView(colorFormat,
-                                                                                                 VK_IMAGE_VIEW_TYPE_2D,
-                                                                                                 subresourceRange);
-
-        device.setName<VK_OBJECT_TYPE_IMAGE>("blur_0", scene.blurAttachment[0].image.image);
-        device.setName<VK_OBJECT_TYPE_IMAGE_VIEW>("blur_0", scene.blurAttachment[0].imageView.handle);
-
-
-        scene.blurAttachment[1].image = device.createImage(createImageInfo);
-        scene.blurAttachment[1].imageView = scene.blurAttachment[1].image.createView(colorFormat,
-                                                                                                 VK_IMAGE_VIEW_TYPE_2D,
-                                                                                                 subresourceRange);
-
-        device.setName<VK_OBJECT_TYPE_IMAGE>("blur_1", scene.blurAttachment[1].image.image);
-        device.setName<VK_OBJECT_TYPE_IMAGE_VIEW>("blur_1", scene.blurAttachment[1].imageView.handle);
-
-
-        scene.compositeAttachment.image = device.createImage(createImageInfo);
-        scene.compositeAttachment.imageView = scene.colorAttachment.image.createView(colorFormat, VK_IMAGE_VIEW_TYPE_2D,
-                                                                                     subresourceRange);
-
-        device.setName<VK_OBJECT_TYPE_IMAGE>("composite", scene.compositeAttachment.image.image);
-        device.setName<VK_OBJECT_TYPE_IMAGE_VIEW>("composite", scene.compositeAttachment.imageView.handle);
-
-        createImageInfo.format = depthFormat;
-        createImageInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-        subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-        scene.depthAttachment.image = device.createImage(createImageInfo);
-        scene.depthAttachment.imageView = scene.depthAttachment.image.createView(depthFormat, VK_IMAGE_VIEW_TYPE_2D,
-                                                                                 subresourceRange);
-    };
-
-    auto createRenderPass = [&]{
-        VkAttachmentDescription colorAttachment{
-            0, // flags
-            colorFormat,
-            settings.msaaSamples, // TODO may need to add resolve if more than 1
-            VK_ATTACHMENT_LOAD_OP_CLEAR,
-            VK_ATTACHMENT_STORE_OP_STORE,
-            VK_ATTACHMENT_LOAD_OP_DONT_CARE,    // stencil load op
-            VK_ATTACHMENT_STORE_OP_DONT_CARE,   // stencil store op
-            VK_IMAGE_LAYOUT_UNDEFINED,
-            VK_IMAGE_LAYOUT_GENERAL
-        };
-
-        auto brightnessAttachment = colorAttachment;
-        auto blurredAttachment0 = colorAttachment;
-        auto blurredAttachment1 = colorAttachment;
-        auto compositeAttachment = colorAttachment;
-
-        auto depthAttachment = colorAttachment;
-        depthAttachment.format = depthFormat;
-        depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-        std::vector<VkAttachmentDescription> attachments{
-            depthAttachment,
-            colorAttachment,
-            brightnessAttachment,
-            blurredAttachment0,
-            blurredAttachment1,
-            compositeAttachment
-        };
-
-        static constexpr uint32_t DEPTH_ATTACHMENT = 0;
-        static constexpr uint32_t COLOR_ATTACHMENT = 1;
-        static constexpr uint32_t BRIGHTNESS_ATTACHMENT = 2;
-        static constexpr uint32_t BLURRED_0_ATTACHMENT = 3;
-        static constexpr uint32_t BLURRED_1_ATTACHMENT = 4;
-        static constexpr uint32_t COMPOSITE_ATTACHMENT = 5;
-
-        std::vector<SubpassDescription> subpasses{};
-        SubpassDescription sceneSubpass{};
-        sceneSubpass.colorAttachments.push_back({COLOR_ATTACHMENT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL});
-        sceneSubpass.colorAttachments.push_back({BRIGHTNESS_ATTACHMENT, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL});
-        sceneSubpass.depthStencilAttachments = VkAttachmentReference{DEPTH_ATTACHMENT, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL};
-        static constexpr uint32_t SUBPASS_SCENE = 0;
-        subpasses.push_back(sceneSubpass);
-
-        SubpassDescription blurSubpass{};
-        blurSubpass.colorAttachments.push_back({BLURRED_0_ATTACHMENT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL });
-        blurSubpass.colorAttachments.push_back({BLURRED_1_ATTACHMENT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL });
-        blurSubpass.preserveAttachments.push_back(COLOR_ATTACHMENT);
-        static constexpr uint32_t SUBPASS_BLUR = 1;
-        subpasses.push_back(blurSubpass);
-
-
-        SubpassDescription compositeSubpass{};
-        compositeSubpass.inputAttachments.push_back({COLOR_ATTACHMENT, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL});
-        compositeSubpass.inputAttachments.push_back({BLURRED_1_ATTACHMENT, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL});
-        compositeSubpass.colorAttachments.push_back({COMPOSITE_ATTACHMENT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL});
-        static constexpr uint32_t SUBPASS_COMPOSITE = 2;
-        subpasses.push_back(compositeSubpass);
-
-        static constexpr uint32_t EXTERNAL_TO_SCENE = 0;
-        static constexpr uint32_t SCENE_TO_BLUR = 1;
-        static constexpr uint32_t BLUR_TO_BLUR = 2;
-        static constexpr uint32_t BLUR_TO_COMPOSITE = 3;
-        static constexpr uint32_t COMPOSITE_TO_EXTERNAL = 4;
-
-        std::vector<VkSubpassDependency> dependencies(5);
-        dependencies[EXTERNAL_TO_SCENE].srcSubpass = VK_SUBPASS_EXTERNAL;
-        dependencies[EXTERNAL_TO_SCENE].dstSubpass = SUBPASS_SCENE;
-        dependencies[EXTERNAL_TO_SCENE].srcStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-        dependencies[EXTERNAL_TO_SCENE].dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-        dependencies[EXTERNAL_TO_SCENE].srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-        dependencies[EXTERNAL_TO_SCENE].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-        dependencies[EXTERNAL_TO_SCENE].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
-
-        dependencies[SCENE_TO_BLUR].srcSubpass = SUBPASS_SCENE;
-        dependencies[SCENE_TO_BLUR].dstSubpass = SUBPASS_BLUR;
-        dependencies[SCENE_TO_BLUR].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        dependencies[SCENE_TO_BLUR].dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-        dependencies[SCENE_TO_BLUR].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-        dependencies[SCENE_TO_BLUR].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-        dependencies[SCENE_TO_BLUR].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT | VK_DEPENDENCY_VIEW_LOCAL_BIT;
-
-        dependencies[BLUR_TO_BLUR].srcSubpass = SUBPASS_BLUR;
-        dependencies[BLUR_TO_BLUR].dstSubpass = SUBPASS_BLUR;
-        dependencies[BLUR_TO_BLUR].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        dependencies[BLUR_TO_BLUR].dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-        dependencies[BLUR_TO_BLUR].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-        dependencies[BLUR_TO_BLUR].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-        dependencies[BLUR_TO_BLUR].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT | VK_DEPENDENCY_VIEW_LOCAL_BIT;
-
-        dependencies[BLUR_TO_COMPOSITE].srcSubpass = SUBPASS_BLUR;
-        dependencies[BLUR_TO_COMPOSITE].dstSubpass = SUBPASS_COMPOSITE;
-        dependencies[BLUR_TO_COMPOSITE].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        dependencies[BLUR_TO_COMPOSITE].dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-        dependencies[BLUR_TO_COMPOSITE].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-        dependencies[BLUR_TO_COMPOSITE].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-        dependencies[BLUR_TO_COMPOSITE].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
-
-        
-        dependencies[COMPOSITE_TO_EXTERNAL].srcSubpass = SUBPASS_COMPOSITE;
-        dependencies[COMPOSITE_TO_EXTERNAL].dstSubpass = VK_SUBPASS_EXTERNAL;
-        dependencies[COMPOSITE_TO_EXTERNAL].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        dependencies[COMPOSITE_TO_EXTERNAL].dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-        dependencies[COMPOSITE_TO_EXTERNAL].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-        dependencies[COMPOSITE_TO_EXTERNAL].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-        dependencies[COMPOSITE_TO_EXTERNAL].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
-
-        scene.renderPass = device.createRenderPass(attachments, subpasses, dependencies);
-        device.setName<VK_OBJECT_TYPE_RENDER_PASS>("scene", scene.renderPass.renderPass);
-    };
-
-    auto createFrameBuffer = [&]{
-        assert(scene.renderPass.renderPass);
-        std::vector<VkImageView> imageViews;
-        imageViews.push_back(scene.depthAttachment.imageView);
-        imageViews.push_back(scene.colorAttachment.imageView);
-        imageViews.push_back(scene.brightnessAttachment.imageView);
-        imageViews.push_back(scene.blurAttachment[0].imageView);
-        imageViews.push_back(scene.blurAttachment[1].imageView);
-        imageViews.push_back(scene.compositeAttachment.imageView);
-        scene.framebuffer = device.createFramebuffer(scene.renderPass, imageViews, swapChain.width(), swapChain.height());
-        device.setName<VK_OBJECT_TYPE_FRAMEBUFFER>("scene", scene.framebuffer.frameBuffer);
-    };
-
-    auto createSampler = [&]{
-        VkSamplerCreateInfo createInfo = initializers::samplerCreateInfo();
-        createInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-        createInfo.magFilter = VK_FILTER_LINEAR;
-        createInfo.minFilter = VK_FILTER_LINEAR;
-        createInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
-        createInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
-        createInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
-        createInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
-        createInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-        scene.sampler = device.createSampler(createInfo);
-    };
-
-    createFrameBufferAttachments();
-    createRenderPass();
-    createFrameBuffer();
-    createSampler();
-    textures::fromFile(device, testTexture, resource("portrait.jpg"));
-}
-
 void BloomDemo::initQuad() {
     VkDeviceSize size = sizeof(glm::vec2) * ClipSpace::Quad::positions.size();
     auto data = ClipSpace::Quad::positions;
@@ -710,13 +443,18 @@ void BloomDemo::renderUI(VkCommandBuffer commandBuffer) {
 }
 
 void BloomDemo::renderOffScreenFramebuffer(VkCommandBuffer commandBuffer) {
-    static std::array<VkClearValue, 6> clearValues;
+
+    renderScene(commandBuffer);
+    blurImage(commandBuffer);
+    postPrcessing(commandBuffer);
+
+}
+
+void BloomDemo::renderScene(VkCommandBuffer commandBuffer) {
+    static std::array<VkClearValue, 2> clearValues;
     clearValues[0].depthStencil = {1.0, 0u};
     clearValues[1].color = {0, 0, 0, 1};
-    clearValues[2].color = {0, 0, 0, 1};
-    clearValues[3].color = {0, 0, 0, 1};
-    clearValues[4].color = {0, 0, 0, 1};
-    clearValues[5].color = {0, 0, 0, 1};
+
 
     VkRenderPassBeginInfo rPassInfo = initializers::renderPassBeginInfo();
     rPassInfo.clearValueCount = COUNT(clearValues);
@@ -727,33 +465,25 @@ void BloomDemo::renderOffScreenFramebuffer(VkCommandBuffer commandBuffer) {
     rPassInfo.renderPass = scene.renderPass;
 
     vkCmdBeginRenderPass(commandBuffer, &rPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-    renderScene(commandBuffer);
-    applyBloom(commandBuffer);
-
-    vkCmdEndRenderPass(commandBuffer);
-}
-
-void BloomDemo::renderScene(VkCommandBuffer commandBuffer) {
     cameraController->setModel(glm::mat4(1));
 
     VkDeviceSize offset = 0;
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, cube.vertices, &offset);
     vkCmdBindIndexBuffer(commandBuffer, cube.indices, 0, VK_INDEX_TYPE_UINT32);
 
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, subpasses.scene.pipeline);
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, scene.pipeline);
 
     static std::array<VkDescriptorSet, 2> sets;
     sets[0] = descriptorSets.light;
     sets[1] = descriptorSets.wood;
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, subpasses.scene.layout, 0, COUNT(sets), sets.data(), 0, VK_NULL_HANDLE);
-    cameraController->push(commandBuffer, subpasses.scene.layout, cube.instanceTransforms[0]);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, scene.layout, 0, COUNT(sets), sets.data(), 0, VK_NULL_HANDLE);
+    cameraController->push(commandBuffer, scene.layout, cube.instanceTransforms[0]);
     vkCmdDrawIndexed(commandBuffer, cube.indices.size/sizeof(uint32_t), 1, 0, 0, 0);
 
     sets[1] = descriptorSets.container;
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, subpasses.scene.layout, 0, COUNT(sets), sets.data(), 0, VK_NULL_HANDLE);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, scene.layout, 0, COUNT(sets), sets.data(), 0, VK_NULL_HANDLE);
     for(int i = 1; i < cube.instanceTransforms.size(); i++){
-        cameraController->push(commandBuffer, subpasses.scene.layout, cube.instanceTransforms[i]);
+        cameraController->push(commandBuffer, scene.layout, cube.instanceTransforms[i]);
         vkCmdDrawIndexed(commandBuffer, cube.indices.size/sizeof(uint32_t), 1, 0, 0, 0);
     }
 
@@ -765,75 +495,26 @@ void BloomDemo::renderScene(VkCommandBuffer commandBuffer) {
         vkCmdPushConstants(commandBuffer, lightRender.layout, VK_SHADER_STAGE_VERTEX_BIT, sizeof(Camera), sizeof(glm::vec3), &light.color);
         vkCmdDrawIndexed(commandBuffer, cube.indices.size/sizeof(uint32_t), 1, 0, 0, 0);
     }
+
+    vkCmdEndRenderPass(commandBuffer);
 }
 
-void BloomDemo::applyBloom(VkCommandBuffer commandBuffer) {
-    vkCmdNextSubpass(commandBuffer, VK_SUBPASS_CONTENTS_INLINE);
+void BloomDemo::postPrcessing(VkCommandBuffer commandBuffer) {
+    static std::array<VkClearValue, 1> clearValues;
+    clearValues[1].color = {0, 0, 0, 1};
 
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, subpasses.blur.pipeline);
-    VkDeviceSize offset = 0;
-    vkCmdBindVertexBuffers(commandBuffer, 0, 1, quad.vertices, &offset);
 
-    auto set = blurInSet[2];  // 1st brightness image comes from scene subpass
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, subpasses.blur.layout, 0, 1, &set, 0, VK_NULL_HANDLE);
+    VkRenderPassBeginInfo rPassInfo = initializers::renderPassBeginInfo();
+    rPassInfo.clearValueCount = COUNT(clearValues);
+    rPassInfo.pClearValues = clearValues.data();
+    rPassInfo.framebuffer = postProcess.framebuffer;
+    rPassInfo.renderArea.offset = {0u, 0u};
+    rPassInfo.renderArea.extent = swapChain.extent;
+    rPassInfo.renderPass = postProcess.renderPass;
 
-    static int blurAmount = 10;
-    for(int i = 0; i < blurAmount; i++){
-        int horizontal = i%2;
-        vkCmdPushConstants(commandBuffer, subpasses.blur.layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(int), &horizontal);
-        vkCmdDraw(commandBuffer, quad.vertices.size/sizeof(glm::vec2), 1, 0, 0);
+    vkCmdBeginRenderPass(commandBuffer, &rPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-        VkImageSubresourceLayers layers{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
-        VkOffset3D cOffset{0, 0, 0};
-        VkImageCopy region{};
-        region.srcSubresource = layers;
-        region.srcOffset = cOffset;
-        region.dstSubresource = layers;
-        region.dstOffset = cOffset;
-        region.extent = VkExtent3D{ swapChain.width(), swapChain.height(), 1 };
-
-        VkImageMemoryBarrier barrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
-        barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-        barrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-        barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        barrier.image = scene.blurAttachment[horizontal].image;
-        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        barrier.subresourceRange.baseMipLevel = 0;
-        barrier.subresourceRange.levelCount = 1;
-        barrier.subresourceRange.baseArrayLayer = 0;
-        barrier.subresourceRange.layerCount = 1;
-
-        vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-                             VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-                             VK_DEPENDENCY_VIEW_LOCAL_BIT | VK_DEPENDENCY_BY_REGION_BIT, 0, VK_NULL_HANDLE, 0,
-                             VK_NULL_HANDLE, 1, &barrier);
-
-        if(i > 0){
-            barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
-            barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-            barrier.oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-            barrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-            barrier.image = scene.blurAttachment[!horizontal].image;
-
-            vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-                                 VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-                                 VK_DEPENDENCY_VIEW_LOCAL_BIT | VK_DEPENDENCY_BY_REGION_BIT, 0, VK_NULL_HANDLE, 0,
-                                 VK_NULL_HANDLE, 1, &barrier);
-        }
-
-        set = blurInSet[horizontal];  // 1st brightness image comes from scene subpass
-        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, subpasses.blur.layout, 0, 1, &set, 0, VK_NULL_HANDLE);
-
-    }
-
-    vkCmdNextSubpass(commandBuffer, VK_SUBPASS_CONTENTS_INLINE);
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, subpasses.composite.pipeline);
-    vkCmdPushConstants(commandBuffer, subpasses.composite.layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(compositeConstants), &compositeConstants);
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, subpasses.composite.layout, 0, 1, &subpasses.composite.colorAttachmentsSet, 0, VK_NULL_HANDLE);
-    vkCmdDraw(commandBuffer, quad.vertices.size/sizeof(glm::vec2), 1, 0, 0);
+    vkCmdEndRenderPass(commandBuffer);
 
 }
 

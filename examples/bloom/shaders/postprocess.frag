@@ -1,7 +1,7 @@
 #version 460
 
-layout(set = 0, binding = 0, input_attachment_index = 0) uniform subpassInput colorAttachment;
-layout(set = 0, binding = 1, input_attachment_index = 1) uniform subpassInput blurAttachment;
+layout(set = 0, binding = 0) uniform sampler2D colorMap;
+layout(set = 0, binding = 1) uniform sampler2D intensityMap;
 
 layout(push_constant) uniform SETTINGS{
     int gammaOn;
@@ -10,13 +10,14 @@ layout(push_constant) uniform SETTINGS{
     float exposure;
 };
 
-layout(location = 0) in vec2 frag_uv;
+layout(location = 0) in vec2 uv;
 
 layout(location = 0) out vec4 fragColor;
 
 void main(){
-    vec3 color = subpassLoad(colorAttachment).rgb;
-    vec3 blur = subpassLoad(blurAttachment).rgb;
+    vec3 color = texture(colorMap, uv).rgb;
+    vec3 blur = texture(intensityMap, uv).rgb;
+
     color += bool(bloomOn) ? blur : vec3(0);
 
     if(bool(hdrOn)){

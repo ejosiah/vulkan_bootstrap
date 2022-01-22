@@ -7,7 +7,11 @@ public:
 protected:
     void initApp() override;
 
-    void initBloomFramebuffer();
+    void initSceneFrameBuffer();
+
+    void initPostProcessFrameBuffer();
+
+    void blurImage(VkCommandBuffer commandBuffer);
 
     void createDescriptorPool();
 
@@ -51,7 +55,7 @@ protected:
 
     void renderScene(VkCommandBuffer commandBuffer);
 
-    void applyBloom(VkCommandBuffer commandBuffer);
+    void postPrcessing(VkCommandBuffer commandBuffer);
 
 protected:
     struct {
@@ -96,35 +100,36 @@ protected:
 
     struct {
         ColorBuffer colorAttachment;
-        ColorBuffer compositeAttachment;
         DepthBuffer depthAttachment;
-        FramebufferAttachment brightnessAttachment;
-        std::array<FramebufferAttachment, 2> blurAttachment;
+        FramebufferAttachment IntensityAttachment;
         VulkanFramebuffer framebuffer;
         VulkanRenderPass renderPass;
         VulkanSampler sampler;
+        VulkanPipeline pipeline;
+        VulkanPipelineLayout layout;
     } scene;
 
+    struct {
+        VulkanPipeline pipeline;
+        VulkanPipelineLayout layout;
+        VkDescriptorSet inSet;
+        VkDescriptorSet outSet;
+        VulkanDescriptorSetLayout imageSetLayout;
+        struct {
+            float weights[5]{0.227027, 0.1945946, 0.1216216, 0.054054, 0.016216};
+            int horizontal{1};
+        } constants;
+    } blur;
 
-    struct{
-        struct {
-            VulkanPipeline pipeline;
-            VulkanPipelineLayout layout;
-            uint32_t subpass = 0;
-        } scene;
+    struct {
+        VulkanPipeline pipeline;
+        VulkanPipelineLayout layout;
+        VkDescriptorSet descriptorSet;
+        VulkanFramebuffer framebuffer;
+        VulkanRenderPass renderPass;
+        FramebufferAttachment colorAttachment;
+    } postProcess;
 
-        struct {
-            VulkanPipeline pipeline;
-            VulkanPipelineLayout layout;
-            uint32_t subpass = 1;
-        } blur;
-        struct {
-            VulkanPipeline pipeline;
-            VulkanPipelineLayout layout;
-            VkDescriptorSet colorAttachmentsSet;
-            uint32_t subpass = 2;
-        } composite;
-    } subpasses;
 
     struct {
         int gammaOn{1};
@@ -133,10 +138,7 @@ protected:
         float exposure{1};
     } compositeConstants;
 
-    VulkanDescriptorSetLayout compositeSetLayout;
-
-    VulkanDescriptorSetLayout blurInLayout;
-    std::array<VkDescriptorSet, 3> blurInSet;
+    VulkanDescriptorSetLayout postProcessSetLayout;
 
     Texture testTexture;
 
