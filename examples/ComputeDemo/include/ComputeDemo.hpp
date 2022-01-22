@@ -53,6 +53,10 @@ protected:
 
     void renderUI(VkCommandBuffer commandBuffer);
 
+    void initRenderBlur();
+
+    void blurImageRender();
+
 private:
     VulkanCommandPool commandPool;
     std::vector<VkCommandBuffer> commandBuffers;
@@ -82,12 +86,23 @@ private:
         VkDescriptorSet outSet;
 
         struct {
-            float weights[5][5];
+            FramebufferAttachment colorAttachment;
+            VulkanFramebuffer framebuffer;
+            VulkanRenderPass renderPass;
+            VulkanPipeline pipeline;
+            VulkanPipelineLayout layout;
+            VkDescriptorSet descriptorSet;
+        } renderBlur[2];
+
+        struct {
+//            float weights[5][5];
+            float weights[5]{0.227027, 0.1945946, 0.1216216, 0.054054, 0.016216};
             int horizontal{true};
         } constants;
         float sd{1.0};
         glm::vec2 avg{0};
         bool on{false};
-        int iterations{1};
+        int iterations{10};
+        bool useRender;
     } blur;
 };

@@ -6,39 +6,42 @@ layout(set = 0, binding = 0) uniform sampler2D iImage;
 layout(set = 1, binding = 0, rgba32f) writeonly uniform image2D oImage;
 
 layout(push_constant) uniform CONTANTS{
-//    float weights[5];
+    float weights[5];
     int horizontal;
 };
 
-float weights[5] = float[5](0.227027, 0.1945946, 0.1216216, 0.054054, 0.016216);
-shared vec3 result;
 shared vec3 results[5];
 
 void main(){
     vec2 uv = vec2(gl_WorkGroupID)/vec2(gl_NumWorkGroups.xy - uvec2(1));
-    result = vec3(0);
     int i = int(gl_LocalInvocationIndex);
     vec2 offset = 1/vec2(gl_NumWorkGroups.xy);
 
-
-    results[i] = vec3(0);
     vec2 coord = bool(horizontal) ? vec2(offset.x * i, 0) : vec2(0, offset.y * i);
 
     vec3 value = texture(iImage, uv + coord).rgb * weights[i];
-    value += texture(iImage, uv - coord).rgb * weights[i];
+    value += (i != 0) ?  texture(iImage, uv - coord).rgb * weights[i] : vec3(0);
 
-//    barrier();
-
-//    result += value;   // workGroupSize < warpSize so there is implicit synchronization here
     results[i] = value;
+
+    // inclusive scan masks
+    int N = 5;
+    int tid = i;
+    for(int offset = 1; offset < N; offset <<= 1){
+        barrier();
+
+        int aid = tid;
+        int bid = tid - offset;
+        vec3 a = results[aid];
+        vec3 b = bid >= 0 ? results[bid] : vec3(0);
+
+        results[aid] = a + b;
+    }
+
     barrier();
 
     if(gl_LocalInvocationIndex == 0){
-//        result = texture(iImage, uv).rgb;
-
-        for(int i = 0; i < 5; i++){
-            result += results[i];
-        }
+        vec3 result = results[N - 1];
         imageStore(oImage, ivec2(gl_WorkGroupID), vec4(result, 1));
     }
 

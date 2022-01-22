@@ -48,9 +48,12 @@ void ComputeDemo::initApp() {
     createComputeDescriptorSetLayout();
     loadTexture();
     createComputeImage();
+    initRenderBlur();
     createDescriptorSet();
     createGraphicsPipeline();
     createComputePipeline();
+//    blurImage();
+//    blurImageRender();
 }
 
 
@@ -92,7 +95,13 @@ VkCommandBuffer *ComputeDemo::buildCommandBuffers(uint32_t imageIndex, uint32_t 
     rpassBeginInfo.clearValueCount = 1;
     rpassBeginInfo.pClearValues = &clearValue;
 
-    auto set = blur.on ? blur.inSet : descriptorSet;
+//    auto set = blur.on ? blur.renderBlur[0].descriptorSet : descriptorSet;
+    VkDescriptorSet set = VK_NULL_HANDLE;
+    if(blur.on){
+        set = blur.useRender ? blur.renderBlur[0].descriptorSet : blur.inSet;
+    }else{
+        set = descriptorSet;
+    }
     vkCmdBeginRenderPass(commandBuffer, &rpassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &set, 0, VK_NULL_HANDLE);
@@ -110,9 +119,19 @@ VkCommandBuffer *ComputeDemo::buildCommandBuffers(uint32_t imageIndex, uint32_t 
 }
 
 void ComputeDemo::update(float time) {
-    if(blur.on){
-        updateBlurFunc();
-        blurImage();
+    static int preIterations = 0;
+    static bool useRender = false;
+    if(blur.on && (preIterations != blur.iterations || useRender != blur.useRender)){
+        preIterations = blur.iterations;
+        useRender = blur.useRender;
+//        updateBlurFunc();
+        if(useRender){
+            spdlog::info("using render pipeline blur");
+            blurImageRender();
+        }else{
+            spdlog::info("using compute pipeline blur");
+            blurImage();
+        }
     }
 }
 
@@ -164,6 +183,7 @@ void ComputeDemo::createGraphicsPipeline() {
 
 
     VkGraphicsPipelineCreateInfo createInfo = initializers::graphicsPipelineCreateInfo();
+    createInfo.flags |= VK_PIPELINE_CREATE_ALLOW_DERIVATIVES_BIT;
     createInfo.stageCount = COUNT(stages);
     createInfo.pStages = stages.data();
     createInfo.pVertexInputState = &vertexInputState;
@@ -178,6 +198,37 @@ void ComputeDemo::createGraphicsPipeline() {
     createInfo.subpass = 0;
 
     pipeline = device.createGraphicsPipeline(createInfo);
+
+    fragmentShaderModule = VulkanShaderModule{"../../data/shaders/blur.frag.spv", device };
+    stages = initializers::vertexShaderStages({
+            { vertexShaderModule, VK_SHADER_STAGE_VERTEX_BIT}
+          , {fragmentShaderModule, VK_SHADER_STAGE_FRAGMENT_BIT}
+    });
+
+    auto extent = texture.image.getDimensions();
+    viewport = initializers::viewport({extent.x, extent.y});
+    scissor = initializers::scissor({extent.x, extent.y});
+
+    viewportState = initializers::viewportState( viewport, scissor);
+
+
+    createInfo.flags |= VK_PIPELINE_CREATE_DERIVATIVE_BIT;
+    createInfo.basePipelineHandle = pipeline;
+    createInfo.basePipelineIndex = -1;
+
+    for(int i = 0; i < 2; i++){
+        blur.renderBlur[i].layout = device.createPipelineLayout({textureSetLayout}, {{VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(blur.constants)}});
+        device.setName<VK_OBJECT_TYPE_PIPELINE_LAYOUT>(fmt::format("render_blur_", i), blur.renderBlur[i].layout.pipelineLayout);
+
+        createInfo.stageCount = 2;
+        createInfo.pStages = stages.data();
+        createInfo.pViewportState = &viewportState;
+        createInfo.layout = blur.renderBlur[i].layout;
+        createInfo.renderPass = blur.renderBlur[i].renderPass;
+        createInfo.subpass = 0;
+        blur.renderBlur[i].pipeline = device.createGraphicsPipeline(createInfo);
+        device.setName<VK_OBJECT_TYPE_PIPELINE>(fmt::format("render_blur_", i), blur.renderBlur[i].pipeline.handle);
+    }
 }
 
 void ComputeDemo::createVertexBuffer() {
@@ -221,7 +272,7 @@ void ComputeDemo::createDescriptorSet() {
     device.setName<VK_OBJECT_TYPE_IMAGE>("compute_image", compute.texture.image.image);
     device.setName<VK_OBJECT_TYPE_IMAGE_VIEW>("compute_image", compute.texture.imageView.handle);
 
-    std::array<VkDescriptorImageInfo, 1> imageInfo{};
+    std::vector<VkDescriptorImageInfo> imageInfo(1);
     imageInfo[0].imageView = texture.imageView;
     imageInfo[0].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     imageInfo[0].sampler = VK_NULL_HANDLE;
@@ -270,6 +321,26 @@ void ComputeDemo::createDescriptorSet() {
     writes[1].pImageInfo = imageInfo.data();
 
     device.updateDescriptorSets(writes);
+
+
+    // blur using graphics pipeline
+    sets =  descriptorPool.allocate({textureSetLayout, textureSetLayout});
+    writes = initializers::writeDescriptorSets<2>();
+    imageInfo.resize(2);
+    for(int i = 0; i < 2; i++){
+        blur.renderBlur[i].descriptorSet = sets[i];
+
+        writes[i].dstSet = blur.renderBlur[i].descriptorSet;
+        writes[i].dstBinding = 0;
+        writes[i].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        writes[i].descriptorCount = 1;
+
+        imageInfo[i].imageView = blur.renderBlur[i].colorAttachment.imageView;
+        imageInfo[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        imageInfo[i].sampler = VK_NULL_HANDLE;
+        writes[i].pImageInfo = &imageInfo[i];
+    }
+    device.updateDescriptorSets(writes);
 }
 
 void ComputeDemo::loadTexture() {
@@ -310,7 +381,7 @@ void ComputeDemo::createComputePipeline() {
 
     compute.pipeline = device.createComputePipeline(createInfo);
 
-    auto blurShader = VulkanShaderModule{"../../data/shaders/blur2.comp.spv", device};
+    auto blurShader = VulkanShaderModule{"../../data/shaders/blur.comp.spv", device};
     stage = initializers::computeShaderStage({ blurShader, VK_SHADER_STAGE_COMPUTE_BIT});
     VkPushConstantRange range{VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(blur.constants)};
     blur.layout = device.createPipelineLayout({ textureSetLayout, compute.imageSetLayout }, {range});
@@ -387,7 +458,7 @@ void ComputeDemo::blurImage() {
         glm::vec3 groupCount{compute.texture.image.getDimensions()};
         int blurAmount = blur.iterations;
         for(int i = 0; i < blurAmount; i++){
-            blur.constants.horizontal = i%2;
+            blur.constants.horizontal = i%2 == 0;
             vkCmdPushConstants(commandBuffer, blur.layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(blur.constants), &blur.constants);
             vkCmdDispatch(commandBuffer, groupCount.x, groupCount.y, groupCount.z);
 
@@ -437,38 +508,178 @@ void ComputeDemo::renderUI(VkCommandBuffer commandBuffer) {
     ImGui::Checkbox("blur", &blur.on);
 
     if(blur.on){
-        ImGui::SliderInt("iterations", &blur.iterations, 1, 10);
-        ImGui::SliderFloat("std div", &blur.sd, 0.01, 5.0f);
+        static int option = 0;
+        ImGui::RadioButton("compute", &option, 0); ImGui::SameLine();
+        ImGui::RadioButton("render", &option, 1);
+        blur.useRender = option == 1;
+        ImGui::SliderInt("iterations", &blur.iterations, 1, 1000);
 
-        static float v[2];
-        ImGui::SliderFloat2("mean", v, -5.0f, 5.0f);
-        blur.avg.x = v[0];
-        blur.avg.y = v[1];
     }
     ImGui::End();
     plugin(IM_GUI_PLUGIN).draw(commandBuffer);
 }
 
 void ComputeDemo::updateBlurFunc() {
-    static float sd = 0.0f;
-    static glm::vec2 avg{0};
-    auto update = sd != blur.sd || !glm::any(glm::equal(avg, blur.avg));
-    if(update) {
-        sd = blur.sd;
-        avg = blur.avg;
-        for (int i = 0; i < 5; i++) {
-            for (int j = 0; j < 5; j++) {
-                float x = glm::mix(-2.0f, 2.0f, float(i) / 4);
-                float y = glm::mix(-2.0f, 2.0f, float(j) / 4);
-                auto rhs = glm::exp(-((x - avg.x) * (x-avg.x) + (y-avg.y) * (y-avg.y)) / (2 * sd * sd));
-                auto lhs = 1.0f / (2.0f * PI * sd * sd);
-                auto z = lhs * rhs;
-                blur.constants.weights[i][j] = z;
-            fmt::print("{} ", (int)glm::round(z * 273));
-            }
-        fmt::print("\n");
+//    static float sd = 0.0f;
+//    static glm::vec2 avg{0};
+//    auto update = sd != blur.sd || !glm::any(glm::equal(avg, blur.avg));
+//    if(update) {
+//        sd = blur.sd;
+//        avg = blur.avg;
+//        for (int i = 0; i < 5; i++) {
+//            for (int j = 0; j < 5; j++) {
+//                float x = glm::mix(-2.0f, 2.0f, float(i) / 4);
+//                float y = glm::mix(-2.0f, 2.0f, float(j) / 4);
+//                auto rhs = glm::exp(-((x - avg.x) * (x-avg.x) + (y-avg.y) * (y-avg.y)) / (2 * sd * sd));
+//                auto lhs = 1.0f / (2.0f * PI * sd * sd);
+//                auto z = lhs * rhs;
+//                blur.constants.weights[i][j] = z;
+//            fmt::print("{} ", (int)glm::round(z * 273));
+//            }
+//        fmt::print("\n");
+//        }
+//    }
+}
+
+void ComputeDemo::initRenderBlur() {
+
+    VkFormat format = VK_FORMAT_R8G8B8A8_UNORM;
+    auto width = texture.image.getDimensions().x;
+    auto height = texture.image.getDimensions().y;
+    auto createFrameBufferAttachments = [&]{
+        auto subresourceRange = initializers::imageSubresourceRange(VK_IMAGE_ASPECT_COLOR_BIT);
+
+        auto createImageInfo = initializers::imageCreateInfo(VK_IMAGE_TYPE_2D, format,
+                                                             VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
+                                                             | VK_IMAGE_USAGE_SAMPLED_BIT,
+                                                             width,
+                                                             height);
+
+        for(int i = 0; i < 2; i++){
+            blur.renderBlur[i].colorAttachment.image = device.createImage(createImageInfo);
+            blur.renderBlur[i].colorAttachment.imageView =
+                    blur.renderBlur[i].colorAttachment
+                        .image.createView(format, VK_IMAGE_VIEW_TYPE_2D, subresourceRange);
+
+            device.setName<VK_OBJECT_TYPE_IMAGE>(fmt::format("render_blur_{}", i), blur.renderBlur[i].colorAttachment.image.image);
+            device.setName<VK_OBJECT_TYPE_IMAGE_VIEW>(fmt::format("render_blur_{}", i), blur.renderBlur[i].colorAttachment.imageView.handle);
         }
-    }
+    };
+    
+    auto createRenderPass = [&]{
+        for(int i = 0; i < 2; i++) {
+            std::vector<VkAttachmentDescription> attachments{
+                    {
+                            0, // flags
+                            format,
+                            VK_SAMPLE_COUNT_1_BIT, // TODO may need to add resolve if more than 1
+                            VK_ATTACHMENT_LOAD_OP_CLEAR,
+                            VK_ATTACHMENT_STORE_OP_STORE,
+                            VK_ATTACHMENT_LOAD_OP_DONT_CARE,    // stencil load op
+                            VK_ATTACHMENT_STORE_OP_DONT_CARE,   // stencil store op
+                            VK_IMAGE_LAYOUT_UNDEFINED,
+                            VK_IMAGE_LAYOUT_GENERAL
+                    }
+            };
+
+            std::vector<SubpassDescription> subpasses(1);
+            subpasses[0].colorAttachments.push_back({0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL});
+
+            std::vector<VkSubpassDependency> dependencies(2);
+            dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
+            dependencies[0].dstSubpass = 0;
+            dependencies[0].srcStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+            dependencies[0].dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+            dependencies[0].srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+            dependencies[0].dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+            dependencies[0].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+            dependencies[1].srcSubpass = 0;
+            dependencies[1].dstSubpass = VK_SUBPASS_EXTERNAL;
+            dependencies[1].srcStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+            dependencies[1].dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+            dependencies[1].srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+            dependencies[1].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+            dependencies[1].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+            blur.renderBlur[i].renderPass = device.createRenderPass(attachments, subpasses, dependencies);
+            device.setName<VK_OBJECT_TYPE_RENDER_PASS>(fmt::format("render_blur_{}", i), blur.renderBlur[i].renderPass.renderPass);
+        }
+
+    };
+
+    auto createFrameBuffer = [&]{
+        for(int i = 0; i < 2; i++){
+            assert(blur.renderBlur[i].renderPass);
+            std::vector<VkImageView> attachments{ blur.renderBlur[i].colorAttachment.imageView};
+            blur.renderBlur[i].framebuffer = device.createFramebuffer(blur.renderBlur[i].renderPass, attachments, width, height);
+            device.setName<VK_OBJECT_TYPE_FRAMEBUFFER>(fmt::format("render_blur_{}", i), blur.renderBlur[i].framebuffer.frameBuffer);
+        }
+    };
+
+    createFrameBufferAttachments();
+    createRenderPass();
+    createFrameBuffer();
+}
+
+void ComputeDemo::blurImageRender() {
+    device.graphicsCommandPool().oneTimeCommand([&](auto commandBuffer){
+
+       static VkClearValue clearValue{0.0f, 0.0f, 0.0f, 1.0f};
+       auto imageSet = descriptorSet;
+       int next;
+       int blurAmount = int(float(blur.iterations + 1)/2) * 2;
+       spdlog::info("blurAmount {}", blurAmount);
+       for(int i = 0; i < blurAmount; i++){
+            next = i%2;
+            VkRenderPassBeginInfo renderInfo = initializers::renderPassBeginInfo();
+            renderInfo.renderPass = blur.renderBlur[next].renderPass;
+            renderInfo.framebuffer = blur.renderBlur[next].framebuffer;
+            renderInfo.renderArea.offset = {0, 0};
+            renderInfo.renderArea.extent = {texture.image.dimension.width, texture.image.dimension.height};
+            renderInfo.clearValueCount = 1;
+            renderInfo.pClearValues = &clearValue;
+
+           vkCmdBeginRenderPass(commandBuffer, &renderInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+
+           vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, blur.renderBlur[next].pipeline);
+           vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, blur.renderBlur[next].layout, 0, 1, &imageSet, 0, VK_NULL_HANDLE);
+
+           blur.constants.horizontal = next == 0;
+           vkCmdPushConstants(commandBuffer, blur.renderBlur[next].layout, VK_SHADER_STAGE_FRAGMENT_BIT
+                              , 0, sizeof(blur.constants), &blur.constants);
+
+           std::array<VkDeviceSize, 1> offsets = {0u};
+           std::array<VkBuffer, 2> buffers{ vertexBuffer, vertexColorBuffer};
+           vkCmdBindVertexBuffers(commandBuffer, 0, 1, buffers.data() , offsets.data());
+           vkCmdDraw(commandBuffer, 4, 1, 0, 0);
+
+           vkCmdEndRenderPass(commandBuffer);
+
+           auto barrier = initializers::ImageMemoryBarrier();
+           barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+           barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+           barrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
+           barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+           barrier.image = blur.renderBlur[next].colorAttachment.image;
+           barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+           barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+           barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+           barrier.subresourceRange.baseMipLevel = 0;
+           barrier.subresourceRange.levelCount = 1;
+           barrier.subresourceRange.baseArrayLayer = 0;
+           barrier.subresourceRange.layerCount = 1;
+
+           vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                                VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                                0, 0, VK_NULL_HANDLE, 0,
+                                VK_NULL_HANDLE, 1, &barrier);
+
+           imageSet = blur.renderBlur[next].descriptorSet;
+       }
+       spdlog::info("final set {}", int(!next));
+    });
 }
 
 int main(){
