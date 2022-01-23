@@ -96,7 +96,8 @@ private:
 
         struct {
 //            float weights[5][5];
-            float weights[5]{0.227027, 0.1945946, 0.1216216, 0.054054, 0.016216};
+//            float weights[5]{0.227027, 0.1945946, 0.1216216, 0.054054, 0.016216};
+            std::array<float, 32> weights;
             int horizontal{true};
         } constants;
         float sd{1.0};

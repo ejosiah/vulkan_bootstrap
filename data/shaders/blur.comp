@@ -1,47 +1,41 @@
 #version 460
 
-layout(local_size_x = 5, local_size_y = 1, local_size_z = 1) in;
+// https://www.rastergrid.com/blog/2010/09/efficient-gaussian-blur-with-linear-sampling/
+#define N_TAP 3
+
+
+layout(local_size_x = N_TAP, local_size_y = 1, local_size_z = 1) in;
 
 layout(set = 0, binding = 0) uniform sampler2D iImage;
 layout(set = 1, binding = 0, rgba32f) writeonly uniform image2D oImage;
 
 layout(push_constant) uniform CONTANTS{
-    float weights[5];
+    float offsets[N_TAP];
+    float weights[N_TAP];
     int horizontal;
 };
 
-shared vec3 results[5];
+shared vec3 results[N_TAP];
 
 void main(){
     vec2 uv = vec2(gl_WorkGroupID)/vec2(gl_NumWorkGroups.xy - uvec2(1));
     int i = int(gl_LocalInvocationIndex);
     vec2 offset = 1/vec2(gl_NumWorkGroups.xy);
 
-    vec2 coord = bool(horizontal) ? vec2(offset.x * i, 0) : vec2(0, offset.y * i);
+
+    vec2 coord = bool(horizontal) ? vec2(offset.x * offsets[i], 0) : vec2(0, offset.y * offset[i]);
 
     vec3 value = texture(iImage, uv + coord).rgb * weights[i];
     value += (i != 0) ?  texture(iImage, uv - coord).rgb * weights[i] : vec3(0);
 
     results[i] = value;
-
-    // inclusive scan masks
-    int N = 5;
-    int tid = i;
-    for(int offset = 1; offset < N; offset <<= 1){
-        barrier();
-
-        int aid = tid;
-        int bid = tid - offset;
-        vec3 a = results[aid];
-        vec3 b = bid >= 0 ? results[bid] : vec3(0);
-
-        results[aid] = a + b;
-    }
-
     barrier();
 
     if(gl_LocalInvocationIndex == 0){
-        vec3 result = results[N - 1];
+        vec3 result = vec3(0);
+        for(int i = 0; i < N_TAP; i++){
+            result += results[i];
+        }
         imageStore(oImage, ivec2(gl_WorkGroupID), vec4(result, 1));
     }
 

@@ -124,7 +124,8 @@ protected:
         VulkanDescriptorSetLayout imageSetLayout;
         Texture texture;
         struct {
-            float weights[5]{0.227027, 0.1945946, 0.1216216, 0.054054, 0.016216};
+            std::array<float, 3> offsets{0.0, 1.3846153846, 3.2307692308};
+            std::array<float, 3> weights{0.2270270270, 0.3162162162, 0.0702702703};
             int horizontal{1};
         } constants;
     } blur;
@@ -144,6 +145,7 @@ protected:
     } postProcess;
 
     VulkanSampler globalSampler;
+    VulkanSampler linearSampler;
 
     struct {
         VulkanPipeline pipeline;

@@ -163,7 +163,9 @@ void BloomDemo::createRenderPipeline() {
     createInfo.stage = stage;
     createInfo.layout = blur.layout;
     blur.pipeline = device.createComputePipeline(createInfo);
-    
+    device.setName<VK_OBJECT_TYPE_PIPELINE>("blur", blur.pipeline.handle);
+    device.setName<VK_OBJECT_TYPE_PIPELINE_LAYOUT>("blur", blur.layout.pipelineLayout);
+
     auto bloomShader = VulkanShaderModule{load("bloom.comp.spv"), device};
     stage = initializers::computeShaderStage({ bloomShader, VK_SHADER_STAGE_COMPUTE_BIT});
     range.size = sizeof(postProcess.constants);
@@ -171,6 +173,9 @@ void BloomDemo::createRenderPipeline() {
     createInfo.stage = stage;
     createInfo.layout = postProcess.layout;
     postProcess.pipeline = device.createComputePipeline(createInfo);
+
+    device.setName<VK_OBJECT_TYPE_PIPELINE>("post_process", postProcess.pipeline.handle);
+    device.setName<VK_OBJECT_TYPE_PIPELINE_LAYOUT>("post_process", postProcess.layout.pipelineLayout);
 }
 
 
@@ -276,7 +281,7 @@ void BloomDemo::createDescriptorSetLayouts() {
                 .descriptorType(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
                 .descriptorCount(1)
                 .shaderStages(VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT)
-                .immutableSamplers(globalSampler)
+                .immutableSamplers(linearSampler)
         .createLayout();
 
     lightLayoutSet =
@@ -761,6 +766,10 @@ void BloomDemo::createGlobalSampler() {
     samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST ;
 
     globalSampler = device.createSampler(samplerInfo);
+
+    samplerInfo.magFilter = VK_FILTER_LINEAR;
+    samplerInfo.minFilter = VK_FILTER_LINEAR;
+    linearSampler = device.createSampler(samplerInfo);
 }
 
 void BloomDemo::initSceneFrameBuffer() {

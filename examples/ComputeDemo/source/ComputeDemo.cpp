@@ -119,17 +119,20 @@ VkCommandBuffer *ComputeDemo::buildCommandBuffers(uint32_t imageIndex, uint32_t 
 }
 
 void ComputeDemo::update(float time) {
+    glfwSetWindowTitle(window, fmt::format("{} - FPS {}", title, framePerSecond).c_str());
     static int preIterations = 0;
+    static float sd = 0;
     static bool useRender = false;
-    if(blur.on && (preIterations != blur.iterations || useRender != blur.useRender)){
+    if(blur.on && (preIterations != blur.iterations || useRender != blur.useRender || blur.sd != sd)){
         preIterations = blur.iterations;
         useRender = blur.useRender;
-//        updateBlurFunc();
+        sd = blur.sd;
         if(useRender){
             spdlog::info("using render pipeline blur");
             blurImageRender();
         }else{
             spdlog::info("using compute pipeline blur");
+            updateBlurFunc();
             blurImage();
         }
     }
@@ -512,6 +515,7 @@ void ComputeDemo::renderUI(VkCommandBuffer commandBuffer) {
         ImGui::RadioButton("compute", &option, 0); ImGui::SameLine();
         ImGui::RadioButton("render", &option, 1);
         blur.useRender = option == 1;
+        ImGui::SliderFloat("sd", &blur.sd, 0.5, 5.0);
         ImGui::SliderInt("iterations", &blur.iterations, 1, 1000);
 
     }
@@ -520,9 +524,9 @@ void ComputeDemo::renderUI(VkCommandBuffer commandBuffer) {
 }
 
 void ComputeDemo::updateBlurFunc() {
-//    static float sd = 0.0f;
-//    static glm::vec2 avg{0};
-//    auto update = sd != blur.sd || !glm::any(glm::equal(avg, blur.avg));
+    static float sd = 0.0f;
+    static glm::vec2 avg{0};
+    auto update = sd != blur.sd;
 //    if(update) {
 //        sd = blur.sd;
 //        avg = blur.avg;
@@ -533,12 +537,25 @@ void ComputeDemo::updateBlurFunc() {
 //                auto rhs = glm::exp(-((x - avg.x) * (x-avg.x) + (y-avg.y) * (y-avg.y)) / (2 * sd * sd));
 //                auto lhs = 1.0f / (2.0f * PI * sd * sd);
 //                auto z = lhs * rhs;
-//                blur.constants.weights[i][j] = z;
-//            fmt::print("{} ", (int)glm::round(z * 273));
+////                blur.constants.weights[i][j] = z;
+//            fmt::print("{} ", (z));
 //            }
 //        fmt::print("\n");
 //        }
 //    }
+        sd = blur.sd;
+        int N = blur.constants.weights.size();
+        float sum = 0;
+        for (int i = 0; i < N; i++) {
+                auto x = static_cast<float>(i);
+                auto rhs = glm::exp(-(x * x) / (2 * sd * sd));
+                auto lhs = 1.0f / glm::sqrt(2.0f * PI * sd * sd);
+                auto y = lhs * rhs;
+                blur.constants.weights[i] = y;
+                fmt::print("{} => {} ", x, y);
+                sum += y;
+        }
+        fmt::print("\narea: {}", sum);
 }
 
 void ComputeDemo::initRenderBlur() {
