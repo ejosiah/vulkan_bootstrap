@@ -9,7 +9,11 @@ protected:
 
     void initSceneFrameBuffer();
 
-    void initPostProcessFrameBuffer();
+    void initBlur();
+
+    void initComputeImage(Texture& texture, uint32_t width, uint32_t height);
+
+    void initPostProcessing();
 
     void blurImage(VkCommandBuffer commandBuffer);
 
@@ -47,6 +51,8 @@ protected:
 
     void initTextures();
 
+    void createGlobalSampler();
+
     void initQuad();
 
     void renderUI(VkCommandBuffer commandBuffer);
@@ -55,7 +61,7 @@ protected:
 
     void renderScene(VkCommandBuffer commandBuffer);
 
-    void postPrcessing(VkCommandBuffer commandBuffer);
+    void applyPostProcessing(VkCommandBuffer commandBuffer);
 
 protected:
     struct {
@@ -78,8 +84,8 @@ protected:
     } textures;
 
     struct Light{
-        alignas(16) glm::vec3 position;
-        alignas(16) glm::vec3 color;
+        alignas(16) glm::vec3 position{0};
+        alignas(16) glm::vec3 color{0};
     };
 
     struct {
@@ -101,7 +107,7 @@ protected:
     struct {
         ColorBuffer colorAttachment;
         DepthBuffer depthAttachment;
-        FramebufferAttachment IntensityAttachment;
+        FramebufferAttachment intensityAttachment;
         VulkanFramebuffer framebuffer;
         VulkanRenderPass renderPass;
         VulkanSampler sampler;
@@ -112,9 +118,11 @@ protected:
     struct {
         VulkanPipeline pipeline;
         VulkanPipelineLayout layout;
+        VkDescriptorSet intensitySet;
         VkDescriptorSet inSet;
         VkDescriptorSet outSet;
         VulkanDescriptorSetLayout imageSetLayout;
+        Texture texture;
         struct {
             float weights[5]{0.227027, 0.1945946, 0.1216216, 0.054054, 0.016216};
             int horizontal{1};
@@ -125,22 +133,17 @@ protected:
         VulkanPipeline pipeline;
         VulkanPipelineLayout layout;
         VkDescriptorSet descriptorSet;
-        VulkanFramebuffer framebuffer;
-        VulkanRenderPass renderPass;
-        FramebufferAttachment colorAttachment;
+        VulkanDescriptorSetLayout setLayout;
+        Texture texture;
+        struct{
+            int gammaOn{1};
+            int hdrOn{1};
+            int bloomOn{1};
+            float exposure{1};
+        } constants;
     } postProcess;
 
-
-    struct {
-        int gammaOn{1};
-        int hdrOn{1};
-        int bloomOn{1};
-        float exposure{1};
-    } compositeConstants;
-
-    VulkanDescriptorSetLayout postProcessSetLayout;
-
-    Texture testTexture;
+    VulkanSampler globalSampler;
 
     struct {
         VulkanPipeline pipeline;

@@ -29,14 +29,15 @@ void main(){
 
     vec3 totalRadiance = vec3(0);
     for(int i = 0; i < 4; i++){
-        vec3 lightDir = normalize(lights[i].position - frag_in.position);
+        vec3 lightDir = lights[i].position - frag_in.position;
         float distance = length(lightDir);
         float attenumation = 1/(distance * distance);
 
         vec3 L = normalize(lightDir);
         float diffuse = max(0, dot(L, N));
         vec3 lightColor = lights[i].color;
-        vec3 localRadiance = lightColor * color * (globalAmbiance + diffuse);
+        vec3 localRadiance = lightColor * color * diffuse;
+        localRadiance *= attenumation;
         totalRadiance += localRadiance;
     }
     fragColor = vec4(totalRadiance, 1);

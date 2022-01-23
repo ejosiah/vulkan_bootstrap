@@ -73,6 +73,7 @@ struct VulkanImage : public Copyable{
         return {dimension.width, dimension.height, dimension.depth};
     }
 
+    // TODO change from pool to commandBufffer
     void transitionLayout(const VulkanCommandPool& pool, VkImageLayout newLayout, const VkImageSubresourceRange& subresourceRange = DEFAULT_SUB_RANGE) {
         pool.oneTimeCommand([&](VkCommandBuffer commandBuffer) {
 

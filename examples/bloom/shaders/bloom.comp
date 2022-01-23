@@ -1,0 +1,34 @@
+#version 460
+
+layout(local_size_x = 1, local_size_y = 1) in;
+
+layout(set = 0, binding = 0) uniform sampler2D colorMap;
+layout(set = 0, binding = 1) uniform sampler2D intensityMap;
+layout(set = 0, binding = 2, rgba32f) restrict writeonly uniform image2D oImage;
+
+layout(push_constant) uniform SETTINGS{
+    int gammaOn;
+    int hdrOn;
+    int bloomOn;
+    float exposure;
+};
+
+void main(){
+    vec2 size = vec2(gl_WorkGroupSize.xy * gl_NumWorkGroups.xy);
+    vec2 uv = vec2(gl_GlobalInvocationID)/(size);
+
+    vec3 color = texture(colorMap, uv).rgb;
+    vec3 blur = texture(intensityMap, uv).rgb;
+
+    color += bool(bloomOn) ? blur : vec3(0);
+
+    if(bool(hdrOn)){
+        color = 1 - exp(-color * exposure);
+    }
+
+    float gamma = bool(gammaOn) ? 2.2 : 1.0;
+    color = pow(color, vec3(1/gamma));
+
+
+    imageStore(oImage, ivec2(gl_GlobalInvocationID), vec4(color, 1));
+}
