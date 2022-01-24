@@ -146,6 +146,8 @@ void BloomDemo::createRenderPipeline() {
                 .triangleStrip()
             .colorBlendState()
                 .attachments(1)
+            .multisampleState()
+                .rasterizationSamples(settings.msaaSamples)
             .layout().clear()
                 .addDescriptorSetLayout(textureLayoutSet)
             .name("quad")
@@ -510,11 +512,13 @@ void BloomDemo::initQuad() {
 
 void BloomDemo::renderUI(VkCommandBuffer commandBuffer) {
     ImGui::Begin("settings");
-    ImGui::SetWindowSize({220, 130});
+    ImGui::SetWindowSize({250, 150});
 
     static bool bloomOn = true;
     ImGui::Checkbox("bloom", &bloomOn);
-
+    if(bloomOn){
+        ImGui::SliderInt("blur steps", &blur.steps, 1, 10);
+    }
 
     static bool gammaOn = true;
     ImGui::Checkbox("gamma correct", &gammaOn);
@@ -598,8 +602,9 @@ void BloomDemo::blurImage(VkCommandBuffer commandBuffer) {
     sets[0] = blur.intensitySet;
     sets[1] = blur.outSet;
 
+    // TODO blits intensity image for blur
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, blur.pipeline);
-    int blurAmount = 10;
+    int blurAmount = blur.steps;
     for(int i = 0; i < blurAmount; i++){
         blur.constants.horizontal = i%2 == 0;
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, blur.layout, 0, 2, sets.data(), 0, VK_NULL_HANDLE);
@@ -706,6 +711,7 @@ void BloomDemo::applyPostProcessing(VkCommandBuffer commandBuffer) {
 }
 
 void BloomDemo::initBlur() {
+    // TODO create Image with half of swapChain size
     initComputeImage(blur.texture, swapChain.extent.width, swapChain.extent.height);
     device.setName<VK_OBJECT_TYPE_IMAGE>("blur", blur.texture.image.image);
     device.setName<VK_OBJECT_TYPE_IMAGE_VIEW>("blur", blur.texture.imageView.handle);
@@ -891,7 +897,7 @@ int main(){
 
         Settings settings;
         settings.depthTest = true;
-
+        settings.msaaSamples = VK_SAMPLE_COUNT_16_BIT;
         auto app = BloomDemo{ settings };
 
         std::unique_ptr<Plugin> plugin = std::make_unique<ImGuiPlugin>();
