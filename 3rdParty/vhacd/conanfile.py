@@ -23,8 +23,8 @@ class VhacdConan(ConanFile):
         # This small hack might be useful to guarantee proper /MT /MD linkage
         # in MSVC if the packaged project doesn't have variables to set it
         # properly
-        tools.replace_in_file("v-hacd/src/CMakeLists.txt", "PROJECT(VHACD)",
-                              '''PROJECT(VHACD)
+        tools.replace_in_file("v-hacd/src/CMakeLists.txt", "project(VHACD)",
+                              '''project(VHACD)
 include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
 conan_basic_setup()''')
 
