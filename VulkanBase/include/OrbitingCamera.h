@@ -21,6 +21,7 @@ struct OrbitingCameraSettings : public BaseCameraSettings{
     } model;
 };
 
+// FIXME change to focus on a target and not a model in the scene
 class OrbitingCameraController : public BaseCameraController {
 public:
     OrbitingCameraController(const VulkanDevice& device, uint32_t swapChainImageCount, const uint32_t& currentImageIndex,  InputManager& inputManager, const OrbitingCameraSettings& settings = {});

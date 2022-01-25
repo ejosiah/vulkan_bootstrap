@@ -71,6 +71,18 @@ struct VulkanCommandPool{
         ASSERT(vkAllocateCommandBuffers(device, &allocateInfo, commandBuffers.data()));
     }
 
+    inline VkCommandBuffer allocate(VkCommandBufferLevel level = VK_COMMAND_BUFFER_LEVEL_PRIMARY) const {
+        VkCommandBuffer commandBuffer;
+        VkCommandBufferAllocateInfo allocateInfo{};
+        allocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+        allocateInfo.commandPool = pool;
+        allocateInfo.level = level;
+        allocateInfo.commandBufferCount = 1;
+
+        ASSERT(vkAllocateCommandBuffers(device, &allocateInfo, &commandBuffer));
+        return commandBuffer;
+    }
+
     inline void free(const std::vector<VkCommandBuffer>& commandBuffers) const {
         vkFreeCommandBuffers(device, pool, COUNT(commandBuffers), commandBuffers.data());
     }
@@ -101,7 +113,7 @@ struct VulkanCommandPool{
     }
 
     template<typename Command>
-    inline void oneTimeCommands(int size, Command&& command) const {
+    inline void oneTimeCommands(uint32_t size, Command&& command) const {
         auto commandBuffers = allocateCommandBuffers(size);
         for(auto i = 0; i < size; i++){
             VkCommandBufferBeginInfo beginInfo{};

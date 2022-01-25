@@ -595,7 +595,7 @@ void ComputeDemo::initRenderBlur() {
                             VK_ATTACHMENT_LOAD_OP_DONT_CARE,    // stencil load op
                             VK_ATTACHMENT_STORE_OP_DONT_CARE,   // stencil store op
                             VK_IMAGE_LAYOUT_UNDEFINED,
-                            VK_IMAGE_LAYOUT_GENERAL
+                            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                     }
             };
 
@@ -674,24 +674,24 @@ void ComputeDemo::blurImageRender() {
 
            vkCmdEndRenderPass(commandBuffer);
 
-           auto barrier = initializers::ImageMemoryBarrier();
-           barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-           barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-           barrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
-           barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-           barrier.image = blur.renderBlur[next].colorAttachment.image;
-           barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-           barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-           barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-           barrier.subresourceRange.baseMipLevel = 0;
-           barrier.subresourceRange.levelCount = 1;
-           barrier.subresourceRange.baseArrayLayer = 0;
-           barrier.subresourceRange.layerCount = 1;
-
-           vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-                                VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-                                0, 0, VK_NULL_HANDLE, 0,
-                                VK_NULL_HANDLE, 1, &barrier);
+//           auto barrier = initializers::ImageMemoryBarrier();
+//           barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+//           barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+//           barrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
+//           barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+//           barrier.image = blur.renderBlur[next].colorAttachment.image;
+//           barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+//           barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+//           barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+//           barrier.subresourceRange.baseMipLevel = 0;
+//           barrier.subresourceRange.levelCount = 1;
+//           barrier.subresourceRange.baseArrayLayer = 0;
+//           barrier.subresourceRange.layerCount = 1;
+//
+//           vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+//                                VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+//                                0, 0, VK_NULL_HANDLE, 0,
+//                                VK_NULL_HANDLE, 1, &barrier);
 
            imageSet = blur.renderBlur[next].descriptorSet;
        }

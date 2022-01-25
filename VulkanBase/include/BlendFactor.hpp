@@ -56,6 +56,7 @@ struct BlendFactor{
 
     Caller& oneMinusDstAlpha(){
         blendFactor = VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA;
+        return *_caller;
     }
 
     Caller& constantColor(){

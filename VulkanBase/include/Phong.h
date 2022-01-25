@@ -99,7 +99,7 @@ namespace phong{
             bindings[i].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
             bindings[i].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
         }
-        drawable.textureSetLayout = device.createDescriptorSetLayout(bindings);
+        drawable.descriptorSetLayout = device.createDescriptorSetLayout(bindings);
 
         std::vector<mesh::Mesh> meshes;
         mesh::load(meshes, path);
@@ -164,7 +164,7 @@ namespace phong{
             drawable.meshes[i].vertexCount = primitive.vertexCount;
             drawable.meshes[i].vertexOffset = primitive.vertexOffset;
 
-            drawable.meshes[i].material.init(mesh, device, pool, drawable.textureSetLayout, info.materialUsage);
+            drawable.meshes[i].material.init(mesh, device, pool, drawable.descriptorSetLayout, info.materialUsage);
             device.copy(drawable.meshes[i].material.materialBuffer, drawable.materialBuffer, materialBufferSize, 0, i * materialBufferSize);
 
 //            std::memcpy(offsetBuffer.data() + offset, &firstIndex, sizeOfInt);

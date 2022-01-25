@@ -897,7 +897,6 @@ int main(){
 
         Settings settings;
         settings.depthTest = true;
-        settings.msaaSamples = VK_SAMPLE_COUNT_16_BIT;
         auto app = BloomDemo{ settings };
 
         std::unique_ptr<Plugin> plugin = std::make_unique<ImGuiPlugin>();

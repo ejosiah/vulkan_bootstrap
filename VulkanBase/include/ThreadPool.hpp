@@ -35,6 +35,15 @@ namespace par{
             return _global;
         }
 
+        template<typename T, typename F>
+        auto onComplete(std::shared_future<T> future, F&& func){
+            return
+                async([f = future, func = func]() mutable {
+                   auto res = f.get();
+                   func(res);
+                });
+        }
+
     protected:
         void enqueue(UniqueFunction task) const;
 
