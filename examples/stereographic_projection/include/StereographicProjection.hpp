@@ -1,3 +1,4 @@
+#pragma once
 #include "VulkanBaseApp.h"
 
 class StereographicProjection : public VulkanBaseApp{
@@ -7,7 +8,13 @@ public:
 protected:
     void initApp() override;
 
+    void initCamera();
+
     void createDescriptorPool();
+
+    void createSphere();
+
+    void createProjection();
 
     void createCommandPool();
 
@@ -42,9 +49,20 @@ protected:
         VulkanPipeline pipeline;
     } compute;
 
+    struct{
+        VulkanBuffer vertices;
+        VulkanBuffer indices;
+    } sphere;
+
+    struct {
+        VulkanBuffer vertices;
+        VulkanBuffer indices;
+    } projection;
+
     VulkanDescriptorPool descriptorPool;
     VulkanCommandPool commandPool;
     std::vector<VkCommandBuffer> commandBuffers;
     VulkanPipelineCache pipelineCache;
+    std::unique_ptr<OrbitingCameraController> cameraController;
 
 };

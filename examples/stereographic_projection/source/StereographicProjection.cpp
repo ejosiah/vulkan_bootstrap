@@ -17,6 +17,9 @@ StereographicProjection::StereographicProjection(const Settings& settings) : Vul
 void StereographicProjection::initApp() {
     createDescriptorPool();
     createCommandPool();
+    createSphere();
+    createProjection();
+    initCamera();
     createPipelineCache();
     createRenderPipeline();
     createComputePipeline();
@@ -63,8 +66,8 @@ void StereographicProjection::createRenderPipeline() {
     render.pipeline =
         builder
             .shaderStage()
-                .vertexShader("../../data/shaders/pass_through.vert.spv")
-                .fragmentShader("../../data/shaders/pass_through.frag.spv")
+                .vertexShader(load("vertex.vert.spv"))
+                .fragmentShader(load("checkerboard.frag.spv"))
             .vertexInputState()
                 .addVertexBindingDescriptions(Vertex::bindingDisc())
                 .addVertexAttributeDescriptions(Vertex::attributeDisc())
@@ -93,6 +96,8 @@ void StereographicProjection::createRenderPipeline() {
                 .colorBlendState()
                     .attachment()
                     .add()
+                .layout()
+                    .addPushConstantRange(Camera::pushConstant())
                 .renderPass(renderPass)
                 .subpass(0)
                 .name("render")
@@ -132,7 +137,7 @@ VkCommandBuffer *StereographicProjection::buildCommandBuffers(uint32_t imageInde
     vkBeginCommandBuffer(commandBuffer, &beginInfo);
 
     static std::array<VkClearValue, 2> clearValues;
-    clearValues[0].color = {0, 0, 1, 1};
+    clearValues[0].color = {0.8, 0.8, 0.8, 1};
     clearValues[1].depthStencil = {1.0, 0u};
 
     VkRenderPassBeginInfo rPassInfo = initializers::renderPassBeginInfo();
@@ -145,7 +150,17 @@ VkCommandBuffer *StereographicProjection::buildCommandBuffers(uint32_t imageInde
 
     vkCmdBeginRenderPass(commandBuffer, &rPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, render.pipeline);
+    cameraController->push(commandBuffer, render.layout);
+    VkDeviceSize offset = 0;
+//    vkCmdBindVertexBuffers(commandBuffer, 0, 1, sphere.vertices, &offset);
+//    vkCmdBindIndexBuffer(commandBuffer, sphere.indices, 0, VK_INDEX_TYPE_UINT32);
+//    vkCmdDrawIndexed(commandBuffer, sphere.indices.size/sizeof(uint32_t), 1, 0, 0, 0);
 
+    cameraController->push(commandBuffer, render.layout);
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, projection.vertices, &offset);
+    vkCmdBindIndexBuffer(commandBuffer, projection.indices, 0, VK_INDEX_TYPE_UINT32);
+    vkCmdDrawIndexed(commandBuffer, projection.indices.size/sizeof(uint32_t), 1, 0, 0, 0);
 
     vkCmdEndRenderPass(commandBuffer);
 
@@ -155,11 +170,11 @@ VkCommandBuffer *StereographicProjection::buildCommandBuffers(uint32_t imageInde
 }
 
 void StereographicProjection::update(float time) {
-    VulkanBaseApp::update(time);
+    cameraController->update(time);
 }
 
 void StereographicProjection::checkAppInputs() {
-    VulkanBaseApp::checkAppInputs();
+    cameraController->processInput();
 }
 
 void StereographicProjection::cleanup() {
@@ -169,6 +184,44 @@ void StereographicProjection::cleanup() {
 
 void StereographicProjection::onPause() {
     VulkanBaseApp::onPause();
+}
+
+void StereographicProjection::createSphere() {
+    auto s = primitives::sphere(100, 100, 1.0f, glm::mat4(1), glm::vec4(1), VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+    sphere.vertices = device.createDeviceLocalBuffer(s.vertices.data(), BYTE_SIZE(s.vertices), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+    sphere.indices = device.createDeviceLocalBuffer(s.indices.data(), BYTE_SIZE(s.indices), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+}
+
+void StereographicProjection::createProjection() {
+    auto s = primitives::sphere(100, 100, 1.0f, glm::mat4(1), glm::vec4(1), VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+    glm::vec3 n{0, 1, 0};
+    glm::vec3 o{0, 1, 0};
+    for(auto& v : s.vertices){
+        auto d = v.position.xyz() - o;
+        auto t = -glm::dot(n, o)/glm::dot(n, d);
+        auto x = o + d * t;
+        if(glm::any(glm::isnan(x))){
+            x = glm::vec3(0);
+        }
+        v.position = glm::vec4(x, 1);
+        v.normal *= -1.0f;
+    }
+    projection.vertices = device.createDeviceLocalBuffer(s.vertices.data(), BYTE_SIZE(s.vertices), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+    projection.indices = device.createDeviceLocalBuffer(s.indices.data(), BYTE_SIZE(s.indices), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+}
+
+void StereographicProjection::initCamera() {
+    OrbitingCameraSettings settings{};
+    settings.modelHeight =  0;
+    settings.aspectRatio = swapChain.aspectRatio();
+    settings.horizontalFov = true;
+    settings.fieldOfView = 60.0f;
+    settings.orbitMinZoom = 0;
+    settings.offsetDistance = 5;
+    settings.orbitMaxZoom =  10;
+
+    cameraController = std::make_unique<OrbitingCameraController>(device, swapChainImageCount, currentImageIndex
+            , dynamic_cast<InputManager&>(*this), settings);
 }
 
 
