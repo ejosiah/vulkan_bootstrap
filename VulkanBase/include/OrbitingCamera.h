@@ -1,6 +1,7 @@
 #pragma once
 
 #include "camera_base.h"
+#include <limits>
 
 static constexpr float DEFAULT_ORBIT_MIN_ZOOM = DEFAULT_ZOOM_MIN;
 static constexpr float DEFAULT_ORBIT_MAX_ZOOM = DEFAULT_ZOOM_MAX;
@@ -15,6 +16,7 @@ struct OrbitingCameraSettings : public BaseCameraSettings{
     float orbitMaxZoom = DEFAULT_ORBIT_MAX_ZOOM;
     float modelHeight = 1.0f;
     bool preferTargetYAxisOrbiting = true;
+    glm::vec3 target{std::numeric_limits<float>::quiet_NaN()};
     struct {
         glm::vec3 min{MAX_FLOAT};
         glm::vec3 max{MIN_FLOAT};

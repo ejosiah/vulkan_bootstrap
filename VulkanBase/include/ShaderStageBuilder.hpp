@@ -30,6 +30,12 @@ public:
    ShaderStageBuilder& geometryShader(const std::string& path);
 
    [[nodiscard]]
+   ShaderStageBuilder& geometryShader(const byte_string& data);
+
+   [[nodiscard]]
+   ShaderStageBuilder& geometryShader(const std::vector<uint32_t>& data);
+
+   [[nodiscard]]
    ShaderStageBuilder& tessellationEvaluationShader(const std::string& path);
 
    [[nodiscard]]

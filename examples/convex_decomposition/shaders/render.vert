@@ -25,6 +25,6 @@ void main(){
 
     vert_out.position = worldPos.xyz;
     vert_out.normal = worldNormal;
-    vert_out.eyes = (view * vec4(0, 0, 0, 1)).xyz;
+    vert_out.eyes = (inverse(view) * vec4(0, 0, 0, 1)).xyz;
     gl_Position = projection * view * worldPos;
 }

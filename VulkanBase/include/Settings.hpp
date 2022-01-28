@@ -49,6 +49,8 @@ struct Settings{
 
     VkQueueFlags queueFlags = VK_QUEUE_GRAPHICS_BIT;
 
+    VkQueueFlags uniqueQueueFlags = 0;
+
     /**
      * sets Vulkan features to enable
      */

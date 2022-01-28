@@ -1,0 +1,38 @@
+# 
+# Wavefront material file
+# Converted by the DEEP Exploration  Deep Exploration 6.5 x64 6.5.0.9182
+# Right Hemisphere, LTD
+# http://www.righthemisphere.com/
+# 
+
+newmtl Teeth
+Ka 0.6 0.52549 0.431373
+Kd 0.6 0.52549 0.431373
+Ks 0.9 0.9 0.9
+illum 2
+Ns 29.8571
+map_Kd 
+map_bump Human_Skeleton_teeth_normal.png
+bump Human_Skeleton_teeth_normal.png
+map_opacity 
+map_d 
+refl 
+map_kS 
+map_kA 
+map_Ns 
+
+newmtl Skull
+Ka 0.6 0.52549 0.431373
+Kd 1 1 1
+Ks 0.9 0.9 0.9
+illum 2
+Ns 64
+map_Kd Human_Skeleton_skull_diff.png
+map_bump Human_Skeleton_skull_displ.png
+bump Human_Skeleton_skull_displ.png
+map_opacity 
+map_d 
+refl 
+map_kS 
+map_kA 
+map_Ns 

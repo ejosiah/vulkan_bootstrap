@@ -1,5 +1,7 @@
 #version 460 core
 
+#define SQRT_3_INV 0.57735026918962576450914878050196
+
 const vec3 globalAmbient = vec3(0.3);
 const vec3 lightColor = vec3(1);
 
@@ -15,7 +17,7 @@ layout(location = 0) out vec4 fragColor;
 void main(){
     vec3 N = normalize(vNormal);
     N = gl_FrontFacing ? N : -N;
-    vec3 L = normalize(lightPos - vPos);
+    vec3 L = vec3(SQRT_3_INV);
     vec3 E = normalize(eyes - vPos);
     vec3 H = normalize(E + L);
 
@@ -23,5 +25,11 @@ void main(){
     vec3 diffuse = mix(vec3(0.4), vec3(1), float((id.x + id.y) % 2 == 0));
 
     vec3 color = lightColor * max(dot(L, N), 0) * diffuse;
+
+    L.xz *= -1;
+    color += lightColor * max(dot(L, N), 0) * diffuse;
+
+//    L = E;
+//    color += lightColor * max(dot(L, N), 0) * diffuse;
     fragColor = vec4(color, 1);
 }

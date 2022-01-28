@@ -15,8 +15,12 @@ OrbitingCameraController::OrbitingCameraController(const VulkanDevice& device, u
     model.position = {0.0f, floorOffset, 0.0f};
     model.orientation = glm::inverse(orientation);
 
-    auto eyes = model.position + zAxis * offsetDistance;
-    auto target = model.position;
+    glm::vec3 target = model.position;
+    if(!glm::any(glm::isnan(settings.target))){
+        target = settings.target;
+    }
+
+    auto eyes = target + zAxis * offsetDistance;
     lookAt(eyes, target, targetYAxis);
 }
 

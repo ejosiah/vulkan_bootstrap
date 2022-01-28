@@ -3,6 +3,9 @@
 #include "common.h"
 
 namespace par{
+
+    struct done{};
+
     class ThreadPool {
     public:
         using UniqueFunction = std::packaged_task<void()>;
@@ -36,11 +39,17 @@ namespace par{
         }
 
         template<typename T, typename F>
-        auto onComplete(std::shared_future<T> future, F&& func){
+        auto onComplete(std::shared_future<T> future, F&& func, const std::string& errorMsg = ""){
             return
-                async([f = future, func = func]() mutable {
-                   auto res = f.get();
-                   func(res);
+                async([=]() mutable {
+                    try {
+                        auto res = future.get();
+                        func(res);
+                    }catch (...){
+                        // TODO add on error function
+                        spdlog::info("background task error: {}", errorMsg);
+                        throw;
+                    }
                 });
         }
 

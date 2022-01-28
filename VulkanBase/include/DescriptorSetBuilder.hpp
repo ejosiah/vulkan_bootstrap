@@ -1,7 +1,5 @@
 #pragma once
 
-#include "VulkanDevice.h"
-
 class DescriptorSetLayoutBuilder {
 public:
     explicit DescriptorSetLayoutBuilder(const VulkanDevice& device) : device(device){}

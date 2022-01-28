@@ -42,6 +42,17 @@ ShaderStageBuilder &ShaderStageBuilder::geometryShader(const std::string &path) 
     return *this;
 }
 
+
+ShaderStageBuilder &ShaderStageBuilder::geometryShader(const byte_string& data) {
+    _geometryModule = VulkanShaderModule{ data, device()};
+    return *this;
+}
+
+ShaderStageBuilder &ShaderStageBuilder::geometryShader(const std::vector<uint32_t>& data) {
+    _geometryModule = VulkanShaderModule{ data, device()};
+    return *this;
+}
+
 ShaderStageBuilder &ShaderStageBuilder::tessellationEvaluationShader(const std::string &path) {
     _tessEvalModule = VulkanShaderModule{ path, device()};
     return *this;

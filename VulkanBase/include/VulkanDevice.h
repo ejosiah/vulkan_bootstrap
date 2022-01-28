@@ -14,8 +14,9 @@
 #include "VulkanDebug.h"
 #include "VulkanExtensions.h"
 #include "builder_forwards.hpp"
+#include <bitset>
 
-
+// TODO make shared
 struct VulkanDevice{
 
     using DeviceDisposeListener = std::function<void(const VulkanDevice&)>;
@@ -54,17 +55,13 @@ struct VulkanDevice{
     }
 
     VulkanDevice& operator=(VulkanDevice&& source) noexcept{
-        physicalDevice = source.physicalDevice;
-        logicalDevice = source.logicalDevice;
-        queueFamilyIndex = source.queueFamilyIndex;
-        queues = source.queues;
-        allocator = source.allocator;
-        instance = source.instance;
-
-        source.physicalDevice = VK_NULL_HANDLE;
-        source.logicalDevice = VK_NULL_HANDLE;
-        source.allocator = VK_NULL_HANDLE;
-        source.instance = VK_NULL_HANDLE;
+        physicalDevice = std::exchange(source.physicalDevice, nullptr);
+        logicalDevice = std::exchange(source.logicalDevice, nullptr);
+        queueFamilyIndex = std::exchange(source.queueFamilyIndex, {});
+        queues = std::exchange(source.queues, {});
+        allocator = std::exchange(source.allocator, nullptr);
+        instance = std::exchange(source.instance, nullptr);
+        settings = std::exchange(source.settings, {});
 
         return *this;
     }
@@ -87,17 +84,17 @@ struct VulkanDevice{
     }
 
     inline void initQueueFamilies(VkQueueFlags queueFlags, VkSurfaceKHR surface = VK_NULL_HANDLE){
-        auto queueFamily = getQueueFamilyProperties();
-        for(uint32_t i = 0; i < queueFamily.size(); i++){
-            if(!queueFamilyIndex.graphics && (queueFamily[i].queueFlags & queueFlags) && (queueFlags & VK_QUEUE_GRAPHICS_BIT) == VK_QUEUE_GRAPHICS_BIT){
+        auto queueFamilies = getQueueFamilyProperties();
+        for(uint32_t i = 0; i < queueFamilies.size(); i++){
+            if(!queueFamilyIndex.graphics && (queueFamilies[i].queueFlags & queueFlags) && (queueFlags & VK_QUEUE_GRAPHICS_BIT) == VK_QUEUE_GRAPHICS_BIT){
                 queueFamilyIndex.graphics = i;
                 uniqueQueueIndices.insert(i);
             }
-            if(!queueFamilyIndex.compute && (queueFamily[i].queueFlags & queueFlags) && (queueFlags & VK_QUEUE_COMPUTE_BIT) == VK_QUEUE_COMPUTE_BIT){
+            if(!queueFamilyIndex.compute && (queueFamilies[i].queueFlags & queueFlags) && (queueFlags & VK_QUEUE_COMPUTE_BIT) == VK_QUEUE_COMPUTE_BIT){
                queueFamilyIndex.compute = i;
                 uniqueQueueIndices.insert(i);
             }
-            if(!queueFamilyIndex.transfer && (queueFamily[i].queueFlags & queueFlags) && (queueFlags & VK_QUEUE_TRANSFER_BIT) == VK_QUEUE_TRANSFER_BIT){
+            if(!queueFamilyIndex.transfer && (queueFamilies[i].queueFlags & queueFlags) && (queueFlags & VK_QUEUE_TRANSFER_BIT) == VK_QUEUE_TRANSFER_BIT){
                 queueFamilyIndex.transfer = i;
                 uniqueQueueIndices.insert(i);
             }
@@ -110,6 +107,40 @@ struct VulkanDevice{
                 }
             }
         }
+        if(settings.uniqueQueueFlags){
+            if(settings.uniqueQueueFlags & VK_QUEUE_COMPUTE_BIT){
+                if(auto queueIndex = findQueueFamily(VK_QUEUE_COMPUTE_BIT)){
+                    queueFamilyIndex.compute = *queueIndex;
+                    uniqueQueueIndices.insert(*queueIndex);
+                }
+            }
+            if(settings.uniqueQueueFlags & VK_QUEUE_TRANSFER_BIT){
+                if(auto queueIndex = findQueueFamily(VK_QUEUE_TRANSFER_BIT)){
+                    queueFamilyIndex.transfer = *queueIndex;
+                    uniqueQueueIndices.insert(*queueIndex);
+                }
+
+            }
+        }
+    }
+
+    inline std::optional<uint32_t> findQueueFamily(VkQueueFlagBits queueFlagBits) const {
+
+        auto queueFamilies = getQueueFamilyProperties();
+
+        std::vector<std::pair<uint32_t, VkQueueFamilyProperties>> matches;
+        for(auto i = 0; i < queueFamilies.size(); i++){
+            if(queueFamilies[i].queueFlags & queueFlagBits){
+                matches.emplace_back(i, queueFamilies[i]);
+            }
+        }
+
+        std::sort(matches.begin(), matches.end(), [](const auto& lhs, const auto& rhs){
+            return
+                    std::bitset<32>{lhs.second.queueFlags}.count() < std::bitset<32>{rhs.second.queueFlags}.count();
+        });
+
+        return !matches.empty() ?  std::optional<uint32_t>{matches.front().first} : std::nullopt;
     }
 
     inline void createLogicalDevice(const VkPhysicalDeviceFeatures& enabledFeatures,
@@ -295,7 +326,9 @@ struct VulkanDevice{
 
         VulkanBuffer buffer = createBuffer(usage, VMA_MEMORY_USAGE_GPU_ONLY, size, "", queueIndices);
 
-        auto qfIndex = queueFamilyIndex.graphics.has_value() ? queueFamilyIndex.graphics : queueFamilyIndex.compute;
+        auto qfIndex = queueFamilyIndex.transfer.has_value() ? queueFamilyIndex.transfer : queueFamilyIndex.graphics;
+        qfIndex = qfIndex.has_value() ? qfIndex : queueFamilyIndex.compute;
+        assert(qfIndex.has_value());
 
         commandPoolFor(*qfIndex).oneTimeCommand([&](auto cmdBuffer){
             VkBufferCopy copy{};
@@ -303,6 +336,22 @@ struct VulkanDevice{
             copy.dstOffset = 0;
             copy.srcOffset = 0;
             vkCmdCopyBuffer(cmdBuffer, stagingBuffer, buffer, 1u, &copy);
+
+            VkAccessFlags dstAccessMask = (usage & VK_BUFFER_USAGE_VERTEX_BUFFER_BIT)
+                                                ? VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT : VK_ACCESS_INDEX_READ_BIT;
+
+            VkBufferMemoryBarrier barrier = initializers::bufferMemoryBarrier();
+            barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+            barrier.dstAccessMask = dstAccessMask;
+            barrier.srcQueueFamilyIndex = *qfIndex;
+            barrier.dstQueueFamilyIndex = *queueFamilyIndex.graphics;
+            barrier.buffer = buffer;
+            barrier.offset = 0;
+            barrier.size = buffer.size;
+
+            vkCmdPipelineBarrier(cmdBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_VERTEX_INPUT_BIT
+                    , 0, 0, VK_NULL_HANDLE, 1, &barrier, 0, VK_NULL_HANDLE);
+
         });
 
         return buffer;

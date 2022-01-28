@@ -96,6 +96,8 @@ void StereographicProjection::createRenderPipeline() {
                 .colorBlendState()
                     .attachment()
                     .add()
+                .multisampleState()
+                    .rasterizationSamples(settings.msaaSamples)
                 .layout()
                     .addPushConstantRange(Camera::pushConstant())
                 .renderPass(renderPass)
@@ -127,6 +129,7 @@ void StereographicProjection::onSwapChainDispose() {
 void StereographicProjection::onSwapChainRecreation() {
     createRenderPipeline();
     createComputePipeline();
+    cameraController->perspective(swapChain.aspectRatio());
 }
 
 VkCommandBuffer *StereographicProjection::buildCommandBuffers(uint32_t imageIndex, uint32_t &numCommandBuffers) {
@@ -153,9 +156,9 @@ VkCommandBuffer *StereographicProjection::buildCommandBuffers(uint32_t imageInde
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, render.pipeline);
     cameraController->push(commandBuffer, render.layout);
     VkDeviceSize offset = 0;
-//    vkCmdBindVertexBuffers(commandBuffer, 0, 1, sphere.vertices, &offset);
-//    vkCmdBindIndexBuffer(commandBuffer, sphere.indices, 0, VK_INDEX_TYPE_UINT32);
-//    vkCmdDrawIndexed(commandBuffer, sphere.indices.size/sizeof(uint32_t), 1, 0, 0, 0);
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, sphere.vertices, &offset);
+    vkCmdBindIndexBuffer(commandBuffer, sphere.indices, 0, VK_INDEX_TYPE_UINT32);
+    vkCmdDrawIndexed(commandBuffer, sphere.indices.size/sizeof(uint32_t), 1, 0, 0, 0);
 
     cameraController->push(commandBuffer, render.layout);
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, projection.vertices, &offset);
@@ -195,7 +198,7 @@ void StereographicProjection::createSphere() {
 void StereographicProjection::createProjection() {
     auto s = primitives::sphere(100, 100, 1.0f, glm::mat4(1), glm::vec4(1), VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
     glm::vec3 n{0, 1, 0};
-    glm::vec3 o{0, 1, 0};
+    glm::vec3 o{0, -1, 0};
     for(auto& v : s.vertices){
         auto d = v.position.xyz() - o;
         auto t = -glm::dot(n, o)/glm::dot(n, d);
@@ -204,7 +207,7 @@ void StereographicProjection::createProjection() {
             x = glm::vec3(0);
         }
         v.position = glm::vec4(x, 1);
-        v.normal *= -1.0f;
+        v.normal = {0, 1, 0};
     }
     projection.vertices = device.createDeviceLocalBuffer(s.vertices.data(), BYTE_SIZE(s.vertices), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
     projection.indices = device.createDeviceLocalBuffer(s.indices.data(), BYTE_SIZE(s.indices), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
@@ -230,7 +233,7 @@ int main(){
 
         Settings settings;
         settings.depthTest = true;
-
+        settings.msaaSamples = VK_SAMPLE_COUNT_16_BIT;
         auto app = StereographicProjection{ settings };
         app.run();
     }catch(std::runtime_error& err){

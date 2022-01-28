@@ -35,7 +35,7 @@ void main(){
     vec3 E = normalize(eyeDir);
     vec3 H = normalize(E + L);
 
-    float shine = 1000;
+    float shine = 200;
     vec3 color = GetColorFromPositionAndNormal(frag_in.position, frag_in.normal);
 
     float diffuse = max(0, dot(N, L));
@@ -47,17 +47,16 @@ void main(){
     specular = max(0, pow(dot(N, H), shine));
     radiance += color * (diffuse);
 
-    L = E;
-    H = normalize(E + L);
-    diffuse = max(0, dot(N, L));
-    specular = max(0, pow(dot(N, H), shine));
-    radiance += color * (diffuse);
+//    L = E;
+//    H = normalize(E + L);
+//    diffuse = max(0, dot(N, L));
+//    specular = max(0, pow(dot(N, H), shine));
+//    radiance += color * (diffuse);
 
     vec3 fog = vec3(0.8);
-    float minDist = 0;
-    float maxDist = 10;
-    float dist = length(eyeDir);
-    float t = (maxDist - dist)/(maxDist - minDist);
+    float density = 0.05;
+    float distFromEyes = length(eyeDir);
+    float t = exp(-density * distFromEyes);
     t = clamp(t, 0, 1);
     vec3 finalColor = mix(fog, radiance, t);
 
