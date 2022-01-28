@@ -9,6 +9,11 @@
 #include <vector>
 #include <future>
 
+struct ConvexHullPoint{
+    glm::vec3 position;
+    glm::vec3 normal;
+};
+
 struct ConvexHulls{
     std::vector<VulkanBuffer> vertices;
     std::vector<VulkanBuffer> indices;
@@ -22,6 +27,7 @@ struct OpenCLParams{
     int oclPlatformID{0};
     int oclDeviceID{0};
 };
+
 
 class Callback final : public VHACD::IVHACD::IUserCallback{
 public:

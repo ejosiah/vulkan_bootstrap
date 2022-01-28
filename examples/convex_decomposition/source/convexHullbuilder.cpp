@@ -170,7 +170,7 @@ std::future<ConvexHulls> ConvexHullBuilder::build() {
 
         static uint32_t seed = 1 << 20;
         VHACD::IVHACD::ConvexHull ch{};
-        std::vector<std::vector<Vertex>> mesh;
+        std::vector<std::vector<ConvexHullPoint>> mesh;
         mesh.reserve(numConvexHulls);
 
         std::vector<std::vector<uint32_t>> meshIndices;
@@ -182,15 +182,15 @@ std::future<ConvexHulls> ConvexHullBuilder::build() {
         for(int i = 0; i < numConvexHulls; i++){
             m_interfaceVHACD->GetConvexHull(i, ch);
 
-            std::vector<Vertex> vertices;
+            std::vector<ConvexHullPoint> vertices;
             auto numVertices = ch.m_nPoints * 3;
             for(int j = 0; j < numVertices; j += 3){
                 auto x = static_cast<float>(ch.m_points[j + 0]);
                 auto y = static_cast<float>(ch.m_points[j + 1]);
                 auto z = static_cast<float>(ch.m_points[j + 2]);
-                Vertex v{};
-                v.position = glm::vec4(x, y, z, 1);
-                vertices.push_back(v);
+                ConvexHullPoint p{};
+                p.position = glm::vec3(x, y, z);
+                vertices.push_back(p);
             }
 
             std::vector<uint32_t> indices;
@@ -208,9 +208,9 @@ std::future<ConvexHulls> ConvexHullBuilder::build() {
 
                 //  generate normals
                 glm::vec3 centerCH{ ch.m_center[0], ch.m_center[2], ch.m_center[2]};
-                glm::vec3 centerTri = ((v0.position + v1.position + v2.position)/3.0f).xyz();
-                auto a = v1.position.xyz() - v0.position.xyz();
-                auto b = v2.position.xyz() - v0.position.xyz();
+                glm::vec3 centerTri = (v0.position + v1.position + v2.position)/3.0f;
+                auto a = v1.position - v0.position;
+                auto b = v2.position - v0.position;
                 auto normal = glm::cross(a, b);
                 normal = glm::normalize(normal);
                 v0.normal = normal;
