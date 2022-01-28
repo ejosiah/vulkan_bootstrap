@@ -40,9 +40,11 @@ public:
 
 class ConvexHullBuilder{
 public:
-    ConvexHullBuilder(VulkanDevice* device = nullptr);
+    ConvexHullBuilder() = default;
 
-    ConvexHullBuilder& setData(const VulkanBuffer& vertices, const VulkanBuffer& indices);
+    ConvexHullBuilder(VulkanDevice* device);
+
+    ConvexHullBuilder& setData(const VulkanBuffer& vertices, const VulkanBuffer& sourceIndexBuffer);
 
     ConvexHullBuilder& setData(const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices);
 
@@ -50,22 +52,22 @@ public:
 
     ConvexHullBuilder& setParams(const VHACD::IVHACD::Parameters& params);
 
-    ConvexHullBuilder& setCallBack(Callback&& callback);
+    ConvexHullBuilder& setCallBack(Callback& callback);
 
-    std::future<par::done> build();
+    std::future<ConvexHulls> build();
 
 protected:
     void initOpenCL();
     void initVHACD();
+    void createCommandPool();
 private:
-    ConvexHulls convexHulls;
-    OCLHelper oclHelper;
-    VHACD::IVHACD* interfaceVHACD;
-    LoggingAdaptor loggerVHACD;
-    Callback callbackVHACD;
-    VHACD::IVHACD::Parameters params{};
-    OpenCLParams openClParams{};
-    VulkanDevice* device;
-    VulkanCommandPool commandPoolCH;
-    bool openCLOnline = false;
+    ConvexHulls m_convexHulls;
+    OCLHelper m_oclHelper;
+    VHACD::IVHACD* m_interfaceVHACD{nullptr};
+    LoggingAdaptor m_loggerVHACD;
+    VHACD::IVHACD::Parameters m_params{};
+    OpenCLParams m_openClParams{};
+    VulkanDevice* m_device{nullptr};
+    VulkanCommandPool m_commandPool;
+    bool m_openCLOnline = false;
 };

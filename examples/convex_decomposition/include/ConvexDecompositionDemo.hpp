@@ -20,7 +20,7 @@ public:
 protected:
     void initApp() override;
 
-    void initOpenCL();
+    void initCHBuilder();
 
     void createDescriptorPool();
 
@@ -82,8 +82,6 @@ protected:
 
     void renderConvexHull(VkCommandBufferInheritanceInfo& inheritanceInfo);
 
-    void initVHACD();
-
     bool shouldUpdateConvexHull();
 
     void constructConvexHull();
@@ -139,16 +137,17 @@ protected:
     VulkanDescriptorPool descriptorPool;
     VulkanCommandPool commandPool;
     VulkanCommandPool secondaryCommandPool;
-    VulkanCommandPool commandPoolCH;
     std::vector<VkCommandBuffer> commandBuffers;
     VulkanPipelineCache pipelineCache;
     std::unique_ptr<OrbitingCameraController> cameraController;
     std::array<std::vector<VkCommandBuffer>, MAX_IN_FLIGHT_FRAMES> secondaryCommandBuffers;
-    bool openCLOnline = false;
+    ConvexHullBuilder convexHullBuilder;
 
     enum Commands : uint32_t {
         RENDER_MODEL, RENDER_CONVEX_HULL, MIRROR_SCENE, RENDER_FLOOR, RENDER_UI, NUM_COMMANDS
     };
+
+    Callback callbackVHACD;
 
     struct {
         int resolution{100000};
@@ -171,9 +170,4 @@ protected:
         bool projectHullVertices{true};
     } params;
     bool updateHulls{false};
-
-    OCLHelper oclHelper;
-    VHACD::IVHACD* interfaceVHACD;
-    LoggingAdaptor loggerVHACD;
-    Callback callbackVHACD;
 };
