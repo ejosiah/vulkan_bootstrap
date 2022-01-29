@@ -60,5 +60,5 @@ void main(){
     t = clamp(t, 0, 1);
     vec3 finalColor = mix(fog, radiance, t);
 
-    fragColor = vec4(finalColor, 1);
+    fragColor = vec4(finalColor, 0.3);
 }

@@ -170,4 +170,7 @@ protected:
         bool projectHullVertices{true};
     } params;
     bool updateHulls{false};
+    float easeInDuration{2.0};
+
+    std::atomic_bool startEasing{false};
 };

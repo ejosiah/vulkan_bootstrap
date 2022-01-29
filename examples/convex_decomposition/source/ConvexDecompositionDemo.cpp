@@ -134,21 +134,6 @@ void ConvexDecompositionDemo::createRenderPipeline() {
             .frontFaceClockwise()
         .build(render[1].layout);
 
-    ch.pipeline =
-        builder
-            .shaderStage()
-                .vertexShader(load("convex_hull.vert.spv"))
-                .fragmentShader(load("render.frag.spv"))
-            .vertexInputState().clear()
-                .addVertexBindingDescription(0, sizeof(ConvexHullPoint), VK_VERTEX_INPUT_RATE_VERTEX)
-                .addVertexAttributeDescription(0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(ConvexHullPoint, position))
-                .addVertexAttributeDescription(1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(ConvexHullPoint, normal))
-            .rasterizationState()
-                .frontFaceCounterClockwise()
-            .basePipeline(render[0].pipeline)
-            .name("convex_hull")
-        .build(ch.layout);
-
 
     mirrorRender[0].pipeline =
         builder
@@ -170,16 +155,37 @@ void ConvexDecompositionDemo::createRenderPipeline() {
                 .frontFaceCounterClockwise()
         .build(mirrorRender[1].layout);
 
+    ch.pipeline =
+        builder
+            .shaderStage()
+                .vertexShader(load("convex_hull.vert.spv"))
+                .fragmentShader(load("render.frag.spv"))
+            .vertexInputState().clear()
+                .addVertexBindingDescription(0, sizeof(ConvexHullPoint), VK_VERTEX_INPUT_RATE_VERTEX)
+                .addVertexAttributeDescription(0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(ConvexHullPoint, position))
+                .addVertexAttributeDescription(1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(ConvexHullPoint, normal))
+            .rasterizationState()
+                .frontFaceCounterClockwise()
+            .colorBlendState()
+                .attachment().clear()
+                .enableBlend()
+                .colorBlendOp().add()
+                .alphaBlendOp().add()
+                .srcColorBlendFactor().srcAlpha()
+                .dstColorBlendFactor().oneMinusSrcAlpha()
+                .srcAlphaBlendFactor().zero()
+                .dstAlphaBlendFactor().one()
+            .add()
+            .basePipeline(render[0].pipeline)
+            .name("convex_hull")
+        .build(ch.layout);
+
     mirrorCH.pipeline =
         builder
             .basePipeline(ch.pipeline)
             .shaderStage()
                 .vertexShader(load("convex_hull_mirror.vert.spv"))
                 .fragmentShader(load("render.frag.spv"))
-                .vertexInputState().clear()
-                    .addVertexBindingDescription(0, sizeof(ConvexHullPoint), VK_VERTEX_INPUT_RATE_VERTEX)
-                    .addVertexAttributeDescription(0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(ConvexHullPoint, position))
-                    .addVertexAttributeDescription(1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(ConvexHullPoint, normal))
             .rasterizationState()
                 .frontFaceClockwise()
             .name("mirror_convex_hull")
@@ -202,10 +208,10 @@ void ConvexDecompositionDemo::createRenderPipeline() {
                     .enableBlend()
                     .colorBlendOp().add()
                     .alphaBlendOp().add()
-                    .srcColorBlendFactor().dstAlpha()
-                    .dstColorBlendFactor().oneMinusDstAlpha()
-                    .srcAlphaBlendFactor().srcAlpha()
-                    .dstAlphaBlendFactor().zero()
+                    .srcColorBlendFactor().srcAlpha()
+                    .dstColorBlendFactor().oneMinusSrcAlpha()
+                    .srcAlphaBlendFactor().zero()
+                    .dstAlphaBlendFactor().one()
                 .add()
             .layout().clear()
                 .addPushConstantRange(Camera::pushConstant())
@@ -519,9 +525,6 @@ void ConvexDecompositionDemo::renderModel(VkCommandBufferInheritanceInfo& inheri
         glm::mat4 model = positionModel(models[currentModel], -1) * models[currentModel].transform;
         cameraController->push(commandBuffer, render[models[currentModel].pipeline].layout, model);
         glm::vec4 color{0.8, 0.8, 0.8, 1.0};
-        if (cameraController->position().y < 0) {
-            color.a = 0.3;
-        }
         vkCmdPushConstants(commandBuffer, render[models[currentModel].pipeline].layout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(Camera),
                            sizeof(glm::vec4), &color);
         models[currentModel].drawable.draw(commandBuffer);
@@ -544,15 +547,26 @@ void ConvexDecompositionDemo::renderConvexHull(VkCommandBufferInheritanceInfo &i
 
         glm::mat4 model = positionModel(models[currentModel]) * models[currentModel].transform;
 
+        static float startTime = 0;
+        if(startEasing){
+            startEasing = false;
+            startTime = elapsedTime;
+        }
+
+        float duration = elapsedTime - startTime;
+        float t = duration/easeInDuration;
+        t = glm::clamp(t, 0.0f, 1.0f);
+        float alpha = glm::mix(0.0f, 1.0f, t);
+
         VkDeviceSize offset = 0;
         auto numHulls = convexHulls.vertices.size();
         for(int i = 0; i < numHulls; i++){
+
             auto& vertexBuffer = convexHulls.vertices[i];
             auto& indexBuffer = convexHulls.indices[i];
             auto& color = convexHulls.colors[i];
-            if(cameraController->position().y < 0){
-                color.a = 0.3;
-            }
+            color.a = alpha;
+
             vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, ch.pipeline);
             cameraController->push(commandBuffer, ch.layout, model);
             vkCmdPushConstants(commandBuffer, ch.layout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(Camera), sizeof(glm::vec4), &color);
@@ -609,6 +623,7 @@ void ConvexDecompositionDemo::constructConvexHull() {
 
         convexHulls[hullIndex] = std::move(hulls);
         hullIsReady[hullIndex] = true;
+        startEasing = true;
 
         vkDeviceWaitIdle(device);
         currentHull = hullIndex;
@@ -652,7 +667,7 @@ void ConvexDecompositionDemo::mirror(VkCommandBufferInheritanceInfo &inheritance
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mirrorRender[models[currentModel].pipeline].pipeline);
 
         glm::mat4 model = positionModel(models[currentModel], -1) * models[currentModel].transform;
-        glm::vec4 color{0.6, 0.6, 0.6, 0.3};
+        glm::vec4 color{0.6, 0.6, 0.6, 1.0};
 
         cameraController->push(commandBuffer, mirrorRender[models[currentModel].pipeline].layout, model);
         vkCmdPushConstants(commandBuffer, mirrorRender[models[currentModel].pipeline].layout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(Camera),
@@ -674,7 +689,7 @@ void ConvexDecompositionDemo::mirror(VkCommandBufferInheritanceInfo &inheritance
                 auto &vertexBuffer = convexHulls.vertices[i];
                 auto &indexBuffer = convexHulls.indices[i];
                 auto &color = convexHulls.colors[i];
-                color.a = 0.3f;
+//                color.a = 0.3f;
                 vkCmdPushConstants(commandBuffer, mirrorCH.layout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(Camera),
                                    sizeof(glm::vec4), &color);
                 vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffer, &offset);
