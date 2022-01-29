@@ -241,7 +241,9 @@ std::future<ConvexHulls> ConvexHullBuilder::build() {
             stagingBuffer.copy(vertices.data(), size);
             stagingBuffers.push_back(stagingBuffer);
 
-            auto vertexBuffer = m_device->createBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT
+            auto vertexBuffer = m_device->createBuffer(
+                    VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT
+                    | VK_BUFFER_USAGE_TRANSFER_SRC_BIT
                     , VMA_MEMORY_USAGE_GPU_ONLY, size);
             hulls.vertices.push_back(vertexBuffer);
         }
@@ -256,7 +258,9 @@ std::future<ConvexHulls> ConvexHullBuilder::build() {
             stagingBuffer.copy(indices.data(), size);
             stagingBuffers.push_back(stagingBuffer);
 
-            auto indexBuffer = m_device->createBuffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT
+            auto indexBuffer = m_device->createBuffer(
+                    VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT
+                    | VK_BUFFER_USAGE_TRANSFER_SRC_BIT
                     , VMA_MEMORY_USAGE_GPU_ONLY, size);
             hulls.indices.push_back(indexBuffer);
         }
@@ -290,6 +294,11 @@ std::future<ConvexHulls> ConvexHullBuilder::build() {
         spdlog::info("Generated {} convex hulls, containing {} triangles, and {} vertices", numConvexHulls, numTriangles, totalVertices);
         return hulls;
     });
+}
+
+ConvexHullBuilder &ConvexHullBuilder::maxNumVerticesPerCH(int value) {
+    m_params.m_maxNumVerticesPerCH = value;
+    return *this;
 }
 
 

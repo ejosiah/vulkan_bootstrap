@@ -60,6 +60,8 @@ public:
 
     ConvexHullBuilder& setCallBack(Callback& callback);
 
+    ConvexHullBuilder& maxNumVerticesPerCH(int value);
+
     std::future<ConvexHulls> build();
 
 protected:

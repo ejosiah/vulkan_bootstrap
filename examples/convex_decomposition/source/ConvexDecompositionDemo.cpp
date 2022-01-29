@@ -305,9 +305,7 @@ void ConvexDecompositionDemo::checkAppInputs() {
 }
 
 void ConvexDecompositionDemo::cleanup() {
-//    for(int i = 0; i < MAX_IN_FLIGHT_FRAMES; i++){
-//        secondaryCommandPool.free(secondaryCommandBuffers[i]);
-//    }
+
 }
 
 void ConvexDecompositionDemo::onPause() {
