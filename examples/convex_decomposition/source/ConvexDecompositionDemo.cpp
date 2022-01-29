@@ -470,7 +470,7 @@ void ConvexDecompositionDemo::renderUI(VkCommandBufferInheritanceInfo& inheritan
     params.convexHullApproximation = static_cast<int>(chApproximationEnabled);
 
 
-    if(ImGui::CollapsingHeader("Model", ImGuiTreeNodeFlags_DefaultOpen)){
+    if(ImGui::CollapsingHeader("Model", ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_Leaf)){
         static int prevModel;
         prevModel = nextModel;
 
@@ -554,7 +554,7 @@ void ConvexDecompositionDemo::renderConvexHull(VkCommandBufferInheritanceInfo &i
         float duration = elapsedTime - startTime;
         float t = duration/easeInDuration;
         t = glm::clamp(t, 0.0f, 1.0f);
-        float alpha = glm::mix(0.0f, 1.0f, t);
+        float alpha = glm::mix(0.0f, 1.0f, t * t * t);
 
         VkDeviceSize offset = 0;
         auto numHulls = convexHulls.vertices.size();

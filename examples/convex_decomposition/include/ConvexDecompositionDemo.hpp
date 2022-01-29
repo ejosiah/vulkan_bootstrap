@@ -144,7 +144,7 @@ protected:
     ConvexHullBuilder convexHullBuilder;
 
     enum Commands : uint32_t {
-        RENDER_MODEL, RENDER_CONVEX_HULL, MIRROR_SCENE, RENDER_FLOOR, RENDER_UI, NUM_COMMANDS
+        RENDER_MODEL, MIRROR_SCENE, RENDER_FLOOR, RENDER_CONVEX_HULL, RENDER_UI, NUM_COMMANDS
     };
 
     Callback callbackVHACD;
