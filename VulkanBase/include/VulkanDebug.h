@@ -9,10 +9,12 @@ struct VulkanDebug{
     VulkanDebug() = default;
 
     VulkanDebug(VkInstance instance): instance(instance){
+#ifndef NDEBUG
         auto createInfo = debugCreateInfo();
         auto vkCreateDebugUtilsMessenger = instanceProc<PFN_vkCreateDebugUtilsMessengerEXT>("vkCreateDebugUtilsMessengerEXT", instance);
         auto res = vkCreateDebugUtilsMessenger(instance, &createInfo, nullptr, &debugMessenger);
         if(res != VK_SUCCESS) throw std::runtime_error{"Failed to create Debug messenger"};
+#endif
     }
 
     VulkanDebug(const VulkanDebug&) = delete;
@@ -84,12 +86,11 @@ struct VulkanDebug{
     }
 
     static void setObjectName(VkDevice& device, const uint64_t object, const std::string& name, VkObjectType type) {
-        if constexpr (debugMode) {
+#ifndef NDEBUG
+        VkDebugUtilsObjectNameInfoEXT s{VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT, nullptr, type, object, name.c_str()};
+        vkSetDebugUtilsObjectNameEXT(device, &s);
+#endif
 
-            VkDebugUtilsObjectNameInfoEXT s{VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT, nullptr, type, object, name.c_str()};
-            VulkanExtensions::ext->vkSetDebugUtilsObjectNameEXT(device, &s);
-
-        }
     }
 
     static void setObjectName(VkDevice device, VkBuffer buffer, const std::string& name){

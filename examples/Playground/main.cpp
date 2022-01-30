@@ -63,7 +63,9 @@ void initVulkan(){
     g_settings.queueFlags = VK_QUEUE_COMPUTE_BIT;
     createInstance();
     ext::init(g_instance);
+#ifndef NDEBUG
     g_debug = VulkanDebug{ g_instance };
+#endif
     createDevice();
 }
 

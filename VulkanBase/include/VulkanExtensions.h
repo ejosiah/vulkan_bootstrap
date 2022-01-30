@@ -19,13 +19,12 @@ inline FuncType procAddress(const char* procName){
 }
 
 struct VulkanExtensions{
+    // FIXME remove this file, after ext::init runs you can call the initialized Vulkan procs directly
 
     VulkanExtensions() = default;
 
     VulkanExtensions(VkInstance instance)
     : instance(instance)
-    , createDebugUtilsMessenger(procAddress<PFN_vkCreateDebugUtilsMessengerEXT>(instance,"vkCreateDebugUtilsMessengerEXT"))
-    , destroyDebugUtilsMessenger(procAddress<PFN_vkDestroyDebugUtilsMessengerEXT>(instance,"vkDestroyDebugUtilsMessengerEXT"))
     , vkGetAccelerationStructureBuildSizesKHR(procAddress<PFN_vkGetAccelerationStructureBuildSizesKHR>(instance,"vkGetAccelerationStructureBuildSizesKHR"))
     , vkCreateAccelerationStructureKHR(procAddress<PFN_vkCreateAccelerationStructureKHR>(instance,"vkCreateAccelerationStructureKHR"))
     , vkDestroyAccelerationStructureKHR(procAddress<PFN_vkDestroyAccelerationStructureKHR>(instance,"vkDestroyAccelerationStructureKHR"))
@@ -34,14 +33,11 @@ struct VulkanExtensions{
     , vkGetRayTracingShaderGroupHandlesKHR(procAddress<PFN_vkGetRayTracingShaderGroupHandlesKHR>(instance,"vkGetRayTracingShaderGroupHandlesKHR"))
     , vkCmdTraceRaysKHR(procAddress<PFN_vkCmdTraceRaysKHR>(instance,"vkCmdTraceRaysKHR"))
     , vkCreateRayTracingPipelinesKHR(procAddress<PFN_vkCreateRayTracingPipelinesKHR>(instance,"vkCreateRayTracingPipelinesKHR"))
-    , vkSetDebugUtilsObjectNameEXT(procAddress<PFN_vkSetDebugUtilsObjectNameEXT>(instance,"vkSetDebugUtilsObjectNameEXT"))
     {
         ext = this;
     }
 
     VkInstance instance;
-    PFN_vkCreateDebugUtilsMessengerEXT  createDebugUtilsMessenger;
-    PFN_vkDestroyDebugUtilsMessengerEXT destroyDebugUtilsMessenger;
     PFN_vkGetAccelerationStructureBuildSizesKHR vkGetAccelerationStructureBuildSizesKHR;
     PFN_vkCreateAccelerationStructureKHR vkCreateAccelerationStructureKHR;
     PFN_vkDestroyAccelerationStructureKHR vkDestroyAccelerationStructureKHR;
@@ -50,7 +46,6 @@ struct VulkanExtensions{
     PFN_vkGetRayTracingShaderGroupHandlesKHR vkGetRayTracingShaderGroupHandlesKHR;
     PFN_vkCreateRayTracingPipelinesKHR vkCreateRayTracingPipelinesKHR;
     PFN_vkCmdTraceRaysKHR vkCmdTraceRaysKHR;
-    PFN_vkSetDebugUtilsObjectNameEXT vkSetDebugUtilsObjectNameEXT;
 
     static VulkanExtensions* ext;
 };

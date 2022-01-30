@@ -14,7 +14,7 @@
 #include "VulkanDebug.h"
 #include "VulkanExtensions.h"
 #include "builder_forwards.hpp"
-
+#include <spdlog/spdlog.h>
 
 struct VulkanDevice{
 
@@ -118,6 +118,8 @@ struct VulkanDevice{
                                     VkSurfaceKHR surface = VK_NULL_HANDLE,
                                     VkQueueFlags queueFlags = VK_QUEUE_GRAPHICS_BIT,
                                     void* pNext = VK_NULL_HANDLE){
+
+        spdlog::info("init queue family");
                 initQueueFamilies(queueFlags, surface);
 
         std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
@@ -142,7 +144,10 @@ struct VulkanDevice{
         createInfo.ppEnabledExtensionNames = enabledExtensions.data();
         createInfo.pEnabledFeatures = &enabledFeatures;
 
+        spdlog::info("create device");
         ASSERT(vkCreateDevice(physicalDevice, &createInfo, nullptr, &logicalDevice));
+
+        spdlog::info("init Queues");
         initQueues();
 
         auto deviceAddressExtensionEnabled = std::any_of(begin(enabledExtensions), end(enabledExtensions), [](auto& ext){
@@ -159,6 +164,7 @@ struct VulkanDevice{
         allocatorInfo.physicalDevice = physicalDevice;
         allocatorInfo.device = logicalDevice;
 
+        spdlog::info("initialize memory allocator");
         ASSERT(vmaCreateAllocator(&allocatorInfo, &allocator));
 
         auto commandPool = createCommandPool(*queueFamilyIndex.graphics, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
@@ -177,16 +183,21 @@ struct VulkanDevice{
     }
 
     inline void initQueues(){
+        assert(logicalDevice != VK_NULL_HANDLE);
         if(queueFamilyIndex.graphics.has_value()){
+            spdlog::info("init graphics queue, family : {}", *queueFamilyIndex.graphics);
             vkGetDeviceQueue(logicalDevice, *queueFamilyIndex.graphics, 0, &queues.graphics);
         }
         if(queueFamilyIndex.compute.has_value()) {
+            spdlog::info("init compute queue");
             vkGetDeviceQueue(logicalDevice, *queueFamilyIndex.compute, 0, &queues.compute);
         }
         if(queueFamilyIndex.transfer.has_value()) {
+            spdlog::info("init transfer queue");
             vkGetDeviceQueue(logicalDevice, *queueFamilyIndex.transfer, 0, &queues.transfer);
         }
         if(queueFamilyIndex.present.has_value()) {
+            spdlog::info("init present queue");
             vkGetDeviceQueue(logicalDevice, *queueFamilyIndex.present, 0, &queues.present);
         }
     }
@@ -364,12 +375,14 @@ struct VulkanDevice{
 
         ASSERT(vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &buffer, &allocation, nullptr));
 
+#ifndef NDEBUG
         if(!name.empty()){
          //   VulkanDebug::setObjectName(logicalDevice, buffer, name);
             VkDebugUtilsObjectNameInfoEXT s{VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT, nullptr, VK_OBJECT_TYPE_BUFFER, (uint64_t)buffer, name.c_str()};
             auto SetDebugUtilsObjectName = procAddress<PFN_vkSetDebugUtilsObjectNameEXT>(instance, "vkSetDebugUtilsObjectNameEXT");
             SetDebugUtilsObjectName(logicalDevice, &s);
         }
+#endif
         return VulkanBuffer{allocator, buffer, allocation, size, name};
     }
 
@@ -582,12 +595,14 @@ struct VulkanDevice{
 
     template<VkObjectType objectType>
     inline void setName(const std::string& objectName, void* ptr) const {
+#ifndef NDEBUG
         VkDebugUtilsObjectNameInfoEXT nameInfo{};
         nameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
         nameInfo.pObjectName = objectName.c_str();
         nameInfo.objectType = objectType;
         nameInfo.objectHandle = (uint64_t)ptr;
         vkSetDebugUtilsObjectNameEXT(logicalDevice, &nameInfo);
+#endif
     }
 
     inline float timestampPeriod(){

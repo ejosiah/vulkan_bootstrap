@@ -19,7 +19,7 @@ struct VulkanInstance{
         createInfo.enabledExtensionCount = extAndValidationLayers.extensions.size();
         createInfo.ppEnabledExtensionNames = extAndValidationLayers.extensions.data();
 
-#ifndef NDBUG
+#ifndef NDEBUG
         createInfo.enabledLayerCount = extAndValidationLayers.validationLayers.size();
         createInfo.ppEnabledLayerNames = extAndValidationLayers.validationLayers.data();
         auto debugInfo = VulkanDebug::debugCreateInfo();

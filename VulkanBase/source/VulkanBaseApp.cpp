@@ -47,7 +47,9 @@ void VulkanBaseApp::init() {
     pause = &mapToKey(Key::P, "Pause", Action::detectInitialPressOnly());
     addPluginExtensions();
 
+    spdlog::info("pre Vulkan init");
     initVulkan();
+    spdlog::info("post Vulkan init");
     postVulkanInit();
 
     createSwapChain();
@@ -85,24 +87,33 @@ void VulkanBaseApp::initWindow() {
         deviceExtensions.push_back(extension);
     }
 
+
+    instanceExtensions.push_back(VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME);
+#ifndef NDEBUG
     for(auto& layer : settings.validationLayers){
         validationLayers.push_back(layer);
     }
-
-    if(enableValidation){
-        instanceExtensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-        instanceExtensions.push_back(VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME);
-        validationLayers.push_back("VK_LAYER_KHRONOS_validation");
-    }
+    instanceExtensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+    validationLayers.push_back("VK_LAYER_KHRONOS_validation");
+#endif
 }
 
 void VulkanBaseApp::initVulkan() {
+    spdlog::info("createInstance");
     createInstance();
+    spdlog::info("init ext");
     this->ext = VulkanExtensions{instance};
     ext::init(instance);
+#ifndef NDEBUG
     createDebugMessenger();
+#endif
+    spdlog::info("picking physical device");
     pickPhysicalDevice();
+
+    spdlog::info("init mix in");
     initMixins();
+
+    spdlog::info("create logical device");
     createLogicalDevice();
 }
 
@@ -117,9 +128,11 @@ void VulkanBaseApp::addPluginExtensions() {
         for(auto extension : plugin->instanceExtensions()){
             instanceExtensions.push_back(extension);
         }
+#ifndef NDEBUG
         for(auto layer : plugin->validationLayers()){
             validationLayers.push_back(layer);
         }
+#endif
         for(auto extension : plugin->deviceExtensions()){
             deviceExtensions.push_back(extension);
         }
@@ -150,12 +163,12 @@ void VulkanBaseApp::createInstance() {
     createInfo.enabledExtensionCount = static_cast<uint32_t>(instanceExtensions.size());
     createInfo.ppEnabledExtensionNames = instanceExtensions.data();
 
-    if(enableValidation){
-        createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
-        createInfo.ppEnabledLayerNames = validationLayers.data();
-        auto debugInfo = VulkanDebug::debugCreateInfo();
-        createInfo.pNext = &debugInfo;
-    }
+    createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
+    createInfo.ppEnabledLayerNames = validationLayers.data();
+#ifndef NDEBUG
+    auto debugInfo = VulkanDebug::debugCreateInfo();
+    createInfo.pNext = &debugInfo;
+#endif
 
     instance = VulkanInstance{appInfo, {instanceExtensions, validationLayers}};
 }
