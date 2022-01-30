@@ -373,36 +373,54 @@ int main() {
 
     auto pDevice = pDevices.front();
 
+    VkImageFormatProperties ifp;
+    auto result = vkGetPhysicalDeviceImageFormatProperties(pDevice, VK_FORMAT_R16G16B16A16_SFLOAT
+            , VK_IMAGE_TYPE_2D, VK_IMAGE_TILING_OPTIMAL
+            , VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT
+            , 0, &ifp);
 
-
-    auto queueFamilies = get<VkQueueFamilyProperties>([&](auto count, auto ptr){
-        vkGetPhysicalDeviceQueueFamilyProperties(pDevice, count, ptr);
-    });
-
-    std::map<int, std::string> queues;
-    queues[1] = "Graphics";
-    queues[2] = "Compute";
-    queues[4] = "Transfer";
-    queues[8] = "Sparse";
-
-    for(auto i = 0; i < queueFamilies.size(); i++){
-        auto& family = queueFamilies[i];
-        fmt::print("Queue family {}:\n", i);
-        fmt::print("\tQueue Count: {}\n", family.queueCount);
-        fmt::print("\tcapabilities:\n");
-        for(int queueFlag = 1; queueFlag < 16; queueFlag <<= 1){
-            if((family.queueFlags & queueFlag) == queueFlag){
-                fmt::print("\t\t{}\n", queues[queueFlag]);
-            }
-        }
-        fmt::print("\n\n");
-
+    if(result == VK_ERROR_FORMAT_NOT_SUPPORTED){
+        spdlog::error("image format combination not supported");
+        return result;
     }
+    ASSERT(result);
+    fmt::print("RGB_F32 image format properties:\n");
+    fmt::print("\tmax extent: {}, {}, {}\n", ifp.maxExtent.width, ifp.maxExtent.height, ifp.maxExtent.depth);
+    fmt::print("\tmax mip levels: {}\n", ifp.maxMipLevels);
+    fmt::print("\tmax array layers: {}\n", ifp.maxArrayLayers);
+    fmt::print("\tsample counts: {}\n", ifp.sampleCounts);
+    fmt::print("\tmax resource size: {}\n", ifp.maxResourceSize);
 
-    assert(findQueueFamily(queueFamilies, VK_QUEUE_GRAPHICS_BIT) == 0);
-    assert(findQueueFamily(queueFamilies, VK_QUEUE_TRANSFER_BIT) == 1);
-    assert(findQueueFamily(queueFamilies, VK_QUEUE_COMPUTE_BIT) == 2);
-    assert(findQueueFamily(queueFamilies, VK_QUEUE_SPARSE_BINDING_BIT) == 1);
+
+
+//    auto queueFamilies = get<VkQueueFamilyProperties>([&](auto count, auto ptr){
+//        vkGetPhysicalDeviceQueueFamilyProperties(pDevice, count, ptr);
+//    });
+//
+//    std::map<int, std::string> queues;
+//    queues[1] = "Graphics";
+//    queues[2] = "Compute";
+//    queues[4] = "Transfer";
+//    queues[8] = "Sparse";
+//
+//    for(auto i = 0; i < queueFamilies.size(); i++){
+//        auto& family = queueFamilies[i];
+//        fmt::print("Queue family {}:\n", i);
+//        fmt::print("\tQueue Count: {}\n", family.queueCount);
+//        fmt::print("\tcapabilities:\n");
+//        for(int queueFlag = 1; queueFlag < 16; queueFlag <<= 1){
+//            if((family.queueFlags & queueFlag) == queueFlag){
+//                fmt::print("\t\t{}\n", queues[queueFlag]);
+//            }
+//        }
+//        fmt::print("\n\n");
+//
+//    }
+//
+//    assert(findQueueFamily(queueFamilies, VK_QUEUE_GRAPHICS_BIT) == 0);
+//    assert(findQueueFamily(queueFamilies, VK_QUEUE_TRANSFER_BIT) == 1);
+//    assert(findQueueFamily(queueFamilies, VK_QUEUE_COMPUTE_BIT) == 2);
+//    assert(findQueueFamily(queueFamilies, VK_QUEUE_SPARSE_BINDING_BIT) == 1);
 
     return 0;
 }

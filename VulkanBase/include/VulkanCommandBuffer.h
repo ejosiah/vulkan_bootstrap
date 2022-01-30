@@ -113,9 +113,19 @@ struct VulkanCommandPool{
     }
 
     template<typename Command>
-    inline void oneTimeCommands(uint32_t size, Command&& command) const {
+    inline void oneTimeCommands(uint32_t size, Command&& command, const std::string& name = "") const {
         auto commandBuffers = allocateCommandBuffers(size);
         for(auto i = 0; i < size; i++){
+
+            if(!name.empty()){
+                VkDebugUtilsObjectNameInfoEXT nameInfo{};
+                nameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
+                nameInfo.pObjectName = fmt::format("{}_{}", name, i).c_str();
+                nameInfo.objectType = VK_OBJECT_TYPE_COMMAND_BUFFER;
+                nameInfo.objectHandle = (uint64_t)commandBuffers[i];
+                vkSetDebugUtilsObjectNameEXT(device, &nameInfo);
+            }
+
             VkCommandBufferBeginInfo beginInfo{};
             beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
             beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;

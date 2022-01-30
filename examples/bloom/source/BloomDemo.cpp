@@ -590,7 +590,7 @@ void BloomDemo::renderScene(VkCommandBuffer commandBuffer) {
         auto model = glm::translate(glm::mat4(1), light.position);
         model = glm::scale(model, glm::vec3(0.5));
         cameraController->push(commandBuffer, lightRender.layout, model);
-        vkCmdPushConstants(commandBuffer, lightRender.layout, VK_SHADER_STAGE_VERTEX_BIT, sizeof(Camera), sizeof(glm::vec3), &light.color);
+        vkCmdPushConstants(commandBuffer, lightRender.layout, VK_SHADER_STAGE_VERTEX_BIT, sizeof(Camera), sizeof(glm::vec3), &light.position);
         vkCmdDrawIndexed(commandBuffer, cube.indices.size/sizeof(uint32_t), 1, 0, 0, 0);
     }
 
