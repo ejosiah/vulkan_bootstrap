@@ -1,3 +1,5 @@
+
+
 #include <fmt/format.h>
 #include <VulkanInstance.h>
 #include <VulkanDevice.h>
@@ -14,6 +16,39 @@
 #include <iostream>
 #include "random.h"
 #include <functional>
+#include "VulkanBaseApp.h"
+#include "VulkanDevice1.hpp"
+
+#include <iostream>
+#include <fstream>
+#include <vector>
+#include <memory>
+#include <algorithm>
+#include <numeric>
+#include <array>
+#include <type_traits>
+#include <utility>
+#include <chrono>
+#include <string>
+#include <exception>
+
+#include <cassert>
+#include <cstdlib>
+#include <cstdio>
+#include <cstdarg>
+
+#define STRINGIZE(x) STRINGIZE2(x)
+#define STRINGIZE2(x) #x
+#define LINE_STRING STRINGIZE(__LINE__)
+#define TEST(expr)  do { if(!(expr)) { \
+        assert(0 && #expr); \
+        throw std::runtime_error(__FILE__ "(" LINE_STRING "): ( " #expr " ) == false"); \
+    } } while(false)
+#define ERR_GUARD_VULKAN(expr)  do { if((expr) < 0) { \
+        assert(0 && #expr); \
+        throw std::runtime_error(__FILE__ "(" LINE_STRING "): VkResult( " #expr " ) < 0"); \
+    } } while(false)
+
 
 static std::vector<const char*> instanceExtensions{VK_EXT_DEBUG_UTILS_EXTENSION_NAME};
 static std::vector<const char*> validationLayers{"VK_LAYER_KHRONOS_validation"};
@@ -251,11 +286,148 @@ inline glm::mat4 qRight(const glm::quat& q){
     };
 }
 
+class MyApp : public VulkanBaseApp{
+public:
+    MyApp():VulkanBaseApp{"TEST"}
+    {}
+
+protected:
+    void initApp() override {
+
+    }
+
+    VkCommandBuffer *buildCommandBuffers(uint32_t imageIndex, uint32_t &numCommandBuffers) override {
+        return nullptr;
+    }
+};
+
+void heapCheck(){
+    auto heapstatus = _heapchk();
+    switch( heapstatus )
+    {
+        case _HEAPOK:
+            spdlog::info(" OK - heap is fine\n" );
+            break;
+        case _HEAPEMPTY:
+            spdlog::info(" OK - heap is empty\n" );
+            break;
+        case _HEAPBADBEGIN:
+            spdlog::error( "ERROR - bad start of heap\n" );
+            assert(false);
+            break;
+        case _HEAPBADNODE:
+            spdlog::error( "ERROR - bad node in heap\n" );
+            assert(false);
+            break;
+    }
+}
+
 int main() {
 
-    glm::quat q(1, 0, 0, 0);
-    auto axis = glm::axis(q);
-    auto angle = glm::angle(q);
-    fmt::print("axis: {}, angle: {}", axis, glm::degrees(angle));
+    VkApplicationInfo info = initializers::AppInfo();
+    info.pApplicationName = "playground";
+    info.pEngineName = "engine";
+    info.engineVersion = 0;
+    info.apiVersion = VK_API_VERSION_1_2;
+
+    std::vector<const char*> extensions{
+        "VK_KHR_surface", "VK_KHR_win32_surface", "VK_KHR_get_surface_capabilities2"
+    };
+//    extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+
+    ExtensionsAndValidationLayers ev{ extensions };
+
+    VulkanInstance instance{info, ev};
+
+//    auto instance = app.instance.instance;
+
+    auto pDevices = enumerate<VkPhysicalDevice>([&](auto count, auto* devicePtr){
+        return vkEnumeratePhysicalDevices(instance, count, devicePtr);
+    });
+
+    auto pDevice = pDevices.front();
+
+    float priority = 1.0f;
+    VkDeviceQueueCreateInfo qCreateInfo{};
+    qCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+    qCreateInfo.queueFamilyIndex = 0;
+    qCreateInfo.queueCount = 1;
+    qCreateInfo.pQueuePriorities = &priority;
+
+    VkDeviceCreateInfo createInfo{VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO};
+    createInfo.queueCreateInfoCount = 1;
+    createInfo.pQueueCreateInfos = &qCreateInfo;
+    createInfo.enabledLayerCount = 0;
+    createInfo.enabledExtensionCount = 0;
+
+    VkDevice device;
+    spdlog::info("creating device");
+    vkCreateDevice(pDevice, &createInfo, 0, &device);
+    spdlog::info("device created");
+
+    VmaAllocatorCreateInfo allocatorCreateInfo = {};
+    allocatorCreateInfo.physicalDevice = pDevice;
+    allocatorCreateInfo.device = device;
+    allocatorCreateInfo.instance = instance;
+
+    VmaAllocator allocator = VK_NULL_HANDLE;
+    ASSERT(vmaCreateAllocator(&allocatorCreateInfo, &allocator));
+    spdlog::info("allocator created");
+
+    auto imageCreateInfo = initializers::imageCreateInfo(VK_IMAGE_TYPE_2D, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_SAMPLED_BIT, 1024, 1024, 1);
+
+//    VmaAllocationCreateInfo allocInfo{};
+//    allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+//    VkImage image;
+//    VmaAllocation allocation;
+//    VmaAllocationInfo allocationInfo{};
+//    spdlog::info("allocating memory for image");
+//    ASSERT(vmaCreateImage(allocator, &createInfo, &allocInfo, &image, &allocation, &allocationInfo));
+//    spdlog::info("allocated memory for image");
+
+    Settings settings{};
+    VulkanDevice vulkanDevice{instance, pDevice, settings};
+    vulkanDevice.createLogicalDevice({}, {});
+    VulkanDevice1 vulkanDevice1{instance, pDevice, device, vulkanDevice.allocator};
+    auto image = vulkanDevice1.createImage(imageCreateInfo);
+
+    auto image1 = vulkanDevice.createImage(imageCreateInfo);
+
+
+//    VmaAllocationCreateInfo allocInfo{};
+//    allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+//    VkImage image2;
+//    VmaAllocation allocation;
+//    VmaAllocationInfo allocationInfo{};
+//    spdlog::info("allocating memory for image");
+//    ASSERT(vmaCreateImage(vulkanDevice.allocator, &imageCreateInfo, &allocInfo, &image2, &allocation, &allocationInfo));
+//    if(result != VK_SUCCESS){
+//        spdlog::error("unable to create image");
+//        assert(false);
+//    }
+//    spdlog::info("memory Allocated");
+
+//    VmaAllocationCreateInfo allocInfo{};
+//    allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+//    VkImage image2 = VK_NULL_HANDLE;
+//    VmaAllocation allocation = VK_NULL_HANDLE;
+//    VmaAllocationInfo allocationInfo{};
+//    spdlog::info("allocating memory for image");
+//    ASSERT(vmaCreateImage(allocator, &imageCreateInfo, &allocInfo, &image2, &allocation, &allocationInfo));
+//
+
+    spdlog::info("creating buffer");
+    std::array<int, 1024> data{};
+    std::iota(data.begin(), data.end(), 1);
+    VkDeviceSize size = 1024 * sizeof(int);
+    auto buffer = vulkanDevice.createBuffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, size);
+
+    spdlog::info("copy data into buffer");
+    void* dest;
+    ERR_GUARD_VULKAN(vmaMapMemory(buffer.allocator, buffer.allocation, &dest));
+    memcpy(dest, data.data(), size);
+    vmaUnmapMemory(buffer.allocator, buffer.allocation);
+
+    spdlog::info("we made it here so we are good");
     return 0;
 }

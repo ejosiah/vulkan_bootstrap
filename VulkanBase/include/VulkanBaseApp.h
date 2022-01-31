@@ -39,7 +39,7 @@
 #include <entt/entt.hpp>
 #include "Entity.hpp"
 #include "components.h"
-
+#include "vk_mem_alloc.h"
 
 #define REPORT_ERROR(result, msg) if(result != VK_SUCCESS) throw std::runtime_error{msg}
 #define offsetOf(s,m) static_cast<uint32_t>(offsetof(s, m))
@@ -96,7 +96,7 @@ public:
      */
     void run();
 
-protected:
+public:
     void initWindow() override;
 
     void initVulkan();
@@ -262,7 +262,7 @@ protected:
 private:
     void setPaused(bool flag);
 
-protected:
+public:
     VulkanInstance instance;
     VulkanDebug vulkanDebug;
     VulkanSurface surface;

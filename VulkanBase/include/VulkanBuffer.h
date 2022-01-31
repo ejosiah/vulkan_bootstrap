@@ -68,10 +68,10 @@ struct VulkanBuffer{
     void copy(const void* source, VkDeviceSize size, uint32_t offset = 0) const {
         assert(size + offset <= this->size);
         void* dest;
-        vmaMapMemory(allocator, allocation, &dest);
+        ASSERT(vmaMapMemory(allocator, allocation, &dest));
         dest = static_cast<char*>(dest) + offset;
         memcpy(dest, source, size);
-        vmaUnmapMemory(allocator, allocation);
+        ASSERT(vmaUnmapMemory(allocator, allocation));
     }
 
     template<typename T>

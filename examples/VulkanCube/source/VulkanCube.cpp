@@ -5,6 +5,7 @@
 VulkanCube::VulkanCube(const Settings& settings): VulkanBaseApp("VulkanCube", settings, {}){}
 
 void VulkanCube::initApp() {
+    spdlog::info("initializing vulkan cube");
     createCommandPool();
 
     mesh = primitives::cube();
@@ -197,7 +198,7 @@ void VulkanCube::createCommandBuffer() {
 }
 
 void VulkanCube::createDescriptorPool() {
-
+    spdlog::info("creating descriptor pool");
 
     VkDescriptorPoolSize  texturePoolSize{};
     texturePoolSize.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
@@ -249,21 +250,24 @@ void VulkanCube::createTextureBuffers() {
 }
 
 void VulkanCube::createVertexBuffer() {
-
+    spdlog::info("creating vertex buffer");
     VkDeviceSize size = sizeof(Vertex) * mesh.vertices.size();
     vertexBuffer = device.createDeviceLocalBuffer(mesh.vertices.data(), size, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
 }
 
 void VulkanCube::createIndexBuffer() {
+    spdlog::info("creating index buffer");
     VkDeviceSize size = sizeof(mesh.indices[0]) * mesh.indices.size();
     indexBuffer = device.createDeviceLocalBuffer(mesh.indices.data(), size, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
 }
 
 void VulkanCube::createCommandPool() {
+    spdlog::info("creating command pool buffer");
     commandPool = device.createCommandPool(*device.queueFamilyIndex.graphics, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
 }
 
 void VulkanCube::createDescriptorSetLayout() {
+    spdlog::info("creating descriptor set layout buffer");
     VkDescriptorSetLayoutBinding samplerLayoutBinding{};
     samplerLayoutBinding.binding = 0;
     samplerLayoutBinding.descriptorCount = 1;
@@ -294,6 +298,7 @@ int main() {
         settings.vSync = false;
         settings.depthTest = true;
         settings.relativeMouseMode = false;
+        settings.msaaSamples = VK_SAMPLE_COUNT_16_BIT;
         settings.width = 1080;
         settings.height = 720;
         VulkanCube app{settings};

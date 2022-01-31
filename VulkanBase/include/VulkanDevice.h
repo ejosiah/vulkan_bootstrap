@@ -27,7 +27,7 @@ struct VulkanDevice{
         std::optional<uint32_t> compute;
         std::optional<uint32_t> transfer;
         std::optional<uint32_t> present;
-    } queueFamilyIndex;
+    } queueFamilyIndex{};
 
     struct {
         VkQueue graphics;
@@ -54,17 +54,13 @@ struct VulkanDevice{
     }
 
     VulkanDevice& operator=(VulkanDevice&& source) noexcept{
-        physicalDevice = source.physicalDevice;
-        logicalDevice = source.logicalDevice;
-        queueFamilyIndex = source.queueFamilyIndex;
-        queues = source.queues;
-        allocator = source.allocator;
-        instance = source.instance;
-
-        source.physicalDevice = VK_NULL_HANDLE;
-        source.logicalDevice = VK_NULL_HANDLE;
-        source.allocator = VK_NULL_HANDLE;
-        source.instance = VK_NULL_HANDLE;
+        physicalDevice = std::exchange(source.physicalDevice, nullptr);
+        logicalDevice = std::exchange(source.logicalDevice, nullptr);
+        queueFamilyIndex = std::exchange(source.queueFamilyIndex, {});
+        queues = std::exchange(source.queues, {});
+        allocator = std::exchange(source.allocator, nullptr);
+        instance = std::exchange(source.instance, nullptr);
+        settings = std::exchange(source.settings, {});
 
         return *this;
     }
@@ -77,6 +73,7 @@ struct VulkanDevice{
             for(auto& [_, commandPool] : commandPools){
                 dispose(commandPool);
             }
+            spdlog::info("destroying vulkan instance");
             vmaDestroyAllocator(allocator);
             vkDestroyDevice(logicalDevice, nullptr);
         }
@@ -92,17 +89,21 @@ struct VulkanDevice{
             if(!queueFamilyIndex.graphics && (queueFamily[i].queueFlags & queueFlags) && (queueFlags & VK_QUEUE_GRAPHICS_BIT) == VK_QUEUE_GRAPHICS_BIT){
                 queueFamilyIndex.graphics = i;
                 uniqueQueueIndices.insert(i);
+                spdlog::info("graphics queue: {}", i);
             }
             if(!queueFamilyIndex.compute && (queueFamily[i].queueFlags & queueFlags) && (queueFlags & VK_QUEUE_COMPUTE_BIT) == VK_QUEUE_COMPUTE_BIT){
                queueFamilyIndex.compute = i;
                 uniqueQueueIndices.insert(i);
+                spdlog::info("compute queue: {}", i);
             }
             if(!queueFamilyIndex.transfer && (queueFamily[i].queueFlags & queueFlags) && (queueFlags & VK_QUEUE_TRANSFER_BIT) == VK_QUEUE_TRANSFER_BIT){
                 queueFamilyIndex.transfer = i;
                 uniqueQueueIndices.insert(i);
+                spdlog::info("transfer queue: {}", i);
             }
 
             if(surface && !queueFamilyIndex.present) {
+                spdlog::info("present queue: {}", i);
                 VkBool32 present;
                 vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, i, surface, &present);
                 if (present) {
@@ -117,10 +118,9 @@ struct VulkanDevice{
                                     const std::vector<const char*>& enabledLayers = {},
                                     VkSurfaceKHR surface = VK_NULL_HANDLE,
                                     VkQueueFlags queueFlags = VK_QUEUE_GRAPHICS_BIT,
-                                    void* pNext = VK_NULL_HANDLE){
+                                    void* pNext = VK_NULL_HANDLE, VkInstance l_instance = VK_NULL_HANDLE, VkPhysicalDevice l_pDevice = VK_NULL_HANDLE, VkDevice l_device = VK_NULL_HANDLE){
 
-        spdlog::info("init queue family");
-                initQueueFamilies(queueFlags, surface);
+        initQueueFamilies(queueFlags, surface);
 
         std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
         for(auto queueIndex : uniqueQueueIndices){
@@ -133,60 +133,55 @@ struct VulkanDevice{
             queueCreateInfos.push_back((qCreateInfo));
         }
 
-        VkDeviceCreateInfo createInfo{};
-        createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+        VkDeviceCreateInfo createInfo{VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO};
         createInfo.pNext = pNext;
-        createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
+        createInfo.queueCreateInfoCount = COUNT(queueCreateInfos);
         createInfo.pQueueCreateInfos = queueCreateInfos.data();
-        createInfo.enabledLayerCount = static_cast<uint32_t>(enabledLayers.size());
+        createInfo.enabledLayerCount = COUNT(enabledLayers);
         createInfo.ppEnabledLayerNames = enabledLayers.data();
         createInfo.enabledExtensionCount = static_cast<uint32_t>(enabledExtensions.size());
         createInfo.ppEnabledExtensionNames = enabledExtensions.data();
         createInfo.pEnabledFeatures = &enabledFeatures;
 
-        spdlog::info("create device");
-        ASSERT(vkCreateDevice(physicalDevice, &createInfo, nullptr, &logicalDevice));
 
-        spdlog::info("init Queues");
-        initQueues();
+        spdlog::info("creating device");
+        vkCreateDevice(physicalDevice, &createInfo, 0, &logicalDevice);
+        spdlog::info("device created");
 
-        auto deviceAddressExtensionEnabled = std::any_of(begin(enabledExtensions), end(enabledExtensions), [](auto& ext){
-            return std::strcmp(ext, VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME) == 0;
-        });
+//        initQueues();
 
         VmaAllocatorCreateInfo allocatorInfo{};
-        if(deviceAddressExtensionEnabled){
-            allocatorInfo.flags |=  VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
-        }
+        allocatorInfo.flags =  VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
 
         allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_2;
-        allocatorInfo.instance = instance;
-        allocatorInfo.physicalDevice = physicalDevice;
+        allocatorInfo.instance = l_instance;
+        allocatorInfo.physicalDevice = l_pDevice;
         allocatorInfo.device = logicalDevice;
 
         spdlog::info("initialize memory allocator");
         ASSERT(vmaCreateAllocator(&allocatorInfo, &allocator));
 
-        auto commandPool = createCommandPool(*queueFamilyIndex.graphics, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
-        commandPools.emplace(std::make_pair(*queueFamilyIndex.graphics, std::move(commandPool)));
-
-        if(queueFamilyIndex.compute) {
-            commandPool = createCommandPool(*queueFamilyIndex.compute, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
-            commandPools.emplace(std::make_pair(*queueFamilyIndex.compute, std::move(commandPool)));
-        }
-
-        if(queueFamilyIndex.transfer) {
-            commandPool = createCommandPool(*queueFamilyIndex.transfer, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
-            commandPools.emplace(std::make_pair(*queueFamilyIndex.transfer, std::move(commandPool)));
-        }
-
+//        auto commandPool = createCommandPool(*queueFamilyIndex.graphics, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
+//        commandPools.emplace(std::make_pair(*queueFamilyIndex.graphics, std::move(commandPool)));
+//
+//        if(queueFamilyIndex.compute) {
+//            commandPool = createCommandPool(*queueFamilyIndex.compute, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
+//            commandPools.emplace(std::make_pair(*queueFamilyIndex.compute, std::move(commandPool)));
+//        }
+//
+//        if(queueFamilyIndex.transfer) {
+//            commandPool = createCommandPool(*queueFamilyIndex.transfer, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
+//            commandPools.emplace(std::make_pair(*queueFamilyIndex.transfer, std::move(commandPool)));
+//        }
     }
 
     inline void initQueues(){
         assert(logicalDevice != VK_NULL_HANDLE);
         if(queueFamilyIndex.graphics.has_value()){
             spdlog::info("init graphics queue, family : {}", *queueFamilyIndex.graphics);
-            vkGetDeviceQueue(logicalDevice, *queueFamilyIndex.graphics, 0, &queues.graphics);
+            VkQueue queue;
+            vkGetDeviceQueue(logicalDevice, 0, 0, &queue);
+            spdlog::info("graphics queue initiated");
         }
         if(queueFamilyIndex.compute.has_value()) {
             spdlog::info("init compute queue");
@@ -296,13 +291,18 @@ struct VulkanDevice{
 
     inline VulkanBuffer createDeviceLocalBuffer(const void* data, VkDeviceSize size, VkBufferUsageFlags usage, std::set<uint32_t> queueIndices = {}) const {
         // TODO use transfer queue and then transfer ownership
+        spdlog::info("creating local buffer");
         VulkanBuffer stagingBuffer = createBuffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, size, "", queueIndices);
+
+        spdlog::info("copy data to buffer");
         stagingBuffer.copy(data, size);
 
         usage |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 
+        spdlog::info("creating device buffer");
         VulkanBuffer buffer = createBuffer(usage, VMA_MEMORY_USAGE_GPU_ONLY, size, "", queueIndices);
 
+        spdlog::info("copying to device buffer");
         commandPoolFor(*this->queueFamilyIndex.graphics).oneTimeCommand([&](auto cmdBuffer){
             VkBufferCopy copy{};
             copy.size = size;
@@ -459,12 +459,25 @@ struct VulkanDevice{
     }
 
     [[nodiscard]] inline VulkanImage createImage(const VkImageCreateInfo& createInfo, VmaMemoryUsage usage = VMA_MEMORY_USAGE_GPU_ONLY) const{
-        assert(logicalDevice);
+//        assert(logicalDevice);
+
+//        VmaAllocatorCreateInfo allocatorCreateInfo = {};
+//        allocatorCreateInfo.physicalDevice = physicalDevice;
+//        allocatorCreateInfo.device = logicalDevice;
+//        allocatorCreateInfo.instance = instance;
+//
+//        VmaAllocator l_hAllocator;
+//        VkResult res = vmaCreateAllocator(&allocatorCreateInfo, &l_hAllocator);
+//        ASSERT(res);
+
         VmaAllocationCreateInfo allocInfo{};
         allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
         VkImage image;
         VmaAllocation allocation;
-        vmaCreateImage(allocator, &createInfo, &allocInfo, &image, &allocation, nullptr);
+        VmaAllocationInfo allocationInfo{};
+        spdlog::info("allocating memory for image");
+        ASSERT(vmaCreateImage(allocator, &createInfo, &allocInfo, &image, &allocation, &allocationInfo));
+        spdlog::info("memory Allocated");
 
         return VulkanImage{ logicalDevice, allocator, image, createInfo.format, allocation, createInfo.initialLayout, createInfo.extent };
 
@@ -511,19 +524,23 @@ struct VulkanDevice{
 
     [[nodiscard]] inline std::optional<VkFormat> findSupportedFormat(const std::vector<VkFormat>& choices, VkImageTiling tiling, VkFormatFeatureFlags features) const {
         for(auto format : choices){
+            spdlog::info("looking for suttable format");
             auto props = getFormatProperties(format);
             if((tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features)) ||
                     (tiling == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & features))){
                 return format;
             }
         }
+        spdlog::info("did not find suitable format");
         return {};
     }
 
     [[nodiscard]]
     inline VkFormatProperties getFormatProperties(VkFormat format) const {
         VkFormatProperties props;
+        spdlog::info("retrieving device props for format: {}", format);
         vkGetPhysicalDeviceFormatProperties(physicalDevice, format, &props);
+        spdlog::info("got device props for format: {}", format);
         return props;
     }
 

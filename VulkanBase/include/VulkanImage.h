@@ -32,18 +32,13 @@ struct VulkanImage : public Copyable{
 
         this->~VulkanImage();
 
-        device = source.device;
-        allocator = source.allocator;
-        image = source.image;
-        allocation = source.allocation;
-        currentLayout = source.currentLayout;
-        dimension = source.dimension;
-        format = source.format;
-
-        source.allocator = VK_NULL_HANDLE;
-        source.image = VK_NULL_HANDLE;
-        source.allocation = VK_NULL_HANDLE;
-        source.currentLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        device = std::exchange(source.device, nullptr);
+        allocator = std::exchange(source.allocator, nullptr);
+        image = std::exchange(source.image, nullptr);
+        format = std::exchange(source.format, VK_FORMAT_UNDEFINED);
+        allocation = std::exchange(source.allocation, nullptr);
+        currentLayout = std::exchange(source.currentLayout, VK_IMAGE_LAYOUT_UNDEFINED);
+        dimension = std::exchange(source.dimension, {0, 0, 0});
 
         return *this;
     }
@@ -155,11 +150,11 @@ struct VulkanImage : public Copyable{
         return VulkanImageView{ device, view };
     }
 
-    VkDevice device = VK_NULL_HANDLE;
-    VmaAllocator allocator = VK_NULL_HANDLE;
-    VkImage image = VK_NULL_HANDLE;
+    VkDevice device = nullptr;
+    VmaAllocator allocator = nullptr;
+    VkImage image = nullptr;
     VkFormat format = VK_FORMAT_UNDEFINED;
-    VmaAllocation allocation = VK_NULL_HANDLE;
+    VmaAllocation allocation = nullptr;
     VkImageLayout currentLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     VkExtent3D dimension = { 0u, 0u, 0u };
 

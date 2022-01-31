@@ -55,13 +55,17 @@ void VulkanBaseApp::init() {
     createSwapChain();
     createSyncObjects();
     swapChainReady();
+    spdlog::info("swap change ready");
 
     createColorBuffer();
+    spdlog::info("color buffer ready");
     createDepthBuffer();
+    spdlog::info("depth buffer ready");
     createRenderPass();
+    spdlog::info("render pass ready");
     createFramebuffer();
     framebufferReady();
-
+    spdlog::info("framebuffer ready");
     initPlugins();
     initApp();
     ready = true;
@@ -184,6 +188,7 @@ void VulkanBaseApp::createSwapChain() {
 void VulkanBaseApp::createDepthBuffer() {
     if(!settings.depthTest) return;
 
+    spdlog::info("finding depth format");
     auto format = findDepthFormat();
     VkImageCreateInfo createInfo = initializers::imageCreateInfo(
             VK_IMAGE_TYPE_2D,
@@ -193,10 +198,14 @@ void VulkanBaseApp::createDepthBuffer() {
             swapChain.extent.height);
     createInfo.samples = settings.msaaSamples;
 
+    spdlog::info("creating depth buffer image");
     depthBuffer.image = device.createImage(createInfo, VMA_MEMORY_USAGE_GPU_ONLY);
+    spdlog::info("created depth buffer image");
 
+    spdlog::info("creating depth buffer image view");
     VkImageSubresourceRange subresourceRange = initializers::imageSubresourceRange(VK_IMAGE_ASPECT_DEPTH_BIT);
     depthBuffer.imageView = depthBuffer.image.createView(format, VK_IMAGE_VIEW_TYPE_2D, subresourceRange);
+    spdlog::info("created depth buffer image view");
 }
 
 void VulkanBaseApp::createColorBuffer(){
@@ -218,6 +227,7 @@ void VulkanBaseApp::createColorBuffer(){
 VkFormat VulkanBaseApp::findDepthFormat() {
     auto possibleFormat = device.findSupportedFormat(depthFormats.formats, depthFormats.tiling, depthFormats.features);
     if(!possibleFormat.has_value()){
+        spdlog::error("Failed to find a suitable depth format");
         throw std::runtime_error{"Failed to find a suitable depth format"};
     }
     spdlog::info("App will be using depth buffer with: format: {}", *possibleFormat);

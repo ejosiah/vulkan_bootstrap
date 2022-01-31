@@ -18,6 +18,8 @@ struct VulkanInstance{
         createInfo.pApplicationInfo = &appInfo;
         createInfo.enabledExtensionCount = extAndValidationLayers.extensions.size();
         createInfo.ppEnabledExtensionNames = extAndValidationLayers.extensions.data();
+        spdlog::info("instance extensions: {}", extAndValidationLayers.extensions);
+        spdlog::info("instance layers: {}", extAndValidationLayers.validationLayers);
 
 #ifndef NDEBUG
         createInfo.enabledLayerCount = extAndValidationLayers.validationLayers.size();

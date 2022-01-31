@@ -64,7 +64,7 @@ constexpr float MIN_FLOAT = std::numeric_limits<float>::min();
 constexpr std::chrono::seconds ONE_SECOND = std::chrono::seconds(1);
 
 
-#define ASSERT(result) assert(result == VK_SUCCESS)
+#define ASSERT(result) assert((result) == VK_SUCCESS)
 #define COUNT(sequence) static_cast<uint32_t>(sequence.size())
 #define BYTE_SIZE(sequence) static_cast<VkDeviceSize>(sizeof(sequence[0]) * sequence.size())
 
