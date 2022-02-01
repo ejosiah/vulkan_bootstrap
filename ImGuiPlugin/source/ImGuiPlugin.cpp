@@ -248,7 +248,7 @@ void ImGuiPlugin::newFrame() {
     if(!drawRequested) return;
     auto& io = ImGui::GetIO();
 
-    IM_ERR_GUARD_VULKAN(io.Fonts->IsBuilt() && "Font atlas not built! It is generally built by the renderer backend. Missing call to renderer _NewFrame() function? e.g. ImGui_ImplOpenGL3_NewFrame().");
+    IM_ASSERT(io.Fonts->IsBuilt() && "Font atlas not built! It is generally built by the renderer backend. Missing call to renderer _NewFrame() function? e.g. ImGui_ImplOpenGL3_NewFrame().");
 
     // Setup display size (every frame to accommodate for window resizing)
     int w, h;
