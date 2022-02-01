@@ -132,7 +132,7 @@ TEST_F(FourWayRadixLocalSortFixture, localRadixSort){
             fmt::print("{} ", actualPrefixSum[i]);
         }
         for(int i = 0; i < 20; i++){
-            ASSERT_EQ(expectedPrefixSum[i], actualPrefixSum[i]);
+            ERR_GUARD_VULKAN_EQ(expectedPrefixSum[i], actualPrefixSum[i]);
         }
     });
     fmt::print("\n");
@@ -143,7 +143,7 @@ TEST_F(FourWayRadixLocalSortFixture, localRadixSort){
             fmt::print("{} ", actualBlockSum[i]);
         }
         for(int i = 0; i < 20; i++){
-            ASSERT_EQ(expectedBlockSum[i], actualBlockSum[i]);
+            ERR_GUARD_VULKAN_EQ(expectedBlockSum[i], actualBlockSum[i]);
         }
     });
     fmt::print("\n");
@@ -155,7 +155,7 @@ TEST_F(FourWayRadixLocalSortFixture, localRadixSort){
             fmt::print("{} ", actualData[i]);
         }
         for(int i = 0; i < 20; i++){
-            ASSERT_EQ(expectedData[i], actualData[i]);
+            ERR_GUARD_VULKAN_EQ(expectedData[i], actualData[i]);
         }
     });
 }

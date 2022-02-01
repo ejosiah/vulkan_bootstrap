@@ -173,7 +173,7 @@ struct VulkanDevice{
         createInfo.ppEnabledExtensionNames = enabledExtensions.data();
         createInfo.pEnabledFeatures = &enabledFeatures;
 
-        ASSERT(vkCreateDevice(physicalDevice, &createInfo, nullptr, &logicalDevice));
+        ERR_GUARD_VULKAN(vkCreateDevice(physicalDevice, &createInfo, nullptr, &logicalDevice));
         initQueues();
 
         auto deviceAddressExtensionEnabled = std::any_of(begin(enabledExtensions), end(enabledExtensions), [](auto& ext){
@@ -190,7 +190,7 @@ struct VulkanDevice{
         allocatorInfo.physicalDevice = physicalDevice;
         allocatorInfo.device = logicalDevice;
 
-        ASSERT(vmaCreateAllocator(&allocatorInfo, &allocator));
+        ERR_GUARD_VULKAN(vmaCreateAllocator(&allocatorInfo, &allocator));
 
         VulkanCommandPool  commandPool;
         if(queueFamilyIndex.graphics) {
@@ -416,7 +416,7 @@ struct VulkanDevice{
         allocInfo.usage = memoryUsage;
         VmaAllocation allocation;
 
-        ASSERT(vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &buffer, &allocation, nullptr));
+        ERR_GUARD_VULKAN(vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &buffer, &allocation, nullptr));
 
         if(!name.empty()){
          //   VulkanDebug::setObjectName(logicalDevice, buffer, name);
@@ -438,21 +438,21 @@ struct VulkanDevice{
     inline VulkanPipeline createGraphicsPipeline(const VkGraphicsPipelineCreateInfo& createInfo, VkPipelineCache pipelineCache = VK_NULL_HANDLE) const {
         assert(logicalDevice);
         VkPipeline pipeline;
-        ASSERT(vkCreateGraphicsPipelines(logicalDevice, pipelineCache, 1, &createInfo, nullptr, &pipeline));
+        ERR_GUARD_VULKAN(vkCreateGraphicsPipelines(logicalDevice, pipelineCache, 1, &createInfo, nullptr, &pipeline));
         return VulkanPipeline { logicalDevice, pipeline};
     }
 
     inline VulkanPipeline createComputePipeline(const VkComputePipelineCreateInfo& createInfo, VkPipelineCache pipelineCache = VK_NULL_HANDLE) const {
         assert(logicalDevice);
         VkPipeline pipeline;
-        ASSERT(vkCreateComputePipelines(logicalDevice, pipelineCache, 1, &createInfo, nullptr, &pipeline));
+        ERR_GUARD_VULKAN(vkCreateComputePipelines(logicalDevice, pipelineCache, 1, &createInfo, nullptr, &pipeline));
         return VulkanPipeline{ logicalDevice, pipeline};
     }
 
     inline std::vector<VulkanPipeline> createGraphicsPipelines(const std::vector<VkGraphicsPipelineCreateInfo>& createInfos, VkPipelineCache pipelineCache = VK_NULL_HANDLE) const {
         assert(logicalDevice);
         std::vector<VkPipeline> pipelines(createInfos.size());
-        ASSERT(vkCreateGraphicsPipelines(logicalDevice, pipelineCache, COUNT(createInfos), createInfos.data(), nullptr, pipelines.data()));
+        ERR_GUARD_VULKAN(vkCreateGraphicsPipelines(logicalDevice, pipelineCache, COUNT(createInfos), createInfos.data(), nullptr, pipelines.data()));
 
         std::vector<VulkanPipeline> vkPipelines(createInfos.size());
         std::transform(begin(pipelines), end(pipelines), begin(vkPipelines), [&](auto pipeline){
@@ -490,7 +490,7 @@ struct VulkanDevice{
         createInfo.pBindings = bindings.data();
 
         VkDescriptorSetLayout setLayout;
-        ASSERT(vkCreateDescriptorSetLayout(logicalDevice, &createInfo, nullptr, &setLayout));
+        ERR_GUARD_VULKAN(vkCreateDescriptorSetLayout(logicalDevice, &createInfo, nullptr, &setLayout));
         return VulkanDescriptorSetLayout{ logicalDevice, setLayout };
     }
 
@@ -514,7 +514,7 @@ struct VulkanDevice{
     inline VulkanSampler createSampler(const VkSamplerCreateInfo& createInfo) const {
         assert(logicalDevice);
         VkSampler sampler;
-        ASSERT(vkCreateSampler(logicalDevice, &createInfo, nullptr, &sampler));
+        ERR_GUARD_VULKAN(vkCreateSampler(logicalDevice, &createInfo, nullptr, &sampler));
         return VulkanSampler { logicalDevice, sampler};
     }
 
@@ -530,7 +530,7 @@ struct VulkanDevice{
         createInfo.flags = flags;
 
         VkSemaphore semaphore;
-        ASSERT(vkCreateSemaphore(logicalDevice, &createInfo, nullptr, &semaphore));
+        ERR_GUARD_VULKAN(vkCreateSemaphore(logicalDevice, &createInfo, nullptr, &semaphore));
         return VulkanSemaphore { logicalDevice, semaphore };
     }
 

@@ -156,7 +156,7 @@ struct VulkanImage : public Copyable{
         createInfo.subresourceRange = subresourceRange;
 
         VkImageView view;
-        ASSERT(vkCreateImageView(device, &createInfo, nullptr, &view));
+        ERR_GUARD_VULKAN(vkCreateImageView(device, &createInfo, nullptr, &view));
 
         return VulkanImageView{ device, view };
     }

@@ -63,8 +63,13 @@ constexpr float MAX_FLOAT = std::numeric_limits<float>::max();
 constexpr float MIN_FLOAT = std::numeric_limits<float>::lowest();
 constexpr std::chrono::seconds ONE_SECOND = std::chrono::seconds(1);
 
-
-#define ASSERT(result) assert(result == VK_SUCCESS)
+#define STRINGIZE(x) STRINGIZE2(x)
+#define STRINGIZE2(x) #x
+#define LINE_STRING STRINGIZE(__LINE__)
+#define ERR_GUARD_VULKAN(expr) do { if((expr) < 0) { \
+        assert(0 && #expr); \
+        throw std::runtime_error(__FILE__ "(" LINE_STRING "): VkResult( " #expr " ) < 0"); \
+    } } while(false)
 #define COUNT(sequence) static_cast<uint32_t>(sequence.size())
 #define BYTE_SIZE(sequence) static_cast<VkDeviceSize>(sizeof(sequence[0]) * sequence.size())
 
@@ -103,7 +108,7 @@ inline std::vector<VkObject> enumerate(Provider&& provider){
     do {
         result = provider(&size, objects.data());
     }while(result == VK_INCOMPLETE);
-    ASSERT(result);
+    ERR_GUARD_VULKAN(result);
     return objects;
 }
 
@@ -196,4 +201,3 @@ constexpr uint nearestMultiple(uint n, uint x) {
     uint nModx = n % x;
     return nModx == 0 ? n : n + x - nModx;
 }
-

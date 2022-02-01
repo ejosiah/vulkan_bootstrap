@@ -19,7 +19,7 @@ struct VulkanDescriptorPool{
         createInfo.poolSizeCount = COUNT(poolSizes);
         createInfo.pPoolSizes = poolSizes.data();
 
-        ASSERT(vkCreateDescriptorPool(device, &createInfo, nullptr, &pool));
+        ERR_GUARD_VULKAN(vkCreateDescriptorPool(device, &createInfo, nullptr, &pool));
     }
 
     VulkanDescriptorPool(VulkanDescriptorPool&& source) noexcept {

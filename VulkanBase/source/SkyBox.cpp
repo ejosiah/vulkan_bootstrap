@@ -277,7 +277,7 @@ void SkyBox::load(Texture &skyboxTexture, const std::string& directory, const st
     viewInfo.subresourceRange = subresourceRange;
 
     VkImageView view;
-    ASSERT(vkCreateImageView(device(), &viewInfo, nullptr, &view));
+    ERR_GUARD_VULKAN(vkCreateImageView(device(), &viewInfo, nullptr, &view));
     skyboxTexture.imageView = VulkanImageView{ device(), view };
 
     VkSamplerCreateInfo  sampler = initializers::samplerCreateInfo();

@@ -45,8 +45,8 @@ struct VulkanSwapChain{
         createInfo.clipped = true;
         createInfo.oldSwapchain = oldSwapChain;
         auto res = vkCreateSwapchainKHR(device, &createInfo, nullptr, &swapChain);
-//        ASSERT(vkCreateSwapchainKHR(device, &createInfo, nullptr, &swapChain));
-        ASSERT(res);
+//        ERR_GUARD_VULKAN(vkCreateSwapchainKHR(device, &createInfo, nullptr, &swapChain));
+        ERR_GUARD_VULKAN(res);
 
         this->extent = extent;
         this->format = surfaceFormat.format;
@@ -130,7 +130,7 @@ struct VulkanSwapChain{
             createInfo.subresourceRange.layerCount = 1;
             createInfo.subresourceRange.levelCount = 1;
 
-            ASSERT(vkCreateImageView(*device, &createInfo, nullptr, &imageViews[i]));
+            ERR_GUARD_VULKAN(vkCreateImageView(*device, &createInfo, nullptr, &imageViews[i]));
         }
     }
 

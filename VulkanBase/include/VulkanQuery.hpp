@@ -21,7 +21,7 @@ struct VulkanQueryPool{
             info.pipelineStatistics = statsFlags;
         }
 
-        ASSERT(vkCreateQueryPool(device, &info, nullptr, &queryPool));
+        ERR_GUARD_VULKAN(vkCreateQueryPool(device, &info, nullptr, &queryPool));
     }
 
     template<VkQueryType srcQueryType>

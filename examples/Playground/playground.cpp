@@ -383,7 +383,7 @@ int main() {
         spdlog::error("image format combination not supported");
         return result;
     }
-    ASSERT(result);
+    ERR_GUARD_VULKAN(result);
     fmt::print("RGB_F32 image format properties:\n");
     fmt::print("\tmax extent: {}, {}, {}\n", ifp.maxExtent.width, ifp.maxExtent.height, ifp.maxExtent.depth);
     fmt::print("\tmax mip levels: {}\n", ifp.maxMipLevels);

@@ -15,7 +15,7 @@ struct VulkanCommandPool{
         createInfo.flags = flags;
         createInfo.queueFamilyIndex = queueFamilyIndex;
 
-        ASSERT(vkCreateCommandPool(device, &createInfo, nullptr, &pool));
+        ERR_GUARD_VULKAN(vkCreateCommandPool(device, &createInfo, nullptr, &pool));
         vkGetDeviceQueue(device, queueFamilyIndex, 0, &queue);
     }
 
@@ -55,7 +55,7 @@ struct VulkanCommandPool{
         allocateInfo.level = level;
         allocateInfo.commandBufferCount = count;
 
-        ASSERT(vkAllocateCommandBuffers(device, &allocateInfo, buffers.data()));
+        ERR_GUARD_VULKAN(vkAllocateCommandBuffers(device, &allocateInfo, buffers.data()));
 
         return buffers;
     }
@@ -68,7 +68,7 @@ struct VulkanCommandPool{
         allocateInfo.level = level;
         allocateInfo.commandBufferCount = COUNT(commandBuffers);
 
-        ASSERT(vkAllocateCommandBuffers(device, &allocateInfo, commandBuffers.data()));
+        ERR_GUARD_VULKAN(vkAllocateCommandBuffers(device, &allocateInfo, commandBuffers.data()));
     }
 
     inline VkCommandBuffer allocate(VkCommandBufferLevel level = VK_COMMAND_BUFFER_LEVEL_PRIMARY) const {
@@ -79,7 +79,7 @@ struct VulkanCommandPool{
         allocateInfo.level = level;
         allocateInfo.commandBufferCount = 1;
 
-        ASSERT(vkAllocateCommandBuffers(device, &allocateInfo, &commandBuffer));
+        ERR_GUARD_VULKAN(vkAllocateCommandBuffers(device, &allocateInfo, &commandBuffer));
         return commandBuffer;
     }
 
@@ -107,7 +107,7 @@ struct VulkanCommandPool{
         submitInfo.commandBufferCount = 1;
         submitInfo.pCommandBuffers = &commandBuffer;
 
-        ASSERT(vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE));
+        ERR_GUARD_VULKAN(vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE));
         vkQueueWaitIdle(queue);
         vkFreeCommandBuffers(device, pool, 1, &commandBuffer);
     }
@@ -139,7 +139,7 @@ struct VulkanCommandPool{
         submitInfo.commandBufferCount = size;
         submitInfo.pCommandBuffers = commandBuffers.data();
 
-        ASSERT(vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE));
+        ERR_GUARD_VULKAN(vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE));
         vkQueueWaitIdle(queue);
         vkFreeCommandBuffers(device, pool, size, commandBuffers.data());
     }

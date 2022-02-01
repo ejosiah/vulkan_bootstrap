@@ -15,7 +15,7 @@ struct VulkanFence{
         createInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
         createInfo.flags = flags;
 
-        ASSERT(vkCreateFence(device, &createInfo, nullptr, &fence));
+        ERR_GUARD_VULKAN(vkCreateFence(device, &createInfo, nullptr, &fence));
     }
 
     VulkanFence(VulkanFence&& source) noexcept {

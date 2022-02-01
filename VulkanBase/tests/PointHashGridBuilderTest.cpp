@@ -193,10 +193,10 @@ protected:
     }
 
     void AssertGrid(){
-        ASSERT_FALSE(particles.empty()) << "Empty grid, you need to generate particles first";
+        ERR_GUARD_VULKAN_FALSE(particles.empty()) << "Empty grid, you need to generate particles first";
         for(const auto& [bucket, particles] : expectedHashGrid){
             for(const auto& expected : particles) {
-                ASSERT_TRUE(bucketContainsPoint(bucket, expected))
+                ERR_GUARD_VULKAN_TRUE(bucketContainsPoint(bucket, expected))
                     << fmt::format("expected {} not found in bucket : {}", expected, bucket);
             }
         }
@@ -293,7 +293,7 @@ protected:
         grid.neighbourList.neighbourSizeBuffer.map<int>([&](auto sizePtr){
            grid.neighbourList.neighbourOffsetsBuffer.map<int>([&](auto offsetPtr){
                auto size = sizePtr[index];
-               ASSERT_EQ(neighbourList.size(), size) << "neighbour list size did not match" ;
+               ERR_GUARD_VULKAN_EQ(neighbourList.size(), size) << "neighbour list size did not match" ;
                 grid.neighbourList.neighbourListBuffer.map<int>([&](auto listPtr){
                     particleBuffer.map<glm::vec4>([&](auto particlePtr){
                         int offset = offsetPtr[index];
@@ -302,14 +302,14 @@ protected:
                             int particleIndex = listPtr[i + offset];
                             glm::vec3 actual = particlePtr[particleIndex].xyz();
 
-                            ASSERT_NE(prevIndex, particleIndex) << fmt::format("duplicate particle found {} at iteration: {}", particleIndex, i);
+                            ERR_GUARD_VULKAN_NE(prevIndex, particleIndex) << fmt::format("duplicate particle found {} at iteration: {}", particleIndex, i);
                             auto found = std::find_if(begin(neighbourList), end(neighbourList), [&](auto expected){ return similar(expected, actual); });
 
                             foundNeighbours[i] = found != end(neighbourList);
                             prevIndex = particleIndex;
                         }
                         auto foundAllNeighbours = std::all_of(begin(foundNeighbours), end(foundNeighbours), [](auto res){ return res; });
-                        ASSERT_TRUE(foundAllNeighbours) << fmt::format("neighbours missing {}", foundAllNeighbours);
+                        ERR_GUARD_VULKAN_TRUE(foundAllNeighbours) << fmt::format("neighbours missing {}", foundAllNeighbours);
                     });
                 });
            });
@@ -444,13 +444,13 @@ TEST_F(PointHashGridBuilderTest, NumberOfPointsPointsPerShouldConsistentBeConsis
         grid.buildHashGrid(commandBuffer, particleDescriptorSet);
     });
 
-    ASSERT_EQ(uint32_t(particles.size()), grid.numPointsInGrid());
+    ERR_GUARD_VULKAN_EQ(uint32_t(particles.size()), grid.numPointsInGrid());
 
     execute([&](auto commandBuffer){
         grid.buildHashGrid(commandBuffer, particleDescriptorSet);
     });
 
-    ASSERT_EQ(uint32_t(particles.size()), grid.numPointsInGrid());
+    ERR_GUARD_VULKAN_EQ(uint32_t(particles.size()), grid.numPointsInGrid());
 }
 
 TEST_F(PointHashGridBuilderTest, getNearByKeys2dOriginInTopLeftCorner){
@@ -467,7 +467,7 @@ TEST_F(PointHashGridBuilderTest, getNearByKeys2dOriginInTopLeftCorner){
     createParticles();
     buildHashGrid();
     getNearByKeys();
-    ASSERT_PRED4(containsNearbyKey, 8, 9, 12, 13) << "Near by keys did not match 8, 9, 12 & 13";
+    ERR_GUARD_VULKAN_PRED4(containsNearbyKey, 8, 9, 12, 13) << "Near by keys did not match 8, 9, 12 & 13";
 }
 
 TEST_F(PointHashGridBuilderTest, getNearByKeys2dOriginInBottomLeftCorner){
@@ -484,7 +484,7 @@ TEST_F(PointHashGridBuilderTest, getNearByKeys2dOriginInBottomLeftCorner){
     createParticles();
     buildHashGrid();
     getNearByKeys();
-    ASSERT_PRED4(containsNearbyKey, 4, 5, 8, 9) << "Near by keys did not match 4, 5, 8 & 9";
+    ERR_GUARD_VULKAN_PRED4(containsNearbyKey, 4, 5, 8, 9) << "Near by keys did not match 4, 5, 8 & 9";
 }
 TEST_F(PointHashGridBuilderTest, getNearByKeys2dOriginInBottomRightCorner){
     resolution = glm::vec3{4, 4, 1};
@@ -500,7 +500,7 @@ TEST_F(PointHashGridBuilderTest, getNearByKeys2dOriginInBottomRightCorner){
     createParticles();
     buildHashGrid();
     getNearByKeys();
-    ASSERT_PRED4(containsNearbyKey, 5, 6, 9, 10) << "Near by keys did not match 5, 6, 9, 10";
+    ERR_GUARD_VULKAN_PRED4(containsNearbyKey, 5, 6, 9, 10) << "Near by keys did not match 5, 6, 9, 10";
 }
 
 TEST_F(PointHashGridBuilderTest, getNearByKeys2dOriginInTopRightCorner){
@@ -515,7 +515,7 @@ TEST_F(PointHashGridBuilderTest, getNearByKeys2dOriginInTopRightCorner){
     createParticles();
     buildHashGrid();
     getNearByKeys();
-    ASSERT_PRED4(containsNearbyKey, 9, 10, 13, 14) << "Near by keys did not match 9, 10, 13, 14";
+    ERR_GUARD_VULKAN_PRED4(containsNearbyKey, 9, 10, 13, 14) << "Near by keys did not match 9, 10, 13, 14";
 }
 
 TEST_F(PointHashGridBuilderTest, getNearByKeys2dOfPointInBottomCornerofCellZero){
@@ -528,7 +528,7 @@ TEST_F(PointHashGridBuilderTest, getNearByKeys2dOfPointInBottomCornerofCellZero)
     createParticles();
     buildHashGrid();
     getNearByKeys();
-    ASSERT_PRED4(containsNearbyKey, 0, 3, 12, 15) << "Near by keys did not match 0, 3, 12, 15";
+    ERR_GUARD_VULKAN_PRED4(containsNearbyKey, 0, 3, 12, 15) << "Near by keys did not match 0, 3, 12, 15";
 }
 
 TEST_F(PointHashGridBuilderTest, getNearByKeys3dOfPointInTopRightBackCorner){
@@ -544,8 +544,8 @@ TEST_F(PointHashGridBuilderTest, getNearByKeys3dOfPointInTopRightBackCorner){
     createParticles();
     buildHashGrid();
     getNearByKeys();
-    ASSERT_PRED4(containsNearbyKey, 21, 22, 25, 26) << "Near by keys did not match 21, 22, 25, 26";
-    ASSERT_PRED4(containsNearbyKey, 37, 38, 41, 42) << "Near by keys did not match 37, 38, 41, 42";
+    ERR_GUARD_VULKAN_PRED4(containsNearbyKey, 21, 22, 25, 26) << "Near by keys did not match 21, 22, 25, 26";
+    ERR_GUARD_VULKAN_PRED4(containsNearbyKey, 37, 38, 41, 42) << "Near by keys did not match 37, 38, 41, 42";
 }
 
 TEST_F(PointHashGridBuilderTest, generateNeighbourList){

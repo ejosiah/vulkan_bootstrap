@@ -459,7 +459,7 @@ void VulkanBaseApp::drawFrame() {
 
     inFlightFences[currentFrame].reset();
 
-    ASSERT(vkQueueSubmit(device.queues.graphics, 1, &submitInfo, inFlightFences[currentFrame]));
+    ERR_GUARD_VULKAN(vkQueueSubmit(device.queues.graphics, 1, &submitInfo, inFlightFences[currentFrame]));
 }
 
 void VulkanBaseApp::presentFrame() {

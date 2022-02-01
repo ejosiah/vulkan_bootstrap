@@ -20,7 +20,7 @@ struct VulkanFramebuffer{
                 layers
                 );
 
-        ASSERT(vkCreateFramebuffer(device, &createInfo, nullptr, &frameBuffer));
+        ERR_GUARD_VULKAN(vkCreateFramebuffer(device, &createInfo, nullptr, &frameBuffer));
     }
 
     VulkanFramebuffer(const VulkanFramebuffer&) = delete;

@@ -23,7 +23,7 @@ struct VulkanRenderPass{
                                                                                vkSubpassDescriptions,
                                                                                dependencies);
 
-        ASSERT(vkCreateRenderPass(device, &createInfo, nullptr, &renderPass));
+        ERR_GUARD_VULKAN(vkCreateRenderPass(device, &createInfo, nullptr, &renderPass));
     }
 
     VulkanRenderPass(const VulkanRenderPass&) = delete;

@@ -223,7 +223,7 @@ std::vector<rt::BlasId> rt::AccelerationStructureBuilder::buildBlas(const std::v
         createInfo.buffer = entry.as.buffer;
         createInfo.size = sizeInfo.accelerationStructureSize;
         createInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
-        ASSERT(vkCreateAccelerationStructureKHR(*m_device, &createInfo, nullptr, &entry.as.handle));
+        ERR_GUARD_VULKAN(vkCreateAccelerationStructureKHR(*m_device, &createInfo, nullptr, &entry.as.handle));
 
         auto scratchBuffer = createScratchBuffer(sizeInfo.buildScratchSize);
         buildInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;

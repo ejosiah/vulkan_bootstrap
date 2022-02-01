@@ -18,7 +18,7 @@ struct VulkanPipelineLayout{
         createInfo.pushConstantRangeCount = COUNT(ranges);
         createInfo.pPushConstantRanges = ranges.data();
 
-        ASSERT(vkCreatePipelineLayout(device, &createInfo, nullptr, &pipelineLayout));
+        ERR_GUARD_VULKAN(vkCreatePipelineLayout(device, &createInfo, nullptr, &pipelineLayout));
     }
 
     VulkanPipelineLayout(const VulkanPipelineLayout&) = delete;

@@ -1033,7 +1033,7 @@ void ClothDemo::initQueryPools() {
     info.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
     info.queryType = VK_QUERY_TYPE_TIMESTAMP;
     info.queryCount = 2;
-    ASSERT(vkCreateQueryPool(device, &info, nullptr, &queryPool));
+    ERR_GUARD_VULKAN(vkCreateQueryPool(device, &info, nullptr, &queryPool));
 }
 
 void ClothDemo::cleanup() {
