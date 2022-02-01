@@ -25,7 +25,7 @@ TEST_F(PrefixScanTest, ScanWithSingleWorkGroup){
     _prefix_sum.scan(begin(data), end(data));
 
     for(int i = 0; i < data.size(); i++){
-        ERR_GUARD_VULKAN_EQ(expected[i], data[i]);
+        ASSERT_EQ(expected[i], data[i]);
     }
 
 }
@@ -41,7 +41,7 @@ TEST_F(PrefixScanTest, ScanDataItemsLessThanWorkGroupSize){
     _prefix_sum.scan(begin(data), end(data));
 
     for(int i = 0; i < data.size(); i++){
-        ERR_GUARD_VULKAN_EQ(expected[i], data[i]);
+        ASSERT_EQ(expected[i], data[i]);
     }
 }
 
@@ -56,7 +56,7 @@ TEST_F(PrefixScanTest, ScanNonPowerOfDataItems){
     _prefix_sum.scan(begin(data), end(data));
 
     for(int i = 0; i < data.size(); i++){
-        ERR_GUARD_VULKAN_EQ(expected[i], data[i]);
+        ASSERT_EQ(expected[i], data[i]);
     }
 }
 
@@ -71,6 +71,6 @@ TEST_F(PrefixScanTest, ScanWithMutipleWorkGroups){
     _prefix_sum.scan(begin(data), end(data));
 
     for(int i = 0; i < data.size(); i++){
-        ERR_GUARD_VULKAN_EQ(expected[i], data[i]);
+        ASSERT_EQ(expected[i], data[i]);
     }
 }

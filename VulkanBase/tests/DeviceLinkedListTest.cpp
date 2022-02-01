@@ -78,7 +78,7 @@ protected:
                 }
             });
         });
-        ERR_GUARD_VULKAN_TRUE(containsAll);
+        ASSERT_TRUE(containsAll);
     }
 
     template<size_t Size>
@@ -101,7 +101,7 @@ TEST_F(DeviceLinkedListFixture, createAValidDeviceLinkedList){
     std::vector<int> expected = generateRandomUniqueInts<20>();
     updateSourceDataDescriptorSet(expected.data(), expected.size() * sizeof(int));
     createLinkedList();
-    ERR_GUARD_VULKAN_EQ(expected.size(), linkedList.size());
+    ASSERT_EQ(expected.size(), linkedList.size());
 
     deviceListContainsAll(expected);
 }
