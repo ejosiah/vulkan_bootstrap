@@ -117,6 +117,7 @@ struct VulkanCommandPool{
         auto commandBuffers = allocateCommandBuffers(size);
         for(auto i = 0; i < size; i++){
 
+#ifdef DEBUG_MODE
             if(!name.empty()){
                 VkDebugUtilsObjectNameInfoEXT nameInfo{};
                 nameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
@@ -125,6 +126,7 @@ struct VulkanCommandPool{
                 nameInfo.objectHandle = (uint64_t)commandBuffers[i];
                 vkSetDebugUtilsObjectNameEXT(device, &nameInfo);
             }
+#endif
 
             VkCommandBufferBeginInfo beginInfo{};
             beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
