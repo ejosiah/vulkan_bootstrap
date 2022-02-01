@@ -1,6 +1,12 @@
 #pragma once
 
 #ifndef NDEBUG
+#define DEBUG_MODE
+#else
+#define RELEASE_MODE
+#endif
+
+#ifndef NDEBUG
 constexpr bool debugMode = true;
 #else
 constexpr bool debugMode = false;

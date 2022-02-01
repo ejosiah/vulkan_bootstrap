@@ -18,15 +18,17 @@ static PFN_vkSetDebugUtilsObjectNameEXT pfn_vkSetDebugUtilsObjectNameEXT = nullp
 namespace ext {
 
     void init(VkInstance instance){
+#ifdef DEBUG_MODE
         pfn_createDebugUtilsMessenger = procAddress<PFN_vkCreateDebugUtilsMessengerEXT>(instance, "vkCreateDebugUtilsMessengerEXT");
         pfn_destroyDebugUtilsMessenger = procAddress<PFN_vkDestroyDebugUtilsMessengerEXT>(instance, "vkDestroyDebugUtilsMessengerEXT");
+        pfn_vkSetDebugUtilsObjectNameEXT = procAddress<PFN_vkSetDebugUtilsObjectNameEXT>(instance, "vkSetDebugUtilsObjectNameEXT");
+#endif
         pfn_vkCmdTraceRaysKHR = procAddress<PFN_vkCmdTraceRaysKHR>(instance, "vkCmdTraceRaysKHR");
         pfn_vkGetAccelerationStructureBuildSizesKHR = procAddress<PFN_vkGetAccelerationStructureBuildSizesKHR>(instance, "vkGetAccelerationStructureBuildSizesKHR");
         pfn_vkCreateAccelerationStructureKHR = procAddress<PFN_vkCreateAccelerationStructureKHR>(instance, "vkCreateAccelerationStructureKHR");
         pfn_vkCmdBuildAccelerationStructuresKHR = procAddress<PFN_vkCmdBuildAccelerationStructuresKHR>(instance, "vkCmdBuildAccelerationStructuresKHR");
         pfn_vkGetAccelerationStructureDeviceAddressKHR = procAddress<PFN_vkGetAccelerationStructureDeviceAddressKHR>(instance, "vkGetAccelerationStructureDeviceAddressKHR");
         pfn_vkDestroyAccelerationStructureKHR = procAddress<PFN_vkDestroyAccelerationStructureKHR>(instance, "vkDestroyAccelerationStructureKHR");
-        pfn_vkSetDebugUtilsObjectNameEXT = procAddress<PFN_vkSetDebugUtilsObjectNameEXT>(instance, "vkSetDebugUtilsObjectNameEXT");
         pfn_vkCreateRayTracingPipelinesKHR = procAddress<PFN_vkCreateRayTracingPipelinesKHR>(instance, "vkCreateRayTracingPipelinesKHR");
         pfn_vkGetRayTracingShaderGroupHandlesKHR = procAddress<PFN_vkGetRayTracingShaderGroupHandlesKHR>(instance, "vkGetRayTracingShaderGroupHandlesKHR");
     }

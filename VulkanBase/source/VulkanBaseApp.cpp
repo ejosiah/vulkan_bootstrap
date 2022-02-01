@@ -289,7 +289,9 @@ void VulkanBaseApp::checkSystemInputs() {
 }
 
 void VulkanBaseApp::createDebugMessenger() {
+#ifdef DEBUG_MODE
     vulkanDebug = VulkanDebug{ instance };
+#endif
 }
 
 void VulkanBaseApp::createFramebuffer() {

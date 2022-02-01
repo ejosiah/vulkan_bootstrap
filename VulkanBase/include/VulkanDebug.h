@@ -87,7 +87,7 @@ struct VulkanDebug{
         if constexpr (debugMode) {
 
             VkDebugUtilsObjectNameInfoEXT s{VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT, nullptr, type, object, name.c_str()};
-            VulkanExtensions::ext->vkSetDebugUtilsObjectNameEXT(device, &s);
+            vkSetDebugUtilsObjectNameEXT(device, &s);
 
         }
     }
