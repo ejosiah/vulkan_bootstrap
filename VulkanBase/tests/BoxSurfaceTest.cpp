@@ -19,9 +19,9 @@ TEST_F(BoxSurfaceFixture, closestPointWhenPointInsideBox){
         float closestDist;
         vec3 closestNormal;
         vec3 actualPointOnSurface = closestPoint(surface, point, closestNormal, closestDist);
-        ERR_GUARD_VULKAN_TRUE(vectorEquals(expectedPointOnSurface, actualPointOnSurface));
-        ERR_GUARD_VULKAN_TRUE(vectorEquals(p.normal, closestNormal));
-        ERR_GUARD_VULKAN_FLOAT_EQ(0.2f, closestDist);
+        ASSERT_TRUE(vectorEquals(expectedPointOnSurface, actualPointOnSurface));
+        ASSERT_TRUE(vectorEquals(p.normal, closestNormal));
+        ASSERT_FLOAT_EQ(0.2f, closestDist);
     }
 }
 
@@ -37,9 +37,9 @@ TEST_F(BoxSurfaceFixture, closestOnSurfaceWhenPointOutsideBox){
         float closestDist;
         vec3 closestNormal;
         vec3 actualPointOnSurface = closestPoint(surface, point, closestNormal, closestDist);
-        ERR_GUARD_VULKAN_TRUE(vectorEquals(expectedPointOnSurface, actualPointOnSurface));
-        ERR_GUARD_VULKAN_TRUE(vectorEquals(p.normal, closestNormal));
-        ERR_GUARD_VULKAN_FLOAT_EQ(0.2f, closestDist);
+        ASSERT_TRUE(vectorEquals(expectedPointOnSurface, actualPointOnSurface));
+        ASSERT_TRUE(vectorEquals(p.normal, closestNormal));
+        ASSERT_FLOAT_EQ(0.2f, closestDist);
     }
 }
 
@@ -55,9 +55,9 @@ TEST_F(BoxSurfaceFixture, returnFlipedNormalOnClosestPointIfEnabled){
         float closestDist;
         vec3 closestNormal;
         vec3 actualPointOnSurface = closestPoint(surface, point, closestNormal, closestDist);
-        ERR_GUARD_VULKAN_TRUE(vectorEquals(expectedPointOnSurface, actualPointOnSurface));
-        ERR_GUARD_VULKAN_TRUE(vectorEquals(-p.normal, closestNormal));
-        ERR_GUARD_VULKAN_FLOAT_EQ(0.2f, closestDist);
+        ASSERT_TRUE(vectorEquals(expectedPointOnSurface, actualPointOnSurface));
+        ASSERT_TRUE(vectorEquals(-p.normal, closestNormal));
+        ASSERT_FLOAT_EQ(0.2f, closestDist);
     }
 }
 
@@ -69,5 +69,5 @@ TEST_F(BoxSurfaceFixture, returnFalseIfObjectIsNotPenetratingThroughSurface){
 
     vec3 normal;
     vec3 surfacePoint;
-    ERR_GUARD_VULKAN_FALSE(isPenetrating(surface, point, radius, normal, surfacePoint)) << "point should not penetrate through surface";
+    ASSERT_FALSE(isPenetrating(surface, point, radius, normal, surfacePoint)) << "point should not penetrate through surface";
 }

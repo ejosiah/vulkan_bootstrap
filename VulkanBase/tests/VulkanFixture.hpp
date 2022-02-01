@@ -157,12 +157,12 @@ protected:
     void assertEqual(Iter0 _first0, Iter0 _last0, Iter1 _first1, Iter1 _last1){
         auto dist0 = std::distance(_first0, _last0);
         auto dist1 = std::distance(_first1, _last1);
-        ERR_GUARD_VULKAN_EQ(dist0, dist1);
+        ASSERT_EQ(dist0, dist1);
 
         auto next0 = _first0;
         auto next1 = _first1;
         while(next0 != _last0){
-            ERR_GUARD_VULKAN_EQ(*next0, *next1);
+            ASSERT_EQ(*next0, *next1);
             std::advance(*next0, 1);
             std::advance(*next1, 1);
         }

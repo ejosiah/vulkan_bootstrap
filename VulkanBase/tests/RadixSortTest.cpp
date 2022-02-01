@@ -27,29 +27,29 @@ protected:
 TEST_F(RadixSortFixture, sortGivenData){
     auto items = randomInts(1 << 14);
     VulkanBuffer buffer = device.createCpuVisibleBuffer(items.data(), BYTE_SIZE(items), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-    ERR_GUARD_VULKAN_FALSE(isSorted(buffer)) << "buffer initial state should not be sorted";
+    ASSERT_FALSE(isSorted(buffer)) << "buffer initial state should not be sorted";
 
     sort(buffer);
 
-    ERR_GUARD_VULKAN_TRUE(isSorted(buffer)) << "buffer should be sorted";
+    ASSERT_TRUE(isSorted(buffer)) << "buffer should be sorted";
 }
 
 TEST_F(RadixSortFixture, sortHostData){
     auto items = randomInts(1 << 14);
-    ERR_GUARD_VULKAN_FALSE(std::is_sorted(begin(items), end(items)));
+    ASSERT_FALSE(std::is_sorted(begin(items), end(items)));
 
     _sort.sort(begin(items), end(items));
 
-    ERR_GUARD_VULKAN_TRUE(std::is_sorted(begin(items), end(items))) << "items should be sorted";
+    ASSERT_TRUE(std::is_sorted(begin(items), end(items))) << "items should be sorted";
 }
 
 TEST_F(RadixSortFixture, sortIsStable){
     auto items = randomInts(1 << 20);
     VulkanBuffer buffer = device.createCpuVisibleBuffer(items.data(), BYTE_SIZE(items), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-    ERR_GUARD_VULKAN_TRUE(!isSorted(buffer)) << "buffer initial state should not be sorted";
+    ASSERT_TRUE(!isSorted(buffer)) << "buffer initial state should not be sorted";
 
     VulkanBuffer indexBuffer = sortWithIndex(buffer);
 
-    ERR_GUARD_VULKAN_TRUE(isSorted(buffer)) << "buffer should be sorted";
-    ERR_GUARD_VULKAN_TRUE(isStable(buffer, indexBuffer)) << "sort should be stable";
+    ASSERT_TRUE(isSorted(buffer)) << "buffer should be sorted";
+    ASSERT_TRUE(isStable(buffer, indexBuffer)) << "sort should be stable";
 }
