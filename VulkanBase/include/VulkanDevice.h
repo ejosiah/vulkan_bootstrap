@@ -418,12 +418,14 @@ struct VulkanDevice{
 
         ERR_GUARD_VULKAN(vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &buffer, &allocation, nullptr));
 
+#ifdef DEBUG_MODE
         if(!name.empty()){
          //   VulkanDebug::setObjectName(logicalDevice, buffer, name);
             VkDebugUtilsObjectNameInfoEXT s{VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT, nullptr, VK_OBJECT_TYPE_BUFFER, (uint64_t)buffer, name.c_str()};
             auto SetDebugUtilsObjectName = procAddress<PFN_vkSetDebugUtilsObjectNameEXT>(instance, "vkSetDebugUtilsObjectNameEXT");
             SetDebugUtilsObjectName(logicalDevice, &s);
         }
+#endif
         return VulkanBuffer{allocator, buffer, allocation, size, name};
     }
 
@@ -636,12 +638,14 @@ struct VulkanDevice{
 
     template<VkObjectType objectType>
     inline void setName(const std::string& objectName, void* ptr) const {
+#ifdef DEBUG_MODE
         VkDebugUtilsObjectNameInfoEXT nameInfo{};
         nameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
         nameInfo.pObjectName = objectName.c_str();
         nameInfo.objectType = objectType;
         nameInfo.objectHandle = (uint64_t)ptr;
         vkSetDebugUtilsObjectNameEXT(logicalDevice, &nameInfo);
+#endif
     }
 
     inline float timestampPeriod(){
