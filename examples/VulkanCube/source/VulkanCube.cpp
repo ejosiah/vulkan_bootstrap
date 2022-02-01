@@ -298,7 +298,6 @@ int main() {
         settings.vSync = false;
         settings.depthTest = true;
         settings.relativeMouseMode = false;
-        settings.msaaSamples = VK_SAMPLE_COUNT_16_BIT;
         settings.width = 1080;
         settings.height = 720;
         VulkanCube app{settings};

@@ -15,6 +15,7 @@
 #include "VulkanExtensions.h"
 #include "builder_forwards.hpp"
 #include <spdlog/spdlog.h>
+#include "vk_mem_alloc.h"
 
 struct VulkanDevice{
 
@@ -148,39 +149,38 @@ struct VulkanDevice{
         vkCreateDevice(physicalDevice, &createInfo, 0, &logicalDevice);
         spdlog::info("device created");
 
-//        initQueues();
+        initQueues();
 
         VmaAllocatorCreateInfo allocatorInfo{};
-        allocatorInfo.flags =  VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
+//        allocatorInfo.flags =  VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
 
         allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_2;
-        allocatorInfo.instance = l_instance;
-        allocatorInfo.physicalDevice = l_pDevice;
+        allocatorInfo.instance = instance;
+        allocatorInfo.physicalDevice = physicalDevice;
         allocatorInfo.device = logicalDevice;
 
         spdlog::info("initialize memory allocator");
         ASSERT(vmaCreateAllocator(&allocatorInfo, &allocator));
 
-//        auto commandPool = createCommandPool(*queueFamilyIndex.graphics, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
-//        commandPools.emplace(std::make_pair(*queueFamilyIndex.graphics, std::move(commandPool)));
-//
-//        if(queueFamilyIndex.compute) {
-//            commandPool = createCommandPool(*queueFamilyIndex.compute, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
-//            commandPools.emplace(std::make_pair(*queueFamilyIndex.compute, std::move(commandPool)));
-//        }
-//
-//        if(queueFamilyIndex.transfer) {
-//            commandPool = createCommandPool(*queueFamilyIndex.transfer, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
-//            commandPools.emplace(std::make_pair(*queueFamilyIndex.transfer, std::move(commandPool)));
-//        }
+        auto commandPool = createCommandPool(*queueFamilyIndex.graphics, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
+        commandPools.emplace(std::make_pair(*queueFamilyIndex.graphics, std::move(commandPool)));
+
+        if(queueFamilyIndex.compute) {
+            commandPool = createCommandPool(*queueFamilyIndex.compute, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
+            commandPools.emplace(std::make_pair(*queueFamilyIndex.compute, std::move(commandPool)));
+        }
+
+        if(queueFamilyIndex.transfer) {
+            commandPool = createCommandPool(*queueFamilyIndex.transfer, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
+            commandPools.emplace(std::make_pair(*queueFamilyIndex.transfer, std::move(commandPool)));
+        }
     }
 
     inline void initQueues(){
         assert(logicalDevice != VK_NULL_HANDLE);
         if(queueFamilyIndex.graphics.has_value()){
             spdlog::info("init graphics queue, family : {}", *queueFamilyIndex.graphics);
-            VkQueue queue;
-            vkGetDeviceQueue(logicalDevice, 0, 0, &queue);
+            vkGetDeviceQueue(logicalDevice, 0, 0, &queues.graphics);
             spdlog::info("graphics queue initiated");
         }
         if(queueFamilyIndex.compute.has_value()) {

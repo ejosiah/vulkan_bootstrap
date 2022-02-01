@@ -71,7 +71,7 @@ struct VulkanBuffer{
         ASSERT(vmaMapMemory(allocator, allocation, &dest));
         dest = static_cast<char*>(dest) + offset;
         memcpy(dest, source, size);
-        ASSERT(vmaUnmapMemory(allocator, allocation));
+        vmaUnmapMemory(allocator, allocation);
     }
 
     template<typename T>

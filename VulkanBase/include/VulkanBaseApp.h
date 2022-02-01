@@ -10,7 +10,6 @@
 #include <optional>
 #include "container_operations.h"
 #include "primitives.h"
-#include "vk_mem_alloc.h"
 #include "VulkanDevice.h"
 #include "VulkanBuffer.h"
 #include "VulkanSurface.h"
@@ -39,7 +38,6 @@
 #include <entt/entt.hpp>
 #include "Entity.hpp"
 #include "components.h"
-#include "vk_mem_alloc.h"
 
 #define REPORT_ERROR(result, msg) if(result != VK_SUCCESS) throw std::runtime_error{msg}
 #define offsetOf(s,m) static_cast<uint32_t>(offsetof(s, m))
