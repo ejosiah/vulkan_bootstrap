@@ -355,72 +355,53 @@ int findQueueFamily(std::vector<VkQueueFamilyProperties> queueFamilies, VkQueueF
 }
 
 int main() {
-    VkApplicationInfo info = initializers::AppInfo();
-    info.pApplicationName = "playground";
-    info.pEngineName = "engine";
-    info.engineVersion = 0;
-    info.apiVersion = VK_API_VERSION_1_2;
+    initVulkan();
 
-    std::vector<const char*> extensions;
-    extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-    ExtensionsAndValidationLayers ev{ extensions };
+    std::map<VkFormat, std::string> formats{};
+    formats[VK_FORMAT_R8G8B8_SRGB] = "VK_FORMAT_R8G8B8_SRGB";
+    formats[VK_FORMAT_R8G8B8A8_SRGB] = "VK_FORMAT_R8G8B8A8_SRGB";
+    formats[VK_FORMAT_R8G8B8A8_UNORM] = "VK_FORMAT_R8G8B8A8_UNORM";
+    formats[VK_FORMAT_R16G16B16_SFLOAT] = "VK_FORMAT_R16G16B16_SFLOAT";
+    formats[VK_FORMAT_R16G16B16A16_SFLOAT] = "VK_FORMAT_R16G16B16A16_SFLOAT";
+    formats[VK_FORMAT_R32G32B32_SFLOAT] = "VK_FORMAT_R32G32B32_SFLOAT";
+    formats[VK_FORMAT_R32G32B32A32_SFLOAT] = "VK_FORMAT_R32G32B32A32_SFLOAT";
+    formats[VK_FORMAT_R16_SFLOAT] = "VK_FORMAT_R16_SFLOAT";
+    formats[VK_FORMAT_R16G16_SFLOAT] = "VK_FORMAT_R16_SFLOAT";
+    formats[VK_FORMAT_R32_SFLOAT] = "VK_FORMAT_R32_SFLOAT";
+    formats[VK_FORMAT_R32G32_SFLOAT] = "VK_FORMAT_R32_SFLOAT";
 
-    VulkanInstance instance{info, ev};
+    std::map<VkImageType, std::string> imageTypes{};
+    imageTypes[VK_IMAGE_TYPE_2D] = "VK_IMAGE_TYPE_2D";
 
-    auto pDevices = enumerate<VkPhysicalDevice>([&](auto count, auto* devicePtr){
-        return vkEnumeratePhysicalDevices(instance, count, devicePtr);
-    });
+    std::map<VkImageTiling, std::string> imageTilings{};
+    imageTilings[VK_IMAGE_TILING_OPTIMAL] = "VK_IMAGE_TILING_OPTIMAL";
+    imageTilings[VK_IMAGE_TILING_LINEAR] = "VK_IMAGE_TILING_LINEAR";
 
-    auto pDevice = pDevices.front();
+    std::map<VkImageUsageFlags, std::string> imageUsages{};
+    imageUsages[VK_IMAGE_USAGE_SAMPLED_BIT] = "VK_IMAGE_USAGE_SAMPLED_BIT";
+//    imageUsages[VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT] = "VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT";
+//    imageUsages[VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT] = "VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT";
 
-    VkImageFormatProperties ifp;
-    auto result = vkGetPhysicalDeviceImageFormatProperties(pDevice, VK_FORMAT_R16G16B16A16_SFLOAT
-            , VK_IMAGE_TYPE_2D, VK_IMAGE_TILING_OPTIMAL
-            , VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT
-            , 0, &ifp);
-
-    if(result == VK_ERROR_FORMAT_NOT_SUPPORTED){
-        spdlog::error("image format combination not supported");
-        return result;
+    for(auto [format, fname] : formats){
+        for(auto [imageType, tname] : imageTypes){
+            for(auto [tiliing, tiName] : imageTilings){
+                for(auto [usage, uname] : imageUsages){
+                    VkImageFormatProperties  imageProps;
+                    auto res = vkGetPhysicalDeviceImageFormatProperties(g_device, format, imageType, tiliing, usage, 0, &imageProps);
+                    if(res == VK_ERROR_FORMAT_NOT_SUPPORTED){
+//                        fmt::print("{} - {} - {} - {} combination not supported\n\n", fname, tname, tiName, uname);
+                        continue;
+                    }
+                    fmt::print("{} - {} - {} - {} props:\n", fname, tname, tiName, uname);
+                    fmt::print("\tmax extent: [{}, {}, {}]\n", imageProps.maxExtent.width, imageProps.maxExtent.height, imageProps.maxExtent.depth);
+                    fmt::print("\tmax mip levels: {}\n", imageProps.maxMipLevels);
+                    fmt::print("\tmax array layers: {}\n", imageProps.maxArrayLayers);
+                    fmt::print("\tsample count: {}\n", imageProps.sampleCounts);
+                    fmt::print("\tmax resource size: {}\n\n", imageProps.maxResourceSize);
+                }
+            }
+        }
     }
-    ERR_GUARD_VULKAN(result);
-    fmt::print("RGB_F32 image format properties:\n");
-    fmt::print("\tmax extent: {}, {}, {}\n", ifp.maxExtent.width, ifp.maxExtent.height, ifp.maxExtent.depth);
-    fmt::print("\tmax mip levels: {}\n", ifp.maxMipLevels);
-    fmt::print("\tmax array layers: {}\n", ifp.maxArrayLayers);
-    fmt::print("\tsample counts: {}\n", ifp.sampleCounts);
-    fmt::print("\tmax resource size: {}\n", ifp.maxResourceSize);
-
-
-
-//    auto queueFamilies = get<VkQueueFamilyProperties>([&](auto count, auto ptr){
-//        vkGetPhysicalDeviceQueueFamilyProperties(pDevice, count, ptr);
-//    });
-//
-//    std::map<int, std::string> queues;
-//    queues[1] = "Graphics";
-//    queues[2] = "Compute";
-//    queues[4] = "Transfer";
-//    queues[8] = "Sparse";
-//
-//    for(auto i = 0; i < queueFamilies.size(); i++){
-//        auto& family = queueFamilies[i];
-//        fmt::print("Queue family {}:\n", i);
-//        fmt::print("\tQueue Count: {}\n", family.queueCount);
-//        fmt::print("\tcapabilities:\n");
-//        for(int queueFlag = 1; queueFlag < 16; queueFlag <<= 1){
-//            if((family.queueFlags & queueFlag) == queueFlag){
-//                fmt::print("\t\t{}\n", queues[queueFlag]);
-//            }
-//        }
-//        fmt::print("\n\n");
-//
-//    }
-//
-//    assert(findQueueFamily(queueFamilies, VK_QUEUE_GRAPHICS_BIT) == 0);
-//    assert(findQueueFamily(queueFamilies, VK_QUEUE_TRANSFER_BIT) == 1);
-//    assert(findQueueFamily(queueFamilies, VK_QUEUE_COMPUTE_BIT) == 2);
-//    assert(findQueueFamily(queueFamilies, VK_QUEUE_SPARSE_BINDING_BIT) == 1);
 
     return 0;
 }

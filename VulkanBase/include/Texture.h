@@ -23,7 +23,7 @@ namespace textures{
 
     void create(const VulkanDevice& device, Texture& texture, VkImageType imageType, VkFormat format, void* data
                 , Dimension3D<uint32_t> dimensions, VkSamplerAddressMode addressMode = VK_SAMPLER_ADDRESS_MODE_REPEAT
-                , uint32_t sizeMultiplier = 1);
+                , uint32_t sizeMultiplier = 1, VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL);
 
     void fromFile(const VulkanDevice& device, Texture& texture, std::string_view path, bool flipUv = false, VkFormat format = VK_FORMAT_R8G8B8A8_UNORM);
 

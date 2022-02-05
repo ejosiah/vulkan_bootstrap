@@ -16,7 +16,7 @@ layout(push_constant) uniform MVP{
 layout(location = 0) out struct {
     vec3 viewPos;
     vec3 viewNormal;
-    vec3 color;
+    vec2 uv;
 } v_out;
 
 void main(){
@@ -25,7 +25,7 @@ void main(){
     vec3 viewNormal = mat3(MV) * normal;
     v_out.viewPos = viewPos.xyz;
     v_out.viewNormal = viewNormal;
-    v_out.color = color;
+    v_out.uv = uv;
 
     gl_Position = projection * viewPos;
 }

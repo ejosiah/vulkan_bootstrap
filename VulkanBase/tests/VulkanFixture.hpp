@@ -10,7 +10,7 @@
 #include "VulkanExtensions.h"
 
 static std::vector<const char*> instanceExtensions{VK_EXT_DEBUG_UTILS_EXTENSION_NAME};
-static std::vector<const char*> validationLayers{"VK_LAYER_KHRONOS_validation"};
+static std::vector<const char*> validationLayers{};
 static std::vector<const char*> deviceExtensions{ };
 
 class VulkanFixture : public ::testing::Test{

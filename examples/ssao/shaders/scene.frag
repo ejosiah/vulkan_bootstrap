@@ -1,17 +1,19 @@
 #version 460
 
+layout(set=0, binding=2) uniform sampler2D albedoMap;
+
 layout(location = 0) in struct {
     vec3 viewPos;
     vec3 viewNormal;
-    vec3 color;
+    vec2 uv;
 } f_in;
 
 layout(location = 0) out vec3 position;
 layout(location = 1) out vec3 normal;
-//layout(location = 2) out vec3 color;
+layout(location = 2) out vec3 color;
 
 void main(){
     position = f_in.viewPos;
-    normal = f_in.viewPos;
-//    color = vec3(0.95);
+    normal = f_in.viewNormal;
+    color = texture(albedoMap, f_in.uv).rgb;
 }

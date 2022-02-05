@@ -29,6 +29,7 @@ namespace phong{
     };
 
     struct Material {
+        std::string name;
         struct {
             std::unique_ptr<Texture> ambientMap;
             std::unique_ptr<Texture> diffuseMap;

@@ -13,10 +13,14 @@ uint32_t nunChannels(VkFormat format) {
         case VK_FORMAT_R8G8B8_SRGB:
         case VK_FORMAT_B8G8R8_SRGB:
         case VK_FORMAT_R8G8B8_UNORM:
+        case VK_FORMAT_R16G16B16_SFLOAT:
+        case VK_FORMAT_R32G32B32_SFLOAT:
             return 3;
         case VK_FORMAT_R8G8B8A8_SRGB:
         case VK_FORMAT_B8G8R8A8_SRGB:
         case VK_FORMAT_R8G8B8A8_UNORM:
+        case VK_FORMAT_R16G16B16A16_SFLOAT:
+        case VK_FORMAT_R32G32B32A32_SFLOAT:
             return 4;
         default:
             throw std::runtime_error{fmt::format("format: {}, not implemented", format)};
@@ -50,7 +54,7 @@ void textures::fromFile(const VulkanDevice &device, Texture &texture, std::strin
 }
 
 void textures::create(const VulkanDevice &device, Texture &texture, VkImageType imageType, VkFormat format, void *data,
-                      Dimension3D<uint32_t> dimensions, VkSamplerAddressMode addressMode, uint32_t sizeMultiplier) {
+                      Dimension3D<uint32_t> dimensions, VkSamplerAddressMode addressMode, uint32_t sizeMultiplier, VkImageTiling tiling) {
     VkDeviceSize imageSize = dimensions.x * dimensions.y * dimensions.z * nunChannels(format) * sizeMultiplier;
 
     VulkanBuffer stagingBuffer = device.createBuffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, imageSize);
@@ -64,7 +68,7 @@ void textures::create(const VulkanDevice &device, Texture &texture, VkImageType 
     imageCreateInfo.mipLevels = 1;
     imageCreateInfo.arrayLayers = 1;
     imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-    imageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+    imageCreateInfo.tiling = tiling;
     imageCreateInfo.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
     imageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;

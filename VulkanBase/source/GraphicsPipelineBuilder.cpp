@@ -118,6 +118,7 @@ VulkanPipeline GraphicsPipelineBuilder::build(VulkanPipelineLayout& pipelineLayo
     auto pipeline = device().createGraphicsPipeline(info);
     if(!_name.empty()){
         device().setName<VK_OBJECT_TYPE_PIPELINE>(_name, pipeline.handle);
+        device().setName<VK_OBJECT_TYPE_PIPELINE_LAYOUT>(_name, pipelineLayout.pipelineLayout);
     }
     return pipeline;
 }
