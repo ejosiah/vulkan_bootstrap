@@ -84,6 +84,8 @@ void $classname$::createRenderPipeline() {
                     .cullBackFace()
                     .frontFaceCounterClockwise()
                     .polygonModeFill()
+                .multisampleState()
+                    .rasterizationSamples(settings.msaaSamples)
                 .depthStencilState()
                     .enableDepthWrite()
                     .enableDepthTest()

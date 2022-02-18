@@ -23,7 +23,7 @@ layout(push_constant) uniform Constants{
 
 layout(location = 0) in vec2 uv;
 
-layout(location = 0) out vec4 fragColor;
+layout(location = 0) out float fragColor;
 
 void main(){
     vec3 normal = texture(gNormal, uv).xyz;
@@ -57,5 +57,5 @@ void main(){
     }
     occlusion = 1 - (occlusion/kernelSize);
 
-    fragColor = vec4(occlusion);
+    fragColor = occlusion;
 }

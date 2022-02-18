@@ -3,7 +3,7 @@
 layout(set = 0, binding = 0) uniform sampler2D occlusion;
 
 layout(location = 0) in vec2 uv;
-layout(location = 0) out vec4 fragColor;
+layout(location = 0) out float fragColor;
 
 layout(push_constant) uniform Constants{
     int blurOn;
@@ -11,7 +11,7 @@ layout(push_constant) uniform Constants{
 
 void main(){
     if(!bool(blurOn)){
-        fragColor = texture(occlusion, uv);
+        fragColor = texture(occlusion, uv).r;
         return;
     }
 
@@ -24,6 +24,6 @@ void main(){
         }
     }
     result /= 16;
-    fragColor = vec4(result);
+    fragColor = result;
 }
 

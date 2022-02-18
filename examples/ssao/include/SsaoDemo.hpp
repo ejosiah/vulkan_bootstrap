@@ -114,8 +114,8 @@ protected:
         Texture noise;
         struct{
             glm::mat4 projection{1};
-            int kernelSize{64};
-            float radius{0.5};
+            int kernelSize{32};
+            float radius{0.3};
             float bias{0.025};
         } constants;
     } ssao;

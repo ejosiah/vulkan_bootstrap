@@ -139,6 +139,8 @@ void SsaoDemo::createRenderPipeline() {
                 .addVertexAttributeDescriptions(ClipSpace::attributeDescriptions())
             .inputAssemblyState()
                 .triangleStrip()
+            .multisampleState()
+                .rasterizationSamples(settings.msaaSamples)
             .colorBlendState()
                 .attachments(1)
             .layout().clear()
@@ -157,6 +159,8 @@ void SsaoDemo::createRenderPipeline() {
             .layout().clear()
                 .addPushConstantRange(VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::mat4) + sizeof(ssao.constants))
                 .addDescriptorSetLayout(ssao.setLayout)
+            .multisampleState()
+                .rasterizationSamples(VK_SAMPLE_COUNT_1_BIT)
             .renderPass(ssao.renderpass)
             .name("ssao")
             .subpass(0)
@@ -308,7 +312,7 @@ void SsaoDemo::initGBuffer() {
 
         gBuffer.position.image = device.createImage(imageInfo);
         gBuffer.position.imageView = gBuffer.position.image.createView(colorFormat, VK_IMAGE_VIEW_TYPE_2D, subRangeResource);
-        name(gBuffer.position, "g_buffer_color");
+        name(gBuffer.position, "g_buffer_position");
 
         gBuffer.normal.image = device.createImage(imageInfo);
         gBuffer.normal.imageView = gBuffer.normal.image.createView(colorFormat, VK_IMAGE_VIEW_TYPE_2D, subRangeResource);
@@ -643,7 +647,7 @@ void SsaoDemo::createSsaoSamplingData() {
 }
 
 void SsaoDemo::createSsaoFrameBuffer() {
-    auto colorFormat = VK_FORMAT_R32G32B32A32_SFLOAT;
+    auto colorFormat = VK_FORMAT_R8_UNORM;
 
     auto createAttachments = [&]{
         auto imageCreateInfo = initializers::imageCreateInfo(VK_IMAGE_TYPE_2D, colorFormat
@@ -708,7 +712,7 @@ void SsaoDemo::createSsaoFrameBuffer() {
 }
 
 void SsaoDemo::createBlurFrameBuffer() {
-    auto colorFormat = VK_FORMAT_R32G32B32A32_SFLOAT;
+    auto colorFormat = VK_FORMAT_R8_UNORM;
 
     auto createAttachments = [&]{
         auto imageCreateInfo = initializers::imageCreateInfo(VK_IMAGE_TYPE_2D, colorFormat
@@ -831,6 +835,7 @@ int main(){
         Settings settings;
         settings.depthTest = true;
         settings.enabledFeatures.fillModeNonSolid = true;
+        settings.msaaSamples = VK_SAMPLE_COUNT_8_BIT;
 
         auto app = SsaoDemo{ settings };
         std::unique_ptr<Plugin> imGui = std::make_unique<ImGuiPlugin>();
