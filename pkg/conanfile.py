@@ -25,7 +25,8 @@ class VulkanUtilConan(ConanFile):
                 "thrust/1.9.5",
                 "argparse/2.1",
                 "bullet3/3.17",
-                "entt/3.8.1"
+                "entt/3.8.1",
+                "meshoptimizer/0.17"
                 ]
 
     def config_options(self):
