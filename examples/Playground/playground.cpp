@@ -18,6 +18,7 @@
 #include <fstream>
 #include "halfedge.hpp"
 #include <bitset>
+#include <meshoptimizer.h>
 
 static std::vector<const char*> instanceExtensions{VK_EXT_DEBUG_UTILS_EXTENSION_NAME};
 static std::vector<const char*> validationLayers{"VK_LAYER_KHRONOS_validation"};
@@ -354,9 +355,7 @@ int findQueueFamily(std::vector<VkQueueFamilyProperties> queueFamilies, VkQueueF
     return matches.empty() ? -1 : matches.front().first;
 }
 
-int main() {
-    initVulkan();
-
+void formatTilingUsageCombo(){
     std::map<VkFormat, std::string> formats{};
     formats[VK_FORMAT_R8G8B8_SRGB] = "VK_FORMAT_R8G8B8_SRGB";
     formats[VK_FORMAT_R8G8B8A8_SRGB] = "VK_FORMAT_R8G8B8A8_SRGB";
@@ -402,6 +401,26 @@ int main() {
             }
         }
     }
+}
 
+int main() {
+
+   std::vector<mesh::Mesh> meshes;
+   mesh::load(meshes, R"(C:\Users\Josiah\OneDrive\media\models\Lucy-statue\metallic-lucy-statue-stanford-scan.obj)");
+   fmt::print("num meshes {}\n", meshes.size());
+   auto cube = primitives::cube();
+
+   auto indexCount = cube.indices.size();
+   auto vertexCount = cube.vertices.size();
+   fmt::print("pre optimization:\t");
+   fmt::print("\tvertex count: {}, index count : {}\n", indexCount, vertexCount);
+
+   std::vector<uint32_t> remappedIndices(indexCount);
+
+   vertexCount = meshopt_generateVertexRemap(remappedIndices.data(), cube.indices.data(), indexCount, cube.vertices.data(), vertexCount, sizeof(Vertex));
+
+    indexCount = remappedIndices.size();
+    fmt::print("post optimization:\t");
+    fmt::print("\tvertex count: {}, index count : {}", indexCount, vertexCount);
     return 0;
 }

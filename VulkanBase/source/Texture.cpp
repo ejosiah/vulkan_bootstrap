@@ -53,6 +53,37 @@ void textures::fromFile(const VulkanDevice &device, Texture &texture, std::strin
     stbi_image_free(pixels);
 }
 
+Texture textures::equirectangularToOctahedralMap(const VulkanDevice& device, const std::string& path, uint32_t size){
+    Texture equiTexture;
+    textures::hdr(device, equiTexture, path);
+    return equirectangularToOctahedralMap(device, equiTexture, size);
+}
+
+
+void textures::hdr(const VulkanDevice &device, Texture &texture, std::string_view path) {
+    int texWidth, texHeight, texChannels;
+    float* data = stbi_loadf(path.data(), &texWidth, &texHeight, &texChannels, 0);
+    if(!data){
+        throw std::runtime_error{"failed to load texture image!"};
+    }
+    int desiredChannels = 4;
+    std::vector<float> pixels;
+    int size = texWidth * texHeight * texChannels;
+    for(auto i = 0; i < size; i+= texChannels){
+        float r = data[i];
+        float g = data[i + 1];
+        float b = data[i + 2];
+        pixels.push_back(r);
+        pixels.push_back(g);
+        pixels.push_back(b);
+        pixels.push_back(1);
+    }
+    stbi_image_free(data);
+
+    create(device, texture, VK_IMAGE_TYPE_2D, VK_FORMAT_R32G32B32A32_SFLOAT, reinterpret_cast<char*>(pixels.data())
+           , {texWidth, texHeight, 1u}, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, sizeof(float));
+}
+
 void textures::create(const VulkanDevice &device, Texture &texture, VkImageType imageType, VkFormat format, void *data,
                       Dimension3D<uint32_t> dimensions, VkSamplerAddressMode addressMode, uint32_t sizeMultiplier, VkImageTiling tiling) {
     VkDeviceSize imageSize = dimensions.x * dimensions.y * dimensions.z * nunChannels(format) * sizeMultiplier;
