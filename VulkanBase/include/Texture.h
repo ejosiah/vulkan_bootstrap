@@ -10,6 +10,8 @@ struct Texture{
     VulkanImage image;
     VulkanImageView imageView;
     VulkanSampler sampler;
+    uint32_t width{0};
+    uint32_t height{0};
 };
 
 template<typename T>
@@ -40,7 +42,11 @@ namespace textures{
 
     void normalMap(unsigned char* data, const Dimension2D<uint32_t>& dimensions);
 
-    Texture equirectangularToOctahedralMap(const VulkanDevice& device, const std::string& path, uint32_t size);
+    Texture equirectangularToOctahedralMap(const VulkanDevice& device, const std::string& path, uint32_t size, VkImageLayout finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-    Texture equirectangularToOctahedralMap(const VulkanDevice& device, const Texture& equirectangularTexture, uint32_t size);
+    Texture equirectangularToOctahedralMap(const VulkanDevice& device, const Texture& equirectangularTexture, uint32_t size, VkImageLayout finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+    Texture brdf_lut(const VulkanDevice& device);
+
+    void ibl(const VulkanDevice& device, const Texture& envMap, Texture& irradianceMap, Texture& specularMap, VkImageLayout finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 }

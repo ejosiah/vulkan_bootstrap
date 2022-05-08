@@ -6,9 +6,8 @@ stb/20200203
 spdlog/1.8.2
 freetype/2.10.4
 imgui/1.82
-boost/1.75.0
+boost/1.78.0
 gtest/1.11.0
-thrust/1.9.5
 argparse/2.1
 bullet3/3.17
 entt/3.8.1

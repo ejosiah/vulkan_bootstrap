@@ -46,6 +46,8 @@ void textures::fromFile(const VulkanDevice &device, Texture &texture, std::strin
     int texWidth, texHeight, texChannels;
     stbi_set_flip_vertically_on_load(flipUv ? 1 : 0);
     stbi_uc* pixels = stbi_load(path.data(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+    texture.width = texWidth;
+    texture.height = texHeight;
     if(!pixels){
         throw std::runtime_error{"failed to load texture image!"};
     }
@@ -53,16 +55,31 @@ void textures::fromFile(const VulkanDevice &device, Texture &texture, std::strin
     stbi_image_free(pixels);
 }
 
-Texture textures::equirectangularToOctahedralMap(const VulkanDevice& device, const std::string& path, uint32_t size){
+Texture textures::equirectangularToOctahedralMap(const VulkanDevice& device, const std::string& path, uint32_t size, VkImageLayout finalLayout){
     Texture equiTexture;
+    equiTexture.width = equiTexture.height = size;
     textures::hdr(device, equiTexture, path);
-    return equirectangularToOctahedralMap(device, equiTexture, size);
+    auto octahedralMap = equirectangularToOctahedralMap(device, equiTexture, size, finalLayout);
+    VkSamplerCreateInfo samplerInfo{};
+    samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    samplerInfo.magFilter = VK_FILTER_LINEAR;
+    samplerInfo.minFilter = VK_FILTER_LINEAR;
+    samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+
+    octahedralMap.sampler = device.createSampler(samplerInfo);
+
+    return octahedralMap;
 }
 
 
 void textures::hdr(const VulkanDevice &device, Texture &texture, std::string_view path) {
     int texWidth, texHeight, texChannels;
     float* data = stbi_loadf(path.data(), &texWidth, &texHeight, &texChannels, 0);
+    texture.width = texWidth;
+    texture.height = texHeight;
     if(!data){
         throw std::runtime_error{"failed to load texture image!"};
     }
@@ -154,6 +171,7 @@ void textures::create(const VulkanDevice &device, Texture &texture, VkImageType 
 
 
 void textures::checkerboard(const VulkanDevice &device, Texture &texture, const glm::vec3 &colorA, const glm::vec3 &colorB) {
+    texture.width = texture.height = 256;
     auto data = new unsigned char[256 * 256 * 4];
     checkerboard(data, {256, 256 });
     create(device, texture, VK_IMAGE_TYPE_2D, VK_FORMAT_R8G8B8A8_UNORM, data, {256, 256, 1}, VK_SAMPLER_ADDRESS_MODE_REPEAT);

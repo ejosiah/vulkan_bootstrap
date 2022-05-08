@@ -6,7 +6,7 @@ MeshLoading::MeshLoading() : VulkanBaseApp("Coordinate Systems"){}
 
 void MeshLoading::initApp() {
     commandPool = device.createCommandPool(*device.queueFamilyIndex.graphics, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
-    commandBuffers = commandPool.allocate(swapChain.imageCount());
+    commandBuffers = commandPool.allocateCommandBuffers(swapChain.imageCount());
 }
 
 void MeshLoading::onSwapChainDispose() {

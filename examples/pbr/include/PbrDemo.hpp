@@ -1,5 +1,19 @@
 #include "VulkanBaseApp.h"
 
+struct Light{
+    glm::vec4 position;
+
+    alignas(16)
+    glm::vec3 intensity;
+};
+struct Material{
+    Texture albedo;
+    Texture metalness;
+    Texture roughness;
+    Texture normal;
+    Texture ao;
+};
+
 class PbrDemo : public VulkanBaseApp{
 public:
     explicit PbrDemo(const Settings& settings = {});
@@ -13,9 +27,19 @@ protected:
 
     void updateDescriptorSets();
 
+    void updatePbrDescriptors(const Material& material);
+
+    void createUboBuffers();
+
     void initModel();
 
+    void loadMaterials();
+
+    void createGlobalSampler();
+
     void loadEnvironmentMap();
+
+    void createBRDF_LUT();
 
     void createDescriptorPool();
 
@@ -26,6 +50,12 @@ protected:
     void createRenderPipeline();
 
     void createComputePipeline();
+
+    void renderEnvironment(VkCommandBuffer commandBuffer);
+
+    void drawScreenQuad(VkCommandBuffer commandBuffer);
+
+    void renderModel(VkCommandBuffer commandBuffer);
 
     void onSwapChainDispose() override;
 
@@ -41,6 +71,8 @@ protected:
 
     void onPause() override;
 
+    void renderUI(VkCommandBuffer commandBuffer);
+
 protected:
     struct {
         VulkanPipelineLayout layout;
@@ -54,18 +86,73 @@ protected:
 
     struct {
         VulkanBuffer vertices;
+        VulkanPipelineLayout layout;
+        VulkanPipeline pipeline;
     } screenQuad;
 
     struct {
+        VulkanDescriptorSetLayout setLayout;
         VkDescriptorSet descriptorSet;
+        VulkanPipelineLayout layout;
+        VulkanPipeline pipeline;
         Texture texture;
+        Texture irradiance;
+        Texture specular;
+        struct{
+            int mapId{0};
+            int selection{0};
+            float lod{0};
+        } constants;
+        int numMaps{0};
     } environmentMap;
 
+    Texture brdfLUT;
+    Texture placeHolderTexture;
+
+    VulkanDescriptorSetLayout uboSetLayouts;
+    VkDescriptorSet uboDescriptorSet;
+
+    struct{
+        VulkanDescriptorSetLayout setLayout;
+        struct {
+            int numLights{6};
+            int mapId{0};
+            float lod{0};
+        } constants;
+        VkDescriptorSet descriptorSet;
+    } pbr;
+
+    struct {
+        VulkanBuffer vertices;
+        VulkanBuffer indices;
+    } skybox;
+
+    std::array<Light, 6> lights{{
+            {glm::vec4{0, 0, 3, 1}, glm::vec3(23.47, 21.31, 20.79)},
+            {glm::vec4{0, 3, 0, 1}, glm::vec3(23.47, 21.31, 20.79)},
+            {glm::vec4{3, 0, 0, 1}, glm::vec3(23.47, 21.31, 20.79)},
+            {glm::vec4{0, 0, -3, 1}, glm::vec3(23.47, 21.31, 20.79)},
+            {glm::vec4{0, -3, 0, 1}, glm::vec3(23.47, 21.31, 20.79)},
+            {glm::vec4{0, 0, -3, 1}, glm::vec3(23.47, 21.31, 20.79)},
+    }};
+
+    struct{
+        VulkanBuffer lights;
+        VulkanBuffer mvp;
+    } uboBuffers;
+
+    Action* swapSet = nullptr;
+
     VulkanDescriptorSetLayout environmentMapSetLayout;
+    std::unique_ptr<OrbitingCameraController> cameraController;
 
     VulkanDescriptorPool descriptorPool;
     VulkanCommandPool commandPool;
     std::vector<VkCommandBuffer> commandBuffers;
     VulkanPipelineCache pipelineCache;
-    std::unique_ptr<OrbitingCameraController> cameraController;
+    VkPhysicalDeviceShaderAtomicFloatFeaturesEXT atomicFloatFeatures;
+    VulkanDrawable model;
+    VulkanSampler globalSampler;
+    Material rustedIron;
+    std::vector<Material> materials;
 };

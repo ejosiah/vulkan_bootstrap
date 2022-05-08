@@ -13,7 +13,8 @@ struct VulkanImage : public Copyable{
 
     VulkanImage() = default;
 
-    inline VulkanImage(VkDevice device, VmaAllocator allocator, VkImage image, VkFormat format, VmaAllocation allocation, VkImageLayout layout, VkExtent3D dimension)
+    inline VulkanImage(VkDevice device, VmaAllocator allocator, VkImage image, VkFormat format, VmaAllocation allocation
+                       , VkImageLayout layout, VkExtent3D dimension, uint32_t levels = 1u, uint32_t layers = 1u)
     : device(device)
     , allocator(allocator)
     , image(image)
@@ -21,6 +22,8 @@ struct VulkanImage : public Copyable{
     , allocation(allocation)
     , currentLayout(layout)
     , dimension(dimension)
+    , mipLevels(levels)
+    , arrayLayers(layers)
     {}
 
     VulkanImage(VulkanImage&& source) noexcept {
@@ -96,8 +99,8 @@ struct VulkanImage : public Copyable{
             VkPipelineStageFlags sourceStage;
             VkPipelineStageFlags destinationStage;
 
+            barrier.srcAccessMask = 0;
             if (currentLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
-                barrier.srcAccessMask = 0;
                 barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
 
                 sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
@@ -110,7 +113,6 @@ struct VulkanImage : public Copyable{
                 sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
                 destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
             }else if(currentLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL){
-                barrier.srcAccessMask = 0;
                 barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
                 sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
@@ -129,21 +131,27 @@ struct VulkanImage : public Copyable{
                           VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask){
 
         pool.oneTimeCommand( [&](auto commandBuffer) {
-            VkImageMemoryBarrier barrier{};
-            barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-            barrier.srcAccessMask = srcAccessMask;
-            barrier.dstAccessMask = dstAccessMask;
-            barrier.oldLayout = currentLayout;
-            barrier.newLayout = newLayout;
-            barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-            barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-            barrier.image = image;
-            barrier.subresourceRange = subresourceRange;
-
-            vkCmdPipelineBarrier(commandBuffer, srcStageMask, dstStageMask, 0,
-                                 0, nullptr, 0, nullptr, 1, &barrier);
-            currentLayout = newLayout;
+            transitionLayout(commandBuffer, newLayout, subresourceRange, srcAccessMask, dstAccessMask, srcStageMask, dstStageMask);
         });
+    }
+
+    void transitionLayout(VkCommandBuffer commandBuffer, VkImageLayout newLayout, const VkImageSubresourceRange& subresourceRange,
+                          VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask){
+
+        VkImageMemoryBarrier barrier{};
+        barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        barrier.srcAccessMask = srcAccessMask;
+        barrier.dstAccessMask = dstAccessMask;
+        barrier.oldLayout = currentLayout;
+        barrier.newLayout = newLayout;
+        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.image = image;
+        barrier.subresourceRange = subresourceRange;
+
+        vkCmdPipelineBarrier(commandBuffer, srcStageMask, dstStageMask, 0,
+                             0, nullptr, 0, nullptr, 1, &barrier);
+        currentLayout = newLayout;
     }
 
     [[nodiscard]] VulkanImageView createView(VkFormat format, VkImageViewType viewType, const VkImageSubresourceRange& subresourceRange, VkImageViewCreateFlags flags = 0) const {
@@ -168,6 +176,8 @@ struct VulkanImage : public Copyable{
     VmaAllocation allocation = VK_NULL_HANDLE;
     VkImageLayout currentLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     VkExtent3D dimension = { 0u, 0u, 0u };
+    uint32_t  mipLevels{1};
+    uint32_t arrayLayers{1};
 
     VkDeviceSize  size = 0;
 };

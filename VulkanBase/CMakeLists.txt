@@ -24,6 +24,8 @@ if (OpenCL_FOUND)
     include_directories("${OpenCL_INCLUDE_DIRS}")
     add_definitions( -DOPENCL_FOUND=1 )
     target_link_libraries(VulkanBase ${OpenCL_LIBRARIES})
+else()
+    message(WARNING "OpenCL not found")
 endif()
 
 include(GoogleTest)

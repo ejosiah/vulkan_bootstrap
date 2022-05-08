@@ -348,7 +348,7 @@ void BulletPhysicsDemo::displayInfo(VkCommandBuffer commandBuffer) {
 }
 
 void BulletPhysicsDemo::createSkyBox() {
-    SkyBox::create(skyBox, R"(C:\Users\Josiah\OneDrive\media\textures\skybox\005)"
+    SkyBox::create(skyBox, R"(C:\Users\Josiah Ebhomenye\OneDrive\media\textures\skybox\005)"
                    , {"right.jpg", "left.jpg", "top.jpg", "bottom.jpg", "front.jpg", "back.jpg"});
 }
 
@@ -525,7 +525,7 @@ int main(){
 
         std::vector<FontInfo> fonts {
 #ifdef WIN32
-                {"JetBrainsMono", R"(C:\Users\Josiah\Downloads\JetBrainsMono-2.225\fonts\ttf\JetBrainsMono-Regular.ttf)", 20},
+                {"JetBrainsMono", R"(D:\Users\Josiah\Downloads\JetBrainsMono-2.225\fonts\ttf\JetBrainsMono-Regular.ttf)", 20},
                 {"Arial", R"(C:\Windows\Fonts\arial.ttf)", 20},
                 {"Arial", R"(C:\Windows\Fonts\arial.ttf)", 15}
 #elif defined(__APPLE__)

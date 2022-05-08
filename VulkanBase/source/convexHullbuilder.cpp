@@ -48,7 +48,7 @@ void ConvexHullBuilder::initOpenCL() {
         m_openClParams.oclAcceleration = 0;
     }
 #else
-    spdlog::info("OpenCL (OFF)")
+    spdlog::info("OpenCL (OFF)");
 #endif
 }
 
@@ -287,7 +287,7 @@ std::future<ConvexHulls> ConvexHullBuilder::build() {
             barrier.offset = 0;
             barrier.size = deviceBuffer.size;
 
-            vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_VERTEX_INPUT_BIT
+            vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT
                     , 0, 0, VK_NULL_HANDLE, 1, &barrier, 0, VK_NULL_HANDLE);
         });
 

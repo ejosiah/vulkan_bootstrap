@@ -26,9 +26,9 @@ void ConvexDecompositionDemo::initApp() {
     createFloor();
     loadBunny();
     loadDragon();
-    loadArmadillo();
-    loadSkull();
-    loadWereWolf();
+//    loadArmadillo();
+//    loadSkull();
+//    loadWereWolf();
     constructConvexHull();
 
     initCamera();
@@ -415,8 +415,6 @@ std::future<par::done> ConvexDecompositionDemo::loadModel(const std::string &pat
 
         return par::done{};
     });
-    phong::VulkanDrawableInfo info{};
-
 }
 
 void ConvexDecompositionDemo::initCamera() {
