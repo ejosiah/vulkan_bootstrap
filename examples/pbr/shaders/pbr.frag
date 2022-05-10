@@ -25,24 +25,28 @@ layout(set = 2, binding = 2) uniform sampler2DArray prefilterMap;
 layout(push_constant) uniform Constants{
     int numLights;
     int mapId;
-    float lod;
+    int invertRoughness;
+    int normalMapping;
 };
 
 layout(location = 0) in struct {
     vec3 tViewPos;
     vec3 tPos;
     vec2 uv;
+    mat3 tbn;
     Light tLights[10];
 } fs_in;
 
 layout(location = 0) out vec4 fragColor;
+const float preventDivideByZero = 0.0001;
 
 void main(){
     vec3 albedo = texture(albedoMap, fs_in.uv).rgb;
     float metalness = texture(metalicMap, fs_in.uv).r;
     float roughness = texture(roughnessMap, fs_in.uv).r;
+    roughness = bool(invertRoughness) ? 1 - roughness : roughness;
     float ao = texture(aoMap, fs_in.uv).r;
-    vec3 normal = 2 * texture(normalMap, fs_in.uv).rgb - 1;
+    vec3 normal = bool(normalMapping) ? 2 * texture(normalMap, fs_in.uv).rgb - 1 : vec3(0, 0, 1);
 
     vec3 viewDir = fs_in.tViewPos - fs_in.tPos;
     vec3 N = normalize(normal);
@@ -71,7 +75,7 @@ void main(){
         vec3 F = fresnelSchlick(max(dot(H,E), 0), F0);
 
         vec3 numerator    = NDF * G * F;
-        float denominator = 4.0 * max(dot(N, E), 0.0) * max(dot(N, L), 0.0) + 0.0001; // + 0.0001 to prevent divide by zero
+        float denominator = 4.0 * max(dot(N, E), 0.0) * max(dot(N, L), 0.0) + preventDivideByZero;
         vec3 specular = numerator / denominator;
 
         // kS is equal to Fresnel
@@ -93,6 +97,9 @@ void main(){
     }
 
     // ambient lighting (we now use IBL as the ambient term)
+    N = normalize(fs_in.tbn * N);   // object space to world space
+    R = normalize(fs_in.tbn * R);   // object space to world space
+    E = normalize(fs_in.tbn * E);   // object space to world space
     vec3 F = fresnelSchlickRoughness(max(dot(N, E), 0.0), F0, roughness);
 
     vec3 kS = F;
@@ -113,7 +120,6 @@ void main(){
 
     vec3 ambient = (kD * diffuse + specular) * ao;
     vec3 color = ambient + Lo;
-
     // HDR tonemapping
     color = color / (color + vec3(1.0));
     // gamma correct

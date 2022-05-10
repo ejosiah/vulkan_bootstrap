@@ -10,6 +10,7 @@ PbrDemo::PbrDemo(const Settings& settings) : VulkanBaseApp("Physically based ren
     fileManager.addSearchPath("../../examples/pbr/models");
     fileManager.addSearchPath("../../examples/pbr/textures");
     fileManager.addSearchPath("../../data/shaders");
+    fileManager.addSearchPath("../../data/shaders/pbr"); // TODO recursive paths
     fileManager.addSearchPath("../../data/models");
     fileManager.addSearchPath("../../data/textures");
     fileManager.addSearchPath("../../data");
@@ -38,13 +39,14 @@ void PbrDemo::initApp() {
 
     initModel();
     createBRDF_LUT();
-    createGlobalSampler();
+    createValueSampler();
+    createSRGBSampler();
     loadEnvironmentMap();
     loadMaterials();
     createDescriptorSetLayouts();
     createUboBuffers();
     updateDescriptorSets();
-    updatePbrDescriptors(rustedIron);
+    updatePbrDescriptors(materials[activeMaterial]);
     createPipelineCache();
     createRenderPipeline();
     createComputePipeline();
@@ -276,6 +278,28 @@ void PbrDemo::renderUI(VkCommandBuffer commandBuffer) {
     }
     ImGui::End();
 
+    bool settings = true;
+    ImGui::Begin("Object Properties");
+
+    if(ImGui::CollapsingHeader("Materials", &settings, ImGuiTreeNodeFlags_DefaultOpen)) {
+        ImGui::SetWindowSize("Materials", {150, 250});
+        ImGui::RadioButton("Rust Iron", &activeMaterial, 0);
+        ImGui::RadioButton("Chrome", &activeMaterial, 1);
+        ImGui::RadioButton("Gold", &activeMaterial, 2);
+        ImGui::RadioButton("Weaved Metal", &activeMaterial, 3);
+        ImGui::RadioButton("Plastic", &activeMaterial, 4);
+        ImGui::RadioButton("Leather", &activeMaterial, 5);
+        ImGui::RadioButton("Brick", &activeMaterial, 6);
+    }
+
+    static bool normalMapping = pbr.constants.normalMapping;
+    if(ImGui::CollapsingHeader("settings", &settings, ImGuiTreeNodeFlags_DefaultOpen)){
+        ImGui::Checkbox("normal mapping", &normalMapping);
+    }
+    pbr.constants.normalMapping = normalMapping;
+
+    ImGui::End();
+
     plugin(IM_GUI_PLUGIN).draw(commandBuffer);
 }
 
@@ -302,6 +326,12 @@ void PbrDemo::drawScreenQuad(VkCommandBuffer commandBuffer) {
 void PbrDemo::update(float time) {
     cameraController->update(time);
     uboBuffers.mvp.copy(&cameraController->cam(), sizeof(Camera));
+
+    static int prevActiveMaterial = 0;
+    if(prevActiveMaterial != activeMaterial){
+        prevActiveMaterial = activeMaterial;
+        updatePbrDescriptors(materials[activeMaterial]);
+    }
 }
 
 void PbrDemo::checkAppInputs() {
@@ -448,7 +478,21 @@ void PbrDemo::createBRDF_LUT(){
     brdfLUT = textures::brdf_lut(device);
 }
 
-void PbrDemo::createGlobalSampler() {
+void PbrDemo::createValueSampler() {
+    VkSamplerCreateInfo samplerInfo{};
+    samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    samplerInfo.magFilter = VK_FILTER_NEAREST;
+    samplerInfo.minFilter = VK_FILTER_NEAREST;
+    samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_WHITE;
+    samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+
+    valueSampler = device.createSampler(samplerInfo);
+}
+
+void PbrDemo::createSRGBSampler() {
     VkSamplerCreateInfo samplerInfo{};
     samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
     samplerInfo.magFilter = VK_FILTER_LINEAR;
@@ -459,7 +503,7 @@ void PbrDemo::createGlobalSampler() {
     samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
     samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
 
-    globalSampler = device.createSampler(samplerInfo);
+    sRgbSampler = device.createSampler(samplerInfo);
 }
 
 void PbrDemo::createDescriptorSetLayouts() {
@@ -489,32 +533,32 @@ void PbrDemo::createDescriptorSetLayouts() {
                 .descriptorType(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
                 .descriptorCount(1)
                 .shaderStages(VK_SHADER_STAGE_FRAGMENT_BIT)
-                .immutableSamplers(globalSampler)
+                .immutableSamplers(sRgbSampler)
             .binding(1)
                 .descriptorType(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
                 .descriptorCount(1)
                 .shaderStages(VK_SHADER_STAGE_FRAGMENT_BIT)
-                .immutableSamplers(globalSampler)
+                .immutableSamplers(valueSampler)
             .binding(2)
                 .descriptorType(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
                 .descriptorCount(1)
                 .shaderStages(VK_SHADER_STAGE_FRAGMENT_BIT)
-                .immutableSamplers(globalSampler)
+                .immutableSamplers(valueSampler)
             .binding(3)
                 .descriptorType(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
                 .descriptorCount(1)
                 .shaderStages(VK_SHADER_STAGE_FRAGMENT_BIT)
-                .immutableSamplers(globalSampler)
+                .immutableSamplers(valueSampler)
             .binding(4)
                 .descriptorType(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
                 .descriptorCount(1)
                 .shaderStages(VK_SHADER_STAGE_FRAGMENT_BIT)
-                .immutableSamplers(globalSampler)
+                .immutableSamplers(valueSampler)
             .binding(5)
                 .descriptorType(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
                 .descriptorCount(1)
                 .shaderStages(VK_SHADER_STAGE_FRAGMENT_BIT)
-                .immutableSamplers(globalSampler)
+                .immutableSamplers(sRgbSampler)
         .createLayout();
 
     environmentMap.setLayout =
@@ -634,6 +678,7 @@ void PbrDemo::renderModel(VkCommandBuffer commandBuffer) {
         uboDescriptorSet, pbr.descriptorSet, environmentMap.descriptorSet
     };
     pbr.constants.mapId = environmentMap.constants.mapId;
+    pbr.constants.invertRoughness = materials[activeMaterial].invertRoughness;
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, render.pipeline);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, render.layout, 0, COUNT(sets), sets.data(), 0, VK_NULL_HANDLE);
     vkCmdPushConstants(commandBuffer, render.layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(pbr.constants), &pbr.constants);
@@ -641,12 +686,62 @@ void PbrDemo::renderModel(VkCommandBuffer commandBuffer) {
 }
 
 void PbrDemo::loadMaterials() {
+
     auto rustedIronPath = resource("textures/materials/rusted_iron");
-    textures::fromFile(device, rustedIron.albedo, rustedIronPath + "\\albedo.png");
-    textures::fromFile(device, rustedIron.metalness, rustedIronPath + "\\metallic.png");
-    textures::fromFile(device, rustedIron.normal, rustedIronPath + "\\normal.png");
-    textures::fromFile(device, rustedIron.roughness, rustedIronPath + "\\roughness.png");
-    textures::fromFile(device, rustedIron.ao, rustedIronPath + "\\ao.png");
+    textures::fromFile(device, materials[0].albedo, rustedIronPath + "/albedo.png", VK_FORMAT_R8G8B8A8_SRGB);
+    textures::fromFile(device, materials[0].metalness, rustedIronPath + "/metallic.png");
+    textures::fromFile(device, materials[0].normal, rustedIronPath + "/normal.png");
+    textures::fromFile(device, materials[0].roughness, rustedIronPath + "/roughness.png");
+    textures::fromFile(device, materials[0].ao, rustedIronPath + "/ao.png");
+
+    auto chromePath = resource("textures/materials/chrome");
+    textures::color(device, materials[1].albedo, glm::vec3(0.8), {256, 256});
+    textures::fromFile(device, materials[1].metalness, chromePath + "/metallic.jpg");
+    textures::fromFile(device, materials[1].normal, chromePath + "/normal.jpg");
+    textures::fromFile(device, materials[1].roughness, chromePath + "/gloss.jpg");
+    textures::fromFile(device, materials[1].ao, chromePath + "/ao.jpg");
+    materials[1].invertRoughness = true;
+
+    auto goldIronPath = resource("textures/materials/gold");
+    textures::fromFile(device, materials[2].albedo, goldIronPath + "/albedo.png", VK_FORMAT_R8G8B8A8_SRGB);
+    textures::fromFile(device, materials[2].metalness, goldIronPath + "/metallic.png");
+    textures::fromFile(device, materials[2].normal, goldIronPath + "/normal.png");
+    textures::fromFile(device, materials[2].roughness, goldIronPath + "/roughness.png");
+    textures::fromFile(device, materials[2].ao, goldIronPath + "/ao.png");
+
+    auto weavedMetalPath = resource("textures/materials/weavedMetal");
+    textures::color(device, materials[3].albedo, glm::vec3(0.8), {256, 256});
+    textures::fromFile(device, materials[3].metalness, weavedMetalPath + "/metallic.jpg");
+    textures::fromFile(device, materials[3].normal, weavedMetalPath + "/normal.jpg");
+    textures::fromFile(device, materials[3].roughness, weavedMetalPath + "/gloss.jpg");
+    textures::fromFile(device, materials[3].ao, weavedMetalPath + "/ao.jpg");
+    materials[3].invertRoughness = true;
+
+
+    auto plasticPath = resource("textures/materials/plastic");
+    textures::fromFile(device, materials[4].albedo, plasticPath + "/albedo.png", VK_FORMAT_R8G8B8A8_SRGB);
+    textures::fromFile(device, materials[4].metalness, plasticPath + "/metallic.png");
+    textures::fromFile(device, materials[4].normal, plasticPath + "/normal.png");
+    textures::fromFile(device, materials[4].roughness, plasticPath + "/roughness.png");
+    textures::fromFile(device, materials[4].ao, plasticPath + "/ao.png");
+
+    auto leatherPath = resource("textures/materials/leather");
+    textures::fromFile(device, materials[5].albedo, leatherPath + "/albedo.jpg", VK_FORMAT_R8G8B8A8_SRGB);
+    textures::color(device, materials[5].metalness, glm::vec3(0), {256, 256});
+    textures::fromFile(device, materials[5].normal, leatherPath + "/normal.jpg");
+    textures::fromFile(device, materials[5].roughness, leatherPath + "/gloss.jpg");
+    textures::fromFile(device, materials[5].ao, leatherPath + "/ao.jpg");
+    materials[5].invertRoughness = true;
+
+    auto brickPath = resource("textures/materials/brick");
+    textures::fromFile(device, materials[6].albedo, brickPath + "/albedo.jpg", VK_FORMAT_R8G8B8A8_SRGB);
+    textures::color(device, materials[6].metalness, glm::vec3(0), {256, 256});
+    textures::fromFile(device, materials[6].normal, brickPath + "/normal.jpg");
+    textures::fromFile(device, materials[6].roughness, brickPath + "/gloss.jpg");
+    textures::fromFile(device, materials[6].ao, brickPath + "/ao.jpg");
+    materials[6].invertRoughness = true;
+
+
 }
 
 

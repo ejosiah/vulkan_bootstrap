@@ -58,7 +58,9 @@ vec4 integrate_brdf(float NdotV, float roughness){
 }
 
 void main(){
-    vec2 uv = vec2(gl_GlobalInvocationID.yz)/vec2(gl_NumWorkGroups.yz - 1);
+    vec2 pixelOffset = vec2(.5);
+    vec2 resolution = vec2(gl_NumWorkGroups.yz);
+    vec2 uv = (vec2(gl_GlobalInvocationID.yz) + pixelOffset)/resolution;
     float NdotV = uv.x;
     float roughness = uv.y;
     vec4 brdf = integrate_brdf(NdotV, roughness);

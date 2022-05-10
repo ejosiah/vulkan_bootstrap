@@ -48,6 +48,18 @@ struct VulkanDrawable{
         }
     }
 
+    void draw(VkCommandBuffer commandBuffer, const std::string& meshName){
+        auto res = std::find_if(begin(meshes), end(meshes), [&](const auto& mesh){ return mesh.name == meshName; });
+        if(res != std::end(meshes)){
+            VkDeviceSize offset = 0;
+            vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertexBuffer.buffer, &offset);
+            vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+            res->drawIndexed(commandBuffer);
+        }else{
+            spdlog::warn("mesh with name {} not found", meshName);
+        }
+    }
+
     [[nodiscard]]
     uint32_t numTriangles() const {
         int count = 0;

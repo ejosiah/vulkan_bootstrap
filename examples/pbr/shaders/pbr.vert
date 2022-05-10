@@ -25,13 +25,15 @@ layout(set = 0, binding = 1) uniform MVP{
 layout(push_constant) uniform Constants{
     int numLights;
     int mapId;
-    float lod;
+    int invertRoughness;
+    int normalMapping;
 };
 
 layout(location = 0) out struct {
     vec3 tViewPos;
     vec3 tPos;
     vec2 uv;
+    mat3 tbn;
     Light tLights[10];
 } vs_out;
 
@@ -46,6 +48,7 @@ void main(){
     vs_out.tViewPos = worldSpaceTotbn * viewPos;
     vs_out.tPos = worldSpaceTotbn * worldPos;
     vs_out.uv = uv;
+    vs_out.tbn = tbnToWorldSpace;
 
     for(int i = 0; i < numLights; i++){
         vs_out.tLights[i].position = vec4(worldSpaceTotbn * lights[i].position.xyz, 1);

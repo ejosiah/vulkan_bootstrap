@@ -1,4 +1,5 @@
 #include "VulkanBaseApp.h"
+#include "BRDFGenerator.hpp"
 
 struct Light{
     glm::vec4 position;
@@ -12,6 +13,7 @@ struct Material{
     Texture roughness;
     Texture normal;
     Texture ao;
+    bool invertRoughness{false};
 };
 
 class PbrDemo : public VulkanBaseApp{
@@ -35,7 +37,9 @@ protected:
 
     void loadMaterials();
 
-    void createGlobalSampler();
+    void createValueSampler();
+
+    void createSRGBSampler();
 
     void loadEnvironmentMap();
 
@@ -117,7 +121,8 @@ protected:
         struct {
             int numLights{6};
             int mapId{0};
-            float lod{0};
+            int invertRoughness{0};
+            int normalMapping{1};
         } constants;
         VkDescriptorSet descriptorSet;
     } pbr;
@@ -133,7 +138,7 @@ protected:
             {glm::vec4{3, 0, 0, 1}, glm::vec3(23.47, 21.31, 20.79)},
             {glm::vec4{0, 0, -3, 1}, glm::vec3(23.47, 21.31, 20.79)},
             {glm::vec4{0, -3, 0, 1}, glm::vec3(23.47, 21.31, 20.79)},
-            {glm::vec4{0, 0, -3, 1}, glm::vec3(23.47, 21.31, 20.79)},
+            {glm::vec4{-3, 0, 0, 1}, glm::vec3(23.47, 21.31, 20.79)},
     }};
 
     struct{
@@ -152,7 +157,10 @@ protected:
     VulkanPipelineCache pipelineCache;
     VkPhysicalDeviceShaderAtomicFloatFeaturesEXT atomicFloatFeatures;
     VulkanDrawable model;
-    VulkanSampler globalSampler;
-    Material rustedIron;
-    std::vector<Material> materials;
+    VulkanSampler valueSampler;
+    VulkanSampler sRgbSampler;
+    std::array<Material, 7> materials;
+    int activeMaterial{0};
+    BRDFGenerator brdfGenerator;
+    std::map<std::string, std::string> meshMaterialMap;
 };
