@@ -280,9 +280,9 @@ void PbrDemo::renderUI(VkCommandBuffer commandBuffer) {
 
     bool settings = true;
     ImGui::Begin("Object Properties");
+    ImGui::SetWindowSize("Object Properties", {200, 350});
 
     if(ImGui::CollapsingHeader("Materials", &settings, ImGuiTreeNodeFlags_DefaultOpen)) {
-        ImGui::SetWindowSize("Materials", {150, 250});
         ImGui::RadioButton("Rust Iron", &activeMaterial, 0);
         ImGui::RadioButton("Chrome", &activeMaterial, 1);
         ImGui::RadioButton("Gold", &activeMaterial, 2);
@@ -290,11 +290,23 @@ void PbrDemo::renderUI(VkCommandBuffer commandBuffer) {
         ImGui::RadioButton("Plastic", &activeMaterial, 4);
         ImGui::RadioButton("Leather", &activeMaterial, 5);
         ImGui::RadioButton("Brick", &activeMaterial, 6);
+        ImGui::RadioButton("Cobble stone", &activeMaterial, 7);
+        ImGui::RadioButton("Metal Bumps Rusted", &activeMaterial, 8);
     }
 
     static bool normalMapping = pbr.constants.normalMapping;
+    static bool parallaxMapping = true;
     if(ImGui::CollapsingHeader("settings", &settings, ImGuiTreeNodeFlags_DefaultOpen)){
         ImGui::Checkbox("normal mapping", &normalMapping);
+
+        if(materials[activeMaterial].parallaxMapping) {
+            ImGui::Checkbox("Parallax mapping", &parallaxMapping);
+            if (parallaxMapping) {
+                ImGui::SliderFloat("scale", &pbr.constants.heightScale, 0.1f, 1.0f);
+            }
+            pbr.constants.parallaxMapping = parallaxMapping;
+        }
+
     }
     pbr.constants.normalMapping = normalMapping;
 
@@ -324,8 +336,10 @@ void PbrDemo::drawScreenQuad(VkCommandBuffer commandBuffer) {
 }
 
 void PbrDemo::update(float time) {
-    cameraController->update(time);
-    uboBuffers.mvp.copy(&cameraController->cam(), sizeof(Camera));
+    if(!ImGui::IsAnyItemActive()) {
+        cameraController->update(time);
+        uboBuffers.mvp.copy(&cameraController->cam(), sizeof(Camera));
+    }
 
     static int prevActiveMaterial = 0;
     if(prevActiveMaterial != activeMaterial){
@@ -557,6 +571,11 @@ void PbrDemo::createDescriptorSetLayouts() {
             .binding(5)
                 .descriptorType(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
                 .descriptorCount(1)
+                .shaderStages(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT)
+                .immutableSamplers(valueSampler)
+            .binding(6)
+                .descriptorType(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
+                .descriptorCount(1)
                 .shaderStages(VK_SHADER_STAGE_FRAGMENT_BIT)
                 .immutableSamplers(sRgbSampler)
         .createLayout();
@@ -622,7 +641,7 @@ void PbrDemo::updateDescriptorSets() {
     writes[4].pBufferInfo = &mvpBufferInfo;
 
     writes[5].dstSet = pbr.descriptorSet;
-    writes[5].dstBinding = 5;
+    writes[5].dstBinding = 6;
     writes[5].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     writes[5].descriptorCount = 1;
     VkDescriptorImageInfo brdfLutImageInfo{VK_NULL_HANDLE, brdfLUT.imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
@@ -633,7 +652,7 @@ void PbrDemo::updateDescriptorSets() {
 }
 
 void PbrDemo::updatePbrDescriptors(const Material& material) {
-    auto writes = initializers::writeDescriptorSets<5>();
+    auto writes = initializers::writeDescriptorSets<6>();
 
     writes[0].dstSet = pbr.descriptorSet;
     writes[0].dstBinding = 0;
@@ -670,6 +689,13 @@ void PbrDemo::updatePbrDescriptors(const Material& material) {
     VkDescriptorImageInfo aoImageInfo{ VK_NULL_HANDLE, material.ao.imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
     writes[4].pImageInfo = &aoImageInfo;
 
+    writes[5].dstSet = pbr.descriptorSet;
+    writes[5].dstBinding = 5;
+    writes[5].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    writes[5].descriptorCount = 1;
+    VkDescriptorImageInfo depthImageInfo{ VK_NULL_HANDLE, material.depth.imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+    writes[5].pImageInfo = &depthImageInfo;
+
     device.updateDescriptorSets(writes);
 }
 
@@ -693,6 +719,7 @@ void PbrDemo::loadMaterials() {
     textures::fromFile(device, materials[0].normal, rustedIronPath + "/normal.png");
     textures::fromFile(device, materials[0].roughness, rustedIronPath + "/roughness.png");
     textures::fromFile(device, materials[0].ao, rustedIronPath + "/ao.png");
+    textures::color(device, materials[0].depth, glm::vec3(0), {64, 64});
 
     auto chromePath = resource("textures/materials/chrome");
     textures::color(device, materials[1].albedo, glm::vec3(0.8), {256, 256});
@@ -700,6 +727,7 @@ void PbrDemo::loadMaterials() {
     textures::fromFile(device, materials[1].normal, chromePath + "/normal.jpg");
     textures::fromFile(device, materials[1].roughness, chromePath + "/gloss.jpg");
     textures::fromFile(device, materials[1].ao, chromePath + "/ao.jpg");
+    textures::color(device, materials[1].depth, glm::vec3(0), {64, 64});
     materials[1].invertRoughness = true;
 
     auto goldIronPath = resource("textures/materials/gold");
@@ -708,6 +736,7 @@ void PbrDemo::loadMaterials() {
     textures::fromFile(device, materials[2].normal, goldIronPath + "/normal.png");
     textures::fromFile(device, materials[2].roughness, goldIronPath + "/roughness.png");
     textures::fromFile(device, materials[2].ao, goldIronPath + "/ao.png");
+    textures::color(device, materials[2].depth, glm::vec3(0), {64, 64});
 
     auto weavedMetalPath = resource("textures/materials/weavedMetal");
     textures::color(device, materials[3].albedo, glm::vec3(0.8), {256, 256});
@@ -715,6 +744,7 @@ void PbrDemo::loadMaterials() {
     textures::fromFile(device, materials[3].normal, weavedMetalPath + "/normal.jpg");
     textures::fromFile(device, materials[3].roughness, weavedMetalPath + "/gloss.jpg");
     textures::fromFile(device, materials[3].ao, weavedMetalPath + "/ao.jpg");
+    textures::color(device, materials[3].depth, glm::vec3(0), {64, 64});
     materials[3].invertRoughness = true;
 
 
@@ -724,6 +754,7 @@ void PbrDemo::loadMaterials() {
     textures::fromFile(device, materials[4].normal, plasticPath + "/normal.png");
     textures::fromFile(device, materials[4].roughness, plasticPath + "/roughness.png");
     textures::fromFile(device, materials[4].ao, plasticPath + "/ao.png");
+    textures::color(device, materials[4].depth, glm::vec3(0), {64, 64});
 
     auto leatherPath = resource("textures/materials/leather");
     textures::fromFile(device, materials[5].albedo, leatherPath + "/albedo.jpg", VK_FORMAT_R8G8B8A8_SRGB);
@@ -731,6 +762,7 @@ void PbrDemo::loadMaterials() {
     textures::fromFile(device, materials[5].normal, leatherPath + "/normal.jpg");
     textures::fromFile(device, materials[5].roughness, leatherPath + "/gloss.jpg");
     textures::fromFile(device, materials[5].ao, leatherPath + "/ao.jpg");
+    textures::color(device, materials[5].depth, glm::vec3(0), {64, 64});
     materials[5].invertRoughness = true;
 
     auto brickPath = resource("textures/materials/brick");
@@ -739,8 +771,28 @@ void PbrDemo::loadMaterials() {
     textures::fromFile(device, materials[6].normal, brickPath + "/normal.jpg");
     textures::fromFile(device, materials[6].roughness, brickPath + "/gloss.jpg");
     textures::fromFile(device, materials[6].ao, brickPath + "/ao.jpg");
+    textures::color(device, materials[6].depth, glm::vec3(0), {64, 64});
     materials[6].invertRoughness = true;
 
+    auto cobblestoneWallPath = resource("textures/materials/CobblestoneWall005");
+    textures::fromFile(device, materials[7].albedo, cobblestoneWallPath + "/CobblestoneWall005_COL_3k.jpg", VK_FORMAT_R8G8B8A8_SRGB);
+    textures::color(device, materials[7].metalness, glm::vec3(0), {256, 256});
+    textures::fromFile(device, materials[7].normal, cobblestoneWallPath + "/CobblestoneWall005_NRM_3k.jpg");
+    textures::fromFile(device, materials[7].roughness, cobblestoneWallPath + "/CobblestoneWall005_GLOSS_3k.jpg");
+    textures::fromFile(device, materials[7].ao, cobblestoneWallPath + "/CobblestoneWall005_AO_3K.jpg");
+    textures::fromFile(device, materials[7].depth, cobblestoneWallPath + "/CobblestoneWall005_DISP_3K.jpg");
+    materials[7].invertRoughness = true;
+    materials[7].parallaxMapping = true;
+
+    auto metalBumpsRusted = resource("textures/materials/MetalBumpsRusted001");
+    textures::fromFile(device, materials[8].albedo, metalBumpsRusted + "/MetalBumpsRusted001_COL_3k.jpg", VK_FORMAT_R8G8B8A8_SRGB);
+    textures::color(device, materials[8].metalness, glm::vec3(0), {256, 256});
+    textures::fromFile(device, materials[8].normal, metalBumpsRusted + "/MetalBumpsRusted001_NRM_3k.jpg");
+    textures::fromFile(device, materials[8].roughness, metalBumpsRusted + "/MetalBumpsRusted001_GLOSS_3k.jpg");
+    textures::color(device, materials[8].ao, glm::vec3(0), {256, 256});
+    textures::fromFile(device, materials[8].depth, metalBumpsRusted + "/MetalBumpsRusted001_DISP_3K.jpg");
+    materials[8].invertRoughness = true;
+    materials[8].parallaxMapping = true;
 
 }
 

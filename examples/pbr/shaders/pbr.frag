@@ -15,8 +15,9 @@ layout(set = 1, binding = 1) uniform sampler2D metalicMap;
 layout(set = 1, binding = 2) uniform sampler2D roughnessMap;
 layout(set = 1, binding = 3) uniform sampler2D normalMap;
 layout(set = 1, binding = 4) uniform sampler2D aoMap;
+layout(set = 1, binding = 5) uniform sampler2D displacementMap;
 
-layout(set = 1, binding = 5) uniform sampler2D brdfLUT;
+layout(set = 1, binding = 6) uniform sampler2D brdfLUT;
 
 layout(set = 2, binding = 0) uniform sampler2DArray environmentMap;
 layout(set = 2, binding = 1) uniform sampler2DArray irradianceMap;
@@ -27,6 +28,8 @@ layout(push_constant) uniform Constants{
     int mapId;
     int invertRoughness;
     int normalMapping;
+    int parallaxMapping;
+    float heightScale;
 };
 
 layout(location = 0) in struct {
@@ -40,13 +43,64 @@ layout(location = 0) in struct {
 layout(location = 0) out vec4 fragColor;
 const float preventDivideByZero = 0.0001;
 
+vec2 getTextureCoord(){
+    if(false){
+        vec3 viewDir = normalize(fs_in.tViewPos - fs_in.tPos);
+        vec2 texCoords = fs_in.uv;
+
+        // number of depth layers
+        const float minLayers = 8;
+        const float maxLayers = 32;
+        float numLayers = mix(maxLayers, minLayers, abs(dot(vec3(0.0, 0.0, 1.0), viewDir)));
+        // calculate the size of each layer
+        float layerDepth = 1.0 / numLayers;
+        // depth of current layer
+        float currentLayerDepth = 0.0;
+        // the amount to shift the texture coordinates per layer (from vector P)
+        vec2 P = viewDir.xy / viewDir.z * heightScale;
+        vec2 deltaTexCoords = P / numLayers;
+
+        // get initial values
+        vec2  currentTexCoords     = texCoords;
+        float currentDepthMapValue = texture(displacementMap, currentTexCoords).r;
+
+        while(currentLayerDepth < currentDepthMapValue)
+        {
+            // shift texture coordinates along direction of P
+            currentTexCoords -= deltaTexCoords;
+            // get displacementMap value at current texture coordinates
+            currentDepthMapValue = texture(displacementMap, currentTexCoords).r;
+            // get depth of next layer
+            currentLayerDepth += layerDepth;
+        }
+
+        // get texture coordinates before collision (reverse operations)
+        vec2 prevTexCoords = currentTexCoords + deltaTexCoords;
+
+        // get depth after and before collision for linear interpolation
+        float afterDepth  = currentDepthMapValue - currentLayerDepth;
+        float beforeDepth = texture(displacementMap, prevTexCoords).r - currentLayerDepth + layerDepth;
+
+        // interpolation of texture coordinates
+        float weight = afterDepth / (afterDepth - beforeDepth);
+        vec2 finalTexCoords = prevTexCoords * weight + currentTexCoords * (1.0 - weight);
+
+        return finalTexCoords;
+
+    }else{
+        return fs_in.uv;
+    }
+}
+
 void main(){
-    vec3 albedo = texture(albedoMap, fs_in.uv).rgb;
-    float metalness = texture(metalicMap, fs_in.uv).r;
-    float roughness = texture(roughnessMap, fs_in.uv).r;
+    vec2 st = getTextureCoord();
+
+    vec3 albedo = texture(albedoMap, st).rgb;
+    float metalness = texture(metalicMap, st).r;
+    float roughness = texture(roughnessMap, st).r;
     roughness = bool(invertRoughness) ? 1 - roughness : roughness;
-    float ao = texture(aoMap, fs_in.uv).r;
-    vec3 normal = bool(normalMapping) ? 2 * texture(normalMap, fs_in.uv).rgb - 1 : vec3(0, 0, 1);
+    float ao = texture(aoMap, st).r;
+    vec3 normal = bool(normalMapping) ? 2 * texture(normalMap, st).rgb - 1 : vec3(0, 0, 1);
 
     vec3 viewDir = fs_in.tViewPos - fs_in.tPos;
     vec3 N = normalize(normal);

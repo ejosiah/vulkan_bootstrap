@@ -704,7 +704,7 @@ int main(){
     settings.width = 1024;
     settings.height = 1024;
 //    settings.deviceExtensions.push_back("VK_KHR_shader_non_semantic_info");
-  //  settings.surfaceFormat.format = VK_FORMAT_B8G8R8A8_SRGB;
+//    settings.surfaceFormat.format = VK_FORMAT_B8G8R8A8_SRGB;
     settings.queueFlags = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT;
 
     try{

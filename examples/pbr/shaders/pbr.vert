@@ -7,6 +7,8 @@ layout(location = 3) in vec3 bitangent;
 layout(location = 4) in vec3 color;
 layout(location = 5) in vec2 uv;
 
+layout(set = 1, binding = 5) uniform sampler2D displacementMap;
+
 struct Light{
     vec4 position;
     vec4 intensity;
@@ -27,6 +29,8 @@ layout(push_constant) uniform Constants{
     int mapId;
     int invertRoughness;
     int normalMapping;
+    int parallaxMapping;
+    float heightScale;
 };
 
 layout(location = 0) out struct {
@@ -42,7 +46,10 @@ void main(){
     mat3 tbnToWorldSpace = nMatrix * mat3(tangent, bitangent, normal);
     mat3 worldSpaceTotbn = transpose(tbnToWorldSpace);
 
-    vec3 worldPos = (model * position).xyz;
+    vec4 localPos = position;
+    localPos.y += bool(parallaxMapping) ? texture(displacementMap, uv).r * heightScale : 0;
+
+    vec3 worldPos = (model * localPos).xyz;
     vec3 viewPos = (inverse(view) * vec4(0, 0, 0, 1)).xyz;
 
     vs_out.tViewPos = worldSpaceTotbn * viewPos;
@@ -54,5 +61,5 @@ void main(){
         vs_out.tLights[i].position = vec4(worldSpaceTotbn * lights[i].position.xyz, 1);
         vs_out.tLights[i].intensity = lights[i].intensity;
     }
-    gl_Position = proj * view * model * position;
+    gl_Position = proj * view * model * localPos;
 }

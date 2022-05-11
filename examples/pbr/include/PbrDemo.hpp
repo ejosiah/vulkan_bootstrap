@@ -13,7 +13,9 @@ struct Material{
     Texture roughness;
     Texture normal;
     Texture ao;
+    Texture depth;
     bool invertRoughness{false};
+    bool parallaxMapping{false};
 };
 
 class PbrDemo : public VulkanBaseApp{
@@ -123,6 +125,8 @@ protected:
             int mapId{0};
             int invertRoughness{0};
             int normalMapping{1};
+            int parallaxMapping{0};
+            float heightScale{0.1};
         } constants;
         VkDescriptorSet descriptorSet;
     } pbr;
@@ -159,7 +163,7 @@ protected:
     VulkanDrawable model;
     VulkanSampler valueSampler;
     VulkanSampler sRgbSampler;
-    std::array<Material, 7> materials;
+    std::array<Material, 9> materials;
     int activeMaterial{0};
     BRDFGenerator brdfGenerator;
     std::map<std::string, std::string> meshMaterialMap;

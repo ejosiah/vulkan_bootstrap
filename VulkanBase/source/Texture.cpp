@@ -3,6 +3,7 @@
 #include  <stb_image.h>
 #endif
 #include "Texture.h"
+#include <fmt/format.h>
 
 uint32_t nunChannels(VkFormat format) {
     switch (format) {
@@ -49,7 +50,7 @@ void textures::fromFile(const VulkanDevice &device, Texture &texture, std::strin
     texture.width = texWidth;
     texture.height = texHeight;
     if(!pixels){
-        throw std::runtime_error{"failed to load texture image!"};
+        throw std::runtime_error{fmt::format("failed to load texture image {}!", path)};
     }
     create(device, texture, VK_IMAGE_TYPE_2D, format, pixels, {texWidth, texHeight, 1u});
     stbi_image_free(pixels);
