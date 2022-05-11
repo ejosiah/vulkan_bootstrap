@@ -20,10 +20,23 @@ layout(location = 0) in struct {
 
 layout(location = 0) out vec4 fragColor;
 
-vec2 parallaxMap(vec2 texCoord, vec3 viewPos){
-    float height = texture(depthMap, texCoord).r;
-    vec2 p = viewPos.xy / viewPos.z * (height * heightScale);
-    return texCoord - p;
+vec2 parallaxMap(vec2 texCoord, vec3 viewDir){
+    const float numLayers = 10;
+    float layerDepth = 1/numLayers;
+    float currentLayerDepth = 0;
+
+    vec2 p = viewDir.xy * heightScale;
+    vec2 deltaTexCoord = p/numLayers;
+
+    vec2 currentTexCoord = texCoord;
+    float currentDepthMapValue = texture(depthMap, currentTexCoord).r;
+
+    while(currentLayerDepth < currentDepthMapValue){
+        currentLayerDepth += layerDepth;
+        currentTexCoord -= deltaTexCoord;
+        currentDepthMapValue = texture(depthMap, currentTexCoord).r;
+    }
+    return currentTexCoord;
 }
 
 void main(){
