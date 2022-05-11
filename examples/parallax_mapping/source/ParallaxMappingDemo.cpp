@@ -24,7 +24,7 @@ void ParallaxMappingDemo::initApp() {
     loadMaterial();
     createCube();
     initCamera();
-    updateDescriptorSets();
+    updateDescriptorSets(bricks);
     createRenderPipeline();
     createComputePipeline();
 }
@@ -75,7 +75,7 @@ void ParallaxMappingDemo::createDescriptorSetLayout() {
     materialSet = descriptorPool.allocate({ materialSetLayout }).front();
 }
 
-void ParallaxMappingDemo::updateDescriptorSets() {
+void ParallaxMappingDemo::updateDescriptorSets(const Material& material) {
     auto writes = initializers::writeDescriptorSets<3>();
     
     writes[0].dstSet = materialSet;
@@ -151,7 +151,7 @@ void ParallaxMappingDemo::createRenderPipeline() {
                     .add()
                 .layout()
                     .addPushConstantRange(Camera::pushConstant())
-                    .addPushConstantRange(VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(Camera), sizeof(heightScale))
+                    .addPushConstantRange(VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(Camera), sizeof(constants))
                     .addDescriptorSetLayout(materialSetLayout)
                 .renderPass(renderPass)
                 .subpass(0)
@@ -207,7 +207,7 @@ VkCommandBuffer *ParallaxMappingDemo::buildCommandBuffers(uint32_t imageIndex, u
 
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, render.pipeline);
     cameraController->push(commandBuffer, render.layout);
-    vkCmdPushConstants(commandBuffer, render.layout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(Camera), sizeof(heightScale), &heightScale);
+    vkCmdPushConstants(commandBuffer, render.layout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(Camera), sizeof(constants), &constants);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, render.layout, 0, 1, &materialSet, 0, VK_NULL_HANDLE);
     VkDeviceSize offset = 0;
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, cube.vertexBuffer, &offset);
@@ -224,8 +224,16 @@ VkCommandBuffer *ParallaxMappingDemo::buildCommandBuffers(uint32_t imageIndex, u
 }
 
 void ParallaxMappingDemo::update(float time) {
+    auto title = fmt::format("{} - {} fps", this->title, framePerSecond);
+    glfwSetWindowTitle(window, title.c_str());
     if(!ImGui::IsAnyItemActive()){
         cameraController->update(time);
+    }
+
+    static int prevMaterial = currentMaterial;
+    if(prevMaterial != currentMaterial){
+        prevMaterial = currentMaterial;
+        updateDescriptorSets(currentMaterial == 0 ? bricks : box);
     }
 }
 
@@ -243,9 +251,13 @@ void ParallaxMappingDemo::onPause() {
 }
 
 void ParallaxMappingDemo::loadMaterial() {
-    textures::fromFile(device, material.albedo, resource("bricks.jpg"));
-    textures::fromFile(device, material.normal, resource("bricks_normal.jpg"));
-    textures::fromFile(device, material.depth, resource("bricks_disp.jpg"));
+    textures::fromFile(device, bricks.albedo, resource("bricks.jpg"));
+    textures::fromFile(device, bricks.normal, resource("bricks_normal.jpg"));
+    textures::fromFile(device, bricks.depth, resource("bricks_disp.jpg"));
+
+    textures::fromFile(device, box.albedo, resource("wood.png"));
+    textures::fromFile(device, box.normal, resource("toy_box_normal.png"));
+    textures::fromFile(device, box.depth, resource("toy_box_disp.png"));
 }
 
 void ParallaxMappingDemo::createCube() {
@@ -271,8 +283,23 @@ void ParallaxMappingDemo::initCamera() {
 void ParallaxMappingDemo::renderUI(VkCommandBuffer commandBuffer) {
 
     ImGui::Begin("Options");
-    ImGui::SetWindowSize("Options", {200, 80});
-    ImGui::SliderFloat("height scale", &heightScale, 0.1, 1.0);
+    ImGui::SetWindowSize("Options", {0, 0});
+
+    static bool visibility = true;
+    if(ImGui::CollapsingHeader("Settings"), &visibility, ImGuiTreeNodeFlags_DefaultOpen){
+        static bool enabled = constants.enabled;
+        ImGui::Checkbox("Parallax mapping", &enabled);
+        if(enabled){
+            ImGui::SliderFloat("height scale", &constants.heightScale, 0.1, 0.25);
+        }
+        constants.enabled = enabled;
+    }
+
+    if(ImGui::CollapsingHeader("Object", &visibility, ImGuiTreeNodeFlags_DefaultOpen)){
+        ImGui::RadioButton("Bricks", &currentMaterial, 0); ImGui::SameLine();
+        ImGui::RadioButton("Box", &currentMaterial, 1);
+    }
+
     ImGui::End();
 
     plugin<ImGuiPlugin>(IM_GUI_PLUGIN).draw(commandBuffer);

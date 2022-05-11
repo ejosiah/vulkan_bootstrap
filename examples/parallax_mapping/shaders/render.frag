@@ -7,6 +7,7 @@ layout(set = 0, binding = 2) uniform sampler2D depthMap;
 layout(push_constant) uniform Constants {
     layout(offset = 192)
     float heightScale;
+    int parallaxEnabled;
 };
 
 layout(location = 0) in struct {
@@ -21,7 +22,13 @@ layout(location = 0) in struct {
 layout(location = 0) out vec4 fragColor;
 
 vec2 parallaxMap(vec2 texCoord, vec3 viewDir){
-    const float numLayers = 10;
+    if(!bool(parallaxEnabled)) return texCoord;
+//    const float minLayers = 8.0;
+//    const float maxLayers = 32.0;
+//    float t = dot(vec3(0, 0, 1), viewDir);
+//    t = clamp(t, 0, 1);
+//    float numLayers = mix(maxLayers, minLayers, t);
+    const float numLayers = 32;
     float layerDepth = 1/numLayers;
     float currentLayerDepth = 0;
 

@@ -1,5 +1,11 @@
 #include "VulkanBaseApp.h"
 
+struct Material{
+    Texture albedo;
+    Texture normal;
+    Texture depth;
+};
+
 class ParallaxMappingDemo : public VulkanBaseApp{
 public:
     explicit ParallaxMappingDemo(const Settings& settings = {});
@@ -13,7 +19,7 @@ protected:
 
     void createDescriptorSetLayout();
 
-    void updateDescriptorSets();
+    void updateDescriptorSets(const Material& material);
 
     void createCommandPool();
 
@@ -54,11 +60,9 @@ protected:
         VulkanPipeline pipeline;
     } compute;
 
-    struct {
-        Texture albedo;
-        Texture normal;
-        Texture depth;
-    } material;
+    Material bricks;
+    Material box;
+    int currentMaterial = 0;
 
     VulkanDescriptorSetLayout materialSetLayout;
     VkDescriptorSet materialSet;
@@ -74,5 +78,8 @@ protected:
         uint32_t numIndices;
     } cube;
     std::unique_ptr<BaseCameraController> cameraController;
-    float heightScale{0.1};
+     struct {
+         float heightScale{0.1};
+         int enabled{1};
+     } constants;
 };
