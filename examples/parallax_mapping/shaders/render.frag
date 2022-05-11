@@ -23,12 +23,11 @@ layout(location = 0) out vec4 fragColor;
 
 vec2 parallaxMap(vec2 texCoord, vec3 viewDir){
     if(!bool(parallaxEnabled)) return texCoord;
-//    const float minLayers = 8.0;
-//    const float maxLayers = 32.0;
-//    float t = dot(vec3(0, 0, 1), viewDir);
-//    t = clamp(t, 0, 1);
-//    float numLayers = mix(maxLayers, minLayers, t);
-    const float numLayers = 32;
+    const float minLayers = 8.0;
+    const float maxLayers = 32.0;
+    float t = dot(vec3(0, 0, 1), viewDir);
+    t = clamp(t, 0, 1);
+    float numLayers = mix(maxLayers, minLayers, t);
     float layerDepth = 1/numLayers;
     float currentLayerDepth = 0;
 
@@ -43,7 +42,15 @@ vec2 parallaxMap(vec2 texCoord, vec3 viewDir){
         currentTexCoord -= deltaTexCoord;
         currentDepthMapValue = texture(depthMap, currentTexCoord).r;
     }
-    return currentTexCoord;
+    vec2 prevTexCoords = currentTexCoord + deltaTexCoord;
+
+    float afterDepth = currentDepthMapValue - currentLayerDepth;
+    float beforeDepth = texture(depthMap, prevTexCoords).r - currentLayerDepth + layerDepth;
+
+    t = afterDepth / (afterDepth - beforeDepth);
+    vec2 finalTexCoord = mix(currentTexCoord, prevTexCoords, t);
+
+    return finalTexCoord;
 }
 
 void main(){

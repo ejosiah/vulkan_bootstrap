@@ -282,8 +282,8 @@ void ParallaxMappingDemo::initCamera() {
 
 void ParallaxMappingDemo::renderUI(VkCommandBuffer commandBuffer) {
 
-    ImGui::Begin("Options");
-    ImGui::SetWindowSize("Options", {0, 0});
+    ImGui::Begin("Parallax mapping");
+    ImGui::SetWindowSize("Parallax mapping", {0, 0});
 
     static bool visibility = true;
     if(ImGui::CollapsingHeader("Settings"), &visibility, ImGuiTreeNodeFlags_DefaultOpen){
