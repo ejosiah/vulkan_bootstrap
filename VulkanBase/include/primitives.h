@@ -99,6 +99,8 @@ namespace primitives{
 
     Vertices triangleStripToTriangleList(const Vertices& vertices);
 
+    Vertices calculateTangents(Vertices& vertices, bool smooth = false);
+
     /**
      * @brief normalizes a mesh to a unit version of itself and scales it based on th scaling factor
      * @tparam Mesh Mesh type to normalize, if Mesh is not of type Vertex then it must have a vertices member property

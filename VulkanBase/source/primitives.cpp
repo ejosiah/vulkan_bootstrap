@@ -307,3 +307,43 @@ Vertices primitives::triangleStripToTriangleList(const Vertices &vertices) {
 
     return newVertices;
 }
+
+Vertices primitives::calculateTangents(Vertices &vertices, bool smooth /* TODO implement smooth tangents */) {
+    auto& indices = vertices.indices;
+
+    for(int i = 0; i < indices.size(); i+= 3){
+        auto& v0 = vertices.vertices[indices[i]];
+        auto& v1 = vertices.vertices[indices[i+1]];
+        auto& v2 = vertices.vertices[indices[i+2]];
+
+        auto e1 = v1.position.xyz() - v0.position.xyz();
+        auto e2 = v2.position.xyz() - v0.position.xyz();
+
+        auto du1 = v1.uv.x - v0.uv.x;
+        auto dv1 = v1.uv.y - v0.uv.y;
+        auto du2 = v2.uv.x - v0.uv.x;
+        auto dv2 = v2.uv.y - v0.uv.y;
+
+        auto d = 1.f/(du1 * dv2 - dv1 * du2);
+
+        glm::vec3 tn{0};
+        tn.x = d * (dv2 * e1.x - dv1 * e2.x);
+        tn.y = d * (dv2 * e1.y - dv1 * e2.y);
+        tn.z = d * (dv2 * e1.z - dv1 * e2.z);
+
+        glm::vec3 bn{0};
+        bn.x = d * (du1 * e2.x - du2 * e1.x);
+        bn.y = d * (du1 * e2.y - du2 * e1.y);
+        bn.z = d * (du1 * e2.z - du2 * e1.z);
+
+        v0.tangent = tn;
+        v1.tangent = tn;
+        v2.tangent = tn;
+
+        v0.bitangent = bn;
+        v1.bitangent = bn;
+        v2.bitangent = bn;
+    }
+
+    return vertices;
+}

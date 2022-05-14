@@ -399,7 +399,7 @@ int main(){
 
         std::vector<FontInfo> fonts {
 #ifdef WIN32
-                {"JetBrainsMono", R"(C:\Users\Josiah\Downloads\JetBrainsMono-2.225\fonts\ttf\JetBrainsMono-Regular.ttf)", 20},
+                {"JetBrainsMono", R"(C:\Users\Josiah Ebhomenye\CLionProjects\vulkan_bootstrap\data\fonts\JetBrainsMono\JetBrainsMono-Regular.ttf)", 20},
                 {"Arial", R"(C:\Windows\Fonts\arial.ttf)", 20},
                 {"Arial", R"(C:\Windows\Fonts\arial.ttf)", 15}
 #elif defined(__APPLE__)

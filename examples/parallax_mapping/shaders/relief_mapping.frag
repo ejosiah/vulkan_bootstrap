@@ -8,6 +8,7 @@ layout(push_constant) uniform Constants {
     layout(offset = 192)
     float depth;
     int enabled;
+    int invert;
 };
 
 layout(location = 0) in struct {
@@ -29,14 +30,16 @@ float find_intersection(vec2 dp, vec2 ds) {
     float best_depth = 1.0;
     for (int i = 0 ; i < linear_steps - 1 ; ++i) {
         depth -= size;
-        vec4 t = texture(depthMap, dp + ds * depth);
-        if (depth >= 1.0 - t.r) best_depth = depth;
+        float t = texture(depthMap, dp + ds * depth).r;
+        t = bool(invert) ? 1 - t : t;
+        if (depth >= 1.0 - t) best_depth = depth;
     }
     depth = best_depth - size;
     for (int i = 0 ; i < binary_steps ; ++i) {
         size *= 0.5;
-        vec4 t = texture(depthMap, dp + ds * depth);
-        if (depth >= 1.0 - t.r) {
+        float t = texture(depthMap, dp + ds * depth).r;
+        t = bool(invert) ? 1 - t : t;
+        if (depth >= 1.0 - t) {
             best_depth = depth;
             depth -= 2 * size;
         }
@@ -65,9 +68,10 @@ void main(){
     vec3 viewDir = fs_in.viewPos - fs_in.worldPos;
     vec3 E = normalize(viewDir);
     vec3 L = E;
-
+    vec3 H = normalize(E + L);
     vec3 albedo = texture(albedoMap, uv).rgb;
     vec3 color = max(0, dot(N, L)) * albedo;
+    color += pow(max(0, dot(N, H)), 250);
 
     fragColor = vec4(color, 1);
 }

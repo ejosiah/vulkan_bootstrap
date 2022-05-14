@@ -49,9 +49,11 @@ void main(){
     vec3 viewDir = fs_in.viewPos - fs_in.worldPos;
     vec3 E = normalize(viewDir);
     vec3 L = E;
+    vec3 H = normalize(L + E);
 
     vec3 albedo = textureGrad(albedoMap, uv, dx, dy).rgb;
     vec3 color = max(0, dot(N, L)) * albedo;
+    color += pow(max(0, dot(N, H)), 250);
 
     fragColor = vec4(color, 1);
 }

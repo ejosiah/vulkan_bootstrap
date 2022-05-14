@@ -2,7 +2,6 @@
 #include "GraphicsPipelineBuilder.hpp"
 #include "DescriptorSetBuilder.hpp"
 #include "ImGuiPlugin.hpp"
-#include "DistanceMap.hpp"
 
 ParallaxMappingDemo::ParallaxMappingDemo(const Settings& settings) : VulkanBaseApp("Parallax Mapping", settings) {
     fileManager.addSearchPath(".");
@@ -24,8 +23,9 @@ void ParallaxMappingDemo::initApp() {
 
     loadMaterial();
     createCube();
+    createPlane();
     initCamera();
-    updateDescriptorSets(bricks);
+    updateDescriptorSets(materials[MATERIAL_BRICK]);
     createRenderPipeline();
     createComputePipeline();
 }
@@ -244,13 +244,20 @@ VkCommandBuffer *ParallaxMappingDemo::buildCommandBuffers(uint32_t imageIndex, u
     rPassInfo.renderPass = renderPass;
 
     vkCmdBeginRenderPass(commandBuffer, &rPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+    
+    Object* object = nullptr;
+    if(currentObject == OBJECT_CUBE){
+        object = &cube;
+    }else{
+        object = &plane;
+    }
 
     if(strategy == OCCLUSION) {
-        render(commandBuffer, parallaxOcclusion.pipeline, parallaxOcclusion.layout, &parallaxOcclusion.constants,sizeof(parallaxOcclusion.constants));
+        render(commandBuffer, *object, parallaxOcclusion.pipeline, parallaxOcclusion.layout, &parallaxOcclusion.constants,sizeof(parallaxOcclusion.constants));
     }else if(strategy == RELIEF_MAPPING){
-        render(commandBuffer, reliefMapping.pipeline, reliefMapping.layout, &reliefMapping.constants,sizeof(reliefMapping.constants));
+        render(commandBuffer, *object, reliefMapping.pipeline, reliefMapping.layout, &reliefMapping.constants,sizeof(reliefMapping.constants));
     }else if(strategy == DISTANCE_FUNCTION){
-        render(commandBuffer, distanceMapping.pipeline, distanceMapping.layout, &distanceMapping.constants,sizeof(distanceMapping.constants));
+        render(commandBuffer, *object, distanceMapping.pipeline, distanceMapping.layout, &distanceMapping.constants,sizeof(distanceMapping.constants));
     }
 
     renderUI(commandBuffer);
@@ -262,7 +269,7 @@ VkCommandBuffer *ParallaxMappingDemo::buildCommandBuffers(uint32_t imageIndex, u
     return &commandBuffer;
 }
 
-void ParallaxMappingDemo::render(VkCommandBuffer commandBuffer, VkPipeline pipeline, VkPipelineLayout layout,
+void ParallaxMappingDemo::render(VkCommandBuffer commandBuffer, Object& object, VkPipeline pipeline, VkPipelineLayout layout,
                                  void *constants, uint32_t constantsSize) {
 
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
@@ -270,9 +277,9 @@ void ParallaxMappingDemo::render(VkCommandBuffer commandBuffer, VkPipeline pipel
     vkCmdPushConstants(commandBuffer, layout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(Camera), constantsSize, constants);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, 1, &materialSet, 0, VK_NULL_HANDLE);
     VkDeviceSize offset = 0;
-    vkCmdBindVertexBuffers(commandBuffer, 0, 1, cube.vertexBuffer, &offset);
-    vkCmdBindIndexBuffer(commandBuffer, cube.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-    vkCmdDrawIndexed(commandBuffer, cube.numIndices, 1, 0, 0, 0);
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, object.vertexBuffer, &offset);
+    vkCmdBindIndexBuffer(commandBuffer, object.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+    vkCmdDrawIndexed(commandBuffer, object.numIndices, 1, 0, 0, 0);
 
 }
 
@@ -286,7 +293,14 @@ void ParallaxMappingDemo::update(float time) {
     static int prevMaterial = currentMaterial;
     if(prevMaterial != currentMaterial){
         prevMaterial = currentMaterial;
-        updateDescriptorSets(currentMaterial == 0 ? bricks : box);
+        if(currentMaterial > MATERIAL_BOX){
+            parallaxOcclusion.constants.invertDepthMap = true;
+            reliefMapping.constants.invertDepthMap = true;
+        }else{
+            parallaxOcclusion.constants.invertDepthMap = false;
+            reliefMapping.constants.invertDepthMap = false;
+        }
+        updateDescriptorSets(materials[currentMaterial]);
     }
 }
 
@@ -304,39 +318,39 @@ void ParallaxMappingDemo::onPause() {
 }
 
 void ParallaxMappingDemo::loadMaterial() {
-    textures::fromFile(device, bricks.albedo, resource("bricks.jpg"));
-    textures::fromFile(device, bricks.normal, resource("bricks_normal.jpg"));
-    textures::fromFile(device, bricks.depth, resource("bricks_disp.jpg"));
-    createDistanceMap(bricks.depth, bricks.distanceMap);
+    textures::fromFile(device, materials[MATERIAL_BRICK].albedo, resource("bricks.jpg"));
+    textures::fromFile(device, materials[MATERIAL_BRICK].normal, resource("bricks_normal.jpg"));
+    textures::fromFile(device, materials[MATERIAL_BRICK].depth, resource("bricks_disp.jpg"));
+    createDistanceMap(materials[MATERIAL_BRICK].depth, materials[MATERIAL_BRICK].distanceMap);
 
-    textures::fromFile(device, box.albedo, resource("wood.png"));
-    textures::fromFile(device, box.normal, resource("toy_box_normal.png"));
-    textures::fromFile(device, box.depth, resource("toy_box_disp.png"));
-    createDistanceMap(box.depth, box.distanceMap);
+    textures::fromFile(device, materials[MATERIAL_BOX].albedo, resource("wood.png"));
+    textures::fromFile(device, materials[MATERIAL_BOX].normal, resource("toy_box_normal.png"));
+    textures::fromFile(device, materials[MATERIAL_BOX].depth, resource("toy_box_disp.png"));
+    createDistanceMap(materials[MATERIAL_BOX].depth, materials[MATERIAL_BOX].distanceMap);
+    
+    textures::fromFile(device, materials[MATERIAL_MAN_HOLE].albedo, resource("fan-color.png"), true);
+    textures::fromFile(device, materials[MATERIAL_MAN_HOLE].normal, resource("fan-normal.png"), true);
+    textures::fromFile(device, materials[MATERIAL_MAN_HOLE].depth, resource("fan-height.png"), true);
+    createDistanceMap(materials[MATERIAL_MAN_HOLE].depth, materials[MATERIAL_MAN_HOLE].distanceMap, false);
+    
+    textures::fromFile(device, materials[MATERIAL_TEXT].albedo, resource("text-color.png"), true);
+    textures::fromFile(device, materials[MATERIAL_TEXT].normal, resource("text-normal.png"), true);
+    textures::fromFile(device, materials[MATERIAL_TEXT].depth, resource("text-height.png"), true);
+    createDistanceMap(materials[MATERIAL_TEXT].depth, materials[MATERIAL_TEXT].distanceMap, false);
+
+    textures::fromFile(device, materials[MATERIAL_NV_EYE].albedo, resource("nveye-color.png"), true);
+    textures::fromFile(device, materials[MATERIAL_NV_EYE].normal, resource("nveye-normal.png"), true);
+    textures::fromFile(device, materials[MATERIAL_NV_EYE].depth, resource("nveye-height.png"), true);
+    createDistanceMap(materials[MATERIAL_NV_EYE].depth, materials[MATERIAL_NV_EYE].distanceMap, false);
+
+    textures::fromFile(device, materials[MATERIAL_STONE_BRICK].albedo, resource("stone-color.png"), true);
+    textures::fromFile(device, materials[MATERIAL_STONE_BRICK].normal, resource("stone-normal.png"), true);
+    textures::fromFile(device, materials[MATERIAL_STONE_BRICK].depth, resource("stone-height.png"), true);
+    createDistanceMap(materials[MATERIAL_STONE_BRICK].depth, materials[MATERIAL_STONE_BRICK].distanceMap, false);
 }
 
-void ParallaxMappingDemo::createDistanceMap(Texture &depthMap, Texture &distanceMap) {
-    auto [width, height, depth] = std::make_tuple(int(depthMap.width), int(depthMap.height), 16);
-    VulkanBuffer stagingBuffer = device.createStagingBuffer(depthMap.image.size);
-    device.graphicsCommandPool().oneTimeCommand([&](auto commandBuffer){
-        VkImageSubresourceLayers imgSubResource{VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
-        VkBufferImageCopy region{
-            0,
-            0,
-            0,
-            imgSubResource,
-            {0, 0, 0},
-            {depthMap.width, depthMap.height, 1}
-        };
-        depthMap.image.transitionLayout(commandBuffer, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, DEFAULT_SUB_RANGE, VK_ACCESS_NONE, VK_ACCESS_TRANSFER_READ_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
-        vkCmdCopyImageToBuffer(commandBuffer, depthMap.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, stagingBuffer, 1, &region);
-        depthMap.image.transitionLayout(commandBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, DEFAULT_SUB_RANGE, VK_ACCESS_NONE, VK_ACCESS_SHADER_READ_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
-    });
-
-    auto heightMap = reinterpret_cast<unsigned char *>(stagingBuffer.map());
-    auto data = init_distance_map(heightMap, width, height, depth);
-
-    textures::create(device, distanceMap, VK_IMAGE_TYPE_3D, VK_FORMAT_R32_SFLOAT, data.data(), {width, height, depth}, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, sizeof(float));
+void ParallaxMappingDemo::createDistanceMap(Texture &depthMap, Texture &distanceMap, bool invert) {
+    distanceMap = textures::distanceMap(device, depthMap, distanceMapping.depth, invert);
 }
 
 void ParallaxMappingDemo::createCube() {
@@ -345,6 +359,14 @@ void ParallaxMappingDemo::createCube() {
     cube.vertexBuffer = device.createDeviceLocalBuffer(mesh.vertices.data(), BYTE_SIZE(mesh.vertices), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
     cube.indexBuffer = device.createDeviceLocalBuffer(mesh.indices.data(), BYTE_SIZE(mesh.indices), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
     cube.numIndices = mesh.indices.size();
+}
+
+void ParallaxMappingDemo::createPlane(){
+    auto mesh = primitives::plane(4, 4, 1, 1, glm::rotate(glm::mat4(1), glm::radians(270.0f), {1, 0, 0}), glm::vec4(0.6), VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+    mesh = primitives::calculateTangents(mesh);
+    plane.vertexBuffer = device.createDeviceLocalBuffer(mesh.vertices.data(), BYTE_SIZE(mesh.vertices), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+    plane.indexBuffer = device.createDeviceLocalBuffer(mesh.indices.data(), BYTE_SIZE(mesh.indices), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+    plane.numIndices = mesh.indices.size();
 }
 
 void ParallaxMappingDemo::initCamera() {
@@ -389,10 +411,11 @@ void ParallaxMappingDemo::renderUI(VkCommandBuffer commandBuffer) {
     }
 
     if(ImGui::CollapsingHeader("Object", &visibility, ImGuiTreeNodeFlags_DefaultOpen)){
-        ImGui::RadioButton("Bricks", &currentMaterial, 0); ImGui::SameLine();
-        ImGui::RadioButton("Box", &currentMaterial, 1); ImGui::SameLine();
-        ImGui::RadioButton("Man hole", &currentMaterial, 2); ImGui::SameLine();
-        ImGui::RadioButton("Text", &currentMaterial, 3);
+        ImGui::RadioButton("Box", &currentObject, OBJECT_CUBE); ImGui::SameLine();
+        ImGui::RadioButton("Plane", &currentObject, OBJECT_PLANE);
+
+        static const char* cMaterials[6] = {"Bricks", "Box", "Man hole", "text", "NV Eye", "Stone bricks"};
+        ImGui::Combo("Material", &currentMaterial, cMaterials, 6);
     }
 
     ImGui::End();
