@@ -58,8 +58,10 @@ void main(){
     mat3 tangentSpaceToWorld = mat3(fs_in.tangent, fs_in.bitangent, fs_in.normal);
     mat3 worldToTangentSpace = inverse(tangentSpaceToWorld);
     vec3 tViewPos = worldToTangentSpace * fs_in.viewPos;
+    vec3 tFragPos = worldToTangentSpace * fs_in.worldPos;
+    vec3 tViewDir = tViewPos - tFragPos;
 
-    vec2 uv = parallaxMap(fs_in.uv, tViewPos);
+    vec2 uv = parallaxMap(fs_in.uv, tViewDir);
 
     bool outOfRange = any(lessThan(uv, vec2(0))) || any(greaterThan(uv, vec2(1)));
 

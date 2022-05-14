@@ -8,6 +8,7 @@
 uint32_t nunChannels(VkFormat format) {
     switch (format) {
         case VK_FORMAT_R8_SRGB:
+        case VK_FORMAT_R32_SFLOAT:
             return 1;
         case VK_FORMAT_R8G8_SRGB:
             return 2;
@@ -118,13 +119,17 @@ void textures::create(const VulkanDevice &device, Texture &texture, VkImageType 
     imageCreateInfo.arrayLayers = 1;
     imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
     imageCreateInfo.tiling = tiling;
-    imageCreateInfo.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+    imageCreateInfo.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
     imageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
     auto& commandPool = device.commandPoolFor(*device.queueFamilyIndex.graphics);
 
     texture.image = device.createImage(imageCreateInfo, VMA_MEMORY_USAGE_GPU_ONLY);
+    texture.image.size = imageSize;
+    texture.width = dimensions.x;
+    texture.height = dimensions.y;
+    texture.depth = dimensions.z;
     texture.image.transitionLayout(commandPool, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
     commandPool.oneTimeCommand([&](auto cmdBuffer) {
@@ -153,7 +158,9 @@ void textures::create(const VulkanDevice &device, Texture &texture, VkImageType 
     subresourceRange.baseArrayLayer = 0;
     subresourceRange.layerCount = 1;
 
-    texture.imageView = texture.image.createView(format, VK_IMAGE_VIEW_TYPE_2D, subresourceRange);  // FIXME derive image view type
+    auto imageViewType = VK_IMAGE_VIEW_TYPE_2D;
+    imageViewType = imageType == VK_IMAGE_TYPE_3D ? VK_IMAGE_VIEW_TYPE_3D : imageViewType;
+    texture.imageView = texture.image.createView(format, imageViewType, subresourceRange);  // FIXME derive image view type
 
     if(!texture.sampler.handle) {
         VkSamplerCreateInfo samplerInfo{};
