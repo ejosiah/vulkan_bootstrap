@@ -39,7 +39,19 @@ public:
    ShaderStageBuilder& tessellationEvaluationShader(const std::string& path);
 
    [[nodiscard]]
+   ShaderStageBuilder& tessellationEvaluationShader(const byte_string& data);
+
+   [[nodiscard]]
+   ShaderStageBuilder& tessellationEvaluationShader(const std::vector<uint32_t>& data);
+
+   [[nodiscard]]
    ShaderStageBuilder& tessellationControlShader(const std::string& path);
+
+   [[nodiscard]]
+   ShaderStageBuilder& tessellationControlShader(const byte_string& data);
+
+   [[nodiscard]]
+   ShaderStageBuilder& tessellationControlShader(const std::vector<uint32_t>& data);
 
    ShaderStageBuilder& clear();
 

@@ -58,9 +58,29 @@ ShaderStageBuilder &ShaderStageBuilder::tessellationEvaluationShader(const std::
     return *this;
 }
 
+ShaderStageBuilder &ShaderStageBuilder::tessellationEvaluationShader(const byte_string &data) {
+    _tessEvalModule = VulkanShaderModule{ data, device()};
+    return *this;
+}
+
+ShaderStageBuilder &ShaderStageBuilder::tessellationEvaluationShader(const std::vector<uint32_t> &data) {
+    _tessEvalModule = VulkanShaderModule{ data, device()};
+    return *this;
+}
+
 ShaderStageBuilder &ShaderStageBuilder::tessellationControlShader(const std::string &path) {
     _tessControlModule = VulkanShaderModule{ path, device() };
-    return *this;;
+    return *this;
+}
+
+ShaderStageBuilder &ShaderStageBuilder::tessellationControlShader(const byte_string &data) {
+    _tessControlModule = VulkanShaderModule{ data, device()};
+    return *this;
+}
+
+ShaderStageBuilder &ShaderStageBuilder::tessellationControlShader(const std::vector<uint32_t> &data) {
+    _tessControlModule = VulkanShaderModule{ data, device()};
+    return *this;
 }
 
 void ShaderStageBuilder::validate() const {

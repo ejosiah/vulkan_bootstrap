@@ -20,6 +20,8 @@ public:
 
     InputAssemblyStateBuilder& triangleStrip();
 
+    InputAssemblyStateBuilder& patches();
+
     InputAssemblyStateBuilder& linesWithAdjacency();
 
     InputAssemblyStateBuilder& lineStripWithAdjacency();

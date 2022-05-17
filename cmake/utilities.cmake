@@ -46,6 +46,8 @@ function(compile_glsl_directory)
         "${COMPILE_SRC_DIR}/*.frag"
         "${COMPILE_SRC_DIR}/*.geom"
         "${COMPILE_SRC_DIR}/*.comp"
+        "${COMPILE_SRC_DIR}/*.tese"
+        "${COMPILE_SRC_DIR}/*.tesc"
     )
 
     file(MAKE_DIRECTORY ${COMPILE_OUT_DIR})

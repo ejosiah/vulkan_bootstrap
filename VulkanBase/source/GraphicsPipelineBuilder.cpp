@@ -12,6 +12,7 @@ GraphicsPipelineBuilder::GraphicsPipelineBuilder(VulkanDevice *device)
 , _depthStencilStateBuilder{ std::make_unique<DepthStencilStateBuilder>(device, this)}
 , _colorBlendStateBuilder{ std::make_unique<ColorBlendStateBuilder>(device, this)}
 , _dynamicStateBuilder{ std::make_unique<DynamicStateBuilder>(device, this)}
+, _tessellationStateBuilder{ std::make_unique<TessellationStateBuilder>(device, this)}
 , _name{""}
 {
 
@@ -47,6 +48,13 @@ InputAssemblyStateBuilder& GraphicsPipelineBuilder::inputAssemblyState() {
         return parent()->inputAssemblyState();
     }
     return *_inputAssemblyStateBuilder;
+}
+
+TessellationStateBuilder& GraphicsPipelineBuilder::tessellationState() {
+    if(parent()){
+        return parent()->tessellationState();
+    }
+    return *_tessellationStateBuilder;
 }
 
 GraphicsPipelineBuilder& GraphicsPipelineBuilder::allowDerivatives() {
@@ -135,6 +143,7 @@ VkGraphicsPipelineCreateInfo GraphicsPipelineBuilder::createInfo() {
     auto& depthStencilState = _depthStencilStateBuilder->buildDepthStencilState();
     auto& colorBlendState = _colorBlendStateBuilder->buildColorBlendState();
     auto& dynamicState = _dynamicStateBuilder->buildPipelineDynamicState();
+    auto& tessellationState = _tessellationStateBuilder->buildTessellationState();
 
     auto info = initializers::graphicsPipelineCreateInfo();
     info.flags = _flags;
@@ -142,6 +151,7 @@ VkGraphicsPipelineCreateInfo GraphicsPipelineBuilder::createInfo() {
     info.pStages = shaderStages.data();
     info.pVertexInputState = &vertexInputState;
     info.pInputAssemblyState = &inputAssemblyState;
+    info.pTessellationState = &tessellationState;
     info.pViewportState = &viewportState;
     info.pRasterizationState = &rasterState;
     info.pMultisampleState = &multisampleState;

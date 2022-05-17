@@ -22,6 +22,8 @@ public:
 
     virtual InputAssemblyStateBuilder& inputAssemblyState();
 
+    virtual TessellationStateBuilder& tessellationState();
+
     virtual ViewportStateBuilder& viewportState();
 
     virtual RasterizationStateBuilder& rasterizationState();
@@ -83,6 +85,7 @@ private:
     std::unique_ptr<DepthStencilStateBuilder> _depthStencilStateBuilder = nullptr;
     std::unique_ptr<ColorBlendStateBuilder> _colorBlendStateBuilder = nullptr ;
     std::unique_ptr<DynamicStateBuilder> _dynamicStateBuilder = nullptr;
+    std::unique_ptr<TessellationStateBuilder> _tessellationStateBuilder = nullptr;
     VulkanPipeline* _basePipeline = nullptr;
     VkPipelineCache pipelineCache_ = VK_NULL_HANDLE;
 
@@ -98,3 +101,4 @@ private:
 #include "DepthStencilStateBuilder.hpp"
 #include "ColorBlendStateBuilder.hpp"
 #include "DynamicStateBuilder.hpp"
+#include "TessellationStateBuilder.hpp"

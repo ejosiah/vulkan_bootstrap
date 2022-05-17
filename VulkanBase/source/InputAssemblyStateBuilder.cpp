@@ -40,6 +40,11 @@ InputAssemblyStateBuilder &InputAssemblyStateBuilder::triangleStrip() {
     return *this;
 }
 
+InputAssemblyStateBuilder &InputAssemblyStateBuilder::patches() {
+    _topology = VK_PRIMITIVE_TOPOLOGY_PATCH_LIST;
+    return *this;
+}
+
 InputAssemblyStateBuilder &InputAssemblyStateBuilder::linesWithAdjacency() {
     _topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST_WITH_ADJACENCY;
     return *this;
