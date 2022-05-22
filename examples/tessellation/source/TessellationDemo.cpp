@@ -68,7 +68,7 @@ void TessellationDemo::createRenderPipeline() {
             .shaderStage()
                 .vertexShader(load("patch.vert.spv"))
                 .tessellationControlShader(load("quad.tesc.spv"))
-                .tessellationEvaluationShader(load("cube.tese.spv"))
+                .tessellationEvaluationShader(load("quad.tese.spv"))
                 .fragmentShader(load("patch.frag.spv"))
             .vertexInputState()
                 .addVertexBindingDescription(0, sizeof(glm::vec3), VK_VERTEX_INPUT_RATE_VERTEX)

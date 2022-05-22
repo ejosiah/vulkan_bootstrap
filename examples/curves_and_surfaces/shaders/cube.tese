@@ -2,12 +2,6 @@
 
 layout(quads, equal_spacing, ccw) in;
 
-layout(set = 0, binding = 0) uniform MVP{
-    mat4 model;
-    mat4 view;
-    mat4 projection;
-};
-
 layout(push_constant) uniform TESS_LEVELS{
     vec3 scale;
     float outer;
@@ -17,12 +11,7 @@ layout(push_constant) uniform TESS_LEVELS{
     int shouldNormalize;
 };
 
-layout(location = 0) out struct {
-    vec3 normal;
-    vec3 worldPos;
-    vec3 lightPos;
-    vec3 eyePos;
-} v_out;
+layout(location = 0) out vec3 o_normal;
 
 void main(){
     float u = min(gl_TessCoord.x, max_u);
@@ -45,13 +34,8 @@ void main(){
         p *= scale;
     }
 
-    vec4 position = model * vec4(p, 1);
+    o_normal = n;
 
-    v_out.worldPos = position.xyz;
-    v_out.normal = normalize(n);
-    v_out.lightPos = (inverse(view) * vec4(0, 0, 0, 1)).xyz;
-    v_out.eyePos = v_out.lightPos;
-
-    gl_Position = projection * view * position;
+    gl_Position = vec4(p, 1);
 
 }

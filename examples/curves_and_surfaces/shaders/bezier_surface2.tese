@@ -2,12 +2,6 @@
 
 layout(quads, equal_spacing, ccw) in;
 
-layout(set = 0, binding = 0) uniform MVP{
-    mat4 model;
-    mat4 view;
-    mat4 projection;
-};
-
 layout(push_constant) uniform TESS_LEVELS{
     float outer;
     float inner;
@@ -32,12 +26,7 @@ void basisFunctions(out float[4] b, out float[4] db, float t)
     db[3] = 3.0 * t * t;
 }
 
-layout(location = 0) out struct {
-    vec3 normal;
-    vec3 worldPos;
-    vec3 lightPos;
-    vec3 eyePos;
-} v_out;
+layout(location = 0) out vec3 normal;
 
 
 void main(){
@@ -96,13 +85,8 @@ void main(){
     p30*bu[3]*dbv[0]+p31*bu[3]*dbv[1]+p32*bu[3]*dbv[2]+
     p33*bu[3]*dbv[3];
     // The normal is the cross product of the partials
-    vec3 n = normalize(cross(du.xyz, dv.xyz));
+    normal = normalize(cross(du.xyz, dv.xyz));
 
-    vec4 position = model * p;
-    v_out.worldPos = position.xyz;
-    v_out.normal = n;
-    v_out.lightPos = (inverse(view) * vec4(0, 0, 0, 1)).xyz;
-    v_out.eyePos = v_out.lightPos;
 
-    gl_Position = projection * view * position;
+    gl_Position = p;
 }

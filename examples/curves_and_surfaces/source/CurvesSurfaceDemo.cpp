@@ -25,6 +25,7 @@ void CurvesSurfaceDemo::initApp() {
     createDescriptorSetLayouts();
     createPatches();
     initCameras();
+    initUniforms();
     updateDescriptorSets();
     createPipelineCache();
     createRenderPipeline();
@@ -64,19 +65,37 @@ void CurvesSurfaceDemo::createDescriptorSetLayouts() {
                 .descriptorCount(1)
                 .shaderStages(VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT | VK_SHADER_STAGE_GEOMETRY_BIT)
             .createLayout();
-    
-    mvp.descriptorSet = descriptorPool.allocate({mvp.layout}).front();
+
+    globalUBo.layout =
+        device.descriptorSetLayoutBuilder()
+            .binding(0)
+                .descriptorType(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
+                .descriptorCount(1)
+                .shaderStages(VK_SHADER_STAGE_FRAGMENT_BIT)
+            .createLayout();
+    auto sets = descriptorPool.allocate({mvp.layout, globalUBo.layout});
+    mvp.descriptorSet = sets[0];
+    globalUBo.descriptorSet = sets[1];
+    descriptorSets[0] = mvp.descriptorSet;
+    descriptorSets[1] = globalUBo.descriptorSet;
+
 }
 
 void CurvesSurfaceDemo::updateDescriptorSets() {
-    auto writes = initializers::writeDescriptorSets<1>();
-    auto& write = writes[0];
-    write.dstSet = mvp.descriptorSet;
-    write.dstBinding = 0;
-    write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    write.descriptorCount = 1;
+    auto writes = initializers::writeDescriptorSets<2>();
+    writes[0].dstSet = mvp.descriptorSet;
+    writes[0].dstBinding = 0;
+    writes[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    writes[0].descriptorCount = 1;
     VkDescriptorBufferInfo mvpBufferInfo{mvp.buffer, 0, VK_WHOLE_SIZE};
-    write.pBufferInfo = &mvpBufferInfo;
+    writes[0].pBufferInfo = &mvpBufferInfo;
+
+    writes[1].dstSet = globalUBo.descriptorSet;
+    writes[1].dstBinding = 0;
+    writes[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    writes[1].descriptorCount = 1;
+    VkDescriptorBufferInfo gUboBufferInfo{globalUBo.buffer, 0, VK_WHOLE_SIZE};
+    writes[1].pBufferInfo = &gUboBufferInfo;
 
     device.updateDescriptorSets(writes);
 }
@@ -164,7 +183,8 @@ void CurvesSurfaceDemo::createRenderPipeline() {
             .shaderStage()
                 .tessellationControlShader(load("bezier_surface.tesc.spv"))
                 .tessellationEvaluationShader(load("bezier_surface2.tese.spv"))
-                .fragmentShader(load("bezier_surface.frag.spv"))
+                .geometryShader(load("wireframe.geom.spv"))
+                .fragmentShader(load("wireframe.frag.spv"))
             .tessellationState()
                 .patchControlPoints(16)
             .rasterizationState()
@@ -173,6 +193,7 @@ void CurvesSurfaceDemo::createRenderPipeline() {
             .layout().clear()
                 .addPushConstantRange(TESSELLATION_SHADER_STAGES_ALL, 0, sizeof(pBezierSurface.constants))
                 .addDescriptorSetLayout(mvp.layout)
+                .addDescriptorSetLayout(globalUBo.layout)
             .name("bezier_surface")
         .build(pBezierSurface.layout);
 
@@ -182,29 +203,26 @@ void CurvesSurfaceDemo::createRenderPipeline() {
             .shaderStage()
                 .tessellationControlShader(load("sphere_surface.tesc.spv"))
                 .tessellationEvaluationShader(load("sphere_surface.tese.spv"))
-                .geometryShader(load("wireframe.geom.spv"))
-                .fragmentShader(load("wireframe.frag.spv"))
             .tessellationState()
                 .patchControlPoints(4)
             .rasterizationState()
             .layout().clear()
                 .addPushConstantRange(TESSELLATION_SHADER_STAGES_ALL, 0, sizeof(pSphereSurface.constants))
-                .addPushConstantRange(VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(pSphereSurface.constants) + 12, sizeof(wireframe))
                 .addDescriptorSetLayout(mvp.layout)
+                .addDescriptorSetLayout(globalUBo.layout)
             .name("sphere_surface")
         .build(pSphereSurface.layout);
 
     pCubeSurface.pipeline =
         builder
             .basePipeline(pBezierCurve.pipeline)
-            .shaderStage().clear()
-                .vertexShader(load("patch.vert.spv"))
+            .shaderStage()
                 .tessellationControlShader(load("cube.tesc.spv"))
                 .tessellationEvaluationShader(load("cube.tese.spv"))
-                .fragmentShader(load("bezier_surface.frag.spv"))
             .layout().clear()
                 .addPushConstantRange(TESSELLATION_SHADER_STAGES_ALL, 0, sizeof(pCubeSurface.constants))
                 .addDescriptorSetLayout(mvp.layout)
+                .addDescriptorSetLayout(globalUBo.layout)
             .name("cube_surface")
         .build(pCubeSurface.layout);
 
@@ -216,11 +234,10 @@ void CurvesSurfaceDemo::createRenderPipeline() {
                 .tessellationEvaluationShader(load("ico_sphere_surface.tese.spv"))
             .tessellationState()
                 .patchControlPoints(3)
-            .rasterizationState()
-//                .polygonModeLine()
             .layout().clear()
                 .addPushConstantRange(TESSELLATION_SHADER_STAGES_ALL, 0, sizeof(pIcoSphereSurface.constants))
                 .addDescriptorSetLayout(mvp.layout)
+                .addDescriptorSetLayout(globalUBo.layout)
             .name("iso_sphere_surface")
         .build(pIcoSphereSurface.layout);
 }
@@ -308,12 +325,11 @@ void CurvesSurfaceDemo::renderUI(VkCommandBuffer commandBuffer) {
         ImGui::RadioButton("Bezier", &curve, CURVE_BEZIER);
     }
     if(mode == MODE_SURFACE && ImGui::CollapsingHeader("Surfaces", ImGuiTreeNodeFlags_DefaultOpen)){
-        ImGui::RadioButton("Teapot", &surface, SURFACE_TEAPOT); ImGui::SameLine();
-        ImGui::RadioButton("Teacup", &surface, SURFACE_TEACUP); ImGui::SameLine();
-        ImGui::RadioButton("Teaspoon", &surface, SURFACE_TEASPOON); ImGui::SameLine();
-        ImGui::RadioButton("Sphere", &surface, SURFACE_SPHERE); ImGui::SameLine();
-        ImGui::RadioButton("IcoSphere", &surface, SURFACE_ICO_SPHERE); ImGui::SameLine();
-        ImGui::RadioButton("Cube", &surface, SURFACE_CUBE); //ImGui::SameLine();
+        static const char* primitives[6]{"Teapot", "Teacup", "Teaspoon", "Sphere", "IcoSphere", "Cube"};
+
+        static int primitive = 0;
+        ImGui::Combo("Primitive", &primitive, primitives, 6);
+        surface = (1 << primitive);
 
         if(surface & SURFACE_BEZIER){
             auto& constants = pBezierSurface.constants;
@@ -335,20 +351,22 @@ void CurvesSurfaceDemo::renderUI(VkCommandBuffer commandBuffer) {
             ImGui::SliderFloat("w", &constants.w, 0.0, 1.0);
             ImGui::SliderFloat("radius", &constants.radius, 1.0, 5.0);
         }
-
+        ImGui::PushID("prim_color");
+        ImGui::ColorEdit3("color", reinterpret_cast<float*>(&globalConstants.surfaceColor));
+        ImGui::PopID();
     }
 
     if(ImGui::CollapsingHeader("Global", ImGuiTreeNodeFlags_DefaultOpen)){
-        static bool wireframeEnabled = wireframe.enabled;
-        static bool solid = wireframe.solid;
+        static bool wireframeEnabled = globalConstants.wireframe.enabled;
+        static bool solid = globalConstants.wireframe.solid;
         ImGui::Checkbox("wireframe", &wireframeEnabled); ImGui::SameLine();
         if(wireframeEnabled && mode == MODE_SURFACE){
             ImGui::Checkbox("solid", &solid);
-            ImGui::ColorEdit3("color", reinterpret_cast<float*>(&wireframe.color));
-            ImGui::SliderFloat("width", &wireframe.width, 0.01, 0.1);
+            ImGui::ColorEdit3("color", reinterpret_cast<float*>(&globalConstants.wireframe.color));
+            ImGui::SliderFloat("width", &globalConstants.wireframe.width, 0.01, 0.1);
         }
-        wireframe.enabled = wireframeEnabled;
-        wireframe.solid = solid;
+        globalConstants.wireframe.enabled = wireframeEnabled;
+        globalConstants.wireframe.solid = solid;
     }
 
     ImGui::End();
@@ -357,10 +375,17 @@ void CurvesSurfaceDemo::renderUI(VkCommandBuffer commandBuffer) {
 }
 
 void CurvesSurfaceDemo::tessellationLevelUI(float &outer, float &inner, float& u, float& v) {
-    ImGui::SliderFloat("Outer tess levels", &outer, 4, 100);
-    ImGui::SliderFloat("Inner tess levels", &inner, 4, 100);
+    static bool link = true;
+    auto outerUpdated = ImGui::SliderFloat("Outer tess levels", &outer, 1, 64); ImGui::SameLine();
+    ImGui::Checkbox("link", &link);
+    auto innerUpdated = ImGui::SliderFloat("Inner tess levels", &inner, 1, 64);
     ImGui::SliderFloat("u", &u, 0, 1);
     ImGui::SliderFloat("v", &v, 0, 1);
+
+    if(link){
+        if(outerUpdated) inner = outer;
+        if(innerUpdated) outer = inner;
+    }
 }
 
 void CurvesSurfaceDemo::renderBezierCurve(VkCommandBuffer commandBuffer) {
@@ -394,7 +419,7 @@ void CurvesSurfaceDemo::renderBezierSurface(VkCommandBuffer commandBuffer){
 void CurvesSurfaceDemo::renderBezierSurface(VkCommandBuffer commandBuffer, Patch &patch) {
     VkDeviceSize offset = 0;
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pBezierSurface.pipeline);
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pBezierSurface.layout, 0, 1, &mvp.descriptorSet, 0, VK_NULL_HANDLE);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pBezierSurface.layout, 0, COUNT(descriptorSets), descriptorSets.data(), 0, VK_NULL_HANDLE);
     vkCmdPushConstants(commandBuffer, pBezierSurface.layout, TESSELLATION_SHADER_STAGES_ALL, 0, sizeof(pBezierSurface.constants), &pBezierSurface.constants);
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, patch.points, &offset);
     vkCmdBindIndexBuffer(commandBuffer, patch.indices, 0, VK_INDEX_TYPE_UINT16);
@@ -404,9 +429,8 @@ void CurvesSurfaceDemo::renderBezierSurface(VkCommandBuffer commandBuffer, Patch
 void CurvesSurfaceDemo::renderSphereSurface(VkCommandBuffer commandBuffer) {
     VkDeviceSize offset = 0;
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pSphereSurface.pipeline);
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pSphereSurface.layout, 0, 1, &mvp.descriptorSet, 0, VK_NULL_HANDLE);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pSphereSurface.layout, 0, COUNT(descriptorSets), descriptorSets.data(), 0, VK_NULL_HANDLE);
     vkCmdPushConstants(commandBuffer, pSphereSurface.layout, TESSELLATION_SHADER_STAGES_ALL, 0, sizeof(pSphereSurface.constants), &pSphereSurface.constants);
-    vkCmdPushConstants(commandBuffer, pSphereSurface.layout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(pSphereSurface.constants) + 12, sizeof(wireframe), &wireframe);
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, sphere.points, &offset);
     vkCmdBindIndexBuffer(commandBuffer, sphere.indices, 0, VK_INDEX_TYPE_UINT16);
     vkCmdDrawIndexed(commandBuffer, sphere.indices.size/sizeof(int16_t), 1, 0, 0, 0);
@@ -415,7 +439,7 @@ void CurvesSurfaceDemo::renderSphereSurface(VkCommandBuffer commandBuffer) {
 void CurvesSurfaceDemo::renderIcoSphereSurface(VkCommandBuffer commandBuffer) {
     VkDeviceSize offset = 0;
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pIcoSphereSurface.pipeline);
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pIcoSphereSurface.layout, 0, 1, &mvp.descriptorSet, 0, VK_NULL_HANDLE);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pIcoSphereSurface.layout, 0, COUNT(descriptorSets), descriptorSets.data(), 0, VK_NULL_HANDLE);
     vkCmdPushConstants(commandBuffer, pIcoSphereSurface.layout, TESSELLATION_SHADER_STAGES_ALL, 0, sizeof(pIcoSphereSurface.constants), &pIcoSphereSurface.constants);
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, icoSphere.points, &offset);
     vkCmdBindIndexBuffer(commandBuffer, icoSphere.indices, 0, VK_INDEX_TYPE_UINT16);
@@ -425,7 +449,7 @@ void CurvesSurfaceDemo::renderIcoSphereSurface(VkCommandBuffer commandBuffer) {
 void CurvesSurfaceDemo::renderCubeSurface(VkCommandBuffer commandBuffer) {
     VkDeviceSize offset = 0;
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pCubeSurface.pipeline);
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pCubeSurface.layout, 0, 1, &mvp.descriptorSet, 0, VK_NULL_HANDLE);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pCubeSurface.layout, 0, COUNT(descriptorSets), descriptorSets.data(), 0, VK_NULL_HANDLE);
     vkCmdPushConstants(commandBuffer, pCubeSurface.layout, TESSELLATION_SHADER_STAGES_ALL, 0, sizeof(pCubeSurface.constants), &pCubeSurface.constants);
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, cube.points, &offset);
     vkCmdBindIndexBuffer(commandBuffer, cube.indices, 0, VK_INDEX_TYPE_UINT16);
@@ -446,6 +470,7 @@ void CurvesSurfaceDemo::update(float time) {
     if(!ImGui::IsAnyItemActive()){
         cameraController->update(time);
         mvp.buffer.copy(&cameraController->cam(), sizeof(Camera));
+        globalUBo.buffer.copy(&globalConstants, sizeof(globalConstants));
     }
 }
 
@@ -506,7 +531,11 @@ void CurvesSurfaceDemo::initCameras() {
                                                                    static_cast<InputManager&>(*this), settings);
     camera2d.proj = vkn::ortho(-1, 1, -1, 1, -1, 1);
 
+}
+
+void CurvesSurfaceDemo::initUniforms() {
     mvp.buffer = device.createCpuVisibleBuffer(&cameraController->cam(), sizeof(Camera), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
+    globalUBo.buffer = device.createCpuVisibleBuffer(&globalConstants, sizeof(globalConstants), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
 }
 
 void CurvesSurfaceDemo::createBezierCurvePatch() {

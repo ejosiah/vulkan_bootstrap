@@ -28,6 +28,8 @@ protected:
 
     void initCameras();
 
+    void initUniforms();
+
     void createPatches();
 
     void onSwapChainDispose() override;
@@ -117,8 +119,8 @@ protected:
         VulkanPipeline pipeline;
         struct{
             float scale[3]{2, 2, 2};
-            float tessLevelOuter{100};
-            float tessLevelInner{100};
+            float tessLevelOuter{4};
+            float tessLevelInner{4};
             float u{1};
             float v{1};
             int normalize{0};
@@ -185,23 +187,34 @@ protected:
         VkDescriptorSet descriptorSet;
     } mvp;
 
+    struct {
+        VulkanBuffer buffer;
+        VulkanDescriptorSetLayout layout;
+        VkDescriptorSet descriptorSet;
+    } globalUBo;
+
+    std::array<VkDescriptorSet, 2> descriptorSets{};
+
     static constexpr int SURFACE_TEAPOT = 1 << 0;
     static constexpr int SURFACE_TEACUP = 1 << 1;
     static constexpr int SURFACE_TEASPOON = 1 << 2;
-    static constexpr int SURFACE_PLANE = 1 << 3;
-    static constexpr int SURFACE_SPHERE = 1 << 4;
+    static constexpr int SURFACE_SPHERE = 1 << 3;
+    static constexpr int SURFACE_ICO_SPHERE = 1 << 4;
     static constexpr int SURFACE_CUBE = 1 << 5;
-    static constexpr int SURFACE_CONE = 1 << 6;
-    static constexpr int SURFACE_TORUS = 1 << 7;
-    static constexpr int SURFACE_ICO_SPHERE = 1 << 8;
+    static constexpr int SURFACE_PLANE = 1 << 6;
+    static constexpr int SURFACE_CONE = 1 << 7;
+    static constexpr int SURFACE_TORUS = 1 << 8;
     static constexpr int SURFACE_BEZIER = (SURFACE_TEAPOT | SURFACE_TEASPOON | SURFACE_TEACUP  | SURFACE_PLANE);
     static constexpr VkShaderStageFlags TESSELLATION_SHADER_STAGES_ALL = VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT | VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
     int surface{SURFACE_TEAPOT};
 
     struct{
-        glm::vec3 color{0};
-        float width{0.01};
-        int enabled{0};
-        int solid{1};
-    } wireframe;
+        alignas(16) glm::vec3 surfaceColor{1, 0, 0};
+        struct {
+            alignas(16) glm::vec3 color{0};
+            float width{0.01};
+            int enabled{0};
+            int solid{1};
+        } wireframe;
+    } globalConstants;
 };
