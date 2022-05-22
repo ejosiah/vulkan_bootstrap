@@ -62,7 +62,7 @@ void CurvesSurfaceDemo::createDescriptorSetLayouts() {
             .binding(0)
                 .descriptorType(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
                 .descriptorCount(1)
-                .shaderStages(VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT)
+                .shaderStages(VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT | VK_SHADER_STAGE_GEOMETRY_BIT)
             .createLayout();
     
     mvp.descriptorSet = descriptorPool.allocate({mvp.layout}).front();
@@ -168,7 +168,7 @@ void CurvesSurfaceDemo::createRenderPipeline() {
             .tessellationState()
                 .patchControlPoints(16)
             .rasterizationState()
-                .cullBackFace()
+                .cullNone()
                 .polygonModeFill()
             .layout().clear()
                 .addPushConstantRange(TESSELLATION_SHADER_STAGES_ALL, 0, sizeof(pBezierSurface.constants))
@@ -182,11 +182,14 @@ void CurvesSurfaceDemo::createRenderPipeline() {
             .shaderStage()
                 .tessellationControlShader(load("sphere_surface.tesc.spv"))
                 .tessellationEvaluationShader(load("sphere_surface.tese.spv"))
+                .geometryShader(load("wireframe.geom.spv"))
+                .fragmentShader(load("wireframe.frag.spv"))
             .tessellationState()
                 .patchControlPoints(4)
             .rasterizationState()
             .layout().clear()
                 .addPushConstantRange(TESSELLATION_SHADER_STAGES_ALL, 0, sizeof(pSphereSurface.constants))
+                .addPushConstantRange(VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(pSphereSurface.constants) + 12, sizeof(wireframe))
                 .addDescriptorSetLayout(mvp.layout)
             .name("sphere_surface")
         .build(pSphereSurface.layout);
@@ -194,9 +197,11 @@ void CurvesSurfaceDemo::createRenderPipeline() {
     pCubeSurface.pipeline =
         builder
             .basePipeline(pBezierCurve.pipeline)
-            .shaderStage()
+            .shaderStage().clear()
+                .vertexShader(load("patch.vert.spv"))
                 .tessellationControlShader(load("cube.tesc.spv"))
                 .tessellationEvaluationShader(load("cube.tese.spv"))
+                .fragmentShader(load("bezier_surface.frag.spv"))
             .layout().clear()
                 .addPushConstantRange(TESSELLATION_SHADER_STAGES_ALL, 0, sizeof(pCubeSurface.constants))
                 .addDescriptorSetLayout(mvp.layout)
@@ -252,7 +257,11 @@ VkCommandBuffer *CurvesSurfaceDemo::buildCommandBuffers(uint32_t imageIndex, uin
     vkBeginCommandBuffer(commandBuffer, &beginInfo);
 
     static std::array<VkClearValue, 2> clearValues;
-    clearValues[0].color = {0, 0, 0, 1};
+    if(mode == MODE_CURVES){
+        clearValues[0].color = {0, 0, 0, 1};
+    }else {
+        clearValues[0].color = {0.8, 0.8, 0.8, 1};
+    }
     clearValues[1].depthStencil = {1.0, 0u};
 
     VkRenderPassBeginInfo rPassInfo = initializers::renderPassBeginInfo();
@@ -329,6 +338,18 @@ void CurvesSurfaceDemo::renderUI(VkCommandBuffer commandBuffer) {
 
     }
 
+    if(ImGui::CollapsingHeader("Global", ImGuiTreeNodeFlags_DefaultOpen)){
+        static bool wireframeEnabled = wireframe.enabled;
+        static bool solid = wireframe.solid;
+        ImGui::Checkbox("wireframe", &wireframeEnabled); ImGui::SameLine();
+        if(wireframeEnabled && mode == MODE_SURFACE){
+            ImGui::Checkbox("solid", &solid);
+            ImGui::ColorEdit3("color", reinterpret_cast<float*>(&wireframe.color));
+            ImGui::SliderFloat("width", &wireframe.width, 0.01, 0.1);
+        }
+        wireframe.enabled = wireframeEnabled;
+        wireframe.solid = solid;
+    }
 
     ImGui::End();
 
@@ -385,6 +406,7 @@ void CurvesSurfaceDemo::renderSphereSurface(VkCommandBuffer commandBuffer) {
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pSphereSurface.pipeline);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pSphereSurface.layout, 0, 1, &mvp.descriptorSet, 0, VK_NULL_HANDLE);
     vkCmdPushConstants(commandBuffer, pSphereSurface.layout, TESSELLATION_SHADER_STAGES_ALL, 0, sizeof(pSphereSurface.constants), &pSphereSurface.constants);
+    vkCmdPushConstants(commandBuffer, pSphereSurface.layout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(pSphereSurface.constants) + 12, sizeof(wireframe), &wireframe);
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, sphere.points, &offset);
     vkCmdBindIndexBuffer(commandBuffer, sphere.indices, 0, VK_INDEX_TYPE_UINT16);
     vkCmdDrawIndexed(commandBuffer, sphere.indices.size/sizeof(int16_t), 1, 0, 0, 0);
@@ -472,6 +494,8 @@ glm::vec3 CurvesSurfaceDemo::selectPoint() {
 void CurvesSurfaceDemo::initCameras() {
     OrbitingCameraSettings settings{};
     settings.offsetDistance = 10.0f;
+    settings.orbitMinZoom = 0.1f;
+    settings.orbitMaxZoom = 10.f;
     settings.rotationSpeed = 0.1f;
     settings.zNear = 0.1f;
     settings.zFar = 20.0f;
@@ -526,7 +550,8 @@ void CurvesSurfaceDemo::loadBezierPatches() {
     auto [nodes, indices] = teapotPatch();
     teapot.points = device.createDeviceLocalBuffer(nodes.data(), BYTE_SIZE(nodes), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
     teapot.indices = device.createDeviceLocalBuffer(indices.data(), BYTE_SIZE(indices), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
-    loadPatch("teacup", teacup);
+//    loadPatch("teacup", teacup);
+    loadTeaCup();
     loadPatch("teaspoon", teaspoon);
 }
 
@@ -556,6 +581,28 @@ void CurvesSurfaceDemo::loadPatch(const std::string &name, Patch &patch) {
     }
     patch.points = device.createCpuVisibleBuffer(nodes.data(), BYTE_SIZE(nodes), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
     patch.indices = device.createDeviceLocalBuffer(rectangles.data(), BYTE_SIZE(rectangles), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+}
+
+void CurvesSurfaceDemo::loadTeaCup() {
+    std::string name = "teacup";
+    spdlog::info("loading teacup");
+    auto nodePath = resource(fmt::format("{}.txt", name));
+    std::ifstream fin(nodePath.data());
+    if(!fin.good()) throw  std::runtime_error{fmt::format("unable to open {}}", nodePath)};
+
+    std::vector<glm::vec3> nodes;
+    while(!fin.eof()){
+        glm::vec3 node{0};
+        fin >> node.x >> node.y >> node.z;
+        nodes.push_back(node);
+    }
+    fin.close();
+
+    teacup.points = device.createCpuVisibleBuffer(nodes.data(), BYTE_SIZE(nodes), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+
+    std::vector<uint16_t> rectangles(nodes.size());
+    std::iota(begin(rectangles), end(rectangles), 0);
+    teacup.indices = device.createDeviceLocalBuffer(rectangles.data(), BYTE_SIZE(rectangles), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
 }
 
 void CurvesSurfaceDemo::createSpherePatch() {
@@ -634,6 +681,7 @@ int main(){
         settings.enabledFeatures.fillModeNonSolid = VK_TRUE;
         settings.enabledFeatures.tessellationShader = VK_TRUE;
         settings.enabledFeatures.largePoints = VK_TRUE;
+        settings.enabledFeatures.geometryShader = VK_TRUE;
         auto app = CurvesSurfaceDemo{ settings };
         std::unique_ptr<Plugin> plugin = std::make_unique<ImGuiPlugin>();
         app.addPlugin(plugin);

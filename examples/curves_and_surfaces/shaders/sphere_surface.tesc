@@ -5,6 +5,8 @@ layout(vertices = 4) out;
 layout(push_constant) uniform TESS_LEVELS{
     float outer;
     float inner;
+    float maxU;
+    float maxV;
     float radius;
 };
 

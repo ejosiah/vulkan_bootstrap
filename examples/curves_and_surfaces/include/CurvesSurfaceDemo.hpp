@@ -56,6 +56,8 @@ protected:
 
     void loadPatch(const std::string& name, Patch& patch);
 
+    void loadTeaCup();
+
     void createSpherePatch();
 
     void createIcoSpherePatch();
@@ -195,4 +197,11 @@ protected:
     static constexpr int SURFACE_BEZIER = (SURFACE_TEAPOT | SURFACE_TEASPOON | SURFACE_TEACUP  | SURFACE_PLANE);
     static constexpr VkShaderStageFlags TESSELLATION_SHADER_STAGES_ALL = VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT | VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
     int surface{SURFACE_TEAPOT};
+
+    struct{
+        glm::vec3 color{0};
+        float width{0.01};
+        int enabled{0};
+        int solid{1};
+    } wireframe;
 };

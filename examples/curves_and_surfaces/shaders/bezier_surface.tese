@@ -8,6 +8,13 @@ layout(set = 0, binding = 0) uniform MVP{
     mat4 projection;
 };
 
+layout(push_constant) uniform TESS_LEVELS{
+    float outer;
+    float inner;
+    float maxU;
+    float maxV;
+};
+
 
 const vec4 bc = vec4(1, 3, 3, 1);
 const float epsilon = 0.001;
