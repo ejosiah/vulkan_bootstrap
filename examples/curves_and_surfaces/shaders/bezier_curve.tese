@@ -2,7 +2,7 @@
 
 layout(isolines, equal_spacing, ccw) in;
 
-layout(push_constant) uniform MVP{
+layout(set = 0, binding = 0) uniform MVP{
     mat4 model;
     mat4 view;
     mat4 projection;

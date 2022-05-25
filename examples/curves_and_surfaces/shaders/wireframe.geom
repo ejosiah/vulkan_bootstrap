@@ -12,16 +12,21 @@ layout(set = 0, binding = 0) uniform MVP{
     mat4 projection;
 };
 
-layout(location = 0) in vec3 normal[3];
+layout(location = 0) in struct {
+    vec3 normal;
+    vec2 uv;
+} v_in[3];
+
 
 layout(location = 0) out struct {
     vec3 normal;
     vec3 worldPos;
     vec3 lightPos;
     vec3 eyePos;
+    vec2 uv;
 } v_out;
 
-layout(location = 4) noperspective out vec3 edgeDist;
+layout(location = 5) noperspective out vec3 edgeDist;
 
 void main(){
     vec3 p0 = gl_in[0].gl_Position.xyz;
@@ -33,7 +38,8 @@ void main(){
     for(int i = 0; i < gl_in.length(); i++){
         vec4 position = model * gl_in[i].gl_Position;
         v_out.worldPos = position.xyz;
-        v_out.normal = normal[i];
+        v_out.normal = v_in[i].normal;
+        v_out.uv = v_in[i].uv;
         v_out.lightPos = (inverse(view) * vec4(0, 0, 0, 1)).xyz;
         v_out.eyePos = v_out.lightPos;
         edgeDist = vec3(0);

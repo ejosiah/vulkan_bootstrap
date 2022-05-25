@@ -10,7 +10,11 @@ layout(push_constant) uniform TESS_LEVELS{
     float radius;
 };
 
-layout(location = 0) out vec3 normal;
+layout(location = 0) out struct {
+    vec3 normal;
+    vec2 uv;
+} v_out;
+
 
 void main(){
     float u = min(gl_TessCoord.x, maxU);
@@ -24,8 +28,7 @@ void main(){
     p.y = radius * cos(phi);
     p.z = radius * sin(theta) * sin(phi);
 
-    normal = normalize(p.xyz);
-
+    v_out.normal = normalize(p.xyz);
+    v_out.uv = vec2(u, v);
     gl_Position = p;
-
 }

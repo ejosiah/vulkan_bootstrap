@@ -1,12 +1,10 @@
 #version 450
+#extension GL_GOOGLE_include_directive : enable
+#define PI 3.14159265358979
+
+#include "octahedral.glsl"
 
 layout(quads, equal_spacing, ccw) in;
-
-layout(set = 0, binding = 0) uniform MVP{
-    mat4 model;
-    mat4 view;
-    mat4 projection;
-};
 
 layout(push_constant) uniform TESS_LEVELS{
     float outer;
@@ -17,7 +15,7 @@ layout(push_constant) uniform TESS_LEVELS{
 
 
 const vec4 bc = vec4(1, 3, 3, 1);
-const float epsilon = 0.001;
+const float epsilon = 0.0001;
 
 float B(int i, float u){
     return bc[i] * pow(1 - u, 3 - i) * pow(u, i);
@@ -26,8 +24,7 @@ float B(int i, float u){
 float dB(int i, float u){
     float n = 3;
     return
-        bc[i] * (pow(u, i) * (n - i) * pow((1-u), n-i-1)
-        + pow((1-u), n-1) * i * pow(u, i-1));
+        bc[i] * (i * pow(u, i-1) * pow(1 - u, n - i) - pow(u, i) * (n - i) * pow(1 - u, n - i - 1));
 }
 
 vec4 f(float u, float v, int i, int j){
@@ -47,9 +44,7 @@ vec4 dfdv(float u, float v, int i, int j){
 
 layout(location = 0) out struct {
     vec3 normal;
-    vec3 worldPos;
-    vec3 lightPos;
-    vec3 eyePos;
+    vec2 uv;
 } v_out;
 
 void main(){
@@ -62,24 +57,22 @@ void main(){
     for(int i = 0; i < 4; i++){
         for(int j = 0; j < 4; j++){
             int ij = i * 4 + j;
-            vec4 fp = f(u, v, i, j);
-//            vec3 tp = f(u + epsilon, v, i, j).xyz;
-//            vec3 bp = f(u, v + epsilon, i, j).xyz;
-//            t += (tp - fp.xyz)/epsilon;
-//            b += (bp - fp.xyz)/epsilon;
-            vec3 tp = -dfdu(u, v, i, j).xyz;
-            vec3 bp = -dfdv(u, v, i, j).xyz;
-            p += fp;
-            t += tp;
-            b += bp;
+            p += f(u, v, i, j);
+            t += dfdu(u, v, i, j).xyz;
+            b += dfdv(u, v, i, j).xyz;
         }
     }
-    vec4 position = model * p;
-    v_out.worldPos = position.xyz;
     v_out.normal = normalize(cross(t, b));
-    v_out.lightPos = (inverse(view) * vec4(0, 0, 0, 1)).xyz;
-    v_out.eyePos = v_out.lightPos;
 
-    gl_Position = projection * view * position;
+//    vec3 p_norm = normalize(p.xyz);
+//    float theta = atan(p_norm.z, p_norm.x);
+//    float phi = acos(p_norm.y);
+//
+//    v_out.uv.x = theta/(2 * PI) + .5;
+//    v_out.uv.y = phi/PI;
+
+    vec2 octUV = octEncode(normalize(p.xyz));
+    v_out.uv = .5 * octUV + 5;
+    gl_Position = p;
 
 }
