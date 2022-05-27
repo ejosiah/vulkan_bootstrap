@@ -117,17 +117,22 @@ struct VulkanBuffer{
     }
 
     void* map(){
+        if(mapped) return mapped;
         vmaMapMemory(allocator, allocation, &mapped);
         return mapped;
     }
 
     void unmap() {
+        if(!mapped) return;
         vmaUnmapMemory(allocator, allocation);
         mapped = nullptr;
     }
 
     template<typename T>
     T get(int index){
+        if(mapped){
+            return reinterpret_cast<T*>(mapped)[index];
+        }
         // TODO check if mappable & bounds
         T res;
         map<T>([&](auto ptr){
@@ -154,6 +159,11 @@ struct VulkanBuffer{
 
     static void ensureRef(VkBuffer buffer){
         assert(refCounts.find(buffer) != refCounts.end());
+    }
+
+    template<typename T>
+    VkDeviceSize sizeAs(){
+        return size/sizeof(T);
     }
 
     VmaAllocator allocator = VK_NULL_HANDLE;

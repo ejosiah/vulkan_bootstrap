@@ -1,8 +1,10 @@
 #include "VulkanBaseApp.h"
-
+#include <imgui.h>
 struct Patch{
     VulkanBuffer points;
     VulkanBuffer indices;
+    int numPoints{0};
+    int numIndices{0};
 };
 
 class CurvesSurfaceDemo : public VulkanBaseApp{
@@ -48,10 +50,9 @@ protected:
 
     void tessellationLevelUI(float& outer, float& inner, float& u, float& v);
 
-
     void renderCurve(VkCommandBuffer commandBuffer);
 
-    void renderCurve(VkCommandBuffer commandBuffer, VulkanPipeline& pipeline, VulkanPipelineLayout& layout, Patch& patch, void* constants = nullptr, uint32_t constantsSize = 0, VkShaderStageFlags shaderStageFlags = 0);
+    void renderCurve(VkCommandBuffer commandBuffer, VulkanPipeline& pipeline, VulkanPipelineLayout& layout, Patch& patch, void* constants = nullptr, uint32_t constantsSize = 0, VkShaderStageFlags shaderStageFlags = 0, int numIndices = 0);
 
     void renderBezierSurface(VkCommandBuffer commandBuffer);
 
@@ -61,9 +62,15 @@ protected:
 
     void renderTorusSurface(VkCommandBuffer commandBuffer);
 
+    void renderCylinderSurface(VkCommandBuffer commandBuffer);
+
+    void renderCone(VkCommandBuffer commandBuffer);
+
     void renderIcoSphereSurface(VkCommandBuffer commandBuffer);
 
     void renderCubeSurface(VkCommandBuffer commandBuffer);
+
+    void renderSweptSurface(VkCommandBuffer commandBuffer);
 
     void loadBezierPatches();
 
@@ -79,7 +86,9 @@ protected:
 
     void createHermitePatch();
 
-    void renderControlPoints(VkCommandBuffer commandBuffer,  Patch& patch, uint32_t indexCount = 4);
+    void renderControlPoints(VkCommandBuffer commandBuffer,  Patch& patch);
+
+    void renderTangentLines(VkCommandBuffer commandBuffer, Patch& patch, VulkanBuffer* indices = nullptr, uint32_t indexCount = 0);
 
     void update(float time) override;
 
@@ -93,7 +102,7 @@ protected:
 
     void movePoint(int pointIndex, glm::vec3 position);
 
-    int isPointOnScreen(glm::vec3 aPoint);
+    bool isPointOnScreen(glm::vec3 aPoint, int& position);
 
     glm::vec3 selectPoint();
 
@@ -101,8 +110,19 @@ protected:
 
     void createArcPatch();
 
+    void updateHermiteCurve();
+
+    void savePoints(Patch& patch);
+
+    void loadProfile();
+
 protected:
     int curveResolution{64};
+    struct {
+        VulkanPipelineLayout layout;
+        VulkanPipeline pipeline;
+    } pTangentLines;
+
     struct {
         VulkanPipelineLayout layout;
         VulkanPipeline pipeline;
@@ -111,14 +131,17 @@ protected:
         } constants;
     } pBezierCurve;
 
+    VulkanBuffer bezierTangentIndices;
+    VulkanBuffer hermiteTangentIndices;
+
     struct {
         VulkanPipelineLayout layout;
         VulkanPipeline pipeline;
         struct {
             std::array<int, 2> levels{1, 64};
         } constants;
-        int numPoints{0};
     } pHermiteCurve;
+
 
 
     struct {
@@ -159,6 +182,32 @@ protected:
             float radius{2};
         } constants;
     } pSphereSurface;
+
+    struct {
+        VulkanPipelineLayout layout;
+        VulkanPipeline pipeline;
+        struct{
+            float tessLevelOuter{50};
+            float tessLevelInner{50};
+            float u{1};
+            float v{1};
+            float radius{1};
+            float height{3};
+        } constants;
+    } pCylinder;
+
+    struct {
+        VulkanPipelineLayout layout;
+        VulkanPipeline pipeline;
+        struct{
+            float tessLevelOuter{50};
+            float tessLevelInner{50};
+            float u{1};
+            float v{1};
+            float radius{0.5};
+            float height{3};
+        } constants;
+    } pCone;
 
     struct {
         VulkanPipelineLayout layout;
@@ -207,6 +256,18 @@ protected:
     struct {
         VulkanPipelineLayout layout;
         VulkanPipeline pipeline;
+        struct{
+            float tessLevelOuter{50};
+            float tessLevelInner{50};
+            float u{1};
+            float v{1};
+            int numPoints{0};
+        } constants;
+    } pSurfaceRevolution;
+
+    struct {
+        VulkanPipelineLayout layout;
+        VulkanPipeline pipeline;
     } pPoints;
 
     struct {
@@ -227,7 +288,6 @@ protected:
     Patch hermiteCurve;
     Patch icoSphere;
     Patch cube;
-    uint32_t numPoints{4};
     Camera camera2d;
     std::unique_ptr<OrbitingCameraController> cameraController;
     int selectedPoint{-1};
@@ -235,11 +295,15 @@ protected:
     struct {
         glm::vec3 *handle = nullptr;
         Patch *source = nullptr;
+        uint32_t numPoints{0};
     } point;
+    std::vector<glm::vec3> pointsAdded;
+    bool addingPoints{false};
 
     glm::vec3 mousePosition;
     bool pointSelected{false};
     Action* movePointAction = nullptr;
+    Action* addPointAction = nullptr;
     float pointRadius = 0.1;
     static constexpr uint32_t maxPoints{6};
 
@@ -263,16 +327,23 @@ protected:
         VkDescriptorSet descriptorSet;
     } vulkanImage;
 
+    struct {
+        VulkanDescriptorSetLayout layout;
+        VkDescriptorSet descriptorSet;
+        VulkanBuffer vertices;
+        VulkanBuffer indices;
+    } profileCurve;
+
     std::array<VkDescriptorSet, 3> descriptorSets{};
 
     static constexpr int MODE_CURVES = 0;
     static constexpr int MODE_SURFACE = 1;
-    int mode{MODE_CURVES};
+    int mode{MODE_SURFACE};
 
     static constexpr int CURVE_BEZIER = 1 << 0;
     static constexpr int CURVE_HERMITE = 1 << 1;
     static constexpr int CURVE_ARC = 1 << 2;
-    static constexpr int CURVES_WITH_CONTROL_PINTS = CURVE_HERMITE | CURVE_BEZIER;
+    static constexpr int CURVES_WITH_CONTROL_POINTS = CURVE_HERMITE | CURVE_BEZIER;
     int curve{CURVE_HERMITE};
 
     static constexpr int SURFACE_TEAPOT = 1 << 0;
@@ -282,15 +353,17 @@ protected:
     static constexpr int SURFACE_ICO_SPHERE = 1 << 4;
     static constexpr int SURFACE_CUBE = 1 << 5;
     static constexpr int SURFACE_TORUS = 1 << 6;
-    static constexpr int SURFACE_PLANE = 1 << 7;
+    static constexpr int SURFACE_CYLINDER = 1 << 7;
     static constexpr int SURFACE_CONE = 1 << 8;
-    static constexpr int SURFACE_CYLINDER = 1 << 9;
+    static constexpr int SURFACE_SWEPT = 1 << 9;
+    static constexpr int SURFACE_PLANE = 1 << 10;
     static constexpr int SURFACE_BEZIER = (SURFACE_TEAPOT | SURFACE_TEASPOON | SURFACE_TEACUP  | SURFACE_PLANE);
     static constexpr VkShaderStageFlags TESSELLATION_SHADER_STAGES_ALL = VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT | VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
-    int surface{SURFACE_TORUS};
+    int surface{SURFACE_SWEPT};
+    bool dirty{false};
 
     struct{
-        alignas(16) glm::vec3 surfaceColor{1, 1, 1};
+        alignas(16) glm::vec3 surfaceColor{1, 0, 0};
         struct {
             alignas(16) glm::vec3 color{0};
             float width{0.01};
@@ -299,4 +372,10 @@ protected:
             int uvColor{0};
         } wireframe;
     } globalConstants;
+    struct {
+        bool active{false};
+        ImVec2 pos{0, 0};
+    } contextPopup;
+    bool showTangentLines{true};
+    bool showPoints{true};
 };

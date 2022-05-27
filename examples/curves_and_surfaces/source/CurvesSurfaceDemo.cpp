@@ -17,7 +17,8 @@ CurvesSurfaceDemo::CurvesSurfaceDemo(const Settings& settings) : VulkanBaseApp("
     fileManager.addSearchPath("../../data/models");
     fileManager.addSearchPath("../../data/textures");
     fileManager.addSearchPath("../../data");
-    movePointAction = &mapToMouse(0, "move_pint", Action::normal());
+    movePointAction = &mapToMouse(0, "move_point", Action::normal());
+    addPointAction = &mapToMouse(0, "add_point", Action::detectInitialPressOnly());
 }
 
 void CurvesSurfaceDemo::initApp() {
@@ -84,15 +85,28 @@ void CurvesSurfaceDemo::createDescriptorSetLayouts() {
                 .shaderStages(VK_SHADER_STAGE_FRAGMENT_BIT)
             .createLayout();
 
+    profileCurve.layout =
+        device.descriptorSetLayoutBuilder()
+            .binding(0)
+                .descriptorType(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
+                .descriptorCount(1)
+                .shaderStages(VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT)
+            .binding(1)
+                .descriptorType(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
+                .descriptorCount(1)
+                .shaderStages(VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT)
+            .createLayout();
+
     createDescriptorSets();
 
 }
 
 void CurvesSurfaceDemo::createDescriptorSets() {
-    auto sets = descriptorPool.allocate({mvp.layout, globalUBo.layout, vulkanImage.layout});
+    auto sets = descriptorPool.allocate({mvp.layout, globalUBo.layout, vulkanImage.layout, profileCurve.layout});
     mvp.descriptorSet = sets[0];
     globalUBo.descriptorSet = sets[1];
     vulkanImage.descriptorSet = sets[2];
+    profileCurve.descriptorSet = sets[3];
     descriptorSets[0] = mvp.descriptorSet;
     descriptorSets[1] = globalUBo.descriptorSet;
     descriptorSets[2] = vulkanImage.descriptorSet;
@@ -104,7 +118,7 @@ void CurvesSurfaceDemo::refreshDescriptorSets() {
 }
 
 void CurvesSurfaceDemo::updateDescriptorSets() {
-    auto writes = initializers::writeDescriptorSets<3>();
+    auto writes = initializers::writeDescriptorSets<5>();
     writes[0].dstSet = mvp.descriptorSet;
     writes[0].dstBinding = 0;
     writes[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -125,6 +139,20 @@ void CurvesSurfaceDemo::updateDescriptorSets() {
     writes[2].descriptorCount = 1;
     VkDescriptorImageInfo vulkanImageInfo{vulkanImage.texture.sampler, vulkanImage.texture.imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
     writes[2].pImageInfo = &vulkanImageInfo;
+    
+    writes[3].dstSet = profileCurve.descriptorSet;
+    writes[3].dstBinding = 0;
+    writes[3].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    writes[3].descriptorCount = 1;
+    VkDescriptorBufferInfo profileVertexInfo{profileCurve.vertices, 0, VK_WHOLE_SIZE};
+    writes[3].pBufferInfo = &profileVertexInfo;
+
+    writes[4].dstSet = profileCurve.descriptorSet;
+    writes[4].dstBinding = 1;
+    writes[4].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    writes[4].descriptorCount = 1;
+    VkDescriptorBufferInfo profileIndexInfo{profileCurve.indices, 0, VK_WHOLE_SIZE};
+    writes[4].pBufferInfo = &profileIndexInfo;
 
     device.updateDescriptorSets(writes);
 }
@@ -140,6 +168,7 @@ void CurvesSurfaceDemo::createPipelineCache() {
 
 
 void CurvesSurfaceDemo::createRenderPipeline() {
+//    @formatter:off
     auto builder = device.graphicsPipelineBuilder();
     pPoints.pipeline =
         builder
@@ -184,6 +213,14 @@ void CurvesSurfaceDemo::createRenderPipeline() {
                 .name("points")
                 .pipelineCache(pipelineCache)
             .build(pPoints.layout);
+
+    pTangentLines.pipeline =
+        builder
+            .basePipeline(pPoints.pipeline)
+            .inputAssemblyState()
+                .lines()
+            .name("tangent_lines")
+        .build(pTangentLines.layout);
 
     pBezierCurve.pipeline =
         builder
@@ -268,6 +305,26 @@ void CurvesSurfaceDemo::createRenderPipeline() {
                 .addDescriptorSetLayout(vulkanImage.layout)
                 .name("sphere_surface")
         .build(pSphereSurface.layout);
+
+    pSurfaceRevolution.pipeline =
+        builder
+            .basePipeline(pBezierCurve.pipeline)
+            .allowDerivatives()
+            .shaderStage()
+                .tessellationControlShader(load("revolution.tesc.spv"))
+                .tessellationEvaluationShader(load("revolution.tese.spv"))
+            .tessellationState()
+                .patchControlPoints(4)
+            .rasterizationState()
+                .polygonModeLine()
+            .layout().clear()
+                .addPushConstantRange(TESSELLATION_SHADER_STAGES_ALL, 0, sizeof(pSurfaceRevolution.constants))
+                .addDescriptorSetLayout(mvp.layout)
+                .addDescriptorSetLayout(globalUBo.layout)
+                .addDescriptorSetLayout(vulkanImage.layout)
+                .addDescriptorSetLayout(profileCurve.layout)
+                .name("surface_revolution")
+        .build(pSurfaceRevolution.layout);
 		
 	pTorusSurface.pipeline =
         builder
@@ -275,6 +332,8 @@ void CurvesSurfaceDemo::createRenderPipeline() {
             .shaderStage()
                 .tessellationControlShader(load("torus.tesc.spv"))
                 .tessellationEvaluationShader(load("torus.tese.spv"))
+            .rasterizationState()
+                .polygonModeFill()
             .layout().clear()
                 .addPushConstantRange(TESSELLATION_SHADER_STAGES_ALL, 0, sizeof(pTorusSurface.constants))
                 .addDescriptorSetLayout(mvp.layout)
@@ -282,6 +341,34 @@ void CurvesSurfaceDemo::createRenderPipeline() {
                 .addDescriptorSetLayout(vulkanImage.layout)
             .name("Torus_surface")
         .build(pTorusSurface.layout);
+
+	pCylinder.pipeline =
+        builder
+            .basePipeline(pBezierCurve.pipeline)
+            .shaderStage()
+                .tessellationControlShader(load("cylinder.tesc.spv"))
+                .tessellationEvaluationShader(load("cylinder.tese.spv"))
+            .layout().clear()
+                .addPushConstantRange(TESSELLATION_SHADER_STAGES_ALL, 0, sizeof(pCylinder.constants))
+                .addDescriptorSetLayout(mvp.layout)
+                .addDescriptorSetLayout(globalUBo.layout)
+                .addDescriptorSetLayout(vulkanImage.layout)
+            .name("Cylinder_surface")
+        .build(pCylinder.layout);
+
+	pCone.pipeline =
+        builder
+            .basePipeline(pBezierCurve.pipeline)
+            .shaderStage()
+                .tessellationControlShader(load("cylinder.tesc.spv"))
+                .tessellationEvaluationShader(load("cone.tese.spv"))
+            .layout().clear()
+                .addPushConstantRange(TESSELLATION_SHADER_STAGES_ALL, 0, sizeof(pCone.constants))
+                .addDescriptorSetLayout(mvp.layout)
+                .addDescriptorSetLayout(globalUBo.layout)
+                .addDescriptorSetLayout(vulkanImage.layout)
+            .name("Cone_surface")
+        .build(pCone.layout);
 
     pCubeSurface.pipeline =
         builder
@@ -328,6 +415,7 @@ void CurvesSurfaceDemo::createRenderPipeline() {
                 .addPushConstantRange(VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT, sizeof(std::array<int, 2>), sizeof(pSphereSurface.constants))
             .name("sphere_xray")
         .build(pSphereSurface.xray.layout);
+//    @formatter:on
 }
 
 void CurvesSurfaceDemo::createComputePipeline() {
@@ -391,6 +479,12 @@ VkCommandBuffer *CurvesSurfaceDemo::buildCommandBuffers(uint32_t imageIndex, uin
         renderIcoSphereSurface(commandBuffer);
     }else if (surface == SURFACE_TORUS){
         renderTorusSurface(commandBuffer);
+    }else if(surface == SURFACE_CYLINDER){
+        renderCylinderSurface(commandBuffer);
+    }else if(surface == SURFACE_CONE){
+        renderCone(commandBuffer);
+    }else if(surface == SURFACE_SWEPT){
+        renderSweptSurface(commandBuffer);
     }
     else{
         renderBezierSurface(commandBuffer);
@@ -428,7 +522,7 @@ void CurvesSurfaceDemo::renderUI(VkCommandBuffer commandBuffer) {
 
     }
     if(mode == MODE_SURFACE && ImGui::CollapsingHeader("Surfaces", ImGuiTreeNodeFlags_DefaultOpen)){
-        static const char* primitives[7]{"Teapot", "Teacup", "Teaspoon", "Sphere", "IcoSphere", "Cube", "torus"};
+        static const char* primitives[10]{"Teapot", "Teacup", "Teaspoon", "Sphere", "IcoSphere", "Cube", "Torus", "Cylinder", "Cone", "Surface revolution"};
 
         static int primitive = log2(surface);
         ImGui::Combo("Primitive", &primitive, primitives, std::size(primitives));
@@ -459,6 +553,16 @@ void CurvesSurfaceDemo::renderUI(VkCommandBuffer commandBuffer) {
             tessellationLevelUI(constants.tessLevelOuter, constants.tessLevelInner, constants.u, constants.v);
             ImGui::SliderFloat("w", &constants.w, 0.0, 1.0);
             ImGui::SliderFloat("radius", &constants.radius, 1.0, 5.0);
+        }else if(surface == SURFACE_CYLINDER){
+            auto& constants = pCylinder.constants;
+            tessellationLevelUI(constants.tessLevelOuter, constants.tessLevelInner, constants.u, constants.v);
+            ImGui::SliderFloat("radius", &constants.radius, 0.1, 5.0);
+            ImGui::SliderFloat("height", &constants.height, 0.5, 5.0);
+        }else if(surface == SURFACE_CONE){
+            auto& constants = pCone.constants;
+            tessellationLevelUI(constants.tessLevelOuter, constants.tessLevelInner, constants.u, constants.v);
+            ImGui::SliderFloat("radius", &constants.radius, 0.1, 5.0);
+            ImGui::SliderFloat("height", &constants.height, 0.5, 5.0);
         }
         ImGui::PushID("prim_color");
         ImGui::ColorEdit3("color", reinterpret_cast<float*>(&globalConstants.surfaceColor));
@@ -479,6 +583,31 @@ void CurvesSurfaceDemo::renderUI(VkCommandBuffer commandBuffer) {
     }
 
     ImGui::End();
+
+    if((curve & CURVES_WITH_CONTROL_POINTS) && contextPopup.active){
+        ImGui::Begin(curve == CURVE_HERMITE ? "Hermite Curve" : "Bezier Curve");
+        ImGui::SetWindowSize({0, 0});
+        ImGui::SetWindowPos(contextPopup.pos);
+        if(curve == CURVE_HERMITE && ImGui::Selectable("add points")){
+            contextPopup.active = false;
+            addingPoints = true;
+        }
+        if(ImGui::Selectable(fmt::format("{}{}", !showPoints ? "" : "don't ", "show points").c_str())){
+            showPoints = !showPoints;
+            contextPopup.active = false;
+        }
+        if(ImGui::Selectable(fmt::format("{}{}", !showTangentLines ? "" : "don't ", "show tangent lines").c_str())){
+            showTangentLines = !showTangentLines;
+            contextPopup.active = false;
+        }
+        if(curve == CURVE_HERMITE && dirty && ImGui::Selectable("save points")){
+            contextPopup.active = false;
+            savePoints(hermiteCurve);
+        }
+        ImGui::End();
+
+    }
+
 
     plugin(IM_GUI_PLUGIN).draw(commandBuffer);
 }
@@ -551,6 +680,26 @@ void CurvesSurfaceDemo::renderTorusSurface(VkCommandBuffer commandBuffer) {
     vkCmdDrawIndexed(commandBuffer, sphere.indices.size/sizeof(int16_t), 1, 0, 0, 0);
 }
 
+void CurvesSurfaceDemo::renderCylinderSurface(VkCommandBuffer commandBuffer) {
+    VkDeviceSize offset = 0;
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pCylinder.pipeline);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pCylinder.layout, 0,COUNT(descriptorSets), descriptorSets.data(), 0, VK_NULL_HANDLE);
+    vkCmdPushConstants(commandBuffer, pCylinder.layout, TESSELLATION_SHADER_STAGES_ALL, 0,sizeof(pCylinder.constants), &pCylinder.constants);
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, sphere.points, &offset);
+    vkCmdBindIndexBuffer(commandBuffer, sphere.indices, 0, VK_INDEX_TYPE_UINT16);
+    vkCmdDrawIndexed(commandBuffer, sphere.indices.size/sizeof(int16_t), 1, 0, 0, 0);
+}
+
+void CurvesSurfaceDemo::renderCone(VkCommandBuffer commandBuffer) {
+    VkDeviceSize offset = 0;
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pCone.pipeline);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pCylinder.layout, 0,COUNT(descriptorSets), descriptorSets.data(), 0, VK_NULL_HANDLE);
+    vkCmdPushConstants(commandBuffer, pCone.layout, TESSELLATION_SHADER_STAGES_ALL, 0,sizeof(pCone.constants), &pCone.constants);
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, sphere.points, &offset);
+    vkCmdBindIndexBuffer(commandBuffer, sphere.indices, 0, VK_INDEX_TYPE_UINT16);
+    vkCmdDrawIndexed(commandBuffer, sphere.indices.size/sizeof(int16_t), 1, 0, 0, 0);
+}
+
 void CurvesSurfaceDemo::renderIcoSphereSurface(VkCommandBuffer commandBuffer) {
     VkDeviceSize offset = 0;
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pIcoSphereSurface.pipeline);
@@ -571,13 +720,23 @@ void CurvesSurfaceDemo::renderCubeSurface(VkCommandBuffer commandBuffer) {
     vkCmdDrawIndexed(commandBuffer, cube.indices.size/sizeof(int16_t), 1, 0, 0, 0);
 }
 
-void CurvesSurfaceDemo::renderControlPoints(VkCommandBuffer commandBuffer,  Patch& patch, uint32_t indexCount)  {
+void CurvesSurfaceDemo::renderControlPoints(VkCommandBuffer commandBuffer,  Patch& patch)  {
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pPoints.pipeline);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pPoints.layout, 0, 1, &mvp.descriptorSet, 0, VK_NULL_HANDLE);
     VkDeviceSize offset = 0;
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, patch.points, &offset);
-    vkCmdBindIndexBuffer(commandBuffer, patch.indices, 0, VK_INDEX_TYPE_UINT16);
-    vkCmdDrawIndexed(commandBuffer, indexCount, 1, 0, 0, 0);
+    vkCmdDraw(commandBuffer, patch.numPoints, 1, 0, 0);
+}
+
+void CurvesSurfaceDemo::renderTangentLines(VkCommandBuffer commandBuffer, Patch &patch, VulkanBuffer *indices, uint32_t indexCount) {
+    indices = indices ? indices : &patch.indices;
+    indexCount = indexCount != 0 ? indexCount : indices->size/sizeof(int16_t);
+
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pTangentLines.pipeline);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pTangentLines.layout, 0, 1, &mvp.descriptorSet, 0, VK_NULL_HANDLE);
+    VkDeviceSize offset = 0;
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, patch.points, &offset);
+    vkCmdDraw(commandBuffer, indices->size/sizeof(int16_t), 1, 0, 0);
 }
 
 
@@ -593,23 +752,49 @@ void CurvesSurfaceDemo::update(float time) {
 void CurvesSurfaceDemo::checkAppInputs() {
     cameraController->processInput();
 
-    if(mode == MODE_CURVES && (curve & CURVES_WITH_CONTROL_PINTS) != 0) {
-        if (movePointAction->isPressed() && selectedPoint == -1) {
-            auto point = selectPoint();
-            selectedPoint = isPointOnScreen(point);
+    if(mode == MODE_CURVES && (curve & CURVES_WITH_CONTROL_POINTS) != 0) {
+        if(addingPoints){
+            if(addPointAction->isPressed() && addPointAction->state == Action::State::RELEASED){
+                auto point = selectPoint();
+                int index;
+                if(!isPointOnScreen(point, index)){
+                    pointsAdded.push_back(point);
+                    auto pointsToAdd = hermiteCurve.numPoints == 0 ? 4 : 2;
+                    if(pointsAdded.size() == pointsToAdd){
+                        addingPoints = false;
+                        updateHermiteCurve();
+                    }
+                }
+            }
+        }else{
+            if (movePointAction->isPressed() && selectedPoint == -1) {
+                auto point = selectPoint();
+                 isPointOnScreen(point, selectedPoint);
+            }
+            if (movePointAction->isPressed() && selectedPoint != -1) {
+                auto position = selectPoint();
+                movePoint(selectedPoint, position);
+            } else {
+                selectedPoint = -1;
+            }
         }
-        if (movePointAction->isPressed() && selectedPoint != -1) {
-            auto position = selectPoint();
-            movePoint(selectedPoint, position);
-        } else {
-            selectedPoint = -1;
+    }
+
+    if(mode == MODE_CURVES && (curve & CURVES_WITH_CONTROL_POINTS) && ImGui::IsMouseReleased(ImGuiMouseButton_Right)){
+        if(contextPopup.active){
+            contextPopup.active = false;
+        }else{
+            contextPopup.active = true;
+            contextPopup.pos = {mouse.position.x, mouse.position.y};
         }
     }
 
 }
 
 void CurvesSurfaceDemo::cleanup() {
-    bezierCurve.points.unmap();
+    if(point.handle){
+        point.source->points.unmap();
+    }
 }
 
 void CurvesSurfaceDemo::onPause() {
@@ -620,6 +805,7 @@ void CurvesSurfaceDemo::onPause() {
 void CurvesSurfaceDemo::movePoint(int pointIndex, glm::vec3 position) {
     assert(point.handle);
     point.handle[pointIndex] = position;
+    dirty = true;
 }
 
 glm::vec3 CurvesSurfaceDemo::selectPoint() {
@@ -653,7 +839,7 @@ void CurvesSurfaceDemo::updateCameras() {
     cameraController->perspective(as);
     auto s = 1/as;
     camera2d.view = glm::scale(glm::mat4(1), {s, 1, 1});
-    camera2d.proj = vkn::ortho(-1, 1, -1 , 1, -1, 1);
+    camera2d.proj = vkn::ortho(0, 1, 0 , 1, -1, 1);
 }
 
 void CurvesSurfaceDemo::initUniforms() {
@@ -671,21 +857,27 @@ void CurvesSurfaceDemo::createBezierCurvePatch() {
     std::vector<uint16_t> indices{ 0, 1, 2, 3};
     bezierCurve.points = device.createCpuVisibleBuffer(points.data(), BYTE_SIZE(points), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
     bezierCurve.indices = device.createCpuVisibleBuffer(indices.data(), BYTE_SIZE(indices), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+    bezierCurve.numPoints = 4;
+    indices = std::vector<uint16_t>{1, 3};
 }
 
-int CurvesSurfaceDemo::isPointOnScreen(glm::vec3 aPoint) {
-    int index = -1;
+bool CurvesSurfaceDemo::isPointOnScreen(glm::vec3 aPoint, int& position) {
     auto points = point.handle;
     float minDist = std::numeric_limits<float>::max();
+    auto numPoints = point.numPoints;
     for(int i = 0; i < numPoints; i++){
         auto point = points[i];
         auto dist = glm::distance(aPoint, point);
         if(dist < minDist){
-            index = i;
+            position = i;
             minDist = dist;
         }
     }
-    return  index != -1 && minDist < 0.01 ? index : -1;
+    if(position != -1 && minDist < 0.01){
+        return true;
+    }
+    position = -1;
+    return false;
 }
 
 void CurvesSurfaceDemo::createPatches() {
@@ -706,6 +898,7 @@ void CurvesSurfaceDemo::loadBezierPatches() {
     loadPatch("teapot", teapot);
     loadPatch("teacup", teacup);
     loadPatch("teaspoon", teaspoon);
+    loadProfile();
 }
 
 void CurvesSurfaceDemo::loadPatch(const std::string &name, Patch &patch) {
@@ -815,7 +1008,12 @@ void CurvesSurfaceDemo::renderCurve(VkCommandBuffer commandBuffer) {
             pBezierCurve.constants.levels[1] = curveResolution;
             updatePointHandle(bezierCurve);
             renderCurve(commandBuffer, pBezierCurve.pipeline, pBezierCurve.layout, bezierCurve, &pBezierCurve.constants, sizeof(pBezierCurve.constants), VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT);
-            renderControlPoints(commandBuffer, bezierCurve);
+            if(showPoints){
+                renderControlPoints(commandBuffer, bezierCurve);
+            }
+            if(showTangentLines) {
+                renderTangentLines(commandBuffer, bezierCurve);
+            }
             break;
         case CURVE_ARC:
             pArcCurve.constants.levels[1] = curveResolution;
@@ -824,8 +1022,13 @@ void CurvesSurfaceDemo::renderCurve(VkCommandBuffer commandBuffer) {
         case CURVE_HERMITE:
             pHermiteCurve.constants.levels[1] = curveResolution;
             updatePointHandle(hermiteCurve);
-            renderCurve(commandBuffer, pHermiteCurve.pipeline, pHermiteCurve.layout, hermiteCurve, &pHermiteCurve.constants, sizeof(pHermiteCurve.constants), VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT);
-            renderControlPoints(commandBuffer, hermiteCurve, pHermiteCurve.numPoints);
+            renderCurve(commandBuffer, pHermiteCurve.pipeline, pHermiteCurve.layout, hermiteCurve, &pHermiteCurve.constants, sizeof(pHermiteCurve.constants), VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT, hermiteCurve.numIndices);
+            if(showPoints){
+                renderControlPoints(commandBuffer, hermiteCurve);
+            }
+            if(showTangentLines) {
+                renderTangentLines(commandBuffer, hermiteCurve);
+            }
             break;
         default:
             spdlog::warn("curve type {} not supported", curve);
@@ -838,40 +1041,172 @@ void CurvesSurfaceDemo::updatePointHandle(Patch &patch) {
     }
     point.handle = reinterpret_cast<glm::vec3*>(patch.points.map());
     point.source = &patch;
+    point.numPoints = patch.numPoints;
 }
 
 void
 CurvesSurfaceDemo::renderCurve(VkCommandBuffer commandBuffer, VulkanPipeline &pipeline, VulkanPipelineLayout &layout,
-                               Patch &patch, void *constants, uint32_t constantsSize, VkShaderStageFlags shaderStageFlags) {
+                               Patch &patch, void *constants, uint32_t constantsSize, VkShaderStageFlags shaderStageFlags, int numIndices) {
 
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, 1, &mvp.descriptorSet, 0, VK_NULL_HANDLE);
     if(constants){
         vkCmdPushConstants(commandBuffer, layout, shaderStageFlags, 0, constantsSize, constants);
     }
-
+    numIndices = numIndices == 0 ? patch.indices.size/sizeof(uint16_t) : numIndices;
     VkDeviceSize offset = 0;
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, patch.points, &offset);
     vkCmdBindIndexBuffer(commandBuffer, patch.indices, 0, VK_INDEX_TYPE_UINT16);
-    vkCmdDrawIndexed(commandBuffer, patch.indices.size/sizeof(uint16_t), 1, 0, 0, 0);
+    vkCmdDrawIndexed(commandBuffer, numIndices, 1, 0, 0, 0); // FIXME pass the indexCount in
 
 }
 
 void CurvesSurfaceDemo::createHermitePatch() {
     std::vector<glm::vec3> points(64);
-    points[0] = {-0.814, 0.07, 0};
-    points[1] = {0.904, 0.914, 0};
-    points[2] = {-0.333, 0.55, 0};
-    points[3] = {0, 0.794, 0};
+//    points[0] = {-0.814, 0.07, 0};
+//    points[1] = {-0.333, 0.55, 0};
+//    points[2] = {0.904, 0.914, 0};
+//    points[3] = {0, 0.794, 0};
 
     std::vector<uint16_t> indices(64);
-    std::iota(begin(indices), end(indices), 0);
+//    std::iota(begin(indices), end(indices), 0);
+
+    auto vasePath = resource("vase2.txt");
+    std::ifstream fin(vasePath);
+    if(!fin.good()) throw  std::runtime_error{fmt::format("unable to open {}}", vasePath)};
+
+    int numPoints = -1;
+    while(!fin.eof()){
+        glm::vec3 point{0};
+        fin >> point.x >> point.y >> point.z;
+        points[++numPoints] = point;
+    }
+
+    indices[0] = 0;
+    indices[1] = 1;
+    indices[2] = 2;
+    indices[3] = 3;
+    int numIndices = 4;
+    for(int i = 4; i < numPoints; i += 2){
+        indices[numIndices] = indices[numIndices - 2];
+        indices[numIndices + 1] = indices[numIndices - 1];
+        indices[numIndices + 2] = indices[numIndices - 1] + 1;
+        indices[numIndices + 3] = indices[numIndices - 1] + 2;
+        numIndices += 4;
+    }
+    spdlog::info("{} vase points loaded", numIndices);
+    fin.close();
+
 
     hermiteCurve.points = device.createCpuVisibleBuffer(points.data(), BYTE_SIZE(points), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
     hermiteCurve.indices = device.createCpuVisibleBuffer(indices.data(), BYTE_SIZE(indices), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
-    pHermiteCurve.numPoints = 4;
+    hermiteCurve.numPoints = numPoints;
+    hermiteCurve.numIndices = numIndices;
+
 }
 
+void CurvesSurfaceDemo::updateHermiteCurve() {
+    auto back = hermiteCurve.numPoints;
+
+    auto points = reinterpret_cast<glm::vec3*>(point.handle);
+    points[back] = pointsAdded[0];
+    points[back + 1] = pointsAdded[1];
+
+    auto noPoints = point.source->numPoints == 0;
+    if(noPoints){
+        points[back + 2] = pointsAdded[2];
+        points[back + 3] = pointsAdded[3];
+    }
+
+    auto prevPointIndex = noPoints ? 0 : 2;
+    auto lastIndex = back - prevPointIndex;
+    back = hermiteCurve.numIndices;
+    auto indices = reinterpret_cast<uint16_t*>(hermiteCurve.indices.map());
+    indices[back] = lastIndex;
+    indices[back+1] = lastIndex + 1;
+    indices[back+2] = lastIndex + 2;
+    indices[back+3] = lastIndex + 3;
+
+
+    hermiteCurve.numPoints += noPoints ? 4 : 2;
+    hermiteCurve.numIndices += 4;
+    pointsAdded.clear();
+
+    for(int i = 0; i < hermiteCurve.numIndices; i++){
+        spdlog::info("index[{}] => {}", i, indices[i]);
+    }
+
+    for(int i = 0; i < hermiteCurve.numPoints; i++){
+        spdlog::info("point[{}] => {}", i, points[i]);
+    }
+    hermiteCurve.indices.unmap();
+    dirty = true;
+}
+
+void CurvesSurfaceDemo::savePoints(Patch& patch) {
+    std::ofstream fout{"hermite.txt"};
+    if(fout.bad()){
+        spdlog::warn("unable to save points");
+        return;
+    }
+    auto points = reinterpret_cast<glm::vec3*>(patch.points.map());
+    for(int i = 0; i < patch.numPoints; i++){
+        auto p = points[i];
+        fout << fmt::format("{} {} {}\n", p.x, p.y, p.z );
+    }
+    fout.close();
+    dirty = false;
+    spdlog::info("point saved");
+}
+
+void CurvesSurfaceDemo::renderSweptSurface(VkCommandBuffer commandBuffer) {
+    static std::array<VkDescriptorSet, 4> sets;
+    sets[0] = descriptorSets[0];
+    sets[1] = descriptorSets[1];
+    sets[2] = descriptorSets[2];
+    sets[3] = profileCurve.descriptorSet;
+    VkDeviceSize offset = 0;
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pSurfaceRevolution.pipeline);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pSurfaceRevolution.layout, 0, COUNT(sets), sets.data(), 0, VK_NULL_HANDLE);
+    vkCmdPushConstants(commandBuffer, pSurfaceRevolution.layout, TESSELLATION_SHADER_STAGES_ALL, 0, sizeof(pSurfaceRevolution.constants), &pSurfaceRevolution.constants);
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, sphere.points, &offset);
+    vkCmdBindIndexBuffer(commandBuffer, sphere.indices, 0, VK_INDEX_TYPE_UINT16);
+    vkCmdDrawIndexed(commandBuffer, sphere.indices.size/sizeof(int16_t), 1, 0, 0, 0);
+}
+
+void CurvesSurfaceDemo::loadProfile() {
+    auto vasePath = resource("vase2.txt");
+    std::ifstream fin(vasePath);
+    if(!fin.good()) throw  std::runtime_error{fmt::format("unable to open {}}", vasePath)};
+
+    std::vector<glm::vec4> points(64);
+    int numPoints = -1;
+    while(!fin.eof()){
+        glm::vec4 point{1};
+        fin >> point.x >> point.y >> point.z;
+        points[++numPoints] = point;
+    }
+
+    std::vector<int> indices(64);
+    indices[0] = 0;
+    indices[1] = 1;
+    indices[2] = 2;
+    indices[3] = 3;
+    int numIndices = 4;
+    for(int i = 4; i < numPoints; i += 2){
+        indices[numIndices] = indices[numIndices - 2];
+        indices[numIndices + 1] = indices[numIndices - 1];
+        indices[numIndices + 2] = indices[numIndices - 1] + 1;
+        indices[numIndices + 3] = indices[numIndices - 1] + 2;
+        numIndices += 4;
+    }
+    spdlog::info("{} vase points loaded", numIndices);
+    fin.close();
+
+    profileCurve.vertices = device.createDeviceLocalBuffer(points.data(), BYTE_SIZE(points), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+    profileCurve.indices = device.createDeviceLocalBuffer(indices.data(), BYTE_SIZE(indices), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+    pSurfaceRevolution.constants.numPoints = numIndices;
+}
 
 int main(){
     try{

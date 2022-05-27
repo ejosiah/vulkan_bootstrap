@@ -10,7 +10,10 @@ public:
 
     TessellationStateBuilder& domainOrigin(VkTessellationDomainOrigin origin);
 
+    GraphicsPipelineBuilder& clear();
+
     VkPipelineTessellationStateCreateInfo& buildTessellationState();
+
 
 private:
     VkPipelineTessellationStateCreateInfo _info{VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO};

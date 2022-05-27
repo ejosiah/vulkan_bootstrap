@@ -30,8 +30,8 @@ void main(){
     vec3 E = normalize(v_in.eyePos - v_in.worldPos);
     vec3 H = normalize(E + L);
 
-    vec4 imageColor = texture(image, v_in.uv).rgba;
-    vec3 albedo = mix(obj_color, imageColor.rgb, imageColor.a);
+//    vec4 imageColor = texture(image, v_in.uv).rgba;
+    vec3 albedo = obj_color;
     vec3 color = bool(uvColor) ? albedo : albedo * max(0, dot(N, L));
 
 

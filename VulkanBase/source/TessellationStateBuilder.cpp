@@ -18,3 +18,9 @@ VkPipelineTessellationStateCreateInfo &TessellationStateBuilder::buildTessellati
     _info.pNext = &originStateInfo;
     return _info;
 }
+
+GraphicsPipelineBuilder &TessellationStateBuilder::clear() {
+    auto graphicsPipelineBuilder = reinterpret_cast<GraphicsPipelineBuilder*>(_parent);
+    graphicsPipelineBuilder->_tessellationStateBuilder = nullptr;
+    return *graphicsPipelineBuilder;
+}

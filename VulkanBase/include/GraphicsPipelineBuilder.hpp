@@ -8,6 +8,7 @@
 
 class GraphicsPipelineBuilder : public Builder {
 public:
+    friend  class TessellationStateBuilder;
     explicit GraphicsPipelineBuilder(VulkanDevice* device);
 
     GraphicsPipelineBuilder(VulkanDevice* device, GraphicsPipelineBuilder* parent);
@@ -74,7 +75,6 @@ protected:
     uint32_t _subpass = 0;
     std::string _name;
 
-private:
     std::unique_ptr<ShaderStageBuilder> _shaderStageBuilder = nullptr;
     std::unique_ptr<VertexInputStateBuilder> _vertexInputStateBuilder = nullptr;
     std::unique_ptr<InputAssemblyStateBuilder> _inputAssemblyStateBuilder = nullptr;

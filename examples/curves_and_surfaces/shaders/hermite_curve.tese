@@ -21,8 +21,8 @@ void initHermiteMetrics(inout float H[4]){
 void main(){
 
     vec4 p0 = gl_in[0].gl_Position;
-    vec4 P1 = gl_in[1].gl_Position;
-    vec4 t0 = gl_in[2].gl_Position;
+    vec4 t0 = gl_in[1].gl_Position;
+    vec4 P1 = gl_in[2].gl_Position;
     vec4 t1 = gl_in[3].gl_Position;
 
     float H[4];
