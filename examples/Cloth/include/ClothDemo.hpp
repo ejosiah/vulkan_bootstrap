@@ -4,7 +4,8 @@
 #include "VulkanRayTraceBaseApp.hpp"
 #include "VulkanQuery.hpp"
 #include "ImGuiPlugin.hpp"
-
+#include "oclHelper.h"
+#include "convexHullbuilder.hpp"
 
 class ClothDemo : public VulkanRayTraceBaseApp{
 public:
@@ -14,6 +15,12 @@ protected:
     void initApp() override;
 
     void checkInvariants();
+
+    void initCHBuilder();
+
+    void constructConvexHull();
+
+    VHACD::IVHACD::Parameters getParams();
 
     void initCamera();
 
@@ -67,6 +74,8 @@ protected:
     void drawWireframe(VkCommandBuffer commandBuffer);
 
     void drawShaded(VkCommandBuffer commandBuffer);
+
+    void renderConvexHull(VkCommandBuffer commandBuffer);
 
     void update(float time) override;
 
@@ -212,4 +221,34 @@ private:
     } shaderBindingTables;
 
     std::vector<VkRayTracingShaderGroupCreateInfoKHR> shaderGroups{};
+
+    Callback callbackVHACD;
+
+    struct {
+        int resolution{100000};
+        int maxHulls{1024};
+        float concavity{0.0025};
+        int planeDownSampling{4};
+        int convexHullDownSampling{4};
+        float alpha{0.05};
+        float beta{0.05};
+        float gamma{0.00125};
+        float delta{0.05};
+        int pca{0};
+        int mode{0};
+        int maxNumVerticesPerCH{4};
+        float minVolumePerCH{0.0001};
+        int convexHullApproximation{1};
+        int oclAcceleration{1};
+        int oclPlatformID{0};
+        int oclDeviceID{0};
+        bool projectHullVertices{true};
+    } params;
+    ConvexHullBuilder convexHullBuilder;
+    ConvexHulls convexHulls;
+
+    struct {
+        VulkanPipelineLayout layout;
+        VulkanPipeline pipeline;
+    } ch;
 };

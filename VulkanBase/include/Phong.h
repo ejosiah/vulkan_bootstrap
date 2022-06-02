@@ -196,6 +196,7 @@ namespace phong{
         drawable.offsetBuffer = device.createDeviceLocalBuffer(offsetBuffer.data(), offsetBuffer.size() * sizeof(glm::ivec4), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
         drawable.vertexBuffer = device.createDeviceLocalBuffer(vertexBuffer.data(), numVertices * sizeof(Vertex), info.vertexUsage);
         drawable.indexBuffer = device.createDeviceLocalBuffer(indexBuffer.data(), numIndices * sizeof(uint32_t), info.indexUsage);
+        spdlog::info("{} vertices loaded", numVertices);
     }
 
 }

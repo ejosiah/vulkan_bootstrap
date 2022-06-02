@@ -10,7 +10,7 @@
 #include <future>
 
 struct ConvexHullPoint{
-    glm::vec3 position;
+    alignas(16) glm::vec3 position;
     glm::vec3 normal;
 };
 

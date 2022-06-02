@@ -315,8 +315,6 @@ void CurvesSurfaceDemo::createRenderPipeline() {
                 .tessellationEvaluationShader(load("revolution.tese.spv"))
             .tessellationState()
                 .patchControlPoints(4)
-            .rasterizationState()
-                .polygonModeLine()
             .layout().clear()
                 .addPushConstantRange(TESSELLATION_SHADER_STAGES_ALL, 0, sizeof(pSurfaceRevolution.constants))
                 .addDescriptorSetLayout(mvp.layout)
@@ -563,6 +561,9 @@ void CurvesSurfaceDemo::renderUI(VkCommandBuffer commandBuffer) {
             tessellationLevelUI(constants.tessLevelOuter, constants.tessLevelInner, constants.u, constants.v);
             ImGui::SliderFloat("radius", &constants.radius, 0.1, 5.0);
             ImGui::SliderFloat("height", &constants.height, 0.5, 5.0);
+        }else if(surface == SURFACE_SWEPT){
+            auto& constants = pSurfaceRevolution.constants;
+            tessellationLevelUI(constants.tessLevelOuter, constants.tessLevelInner, constants.u, constants.v);
         }
         ImGui::PushID("prim_color");
         ImGui::ColorEdit3("color", reinterpret_cast<float*>(&globalConstants.surfaceColor));
@@ -614,9 +615,9 @@ void CurvesSurfaceDemo::renderUI(VkCommandBuffer commandBuffer) {
 
 void CurvesSurfaceDemo::tessellationLevelUI(float &outer, float &inner, float& u, float& v) {
     static bool link = true;
-    auto outerUpdated = ImGui::SliderFloat("Outer tess levels", &outer, 1, 64); ImGui::SameLine();
+    auto outerUpdated = ImGui::SliderFloat("Outer tess levels", &outer, 1, 128); ImGui::SameLine();
     ImGui::Checkbox("link", &link);
-    auto innerUpdated = ImGui::SliderFloat("Inner tess levels", &inner, 1, 64);
+    auto innerUpdated = ImGui::SliderFloat("Inner tess levels", &inner, 1, 128);
     ImGui::SliderFloat("u", &u, 0, 1);
     ImGui::SliderFloat("v", &v, 0, 1);
 
@@ -1071,7 +1072,7 @@ void CurvesSurfaceDemo::createHermitePatch() {
     std::vector<uint16_t> indices(64);
 //    std::iota(begin(indices), end(indices), 0);
 
-    auto vasePath = resource("vase2.txt");
+    auto vasePath = resource("mushroom.txt");
     std::ifstream fin(vasePath);
     if(!fin.good()) throw  std::runtime_error{fmt::format("unable to open {}}", vasePath)};
 
@@ -1102,6 +1103,9 @@ void CurvesSurfaceDemo::createHermitePatch() {
     hermiteCurve.indices = device.createCpuVisibleBuffer(indices.data(), BYTE_SIZE(indices), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
     hermiteCurve.numPoints = numPoints;
     hermiteCurve.numIndices = numIndices;
+
+//    hermiteCurve.numPoints = 0;
+//    hermiteCurve.numIndices = 0;
 
 }
 
@@ -1169,13 +1173,13 @@ void CurvesSurfaceDemo::renderSweptSurface(VkCommandBuffer commandBuffer) {
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pSurfaceRevolution.pipeline);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pSurfaceRevolution.layout, 0, COUNT(sets), sets.data(), 0, VK_NULL_HANDLE);
     vkCmdPushConstants(commandBuffer, pSurfaceRevolution.layout, TESSELLATION_SHADER_STAGES_ALL, 0, sizeof(pSurfaceRevolution.constants), &pSurfaceRevolution.constants);
-    vkCmdBindVertexBuffers(commandBuffer, 0, 1, sphere.points, &offset);
-    vkCmdBindIndexBuffer(commandBuffer, sphere.indices, 0, VK_INDEX_TYPE_UINT16);
-    vkCmdDrawIndexed(commandBuffer, sphere.indices.size/sizeof(int16_t), 1, 0, 0, 0);
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, sweptSurface.points, &offset);
+    vkCmdBindIndexBuffer(commandBuffer, sweptSurface.indices, 0, VK_INDEX_TYPE_UINT16);
+    vkCmdDrawIndexed(commandBuffer, sweptSurface.indices.size/sizeof(int16_t), 1, 0, 0, 0);
 }
 
 void CurvesSurfaceDemo::loadProfile() {
-    auto vasePath = resource("vase2.txt");
+    auto vasePath = resource("mushroom.txt");
     std::ifstream fin(vasePath);
     if(!fin.good()) throw  std::runtime_error{fmt::format("unable to open {}}", vasePath)};
 
@@ -1206,6 +1210,12 @@ void CurvesSurfaceDemo::loadProfile() {
     profileCurve.vertices = device.createDeviceLocalBuffer(points.data(), BYTE_SIZE(points), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
     profileCurve.indices = device.createDeviceLocalBuffer(indices.data(), BYTE_SIZE(indices), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
     pSurfaceRevolution.constants.numPoints = numIndices;
+
+    auto numLines = numIndices/4;
+    sweptSurface.points = device.createBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, sizeof(glm::vec3) * 4 * numLines);
+    std::vector<uint16_t> ssIndices(numLines * 4);
+    std::iota(begin(ssIndices), end(ssIndices), 0);
+    sweptSurface.indices = device.createCpuVisibleBuffer(ssIndices.data(), BYTE_SIZE(ssIndices), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
 }
 
 int main(){

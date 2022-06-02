@@ -1,5 +1,6 @@
 #version 450
 #define PI 3.14159265358979
+#define EPSILON 0.001
 
 layout(quads, equal_spacing, ccw) in;
 
@@ -7,7 +8,7 @@ layout(set = 3, binding = 0) buffer HERMITE_POINTS {
     vec4 points[];
 };
 
-layout(set = 3, binding = 0) buffer HERMITE_POINT_INDICES {
+layout(set = 3, binding = 1) buffer HERMITE_POINT_INDICES {
     int indices[];
 };
 
@@ -35,11 +36,8 @@ void initHermiteMetrics(inout float H[4], float u){
     H[3] = uuu - uu;
 }
 
-void interpolatePoint(out float r, out float h){
-    float numLines = float(numPoints/4);
-    float U = gl_TessCoord.y * numLines;
-    int id = int(clamp(0, numLines - 1, floor(U)));
-    float u = fract(U);
+void interpolatePoint(float u, out float r, out float h){
+    int id = int(gl_PrimitiveID);
 
     vec4 p0 = points[indices[id * 4 + 0]];
     vec4 t0 = points[indices[id * 4 + 1]];
@@ -54,22 +52,26 @@ void interpolatePoint(out float r, out float h){
     h = p.y;
 }
 
-void main(){
-    float u = min(gl_TessCoord.x, maxU);
-    float v = min(gl_TessCoord.y, maxV);
-
+vec4 sweepSurface(float u, float v){
     float theta = 2 * u * PI;
-
-
     float r, h;
-    interpolatePoint(r, h);
+    interpolatePoint(v, r, h);
 
     vec4 p = vec4(1);
     p.x = r * sin(theta);
     p.y = h;
     p.z = r * cos(theta);
 
-    v_out.normal = vec3(1);
+    return p;
+}
+
+void main(){
+    float u = min(gl_TessCoord.x, maxU);
+    float v = min(gl_TessCoord.y, maxV);
+
+    vec4 p = sweepSurface(u, v);
+
+    v_out.normal = vec3(0);
     v_out.uv = vec2(u, v);
     gl_Position = p;
 }

@@ -64,13 +64,6 @@ void main(){
     }
     v_out.normal = normalize(cross(t, b));
 
-//    vec3 p_norm = normalize(p.xyz);
-//    float theta = atan(p_norm.z, p_norm.x);
-//    float phi = acos(p_norm.y);
-//
-//    v_out.uv.x = theta/(2 * PI) + .5;
-//    v_out.uv.y = phi/PI;
-
     vec2 octUV = octEncode(normalize(p.xyz));
     v_out.uv = .5 * octUV + 5;
     gl_Position = p;

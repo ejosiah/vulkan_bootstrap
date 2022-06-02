@@ -59,6 +59,7 @@ void $classname$::createPipelineCache() {
 
 
 void $classname$::createRenderPipeline() {
+    //    @formatter:off
     auto builder = device.graphicsPipelineBuilder();
     render.pipeline =
         builder
@@ -100,6 +101,7 @@ void $classname$::createRenderPipeline() {
                 .name("render")
                 .pipelineCache(pipelineCache)
             .build(render.layout);
+    //    @formatter:on
 }
 
 void $classname$::createComputePipeline() {

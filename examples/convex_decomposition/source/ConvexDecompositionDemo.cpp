@@ -83,6 +83,7 @@ void ConvexDecompositionDemo::createPipelineCache() {
 
 
 void ConvexDecompositionDemo::createRenderPipeline() {
+// @formatter:off
     auto builder = device.graphicsPipelineBuilder();
     render[0].pipeline =
         builder
@@ -236,6 +237,7 @@ void ConvexDecompositionDemo::createRenderPipeline() {
                 .addPushConstantRange(VK_SHADER_STAGE_GEOMETRY_BIT, 0, sizeof(normals.constants))
             .name("normals")
         .build(normals.layout);
+// @formatter:on
 }
 
 

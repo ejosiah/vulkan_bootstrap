@@ -1,12 +1,24 @@
 #include "ClothDemo.hpp"
 #include "primitives.h"
+#include "GraphicsPipelineBuilder.hpp"
+
 
 ClothDemo::ClothDemo(const Settings &settings) : VulkanRayTraceBaseApp("Cloth", settings) {
-
+    fileManager.addSearchPath(".");
+    fileManager.addSearchPath("../../examples/Cloth");
+    fileManager.addSearchPath("../../examples/Cloth/spv");
+    fileManager.addSearchPath("../../examples/Cloth/models");
+    fileManager.addSearchPath("../../examples/Cloth/patches");
+    fileManager.addSearchPath("../../examples/Cloth/textures");
+    fileManager.addSearchPath("../../data/shaders");
+    fileManager.addSearchPath("../../data/models");
+    fileManager.addSearchPath("../../data/textures");
+    fileManager.addSearchPath("../../data");
 }
 
 void ClothDemo::initApp() {
     checkInvariants();
+    initCHBuilder();
     initQueryPools();
     createDescriptorPool();
     commandPool = device.createCommandPool(*device.queueFamilyIndex.graphics, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
@@ -63,8 +75,10 @@ void ClothDemo::createSphere(){
 void ClothDemo::loadModel() {
     phong::VulkanDrawableInfo info{};
     info.vertexUsage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
+    info.vertexUsage |= VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
     info.indexUsage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
-//    phong::load(R"(C:\Users\Josiah\OneDrive\media\models\Nissan FairladyZ 2009\basemeshobj.obj)", device, descriptorPool, model, info, true, 30);
+    info.indexUsage |= VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    //    phong::load(R"(C:\Users\Josiah\OneDrive\media\models\Nissan FairladyZ 2009\basemeshobj.obj)", device, descriptorPool, model, info, true, 30);
     phong::load(R"(C:\Users\Josiah Ebhomenye\OneDrive\media\models\werewolf.obj)", device, descriptorPool, model, info, true, 40);
   //  phong::load(R"(C:\Users\Josiah\OneDrive\media\models\Lucy-statue\metallic-lucy-statue-stanford-scan.obj)",device, descriptorPool, model, info, true, 40);
  //   phong::load("../../data/models/bigship1.obj", device, descriptorPool, model, info, true, 40);
@@ -77,6 +91,7 @@ void ClothDemo::loadModel() {
 
     modelBuffer = device.createDeviceLocalBuffer(&modelData, sizeof(ModelData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
     createAccelerationStructure({ modelInstance });
+    constructConvexHull();
 }
 
 
@@ -225,9 +240,11 @@ void ClothDemo::drawShaded(VkCommandBuffer commandBuffer) {
 //    vkCmdBindIndexBuffer(commandBuffer, sphere.indices, 0, VK_INDEX_TYPE_UINT32);
 //    vkCmdDrawIndexed(commandBuffer, sphere.indexCount, 1, 0, 0, 0);
 
-      vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.spaceShip);
-      cameraController->push(commandBuffer, pipelineLayouts.spaceShip, modelInstance.xform);
-      modelInstance.object.drawable->draw(commandBuffer, pipelineLayouts.spaceShip);
+//      vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.spaceShip);
+//      cameraController->push(commandBuffer, pipelineLayouts.spaceShip, modelInstance.xform);
+//      modelInstance.object.drawable->draw(commandBuffer, pipelineLayouts.spaceShip);
+
+    renderConvexHull(commandBuffer);
 
 //    if(showPoints) {
 //        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.point);
@@ -274,6 +291,7 @@ void ClothDemo::initCamera() {
 }
 
 void ClothDemo::createPipelines() {
+    //    @formatter:off
     auto flatVertexModule = VulkanShaderModule{"../../data/shaders/flat.vert.spv", device};
     auto flatFragmentModule = VulkanShaderModule{"../../data/shaders/flat.frag.spv", device};
 
@@ -435,6 +453,50 @@ void ClothDemo::createPipelines() {
     createInfo.pRasterizationState = &rasterState;
     pipelines.spaceShipWireframe = device.createGraphicsPipeline(createInfo);
 
+    ch.pipeline =
+        device.graphicsPipelineBuilder()
+            .allowDerivatives()
+            .shaderStage()
+                .vertexShader(load("convex_hull.vert.spv"))
+                .fragmentShader(load("render.frag.spv"))
+            .vertexInputState()
+                .addVertexBindingDescription(0, sizeof(ConvexHullPoint), VK_VERTEX_INPUT_RATE_VERTEX)
+                .addVertexAttributeDescription(0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(ConvexHullPoint, position))
+                .addVertexAttributeDescription(1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(ConvexHullPoint, normal))
+            .inputAssemblyState()
+                .triangles()
+            .viewportState()
+                .viewport()
+                    .origin(0, 0)
+                    .dimension(swapChain.extent)
+                    .minDepth(0)
+                    .maxDepth(1)
+                .scissor()
+                    .offset(0, 0)
+                    .extent(swapChain.extent)
+                .add()
+            .rasterizationState()
+                .cullBackFace()
+                .frontFaceCounterClockwise()
+                .polygonModeFill()
+            .depthStencilState()
+                .enableDepthWrite()
+                .enableDepthTest()
+                .compareOpLess()
+                .minDepthBounds(0)
+                .maxDepthBounds(1)
+            .colorBlendState()
+                .attachment()
+                .add()
+            .layout()
+                .addPushConstantRange(Camera::pushConstant())
+                .addPushConstantRange(VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(Camera), sizeof(glm::vec4))
+            .renderPass(renderPass)
+            .subpass(0)
+            .name("convex_hull")
+        .build(ch.layout);
+
+//    @formatter:on
 }
 
 void ClothDemo::createRayTraceDescriptorSetLayout() {
@@ -1040,14 +1102,65 @@ void ClothDemo::cleanup() {
     vkDestroyQueryPool(device, queryPool, nullptr);
 }
 
+void ClothDemo::initCHBuilder() {
+    convexHullBuilder = ConvexHullBuilder{ &device };
+}
+
+void ClothDemo::constructConvexHull() {
+    convexHullBuilder.setData(model.vertexBuffer, model.indexBuffer);
+    convexHullBuilder.setParams(getParams());
+    convexHulls = convexHullBuilder.build().get();
+}
+
+VHACD::IVHACD::Parameters ClothDemo::getParams() {
+    static VHACD::IVHACD::Parameters parameters{};
+    parameters.m_resolution = params.resolution;
+    parameters.m_concavity = params.concavity;
+    parameters.m_planeDownsampling = params.planeDownSampling;
+    parameters.m_convexhullDownsampling = params.convexHullDownSampling;
+    parameters.m_alpha = params.alpha;
+    parameters.m_beta = params.beta;
+    parameters.m_pca = params.pca;
+    parameters.m_mode = params.mode;
+    parameters.m_maxNumVerticesPerCH = params.maxNumVerticesPerCH;
+    parameters.m_minVolumePerCH = params.minVolumePerCH;
+    parameters.m_convexhullApproximation = params.convexHullApproximation;
+    parameters.m_maxConvexHulls = params.maxHulls;
+    parameters.m_oclAcceleration = params.oclAcceleration;
+    parameters.m_callback = &callbackVHACD;
+    return parameters;
+}
+
+void ClothDemo::renderConvexHull(VkCommandBuffer commandBuffer) {
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, ch.pipeline);
+
+
+    VkDeviceSize offset = 0;
+    auto numHulls = convexHulls.vertices.size();
+    for(int i = 0; i < numHulls; i++){
+
+        auto& vertexBuffer = convexHulls.vertices[i];
+        auto& indexBuffer = convexHulls.indices[i];
+        auto& color = convexHulls.colors[i];
+        color.a = 1;
+
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, ch.pipeline);
+        cameraController->push(commandBuffer, ch.layout, modelInstance.xform);
+        vkCmdPushConstants(commandBuffer, ch.layout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(Camera), sizeof(glm::vec4), &color);
+        vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffer, &offset);
+        vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+        vkCmdDrawIndexed(commandBuffer, indexBuffer.size/sizeof(uint32_t), 1, 0, 0, 0);
+    }
+}
+
 int main(){
     Settings settings;
     settings.vSync = false;
     settings.depthTest = true;
     settings.enabledFeatures.fillModeNonSolid = true;
     settings.enabledFeatures.geometryShader = true;
-    settings.queueFlags = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT;
-    spdlog::set_level(spdlog::level::err);
+    settings.queueFlags = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT;
+    spdlog::set_level(spdlog::level::info);
 
     std::unique_ptr<Plugin> imGui = std::make_unique<ImGuiPlugin>();
 

@@ -257,8 +257,8 @@ protected:
         VulkanPipelineLayout layout;
         VulkanPipeline pipeline;
         struct{
-            float tessLevelOuter{50};
-            float tessLevelInner{50};
+            float tessLevelOuter{16};
+            float tessLevelInner{16};
             float u{1};
             float v{1};
             int numPoints{0};
@@ -285,6 +285,7 @@ protected:
     Patch teacup;
     Patch teaspoon;
     Patch sphere;
+    Patch sweptSurface;
     Patch hermiteCurve;
     Patch icoSphere;
     Patch cube;
@@ -365,7 +366,7 @@ protected:
     struct{
         alignas(16) glm::vec3 surfaceColor{1, 0, 0};
         struct {
-            alignas(16) glm::vec3 color{0};
+            alignas(16) glm::vec3 color{1};
             float width{0.01};
             int enabled{0};
             int solid{1};

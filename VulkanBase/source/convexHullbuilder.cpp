@@ -266,7 +266,7 @@ std::future<ConvexHulls> ConvexHullBuilder::build() {
         }
 
         // for mode (1)  some hulls have no vertices,
-        // so we need to make sure we only processing hulls that have  vertices
+        // so we need to make sure we are only processing hulls that have  vertices
         numBuffers = stagingBuffers.size();
         numConvexHulls = numBuffers/2;
         m_commandPool.oneTimeCommands(numBuffers, [&, stagingBuffers = std::move(stagingBuffers)](auto cIndex, auto commandBuffer){
