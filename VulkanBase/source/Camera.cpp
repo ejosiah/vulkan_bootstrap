@@ -5,9 +5,7 @@
 void configureBase(const CameraSettings& settings);
 void configureBase(const CameraSettings& settings, BaseCameraSettings& baseSettings);
 
-CameraController::CameraController(const VulkanDevice &device, uint32_t swapChainImageCount,
-                                   const uint32_t &currentImageIndex, InputManager &inputManager,
-                                   const CameraSettings &settings)
+CameraController::CameraController(InputManager &inputManager, const CameraSettings &settings)
     : currentMode(settings.mode)
     , firstPerson(inputManager.mapToKey(Key::_1, "First Person mode", Action::detectInitialPressOnly()))
     , spectator(inputManager.mapToKey(Key::_2, "Spectator mode", Action::detectInitialPressOnly()))
@@ -16,10 +14,10 @@ CameraController::CameraController(const VulkanDevice &device, uint32_t swapChai
 {
     configureBase(settings);
 
-    cameras[CameraMode::FIRST_PERSON] = std::make_unique<FirstPersonCameraController>(device, swapChainImageCount, currentImageIndex, inputManager, settings.firstPerson);
-    cameras[CameraMode::SPECTATOR] = std::make_unique<SpectatorCameraController>(device, swapChainImageCount, currentImageIndex, inputManager, settings.firstPerson);
-    cameras[CameraMode::FLIGHT] = std::make_unique<FlightCameraController>(device, swapChainImageCount, currentImageIndex, inputManager, settings.flight);
-    cameras[CameraMode::ORBIT] = std::make_unique<OrbitingCameraController>(device, swapChainImageCount, currentImageIndex, inputManager, settings.orbit);
+    cameras[CameraMode::FIRST_PERSON] = std::make_unique<FirstPersonCameraController>(inputManager, settings.firstPerson);
+    cameras[CameraMode::SPECTATOR] = std::make_unique<SpectatorCameraController>(inputManager, settings.firstPerson);
+    cameras[CameraMode::FLIGHT] = std::make_unique<FlightCameraController>(inputManager, settings.flight);
+    cameras[CameraMode::ORBIT] = std::make_unique<OrbitingCameraController>(inputManager, settings.orbit);
 }
 
 inline void configureBase(const CameraSettings& settings){

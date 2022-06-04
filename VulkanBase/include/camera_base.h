@@ -43,7 +43,7 @@ struct BaseCameraSettings{
 
 struct BaseCameraController : public AbstractCamera{
 public:
-    BaseCameraController(const VulkanDevice& device, uint32_t swapChainImageCount, const uint32_t& currentImageIndex, InputManager& inputManager, const BaseCameraSettings& settings = {});
+    BaseCameraController(InputManager& inputManager, const BaseCameraSettings& settings = {});
 
     ~BaseCameraController() override = default;
 
@@ -156,8 +156,5 @@ public:
     Action& zoomIn;
     Action& zoomOut;
 
-    const VulkanDevice& device;
-    uint32_t swapChainImageCount;
-    const uint32_t& currentImageIndex;
     bool _moved;
 };

@@ -2,9 +2,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/matrix_access.hpp>
 
-BaseCameraController::BaseCameraController(const VulkanDevice& device, uint32_t swapChainImageCount
-                                           , const uint32_t& currentImageIndex, InputManager& inputManager
-                                           , const BaseCameraSettings& settings)
+BaseCameraController::BaseCameraController(InputManager& inputManager, const BaseCameraSettings& settings)
     : fov(settings.fieldOfView)
     , aspectRatio(settings.aspectRatio)
     , znear(settings.zNear)
@@ -32,9 +30,6 @@ BaseCameraController::BaseCameraController(const VulkanDevice& device, uint32_t 
     , mouse(inputManager.getMouse())
     , zoomIn(inputManager.mapToMouse(MouseEvent::MoveCode::WHEEL_UP))
     , zoomOut(inputManager.mapToMouse(MouseEvent::MoveCode::WHEEL_DOWN))
-    , device(device)
-    , swapChainImageCount(swapChainImageCount)
-    , currentImageIndex(currentImageIndex)
     {
         _move.forward = &inputManager.mapToKey(Key::W, "forward", Action::Behavior::DETECT_INITIAL_PRESS_ONLY);
         _move.back = &inputManager.mapToKey(Key::S, "backward", Action::Behavior::DETECT_INITIAL_PRESS_ONLY);

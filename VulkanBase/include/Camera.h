@@ -22,9 +22,7 @@ struct CameraSettings : BaseCameraSettings{
 
 class CameraController final : public AbstractCamera {
 public:
-    CameraController(const VulkanDevice& device, uint32_t swapChainImageCount
-            , const uint32_t& currentImageInde, InputManager& inputManager
-            , const CameraSettings& settings);
+    CameraController( InputManager& inputManager, const CameraSettings& settings);
 
     ~CameraController() override = default;
 

@@ -1,8 +1,8 @@
 #include <OrbitingCamera.h>
 #include "OrbitingCamera.h"
 
-OrbitingCameraController::OrbitingCameraController(const VulkanDevice& device, uint32_t swapChainImageCount, const uint32_t& currentImageIndex,  InputManager& inputManager,  const OrbitingCameraSettings& settings)
-: BaseCameraController(device, swapChainImageCount, currentImageIndex, inputManager, settings)
+OrbitingCameraController::OrbitingCameraController(InputManager& inputManager,  const OrbitingCameraSettings& settings)
+: BaseCameraController(inputManager, settings)
 , offsetDistance(settings.offsetDistance)
 , orbitRollSpeed(settings.orbitRollSpeed)
 , preferTargetYAxisOrbiting(settings.preferTargetYAxisOrbiting)

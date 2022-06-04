@@ -10,7 +10,7 @@ struct FlightCameraSettings : BaseCameraSettings{
 
 class FlightCameraController : public BaseCameraController{
 public:
-    FlightCameraController(const VulkanDevice& device, uint32_t swapChainImageCount, const uint32_t& currentImageIndex,  InputManager& inputManager, const FlightCameraSettings& settings = {});
+    FlightCameraController(InputManager& inputManager, const FlightCameraSettings& settings = {});
 
     void update(float elapsedTime) override;
 

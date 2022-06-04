@@ -1,8 +1,7 @@
 #include "FlightCamera.h"
 
-FlightCameraController::FlightCameraController(const VulkanDevice& device, uint32_t swapChainImageCount, const uint32_t& currentImageIndex,  InputManager &inputManager,
-                                               const FlightCameraSettings &settings)
-: BaseCameraController(device, swapChainImageCount, currentImageIndex, inputManager, settings)
+FlightCameraController::FlightCameraController(InputManager &inputManager, const FlightCameraSettings &settings)
+: BaseCameraController(inputManager, settings)
 , YawSpeed(settings.yawSpeed)
 {
 

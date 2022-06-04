@@ -11,7 +11,7 @@
 
 struct ConvexHullPoint{
     alignas(16) glm::vec3 position;
-    glm::vec3 normal;
+    alignas(16) glm::vec3 normal;
 };
 
 struct ConvexHulls{
