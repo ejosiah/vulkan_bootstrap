@@ -161,7 +161,7 @@ VkCommandBuffer *EnttDemo::buildCommandBuffers(uint32_t imageIndex, uint32_t &nu
 
     vkCmdBeginRenderPass(commandBuffer, &rPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-    renderEntities(commandBuffer);
+    renderEntities(commandBuffer, m_registry);
 
     vkCmdEndRenderPass(commandBuffer);
 
@@ -224,7 +224,7 @@ void EnttDemo::createCubeInstance(glm::vec3 color, const glm::vec3& position, co
     entity.get<component::Scale>().value = scale;
     entity.get<component::Rotation>().value = rotation;
 
-    updateEntityTransforms();
+    updateEntityTransforms(m_registry);
     InstanceData* instances = reinterpret_cast<InstanceData*>(cubeRender.vertexBuffers[1].map());
     instances[cubeRender.instanceCount].transform = entity.get<component::Transform>().value;
     instances[cubeRender.instanceCount].color = color;
@@ -236,7 +236,7 @@ void EnttDemo::initCamera() {
     CameraSettings settings{};
     settings.aspectRatio = static_cast<float>(swapChain.extent.width)/static_cast<float>(swapChain.extent.height);
     settings.horizontalFov = true;
-    cameraController = std::make_unique<CameraController>(device, swapChain.imageCount(), currentImageIndex, dynamic_cast<InputManager&>(*this), settings);
+    cameraController = std::make_unique<CameraController>(dynamic_cast<InputManager&>(*this), settings);
     cameraController->setMode(CameraMode::SPECTATOR);
     cameraController->lookAt(glm::vec3(5), {0, 0, 0}, {0, 1, 0});
 
@@ -245,7 +245,7 @@ void EnttDemo::initCamera() {
 }
 
 void EnttDemo::createSkyBox() {
-    SkyBox::create(skyBox, R"(C:\Users\Josiah\OneDrive\media\textures\skybox\005)"
+    SkyBox::create(skyBox, R"(C:\Users\Josiah Ebhomenye\OneDrive\media\textures\skybox\005)"
             , {"right.jpg", "left.jpg", "top.jpg", "bottom.jpg", "front.jpg", "back.jpg"});
 
     auto entity = createEntity("sky_box");
@@ -261,7 +261,7 @@ void EnttDemo::createSkyBox() {
     renderComponent.indexCount = indexCount;
 
     auto& pipelines = entity.add<component::Pipelines>();
-    pipelines.add({ *skyBox.pipeline, *skyBox.layout, 0, {}, { skyBox.descriptorSet } });
+    pipelines.add({ *skyBox.pipeline, *skyBox.layout, 0, {}, { (uint64_t)skyBox.descriptorSet } });
 }
 
 void EnttDemo::randomCube() {

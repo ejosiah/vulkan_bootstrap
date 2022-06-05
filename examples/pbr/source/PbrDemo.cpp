@@ -373,7 +373,7 @@ void PbrDemo::initCamera() {
     settings.fieldOfView = 45.0f;
     settings.modelHeight = 0;
     settings.aspectRatio = static_cast<float>(swapChain.extent.width)/static_cast<float>(swapChain.extent.height);
-    cameraController = std::make_unique<OrbitingCameraController>(device, swapChain.imageCount(), currentImageIndex, dynamic_cast<InputManager&>(*this), settings);
+    cameraController = std::make_unique<OrbitingCameraController>(dynamic_cast<InputManager&>(*this), settings);
 }
 
 void PbrDemo::initModel() {

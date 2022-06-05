@@ -293,7 +293,7 @@ void DeferredRendering::initCamera() {
     settings.horizontalFov = true;
     settings.zNear = 1.0;
     settings.zFar = 100;
-    cameraController = std::make_unique<CameraController>(device, swapChain.imageCount(), currentImageIndex, dynamic_cast<InputManager&>(*this), settings);
+    cameraController = std::make_unique<CameraController>(dynamic_cast<InputManager&>(*this), settings);
     cameraController->setMode(CameraMode::SPECTATOR);
     auto pos = (sponza.bounds.max + sponza.bounds.min) * 0.5f;
     auto target = pos + glm::vec3(1, 0, 0);

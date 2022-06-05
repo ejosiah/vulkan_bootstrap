@@ -223,8 +223,7 @@ void StereographicProjection::initCamera() {
     settings.offsetDistance = 5;
     settings.orbitMaxZoom =  10;
 
-    cameraController = std::make_unique<OrbitingCameraController>(device, swapChainImageCount, currentImageIndex
-            , dynamic_cast<InputManager&>(*this), settings);
+    cameraController = std::make_unique<OrbitingCameraController>(dynamic_cast<InputManager&>(*this), settings);
 }
 
 

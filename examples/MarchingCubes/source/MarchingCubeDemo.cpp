@@ -279,7 +279,7 @@ void MarchingCubeDemo::initCamera() {
     settings.orbitMinZoom = 0.001;
     settings.orbitMaxZoom = 10;
     settings.aspectRatio = swapChain.aspectRatio();
-    camera = std::make_unique<OrbitingCameraController>(device, swapChainImageCount, currentImageIndex, dynamic_cast<InputManager&>(*this), settings);
+    camera = std::make_unique<OrbitingCameraController>(dynamic_cast<InputManager&>(*this), settings);
 }
 
 void MarchingCubeDemo::generateTriangles() {
@@ -427,7 +427,7 @@ void MarchingCubeDemo::createDescriptorSet() {
     sdfDescriptorSet = sets.front();
     computeDescriptorSet = sets.back();
     
-   std::array<VkWriteDescriptorSet, 4> writes = initializers::writeDescriptorSets<4>();
+   auto writes = initializers::writeDescriptorSets<4>();
    
    VkDescriptorImageInfo imageInfo;
    imageInfo.imageView = sdf.imageView;
@@ -642,7 +642,7 @@ void MarchingCubeDemo::generateIndex(VulkanBuffer &source, VulkanBuffer &vBuffer
 }
 
 void MarchingCubeDemo::updateMarchingCubeVertexDescriptorSet() {
-    std::array<VkWriteDescriptorSet, 1> writes = initializers::writeDescriptorSets<1>(marchingCube.descriptorSet);
+    auto writes = initializers::writeDescriptorSets<1>(marchingCube.descriptorSet);
 
     VkDescriptorBufferInfo vertexInfo;
     vertexInfo.buffer = marchingCube.vertexBuffer;

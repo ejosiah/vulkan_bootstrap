@@ -84,7 +84,7 @@ void RayTracingImplicits::initCamera() {
     cameraSettings.aspectRatio = float(swapChain.extent.width)/float(swapChain.extent.height);
 
     camera = std::make_unique<OrbitingCameraController>
-            (device, swapChainImageCount, currentImageIndex, dynamic_cast<InputManager&>(*this), cameraSettings);
+            (dynamic_cast<InputManager&>(*this), cameraSettings);
 }
 
 void RayTracingImplicits::onSwapChainDispose() {
@@ -216,7 +216,7 @@ void RayTracingImplicits::cleanup() {
 
 void RayTracingImplicits::createCommandPool() {
     commandPool = device.createCommandPool(*device.queueFamilyIndex.graphics, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
-    commandBuffers = commandPool.allocate(swapChainImageCount);
+    commandBuffers = commandPool.allocateCommandBuffers(swapChainImageCount);
 }
 
 void RayTracingImplicits::createDescriptorPool() {

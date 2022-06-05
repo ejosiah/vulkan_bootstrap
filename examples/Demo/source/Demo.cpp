@@ -66,7 +66,7 @@ void Demo::initCamera() {
 //    CameraController(const VulkanDevice& device, uint32_t swapChainImageCount
 //            , const uint32_t& currentImageInde, InputManager& inputManager
 //            , const CameraSettings& settings);
-    cameraController = std::make_unique<CameraController>(device, swapChain.imageCount(), currentImageIndex, dynamic_cast<InputManager&>(*this), settings);
+    cameraController = std::make_unique<CameraController>(dynamic_cast<InputManager&>(*this), settings);
     cameraController->setMode(CameraMode::ORBIT);
 }
 
@@ -399,7 +399,7 @@ int main(){
 
         std::vector<FontInfo> fonts {
 #ifdef WIN32
-                {"JetBrainsMono", R"(C:\Users\Josiah Ebhomenye\CLionProjects\vulkan_bootstrap\data\fonts\JetBrainsMono\JetBrainsMono-Regular.ttf)", 20},
+                {"JetBrainsMono", R"(C:\Users\Josiah Ebhomenye Ebhomenye\CLionProjects\vulkan_bootstrap\data\fonts\JetBrainsMono\JetBrainsMono-Regular.ttf)", 20},
                 {"Arial", R"(C:\Windows\Fonts\arial.ttf)", 20},
                 {"Arial", R"(C:\Windows\Fonts\arial.ttf)", 15}
 #elif defined(__APPLE__)

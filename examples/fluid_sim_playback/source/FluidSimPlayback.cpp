@@ -51,7 +51,7 @@ void FluidSimPlayback::createDescriptorPool() {
 
 void FluidSimPlayback::createCommandPool() {
     commandPool = device.createCommandPool(*device.queueFamilyIndex.graphics, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
-    commandBuffers = commandPool.allocate(swapChainImageCount);
+    commandBuffers = commandPool.allocateCommandBuffers(swapChainImageCount);
 }
 
 void FluidSimPlayback::createPipelineCache() {
@@ -205,7 +205,7 @@ void FluidSimPlayback::initCamera() {
     settings.fieldOfView = 45.0f;
     settings.modelHeight = 0;
     settings.aspectRatio = static_cast<float>(swapChain.extent.width)/static_cast<float>(swapChain.extent.height);
-    camera = std::make_unique<OrbitingCameraController>(device, swapChain.imageCount(), currentImageIndex, dynamic_cast<InputManager&>(*this), settings);
+    camera = std::make_unique<OrbitingCameraController>(dynamic_cast<InputManager&>(*this), settings);
 }
 
 

@@ -255,8 +255,7 @@ void BloomDemo::initCamera() {
     FirstPersonSpectatorCameraSettings settings;
     settings.aspectRatio = swapChain.aspectRatio();
     settings.fieldOfView = 60.0f;
-    cameraController = std::make_unique<SpectatorCameraController>(device, swapChainImageCount, currentImageIndex
-            , dynamic_cast<InputManager&>(*this), settings);
+    cameraController = std::make_unique<SpectatorCameraController>(dynamic_cast<InputManager&>(*this), settings);
     cameraController->lookAt({5, 5, 5}, glm::vec3(0, 0, 0), {0, 1, 0});
 }
 

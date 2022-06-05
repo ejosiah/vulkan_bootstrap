@@ -378,7 +378,7 @@ void ParallaxMappingDemo::initCamera() {
     settings.fieldOfView = 45.0f;
     settings.modelHeight = 0;
     settings.aspectRatio = static_cast<float>(swapChain.extent.width)/static_cast<float>(swapChain.extent.height);
-    cameraController = std::unique_ptr<BaseCameraController>{new OrbitingCameraController{ device, swapChain.imageCount(), currentImageIndex, *this, settings}};
+    cameraController = std::unique_ptr<BaseCameraController>{new OrbitingCameraController{ *this, settings}};
 }
 
 void ParallaxMappingDemo::renderUI(VkCommandBuffer commandBuffer) {

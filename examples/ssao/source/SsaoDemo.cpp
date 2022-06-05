@@ -41,8 +41,7 @@ void SsaoDemo::initCamera() {
     settings.fieldOfView = 60.0f;
     settings.aspectRatio = swapChain.aspectRatio();
 
-    cameraController = std::make_unique<SpectatorCameraController>(device, swapChainImageCount, currentImageIndex
-                                                                   , dynamic_cast<InputManager&>(*this), settings);
+    cameraController = std::make_unique<SpectatorCameraController>(dynamic_cast<InputManager&>(*this), settings);
     auto target = (model.bounds.min + model.bounds.max) * 0.5f;
     auto position = target + glm::vec3(0, 0, 1);
     cameraController->lookAt(position, target, {0, 1, 0});

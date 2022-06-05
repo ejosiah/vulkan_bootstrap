@@ -3,7 +3,7 @@ from conans import ConanFile, CMake, tools
 
 class VulkanUtilConan(ConanFile):
     name = "vulkanUtil"
-    version = "0.1.4"
+    version = "0.1.5"
     license = "<Put the package license here>"
     author = "Josiah Ebhomenye joebhomenye@gmail.com"
     url = "<Package recipe repository url here, for issues about the package>"
@@ -26,7 +26,8 @@ class VulkanUtilConan(ConanFile):
                 "argparse/2.1",
                 "bullet3/3.17",
                 "entt/3.8.1",
-                "meshoptimizer/0.17"
+                "meshoptimizer/0.17",
+                "zlib/1.2.12"
                 ]
 
     def config_options(self):

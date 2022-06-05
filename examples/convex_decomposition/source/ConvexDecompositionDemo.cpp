@@ -430,8 +430,7 @@ void ConvexDecompositionDemo::initCamera() {
     settings.orbitMaxZoom = settings.offsetDistance * 10;
     settings.target = getCameraTarget(models[currentModel]);
 
-    cameraController = std::make_unique<OrbitingCameraController>(device, swapChainImageCount, currentImageIndex
-                                                                  , dynamic_cast<InputManager&>(*this), settings);
+    cameraController = std::make_unique<OrbitingCameraController>(dynamic_cast<InputManager&>(*this), settings);
 }
 
 void ConvexDecompositionDemo::renderUI(VkCommandBufferInheritanceInfo& inheritanceInfo) {

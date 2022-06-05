@@ -139,7 +139,7 @@ void RotationDemo::createCamera() {
     settings.fieldOfView = 45.0f;
     settings.modelHeight = 0;
     settings.aspectRatio = static_cast<float>(swapChain.extent.width)/static_cast<float>(swapChain.extent.height);
-    cameraController = std::make_unique<OrbitingCameraController>(device, swapChain.imageCount(), currentImageIndex, dynamic_cast<InputManager&>(*this), settings);
+    cameraController = std::make_unique<OrbitingCameraController>(dynamic_cast<InputManager&>(*this), settings);
     auto cameraEntity = Entity{m_registry };
     cameraEntity.add<component::Camera>().camera = const_cast<Camera*>(&cameraController->cam());
 }

@@ -25,7 +25,7 @@ void VulkanCube::initApp() {
     settings.fieldOfView = 45.0f;
     settings.modelHeight = 0;
     settings.aspectRatio = static_cast<float>(swapChain.extent.width)/static_cast<float>(swapChain.extent.height);
-    cameraController = std::unique_ptr<BaseCameraController>{new OrbitingCameraController{ device, swapChain.imageCount(), currentImageIndex, *this, settings}};
+    cameraController = std::unique_ptr<BaseCameraController>{new OrbitingCameraController{ *this, settings}};
    // cameraController->lookAt({0, 0, 2}, glm::vec3(0), {0, 1, 0});
     pipelineCache = device.createPipelineCache();
     createGraphicsPipeline();

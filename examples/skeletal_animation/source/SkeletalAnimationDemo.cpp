@@ -281,7 +281,7 @@ void SkeletalAnimationDemo::initCamera() {
 //    settings.modelHeight = model->height();
 //    settings.model.min = model->bounds.min;
 //    settings.model.max = model->bounds.max;
-//    cameraController = std::make_unique<OrbitingCameraController>(device, swapChain.imageCount(), currentImageIndex, dynamic_cast<InputManager&>(*this), settings);
+//    cameraController = std::make_unique<OrbitingCameraController>(dynamic_cast<InputManager&>(*this), settings);
 
     CameraSettings settings{};
     settings.aspectRatio = static_cast<float>(swapChain.extent.width)/static_cast<float>(swapChain.extent.height);
@@ -291,7 +291,7 @@ void SkeletalAnimationDemo::initCamera() {
     settings.zFar = 2000;
     settings.velocity = glm::vec3(200);
     settings.acceleration = glm::vec3(100);
-    cameraController = std::make_unique<CameraController>(device, swapChain.imageCount(), currentImageIndex, dynamic_cast<InputManager&>(*this), settings);
+    cameraController = std::make_unique<CameraController>(dynamic_cast<InputManager&>(*this), settings);
     cameraController->setMode(CameraMode::SPECTATOR);
     auto target = (model->bounds.max + model->bounds.min) * 0.5f;
     auto pos = target + glm::vec3(0, 0, 1) * model->diagonal().z * 5.f;

@@ -78,7 +78,7 @@ void FontTest::cleanup() {
 int main(){
     try{
         std::vector<FontInfo> fonts {
-                {"JetBrainsMono", R"(C:\Users\Josiah\Downloads\JetBrainsMono-2.225\fonts\ttf\JetBrainsMono-Regular.ttf)", 20},
+                {"JetBrainsMono", R"(C:\Users\Josiah Ebhomenye\Downloads\JetBrainsMono-2.225\fonts\ttf\JetBrainsMono-Regular.ttf)", 20},
                 {"Arial", R"(C:\Windows\Fonts\arial.ttf)", 20}
         };
         std::unique_ptr<Plugin> imGui = std::make_unique<ImGuiPlugin>(fonts);

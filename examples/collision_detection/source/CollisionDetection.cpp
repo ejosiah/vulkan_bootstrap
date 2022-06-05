@@ -134,7 +134,7 @@ void CollisionDetection::createGridDescriptorSet(){
 
 void CollisionDetection::createCommandPool() {
     commandPool = device.createCommandPool(*device.queueFamilyIndex.graphics, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
-    commandBuffers = commandPool.allocate(swapChainImageCount);
+    commandBuffers = commandPool.allocateCommandBuffers(swapChainImageCount);
 }
 
 void CollisionDetection::createPipelineCache() {
@@ -511,7 +511,7 @@ void CollisionDetection::initCamera() {
     settings.fieldOfView = 45.0f;
     settings.modelHeight = 1.0f;
     settings.aspectRatio = swapChain.aspectRatio();
-    camera = std::make_unique<OrbitingCameraController>(device, swapChain.imageCount(), currentImageIndex, dynamic_cast<InputManager&>(*this), settings);
+    camera = std::make_unique<OrbitingCameraController>(dynamic_cast<InputManager&>(*this), settings);
 
     cameras.top.proj = vkn::ortho(-1.5f, 1.5f, -1.5f, 1.5f, -1.5f, 1.5f);
     cameras.top.model = glm::rotate(glm::mat4(1), -glm::half_pi<float>(), {1, 0, 0});

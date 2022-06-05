@@ -259,7 +259,7 @@ void ShadowMapping::initCamera() {
     settings.rotationSpeed = 0.1f;
     settings.horizontalFov = true;
     settings.orbit.modelHeight = 0.5;
-    cameraController = std::make_unique<CameraController>(device, swapChain.imageCount(), currentImageIndex, dynamic_cast<InputManager&>(*this), settings);
+    cameraController = std::make_unique<CameraController>(dynamic_cast<InputManager&>(*this), settings);
     cameraController->setMode(CameraMode::SPECTATOR);
     cameraController->lookAt({20, 7, 20}, {0, 0, 0}, {0, 1, 0});
 }

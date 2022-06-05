@@ -830,8 +830,7 @@ void CurvesSurfaceDemo::initCameras() {
     settings.fieldOfView = 45.0f;
     settings.modelHeight = 0;
     settings.aspectRatio = static_cast<float>(swapChain.extent.width)/static_cast<float>(swapChain.extent.height);
-    cameraController = std::make_unique<OrbitingCameraController>( device, swapChain.imageCount(), currentImageIndex,
-                                                                   static_cast<InputManager&>(*this), settings);
+    cameraController = std::make_unique<OrbitingCameraController>(static_cast<InputManager&>(*this), settings);
     updateCameras();
 }
 

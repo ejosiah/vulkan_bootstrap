@@ -8,7 +8,7 @@ PrimitivesApp::PrimitivesApp(const Settings &settings):VulkanBaseApp("primitives
 void PrimitivesApp::initApp() {
     nextPrimitive = &mapToMouse(static_cast<int>(MouseEvent::Button::LEFT), "Next primitive", Action::detectInitialPressOnly());
     commandPool = device.createCommandPool(*device.queueFamilyIndex.graphics, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
-    commandBuffers = commandPool.allocate(swapChainImageCount);
+    commandBuffers = commandPool.allocateCommandBuffers(swapChainImageCount);
     createDescriptorPool();
     createPrimitives();
     initCamera();
@@ -240,7 +240,7 @@ void PrimitivesApp::initCamera() {
     settings.fieldOfView = 45.0f;
     settings.modelHeight = 0;
     settings.aspectRatio = static_cast<float>(swapChain.extent.width)/static_cast<float>(swapChain.extent.height);
-    cameraController = std::make_unique<OrbitingCameraController>(device, swapChain.imageCount(), currentImageIndex, dynamic_cast<InputManager&>(*this), settings);
+    cameraController = std::make_unique<OrbitingCameraController>(dynamic_cast<InputManager&>(*this), settings);
 }
 
 void PrimitivesApp::createDescriptorPool() {

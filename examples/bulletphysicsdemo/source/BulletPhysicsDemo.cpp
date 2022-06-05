@@ -248,7 +248,7 @@ void BulletPhysicsDemo::initCamera() {
     settings.zFar = CAMERA_ZFAR;
     settings.horizontalFov = true;
     settings.orbit.modelHeight = 0.5;
-    cameraController = std::make_unique<CameraController>(device, swapChain.imageCount(), currentImageIndex, dynamic_cast<InputManager&>(*this), settings);
+    cameraController = std::make_unique<CameraController>(dynamic_cast<InputManager&>(*this), settings);
     cameraController->setMode(CameraMode::SPECTATOR);
     cameraController->lookAt({3, 7, 6}, {0, 0, 0}, {0, 1, 0});
     auto& bullet = plugin<BulletPhysicsPlugin>(BULLET_PHYSICS_PLUGIN);
@@ -284,7 +284,7 @@ void BulletPhysicsDemo::createRigidBodies() {
     createAccelerationStructure(rigidBodies);
 
 //    std::vector<mesh::Mesh> meshes;
-//    mesh::load(meshes, R"(C:\Users\Josiah\OneDrive\media\models\werewolf.obj)");
+//    mesh::load(meshes, R"(C:\Users\Josiah Ebhomenye\OneDrive\media\models\werewolf.obj)");
 //    mesh::normalize(meshes, 1.0);
 //
 //    glm::vec3 vMin, vMax;
@@ -348,7 +348,7 @@ void BulletPhysicsDemo::displayInfo(VkCommandBuffer commandBuffer) {
 }
 
 void BulletPhysicsDemo::createSkyBox() {
-    SkyBox::create(skyBox, R"(C:\Users\Josiah Ebhomenye\OneDrive\media\textures\skybox\005)"
+    SkyBox::create(skyBox, R"(C:\Users\Josiah Ebhomenye Ebhomenye\OneDrive\media\textures\skybox\005)"
                    , {"right.jpg", "left.jpg", "top.jpg", "bottom.jpg", "front.jpg", "back.jpg"});
 }
 

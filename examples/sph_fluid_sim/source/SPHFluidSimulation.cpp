@@ -486,7 +486,7 @@ void SPHFluidSimulation::initCamera() {
     settings.fieldOfView = 45.0f;
 //    settings.modelHeight = diagonal(domain).y;
     settings.aspectRatio = static_cast<float>(swapChain.extent.width)/static_cast<float>(swapChain.extent.height);
-    camera = std::make_unique<OrbitingCameraController>(device, swapChain.imageCount(), currentImageIndex, dynamic_cast<InputManager&>(*this), settings);
+    camera = std::make_unique<OrbitingCameraController>(dynamic_cast<InputManager&>(*this), settings);
     render.mvpBuffer = device.createCpuVisibleBuffer(&camera->cam(), sizeof(Camera), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
 }
 

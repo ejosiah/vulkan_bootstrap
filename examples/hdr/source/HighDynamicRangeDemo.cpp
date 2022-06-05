@@ -32,8 +32,7 @@ void HighDynamicRangeDemo::initApp() {
 
 void HighDynamicRangeDemo::initCamera() {
     FirstPersonSpectatorCameraSettings settings;
-    cameraController = std::make_unique<SpectatorCameraController>(device, swapChainImageCount, currentImageIndex
-                                                                   , dynamic_cast<InputManager&>(*this), settings);
+    cameraController = std::make_unique<SpectatorCameraController>(dynamic_cast<InputManager&>(*this), settings);
     cameraController->lookAt({0, 0, 1}, glm::vec3(0, 0, 50), {0, 1, 0});
 }
 

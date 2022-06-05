@@ -266,6 +266,8 @@ protected:
 
     void renderEntities(VkCommandBuffer commandBuffer, entt::registry& registry);
 
+    InputManager& inputManager();
+
 private:
     void setPaused(bool flag);
 

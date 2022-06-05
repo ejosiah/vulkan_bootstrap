@@ -78,9 +78,9 @@ void ClothDemo::loadModel() {
     info.vertexUsage |= VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
     info.indexUsage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
     info.indexUsage |= VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-    //    phong::load(R"(C:\Users\Josiah\OneDrive\media\models\Nissan FairladyZ 2009\basemeshobj.obj)", device, descriptorPool, model, info, true, 30);
-    phong::load(R"(C:\Users\Josiah Ebhomenye\OneDrive\media\models\werewolf.obj)", device, descriptorPool, model, info, true, 40);
-  //  phong::load(R"(C:\Users\Josiah\OneDrive\media\models\Lucy-statue\metallic-lucy-statue-stanford-scan.obj)",device, descriptorPool, model, info, true, 40);
+    //    phong::load(R"(C:\Users\Josiah Ebhomenye\OneDrive\media\models\Nissan FairladyZ 2009\basemeshobj.obj)", device, descriptorPool, model, info, true, 30);
+    phong::load(R"(C:\Users\Josiah Ebhomenye Ebhomenye\OneDrive\media\models\werewolf.obj)", device, descriptorPool, model, info, true, 40);
+  //  phong::load(R"(C:\Users\Josiah Ebhomenye\OneDrive\media\models\Lucy-statue\metallic-lucy-statue-stanford-scan.obj)",device, descriptorPool, model, info, true, 40);
  //   phong::load("../../data/models/bigship1.obj", device, descriptorPool, model, info, true, 40);
     modelInstance.object = rt::TriangleMesh{&model};
     modelInstance.xform = glm::translate(glm::mat4(1), {0, model.height() * 0.5f, 0});
@@ -286,7 +286,7 @@ void ClothDemo::initCamera() {
     settings.velocity = glm::vec3{10};
     settings.acceleration = glm::vec3(20);
     settings.aspectRatio = float(swapChain.extent.width)/float(swapChain.extent.height);
-    cameraController = std::make_unique<SpectatorCameraController>(device, swapChainImageCount, currentImageIndex, dynamic_cast<InputManager&>(*this), settings);
+    cameraController = std::make_unique<SpectatorCameraController>(dynamic_cast<InputManager&>(*this), settings);
     cameraController->lookAt({-20, 37, 8}, {0.5, -0.6, 0.6}, {0, 1, 0});
 }
 
