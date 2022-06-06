@@ -1,7 +1,9 @@
 #include "VulkanBaseApp.h"
+#include "CSOView.hpp"
+#include "imgui.h"
 
 struct SphereBody{
-    glm::vec3 center{0};
+    glm::vec3 position{0};
     float radius{0.5};
     glm::mat3 orientation{1};
     VulkanBuffer vertices;
@@ -17,11 +19,12 @@ struct SphereBody{
 struct BoxBody{
     std::array<glm::vec3, 8> corners;
     glm::mat3 orientation{1};
-    glm::vec3 position{1};
+    glm::vec3 position{0};
     VulkanBuffer vertices;
     VulkanBuffer indices;
 
-    glm::mat4 model(){
+    [[nodiscard]]
+    glm::mat4 model() const {
         glm::mat4 xform = glm::translate(glm::mat4{1}, position);
         return xform * glm::mat4(orientation);
     }
@@ -75,7 +78,13 @@ public:
 protected:
     void initApp() override;
 
+    void initCSOView();
+
     void createDescriptorPool();
+
+    void createDescriptorSetLayouts();
+
+    void updateDescriptorSets();
 
     void createCommandPool();
 
@@ -91,7 +100,11 @@ protected:
 
     VkCommandBuffer *buildCommandBuffers(uint32_t imageIndex, uint32_t &numCommandBuffers) override;
 
+    void renderCSO(VkCommandBuffer commandBuffer);
+
     void update(float time) override;
+
+    void newFrame() override;
 
     void checkAppInputs() override;
 
@@ -102,6 +115,8 @@ protected:
     void createShapes();
 
     void initCameras();
+
+    void collisionTest();
 
 protected:
     struct {
@@ -120,5 +135,21 @@ protected:
     VulkanPipelineCache pipelineCache;
     SphereBody sphere;
     BoxBody box;
+    CSOView csoView;
+    Texture vulkanImage;
+    ImTextureID vulkanImageTexId{nullptr};
+    ImTextureID csoTexId{ nullptr };
+    VkDescriptorSet vulkanImageDescriptorSet;
+    VulkanDescriptorSetLayout textureDescriptorSetLayout;
     std::unique_ptr<OrbitingCameraController> cameraController;
+    struct {
+        Action* forward{nullptr};
+        Action* back{nullptr};
+        Action* left{nullptr};
+        Action* right{nullptr};
+        Action* up{nullptr};
+        Action* down{nullptr};
+    } move;
+
+    bool csoCam = false;
 };

@@ -1,8 +1,8 @@
+#include "Texture.h"
 #ifndef STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_IMPLEMENTATION
 #include  <stb_image.h>
 #endif
-#include "Texture.h"
 #include <fmt/format.h>
 
 uint32_t nunChannels(VkFormat format) {
@@ -42,6 +42,19 @@ constexpr VkFormat getFormat(uint32_t numChannels){
         default:
             return VK_FORMAT_UNDEFINED;
     }
+}
+
+
+RawImage textures::loadImage(std::string_view path, bool flipUv) {
+    int texWidth, texHeight,  texChannels;
+    stbi_set_flip_vertically_on_load(flipUv ? 1 : 0);
+    stbi_uc* pixels = stbi_load(path.data(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+    return RawImage{
+        std::unique_ptr<stbi_uc, stbi_image_deleter>(pixels),
+                static_cast<uint32_t>(texWidth),
+                static_cast<uint32_t>(texHeight),
+                texChannels
+    };
 }
 
 void textures::fromFile(const VulkanDevice &device, Texture &texture, std::string_view path, bool flipUv, VkFormat format) {

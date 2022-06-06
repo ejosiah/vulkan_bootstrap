@@ -2,6 +2,7 @@
 #include "GraphicsPipelineBuilder.hpp"
 #include "DescriptorSetBuilder.hpp"
 #include "gjk.hpp"
+#include "ImGuiPlugin.hpp"
 
 GJKDemo::GJKDemo(const Settings& settings) : VulkanBaseApp("GJK Collision detection", settings) {
     fileManager.addSearchPath(".");
@@ -13,16 +14,61 @@ GJKDemo::GJKDemo(const Settings& settings) : VulkanBaseApp("GJK Collision detect
     fileManager.addSearchPath("../../data/models");
     fileManager.addSearchPath("../../data/textures");
     fileManager.addSearchPath("../../data");
+
+    move.forward = &mapToKey(Key::UP, "move_forward");
+    move.back = &mapToKey(Key::DOWN, "move_back");
+    move.left = &mapToKey(Key::LEFT, "move_left");
+    move.right = &mapToKey(Key::RIGHT, "move_right");
+    move.up = &mapToKey(Key::W, "move_up");
+    move.down = &mapToKey(Key::S, "move_down");
 }
 
 void GJKDemo::initApp() {
     createShapes();
+    initCSOView();
+    collisionTest();
+    textures::fromFile(device, vulkanImage, resource("vulkan.png"));
+    vulkanImageTexId = plugin<ImGuiPlugin>(IM_GUI_PLUGIN).addTexture(vulkanImage);
     initCameras();
     createDescriptorPool();
+    createDescriptorSetLayouts();
     createCommandPool();
+    
+    updateDescriptorSets();
     createPipelineCache();
     createRenderPipeline();
     createComputePipeline();
+}
+
+void GJKDemo::createDescriptorSetLayouts() {
+    textureDescriptorSetLayout =
+        device.descriptorSetLayoutBuilder()
+            .binding(0)
+                .descriptorType(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
+                .descriptorCount(1)
+                .shaderStages(VK_SHADER_STAGE_ALL)
+                .immutableSamplers(vulkanImage.sampler)
+            .createLayout();
+    
+    vulkanImageDescriptorSet = descriptorPool.allocate( {textureDescriptorSetLayout }).front();
+}
+
+void GJKDemo::updateDescriptorSets() {
+    auto writes = initializers::writeDescriptorSets<1>();
+    
+    writes[0].dstSet = vulkanImageDescriptorSet;
+    writes[0].dstBinding = 0;
+    writes[0].descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+    writes[0].descriptorCount = 1;
+    VkDescriptorImageInfo imageInfo{ VK_NULL_HANDLE, vulkanImage.imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+    writes[0].pImageInfo = &imageInfo;
+
+    device.updateDescriptorSets(writes);
+}
+
+void GJKDemo::initCSOView() {
+    csoView = CSOView{512, 512, &device, dynamic_cast<InputManager*>(this), &fileManager};
+    csoTexId = plugin<ImGuiPlugin>(IM_GUI_PLUGIN).addTexture(csoView.renderTarget.imageView);
 }
 
 void GJKDemo::createDescriptorPool() {
@@ -129,6 +175,7 @@ void GJKDemo::onSwapChainDispose() {
 }
 
 void GJKDemo::onSwapChainRecreation() {
+    cameraController->perspective(swapChain.aspectRatio());
     createRenderPipeline();
     createComputePipeline();
 }
@@ -168,6 +215,7 @@ VkCommandBuffer *GJKDemo::buildCommandBuffers(uint32_t imageIndex, uint32_t &num
     vkCmdBindIndexBuffer(commandBuffer, box.indices, 0, VK_INDEX_TYPE_UINT32);
     vkCmdDrawIndexed(commandBuffer, box.indices.sizeAs<uint32_t>(), 1, 0, 0, 0);
 
+    renderCSO(commandBuffer);
 
     vkCmdEndRenderPass(commandBuffer);
 
@@ -176,12 +224,59 @@ VkCommandBuffer *GJKDemo::buildCommandBuffers(uint32_t imageIndex, uint32_t &num
     return &commandBuffer;
 }
 
+void GJKDemo::renderCSO(VkCommandBuffer commandBuffer) {
+    auto flag = csoCam ? ImGuiWindowFlags_NoMove : ImGuiWindowFlags_None;
+    ImGui::Begin("Configuration space", nullptr, flag);
+    float w = 512;
+    float h = 512;
+    ImGui::SetWindowSize({0, 0});
+
+    ImGui::Image(csoTexId, {w, h});
+    ImGui::Checkbox("update", &csoCam);
+    ImGui::End();
+    plugin(IM_GUI_PLUGIN).draw(commandBuffer);
+}
+
 void GJKDemo::update(float time) {
-    cameraController->update(time);
+    if(!ImGui::IsAnyItemActive()) {
+        cameraController->update(time);
+    }else if(csoCam){
+        csoView.update(time);
+    }
+
 }
 
 void GJKDemo::checkAppInputs() {
-    cameraController->processInput();
+    if(!ImGui::IsAnyItemActive()) {
+        cameraController->processInput();
+    }else if(csoCam){
+        csoView.checkAppInput();
+    }
+    glm::vec3 dir{0};
+    if(move.forward->isPressed()){
+        dir.z -= 1;
+    }
+    if(move.back->isPressed()){
+        dir.z += 1;
+    }
+    if(move.right->isPressed()){
+        dir.x += 1;
+    }
+    if(move.left->isPressed()){
+        dir.x -= 1;
+    }
+    if(move.up->isPressed()){
+        dir.y += 1;
+    }
+    if(move.down->isPressed()){
+        dir.y -= 1;
+    }
+    dir *= 0.001;
+    auto shouldMoveBox = glm::any(glm::lessThan(glm::vec3(0), dir) || glm::greaterThan(glm::vec3(0), dir));
+    if(shouldMoveBox) {
+        box.position += glm::mat3(glm::inverse(cameraController->cam().view)) * dir;
+        collisionTest();
+    }
 }
 
 void GJKDemo::cleanup() {
@@ -194,7 +289,7 @@ void GJKDemo::onPause() {
 }
 
 void GJKDemo::createShapes() {
-    auto ss = primitives::sphere(50, 50, sphere.radius, glm::mat4{1}, glm::vec4{1}, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+    auto ss = primitives::sphere(10, 10, sphere.radius, glm::mat4{1}, glm::vec4{1}, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
     sphere.vertices = device.createCpuVisibleBuffer(ss.vertices.data(), BYTE_SIZE(ss.vertices), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
     sphere.indices = device.createCpuVisibleBuffer(ss.indices.data(), BYTE_SIZE(ss.indices), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
     
@@ -215,8 +310,22 @@ void GJKDemo::initCameras() {
     settings.fieldOfView = 45.0f;
     settings.modelHeight = 0;
     settings.aspectRatio = static_cast<float>(swapChain.extent.width)/static_cast<float>(swapChain.extent.height);
-    cameraController = std::make_unique<OrbitingCameraController>( device, swapChain.imageCount(), currentImageIndex,
-                                                                   static_cast<InputManager&>(*this), settings);
+    cameraController = std::make_unique<OrbitingCameraController>(dynamic_cast<InputManager&>(*this), settings);
+}
+
+void GJKDemo::newFrame() {
+    cameraController->newFrame();
+}
+
+void GJKDemo::collisionTest() {
+    glm::vec3 pointOnA, pointOnB;
+    static std::vector<glm::vec3> simplex;
+    static std::vector<uint16_t> indices;
+    float bias = 0.001f;
+    indices.clear();
+    auto intersects = GJK::doesIntersect(sphere, box, bias, pointOnA, pointOnB, simplex, indices);
+    spdlog::info("intersects {}", intersects);
+    csoView.update(simplex, indices);
 }
 
 
@@ -228,6 +337,8 @@ int main(){
         settings.enabledFeatures.fillModeNonSolid = true;
 
         auto app = GJKDemo{ settings };
+        std::unique_ptr<Plugin> plugin = std::make_unique<ImGuiPlugin>();
+        app.addPlugin(plugin);
         app.run();
     }catch(std::runtime_error& err){
         spdlog::error(err.what());

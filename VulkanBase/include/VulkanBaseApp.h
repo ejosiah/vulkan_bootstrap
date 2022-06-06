@@ -101,6 +101,8 @@ public:
      */
     void run();
 
+    InputManager& inputManager();
+
 protected:
     void initWindow() override;
 
@@ -265,8 +267,6 @@ protected:
     glm::vec3 mousePositionToWorldSpace(const Camera& camera);
 
     void renderEntities(VkCommandBuffer commandBuffer, entt::registry& registry);
-
-    InputManager& inputManager();
 
 private:
     void setPaused(bool flag);

@@ -66,6 +66,10 @@ public:
 
     void loadFonts();
 
+    ImTextureID addTexture(Texture& texture);
+
+    ImTextureID addTexture(VulkanImageView& imageView);
+
     ImFont* font(const std::string& name, float pixelSize);
 
     void newFrame() final;
@@ -82,7 +86,7 @@ public:
 
     void draw(VkCommandBuffer commandBuffer) final;
 
-    void setupRenderState(FrameRenderBuffers* rb, ImDrawData* draw_data, VkCommandBuffer command_buffer, int fb_width, int fb_height);
+    void setupRenderState(FrameRenderBuffers* rb, ImDrawData* draw_data, VkCommandBuffer command_buffer, int fb_width, int fb_height, VkDescriptorSet aDescriptorSet = nullptr);
 
     MousePressListener mousePressListener() final;
 
@@ -108,6 +112,8 @@ public:
     static std::map<FontInfo, ImFont*, FontInfoComp>  setFonts(const std::vector<FontInfo>& fontInfos);
 
 protected:
+    void bindDescriptorSet(VkCommandBuffer command_buffer, VkDescriptorSet aDescriptorSet = nullptr);
+
     VulkanPipelineCache pipelineCache;
     Texture fontTexture;
     struct {
@@ -122,6 +128,7 @@ protected:
     VulkanPipeline pipeline;
     std::map<FontInfo, ImFont*, FontInfoComp> fonts;
     VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
+    std::vector<VkDescriptorSet> descriptorSets;
 
     struct {
         std::array<bool, ImGuiMouseButton_COUNT> justPressed;

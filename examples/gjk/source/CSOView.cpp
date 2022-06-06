@@ -1,4 +1,6 @@
 #include "CSOView.hpp"
+#include "GraphicsPipelineBuilder.hpp"
+
 
 CSOView::CSOView(uint32_t w, uint32_t h, VulkanDevice *device, InputManager* inputMgr, FileManager *fileMgr)
 : width{ w }
@@ -8,6 +10,7 @@ CSOView::CSOView(uint32_t w, uint32_t h, VulkanDevice *device, InputManager* inp
 , fileManager{ fileMgr }
 {
     createBuffers();
+    initCamera();
     createRenderTarget();
     createRenderPass();
     createFrameBuffer();
@@ -18,6 +21,11 @@ void CSOView::createRenderTarget() {
     auto usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
     auto imageInfo = initializers::imageCreateInfo(VK_IMAGE_TYPE_2D, format, usage, width, height);
     renderTarget.image = device->createImage(imageInfo);
+    device->graphicsCommandPool().oneTimeCommand([&](auto commandBuffer){
+        renderTarget.image.transitionLayout(commandBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, DEFAULT_SUB_RANGE
+                , 0, VK_ACCESS_SHADER_READ_BIT
+                ,VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+    });
 
     auto subRange = DEFAULT_SUB_RANGE;
     renderTarget.imageView = renderTarget.image.createView(format, VK_IMAGE_VIEW_TYPE_2D, subRange);
@@ -34,7 +42,7 @@ void CSOView::createRenderPass() {
                 VK_ATTACHMENT_STORE_OP_STORE,
                 VK_ATTACHMENT_LOAD_OP_DONT_CARE,
                 VK_ATTACHMENT_STORE_OP_DONT_CARE,
-                VK_IMAGE_LAYOUT_UNDEFINED,
+                VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                 VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
             }
     };
@@ -71,50 +79,117 @@ void CSOView::render() {
         vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
         VkDeviceSize offset = 0;
-        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, cso.pipeline);
-        // TODO camera
-        vkCmdBindVertexBuffers(commandBuffer, 0, 1, csoBuffer, &offset);
-        vkCmdDraw(commandBuffer, csoBuffer.template sizeAs<glm::vec3>(), 1, 0, 0);
-        
-        
+
+        if(simplexSize > 2) {
+            vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, cso.pipeline);
+            cameraController->push(commandBuffer, cso.layout);
+            vkCmdBindVertexBuffers(commandBuffer, 0, 1, csoBuffer, &offset);
+            vkCmdBindIndexBuffer(commandBuffer, csoIndexBuffer, 0, VK_INDEX_TYPE_UINT16);
+            uint32_t indexCount = simplexSize;
+            vkCmdDrawIndexed(commandBuffer, indexCount, 1, 0, 0, 0);
+
+        }
+
+
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, origin.pipeline);
-        // TODO camera
+        cameraController->push(commandBuffer, origin.layout);
         vkCmdBindVertexBuffers(commandBuffer, 0, 1, originBuffer, &offset);
         vkCmdDraw(commandBuffer, 1, 1, 0, 0);
+
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, grid.pipeline);
+        cameraController->push(commandBuffer, grid.layout);
+        vkCmdBindVertexBuffers(commandBuffer, 0, 1, gridBuffer, &offset);
+        vkCmdDraw(commandBuffer, 6, 1, 0, 0);
         
         vkCmdEndRenderPass(commandBuffer);
     });
 }
 
 void CSOView::createBuffers() {
-    std::array<glm::vec3, 4> simplex{};
+    std::vector<glm::vec3> simplex(30000);
+    std::vector<uint16_t> indices(30000);
     csoBuffer = device->createCpuVisibleBuffer( simplex.data(), BYTE_SIZE(simplex), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-    glm::vec3 origin{0};
-    originBuffer = device->createDeviceLocalBuffer(&origin, sizeof(glm::vec3), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+    csoIndexBuffer = device->createCpuVisibleBuffer(indices.data(), BYTE_SIZE(indices), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+    glm::vec3 aOrigin{0};
+    originBuffer = device->createDeviceLocalBuffer(&aOrigin, sizeof(glm::vec3), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+
+    std::vector<glm::vec3> gridLines{
+        {-100, 0, 0}, {100, 0, 0},
+        {0, -100, 0}, {0, 100, 0},
+        {0, 0, -100}, {0, 0, 100},
+    };
+    gridBuffer = device->createDeviceLocalBuffer(gridLines.data(), BYTE_SIZE(gridLines), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
 }
 
-void CSOView::refreshRenderTarget() {
-    device->graphicsCommandPool().oneTimeCommand([&](auto commandBuffer){
-       renderTarget.image.transitionLayout(commandBuffer, VK_IMAGE_LAYOUT_UNDEFINED, DEFAULT_SUB_RANGE
-                                           , VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT
-                                           , VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
-    });
-}
-
-void CSOView::update(std::vector<glm::vec3> &simplex) {
-    assert(simplex.size() <= 4);
-    auto vPtr = reinterpret_cast<glm::vec3*>(csoBuffer.map());
-    for(int i = 0; i < simplex.size(); i++){
-        vPtr[i] = simplex[i];
-    }
-}
 
 void CSOView::createPipeline() {
+//    @formatter:off
+    auto builder = device->graphicsPipelineBuilder();
+    cso.pipeline =
+        builder
+            .allowDerivatives()
+            .shaderStage()
+               .vertexShader(fileManager->load("flat.vert.spv"))
+                .fragmentShader(fileManager->load("flat.frag.spv"))
+            .vertexInputState()
+                .addVertexBindingDescription(0, sizeof(glm::vec3), VK_VERTEX_INPUT_RATE_VERTEX)
+                .addVertexAttributeDescription(0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0)
+            .inputAssemblyState()
+                .triangles()
+            .viewportState()
+                .viewport()
+                    .origin(0, 0)
+                    .dimension({ width, height})
+                    .minDepth(0)
+                    .maxDepth(1)
+                .scissor()
+                    .offset(0, 0)
+                    .extent({ width, height })
+                .add()
+            .rasterizationState()
+                .cullNone()
+                .frontFaceCounterClockwise()
+                .polygonModeLine()
+            .depthStencilState()
+                .enableDepthWrite()
+                .enableDepthTest()
+                .compareOpLess()
+                .minDepthBounds(0)
+                .maxDepthBounds(1)
+            .colorBlendState()
+                .attachment()
+            .add()
+            .layout()
+                .addPushConstantRange(Camera::pushConstant())
+            .renderPass(renderPass)
+            .subpass(0)
+            .name("cso")
+        .build(cso.layout);
 
+    origin.pipeline =
+        builder
+            .basePipeline(cso.pipeline)
+            .inputAssemblyState()
+                .points()
+            .name("origin")
+        .build(origin.layout);
+
+    grid.pipeline =
+        builder
+            .basePipeline(cso.pipeline)
+            .inputAssemblyState()
+                .lines()
+            .name("grid")
+        .build(grid.layout);
+
+
+//    @formatter:on
 }
 
 void CSOView::update(float time) {
-
+    checkAppInput();
+    cameraController->update(time);
+    render();
 }
 
 void CSOView::initCamera() {
@@ -128,5 +203,24 @@ void CSOView::initCamera() {
     settings.fieldOfView = 45.0f;
     settings.modelHeight = 0;
     settings.aspectRatio = static_cast<float>(width)/static_cast<float>(height);
-    cameraController = std::make_unique<OrbitingCameraController>( device, 1, 0, *inputManager, settings);
+    cameraController = std::make_unique<OrbitingCameraController>(  *inputManager, settings);
+}
+
+void CSOView::checkAppInput() {
+    cameraController->processInput();
+}
+
+void CSOView::update(std::vector<glm::vec3> &simplex, std::vector<uint16_t> &indices) {
+    simplexSize = indices.size();
+//    assert(simplexSize <= 4);
+    auto vPtr = reinterpret_cast<glm::vec3*>(csoBuffer.map());
+    for(int i = 0; i < simplex.size(); i++){
+        vPtr[i] = simplex[i];
+    }
+    auto iPtr = reinterpret_cast<uint16_t*>(csoIndexBuffer.map());
+    for(int i = 0; i < indices.size(); i++){
+        iPtr[i] = indices[i];
+    }
+    csoBuffer.unmap();
+    render();
 }

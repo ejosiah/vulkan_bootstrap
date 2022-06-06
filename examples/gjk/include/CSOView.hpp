@@ -1,8 +1,8 @@
+#pragma once
+
 #include "VulkanBaseApp.h"
 #include "VulkanDevice.h"
 #include "filemanager.hpp"
-
-#pragma once
 
 class CSOView{
 public:
@@ -20,15 +20,17 @@ public:
 
     void createPipeline();
 
-    void update(std::vector<glm::vec3>& simplex);
+    void update(std::vector<glm::vec3>& simplex, std::vector<uint16_t>& indices);
 
     void render();
-
-    void refreshRenderTarget();
 
     void update(float time);
 
     void initCamera();
+
+    void checkAppInput();
+
+    FramebufferAttachment renderTarget;
 
 private:
     VulkanDevice* device{nullptr };
@@ -36,20 +38,27 @@ private:
     InputManager* inputManager{nullptr };
     VulkanRenderPass renderPass;
     VulkanFramebuffer framebuffer;
-    FramebufferAttachment renderTarget;
     VulkanBuffer csoBuffer;
+    VulkanBuffer csoIndexBuffer;
     VulkanBuffer originBuffer;
+    VulkanBuffer gridBuffer;
+    uint32_t simplexSize{0};
     uint32_t width{0}, height{0};
     VkFormat format{ VK_FORMAT_R8G8B8A8_UNORM };
     std::unique_ptr<OrbitingCameraController> cameraController;
 
     struct{
-        VulkanPipelineLayout pipelineLayout;
+        VulkanPipelineLayout layout;
         VulkanPipeline pipeline;
     } cso;
 
     struct {
-        VulkanPipelineLayout pipelineLayout;
+        VulkanPipelineLayout layout;
         VulkanPipeline pipeline;
     } origin;
+
+    struct {
+        VulkanPipelineLayout layout;
+        VulkanPipeline pipeline;
+    } grid;
 };

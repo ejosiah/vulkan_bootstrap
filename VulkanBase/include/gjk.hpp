@@ -30,8 +30,8 @@ public:
 
     static void findDanglingEdges(std::vector<Edge>& danglingEdges, const std::vector<Tri>& triangles);
 
-    template<typename Body>
-    static float expand(const Body& bodyA, const Body& bodyB, float bias, const std::array<Point, 4>& simplexPoints, glm::vec3& pointOnA, glm::vec3& pointOnB){
+    template<typename BodyA, typename  BodyB>
+    static float expand(const BodyA& bodyA, const BodyB& bodyB, float bias, const std::array<Point, 4>& simplexPoints, glm::vec3& pointOnA, glm::vec3& pointOnB, std::vector<uint16_t>& indices, std::vector<glm::vec3>& tetrahedron){
         std::vector<Point> points;
         std::vector<Tri> triangles;
         std::vector<Edge> danglingEdges;
@@ -72,6 +72,7 @@ public:
         // expand the simplex to find the closest face of the CSO to the origin'
         while(true){
             const auto idx = closestTriangle(triangles, points);
+//            spdlog::info("closest triangle {}", idx);
             auto normal = normalDirection(triangles[idx], points);
 
             const auto newPoint = GJK::support(bodyA, bodyB, normal, bias);
@@ -141,6 +142,18 @@ public:
         // return the penetration distance
         auto delta = pointOnB - pointOnA;
 
+        tetrahedron.clear();
+        for(auto& p : points){
+            tetrahedron.push_back(p.xyz);
+        }
+
+        indices.clear();
+        for(auto& tri : triangles){
+            indices.push_back(tri.a);
+            indices.push_back(tri.b);
+            indices.push_back(tri.c);
+        }
+
         return glm::length(delta);
     }
 };
@@ -150,9 +163,8 @@ public:
  */
 class GJK{
 public:
-    template<typename Body>
-    static Point support(const Body& bodyA, const Body& bodyB, glm::vec3 dir, float bias = 0.0f){
-        auto tmp = dir;
+    template<typename BodyA, typename BodyB>
+    static Point support(const BodyA& bodyA, const BodyB& bodyB, glm::vec3 dir, float bias = 0.0f){
         dir = glm::normalize(dir);
 
         if(glm::any(isnan(dir))){
@@ -181,9 +193,9 @@ public:
 
     static int numValids(const glm::vec4& lambdas);
 
-    template<typename Body>
-    static bool doesIntersect(const Body& bodyA, const Body& bodyB, float bias, glm::vec3& pointOnA
-                              , glm::vec3& pointOnB, std::vector<glm::vec3>& tetrahedron){
+    template<typename BodyA, typename BodyB>
+    static bool doesIntersect(const BodyA& bodyA, const BodyB& bodyB, float bias, glm::vec3& pointOnA
+                              , glm::vec3& pointOnB, std::vector<glm::vec3>& tetrahedron, std::vector<uint16_t>& indices){
         const glm::vec3 origin(0);
 
         int numPoints = 1;
@@ -234,6 +246,10 @@ public:
         } while (!doesContainOrigin);
 
         if(!doesContainOrigin){
+            tetrahedron.clear();
+            for(auto& p : simplexPoints){
+                tetrahedron.push_back(p.xyz);
+            }
             return false;
         }
 
@@ -288,14 +304,14 @@ public:
             tetrahedron.push_back(p.xyz);
         }
 
-//    spdlog::info("no intersect: {}", noIntersect);
-        EPA::expand(bodyA, bodyB, bias, simplexPoints, pointOnA, pointOnB);
+//        FIXME infinite loop for cube at glm::vec3(0.5) and sphere at vec3(0)
+        EPA::expand(bodyA, bodyB, bias, simplexPoints, pointOnA, pointOnB, indices, tetrahedron);
 
         return true;
     }
 
-    template<typename Body>
-    static void closestPoint(const Body& bodyA, const Body& bodyB, glm::vec3& pointOnA, glm::vec3& pointOnB){
+    template<typename BodyA, typename BodyB>
+    static void closestPoint(const BodyA& bodyA, const BodyB& bodyB, glm::vec3& pointOnA, glm::vec3& pointOnB){
         const glm::vec3 origin{0};
         auto closestDist = 1E10f;
 

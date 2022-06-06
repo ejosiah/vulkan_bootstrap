@@ -50,7 +50,3 @@ struct Canvas{
     VulkanDescriptorPool descriptorPool;
     VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
 };
-
-inline InputManager &VulkanBaseApp::inputManager() {
-    return static_cast<InputManager&>(*this);
-}

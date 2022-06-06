@@ -779,3 +779,7 @@ void VulkanBaseApp::renderEntities(VkCommandBuffer commandBuffer, entt::registry
         }
     });
 }
+
+inline InputManager &VulkanBaseApp::inputManager() {
+    return dynamic_cast<InputManager&>(*this);
+}

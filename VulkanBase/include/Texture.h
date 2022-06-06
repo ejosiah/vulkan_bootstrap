@@ -1,10 +1,9 @@
 #pragma once
 
+#include  <stb_image.h>
 #include "common.h"
 #include "VulkanImage.h"
 #include "VulkanDevice.h"
-
-
 
 struct Texture{
     VulkanImage image;
@@ -13,6 +12,19 @@ struct Texture{
     uint32_t width{0};
     uint32_t height{0};
     uint32_t depth{1};
+};
+
+struct stbi_image_deleter{
+    void operator()(stbi_uc* pixels){
+        stbi_image_free(pixels);
+    }
+};
+
+struct RawImage{
+    std::unique_ptr<stbi_uc, stbi_image_deleter> data{nullptr};
+    uint32_t width{0};
+    uint32_t height{0};
+    int numChannels{0};
 };
 
 template<typename T>
@@ -25,6 +37,9 @@ namespace textures{
     void create(const VulkanDevice& device, Texture& texture, VkImageType imageType, VkFormat format, void* data
                 , Dimension3D<uint32_t> dimensions, VkSamplerAddressMode addressMode = VK_SAMPLER_ADDRESS_MODE_REPEAT
                 , uint32_t sizeMultiplier = 1, VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL);
+
+
+    RawImage loadImage(std::string_view path, bool flipUv = false);
 
     void fromFile(const VulkanDevice& device, Texture& texture, std::string_view path, bool flipUv = false, VkFormat format = VK_FORMAT_R8G8B8A8_UNORM);
 

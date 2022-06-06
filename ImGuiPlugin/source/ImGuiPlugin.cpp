@@ -73,8 +73,8 @@ void ImGuiPlugin::createDescriptorSetLayout() {
 }
 
 void ImGuiPlugin::createDescriptorPool() {
-    std::vector<VkDescriptorPoolSize> pool_sizes =   {{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1}};
-    descriptorPool = data.device->createDescriptorPool(COUNT(pool_sizes), pool_sizes, VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT);
+    std::vector<VkDescriptorPoolSize> pool_sizes =   {{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 100}};
+    descriptorPool = data.device->createDescriptorPool(COUNT(pool_sizes) * 10, pool_sizes, VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT);
 }
 
 
@@ -318,7 +318,6 @@ void ImGuiPlugin::updateMouseCursor() {
 }
 
 void ImGuiPlugin::cleanup() {
-
 }
 
 void ImGuiPlugin::onSwapChainDispose() {
@@ -485,11 +484,13 @@ void ImGuiPlugin::draw(VkCommandBuffer command_buffer) {
         const ImDrawList *cmd_list = draw_data->CmdLists[n];
         for (int cmd_i = 0; cmd_i < cmd_list->CmdBuffer.Size; cmd_i++) {
             const ImDrawCmd *pcmd = &cmd_list->CmdBuffer[cmd_i];
+            auto aDescriptorSet = reinterpret_cast<VkDescriptorSet>(pcmd->TextureId);
+            bindDescriptorSet(command_buffer, aDescriptorSet);
             if (pcmd->UserCallback != nullptr) {
                 // User callback, registered via ImDrawList::AddCallback()
                 // (ImDrawCallback_ResetRenderState is a special callback value used by the user to request the renderer to reset render state.)
                 if (pcmd->UserCallback == ImDrawCallback_ResetRenderState)
-                    setupRenderState(rb, draw_data, command_buffer, fb_width, fb_height);
+                    setupRenderState(rb, draw_data, command_buffer, fb_width, fb_height, aDescriptorSet);
                 else
                     pcmd->UserCallback(cmd_list, pcmd);
             } else {
@@ -526,12 +527,10 @@ void ImGuiPlugin::draw(VkCommandBuffer command_buffer) {
     }
 }
 
-void ImGuiPlugin::setupRenderState(FrameRenderBuffers* rb, ImDrawData* draw_data, VkCommandBuffer command_buffer, int fb_width, int fb_height) {
+void ImGuiPlugin::setupRenderState(FrameRenderBuffers* rb, ImDrawData* draw_data, VkCommandBuffer command_buffer, int fb_width, int fb_height, VkDescriptorSet aDescriptorSet) {
     // Bind pipeline and descriptor sets:
     {
-        vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
-        VkDescriptorSet desc_set[1] = { descriptorSet };
-        vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, desc_set, 0, nullptr);
+        bindDescriptorSet(command_buffer);
     }
 
     // Bind Vertex And Index Buffer:
@@ -586,4 +585,47 @@ ImFont *ImGuiPlugin::font(const std::string& name, float pixelSize) {
     }
     throw std::runtime_error{fmt::format("requested font: {}, size: {}, was not previously loaded", name, pixelSize)};
 }
+
+ImTextureID ImGuiPlugin::addTexture(Texture& texture) {
+    auto aDescriptorSet = descriptorPool.allocate({ descriptorSetLayout}).front();
+    descriptorSets.push_back(aDescriptorSet);
+
+    auto writes = initializers::writeDescriptorSets<1>();
+    auto& write = writes[0];
+    write.dstSet = aDescriptorSet;
+    write.dstBinding = 0;
+    write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    write.descriptorCount = 1;
+    VkDescriptorImageInfo imageInfo{ texture.sampler, texture.imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL };
+    write.pImageInfo = &imageInfo;
+
+    data.device->updateDescriptorSets(writes);
+    
+    return reinterpret_cast<ImTextureID>(aDescriptorSet);
+}
+
+void ImGuiPlugin::bindDescriptorSet(VkCommandBuffer command_buffer, VkDescriptorSet aDescriptorSet) {
+    vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+    VkDescriptorSet desc_set[1] = { aDescriptorSet ? aDescriptorSet : descriptorSet };
+    vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, desc_set, 0, nullptr);
+}
+
+ImTextureID ImGuiPlugin::addTexture(VulkanImageView& imageView) {
+    auto aDescriptorSet = descriptorPool.allocate({ descriptorSetLayout}).front();
+    descriptorSets.push_back(aDescriptorSet);
+
+    auto writes = initializers::writeDescriptorSets<1>();
+    auto& write = writes[0];
+    write.dstSet = aDescriptorSet;
+    write.dstBinding = 0;
+    write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    write.descriptorCount = 1;
+    VkDescriptorImageInfo imageInfo{ fontTexture.sampler, imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL };
+    write.pImageInfo = &imageInfo;
+
+    data.device->updateDescriptorSets(writes);
+
+    return reinterpret_cast<ImTextureID>(aDescriptorSet);
+}
+
 
