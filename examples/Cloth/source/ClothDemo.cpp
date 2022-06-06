@@ -79,7 +79,7 @@ void ClothDemo::loadModel() {
     info.indexUsage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
     info.indexUsage |= VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
     //    phong::load(R"(C:\Users\Josiah Ebhomenye\OneDrive\media\models\Nissan FairladyZ 2009\basemeshobj.obj)", device, descriptorPool, model, info, true, 30);
-    phong::load(R"(C:\Users\Josiah Ebhomenye Ebhomenye\OneDrive\media\models\werewolf.obj)", device, descriptorPool, model, info, true, 40);
+    phong::load(R"(C:\Users\Josiah Ebhomenye\OneDrive\media\models\werewolf.obj)", device, descriptorPool, model, info, true, 40);
   //  phong::load(R"(C:\Users\Josiah Ebhomenye\OneDrive\media\models\Lucy-statue\metallic-lucy-statue-stanford-scan.obj)",device, descriptorPool, model, info, true, 40);
  //   phong::load("../../data/models/bigship1.obj", device, descriptorPool, model, info, true, 40);
     modelInstance.object = rt::TriangleMesh{&model};
@@ -168,9 +168,9 @@ void ClothDemo::drawWireframe(VkCommandBuffer commandBuffer) {
     vkCmdBindIndexBuffer(commandBuffer, floor.indices, 0, VK_INDEX_TYPE_UINT32);
     vkCmdDrawIndexed(commandBuffer, floor.indexCount, 1, 0, 0, 0);
 
-//    vkCmdBindVertexBuffers(commandBuffer, 0, 1, sphere.vertices, &offset);
-//    vkCmdBindIndexBuffer(commandBuffer, sphere.indices, 0, VK_INDEX_TYPE_UINT32);
-//    vkCmdDrawIndexed(commandBuffer, sphere.indexCount, 1, 0, 0, 0);
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, sphere.vertices, &offset);
+    vkCmdBindIndexBuffer(commandBuffer, sphere.indices, 0, VK_INDEX_TYPE_UINT32);
+    vkCmdDrawIndexed(commandBuffer, sphere.indexCount, 1, 0, 0, 0);
 
     static std::array<VkDeviceSize, 2> offsets{0u, 0u};
     static std::array<VkBuffer, 2> buffers{cloth.vertices[input_index], cloth.vertexAttributes };
@@ -204,9 +204,9 @@ void ClothDemo::drawWireframe(VkCommandBuffer commandBuffer) {
         vkCmdDraw(commandBuffer, cloth.vertexCount, 1, 0, 0);
     }
 
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.spaceShip);
-    cameraController->push(commandBuffer, pipelineLayouts.spaceShip, modelInstance.xform);
-    modelInstance.object.drawable->draw(commandBuffer, pipelineLayouts.spaceShip);
+//    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.spaceShip);
+//    cameraController->push(commandBuffer, pipelineLayouts.spaceShip, modelInstance.xform);
+//    modelInstance.object.drawable->draw(commandBuffer, pipelineLayouts.spaceShip);
 }
 
 void ClothDemo::drawShaded(VkCommandBuffer commandBuffer) {
@@ -232,19 +232,19 @@ void ClothDemo::drawShaded(VkCommandBuffer commandBuffer) {
     vkCmdBindIndexBuffer(commandBuffer, cloth.indices, 0, VK_INDEX_TYPE_UINT32);
     vkCmdDrawIndexed(commandBuffer, cloth.indexCount, 1, 0, 0, 0);
 
-//    useTexture = 0;
-//    std::memcpy(lightParams.data(), &useTexture, sizeof(int));
-//    std::memcpy(lightParams.data() + sizeof(int), &shine, sizeof(float));
-//    vkCmdPushConstants(commandBuffer, pipelineLayouts.shaded, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(Camera), sizeof(int) + sizeof(float), lightParams.data());
-//    vkCmdBindVertexBuffers(commandBuffer, 0, 1, sphere.vertices, &offset);
-//    vkCmdBindIndexBuffer(commandBuffer, sphere.indices, 0, VK_INDEX_TYPE_UINT32);
-//    vkCmdDrawIndexed(commandBuffer, sphere.indexCount, 1, 0, 0, 0);
+    useTexture = 0;
+    std::memcpy(lightParams.data(), &useTexture, sizeof(int));
+    std::memcpy(lightParams.data() + sizeof(int), &shine, sizeof(float));
+    vkCmdPushConstants(commandBuffer, pipelineLayouts.shaded, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(Camera), sizeof(int) + sizeof(float), lightParams.data());
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, sphere.vertices, &offset);
+    vkCmdBindIndexBuffer(commandBuffer, sphere.indices, 0, VK_INDEX_TYPE_UINT32);
+    vkCmdDrawIndexed(commandBuffer, sphere.indexCount, 1, 0, 0, 0);
 
 //      vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.spaceShip);
 //      cameraController->push(commandBuffer, pipelineLayouts.spaceShip, modelInstance.xform);
 //      modelInstance.object.drawable->draw(commandBuffer, pipelineLayouts.spaceShip);
 
-    renderConvexHull(commandBuffer);
+//    renderConvexHull(commandBuffer);
 
 //    if(showPoints) {
 //        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.point);
@@ -730,7 +730,7 @@ void ClothDemo::createPositionDescriptorSet() {
     bufferInfo[1].offset = 0;
     bufferInfo[1].range = VK_WHOLE_SIZE;
 
-    bufferInfo[2].buffer = modelBuffer;
+    bufferInfo[2].buffer = sphere.uboBuffer;
     bufferInfo[2].offset = 0;
     bufferInfo[2].range = VK_WHOLE_SIZE;
 
@@ -868,6 +868,16 @@ VkCommandBuffer ClothDemo::dispatchCompute() {
         vkCmdWriteTimestamp(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, queryPool, 1u);
     });
 
+
+    auto ptr0 = reinterpret_cast<Vertex*>(cloth.vertices[0].map());
+    auto ptr1 = reinterpret_cast<Vertex*>(cloth.vertices[1].map());
+
+//    for(int i = 0; i < 10; i++){
+//        auto p0 = ptr0[i].position.xyz();
+//        auto p1 = ptr1[i].position.xyz();
+//        auto vl = length((p0 - p1)/constants.timeStep);
+//        spdlog::info("speed: {}", vl);
+//    }
 
     return nullptr;
 }

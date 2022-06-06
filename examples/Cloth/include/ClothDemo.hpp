@@ -135,7 +135,7 @@ private:
         float kdStruct = 500.5f;
         float kdShear = 200.25f;
         float kdBend = 200.25f;
-        float kd = 0.05f;
+        float kd = 0.5f;
         float elapsedTime = 0;
     } constants{};
 
