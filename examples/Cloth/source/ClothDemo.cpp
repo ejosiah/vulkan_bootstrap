@@ -40,8 +40,12 @@ void ClothDemo::initApp() {
 }
 
 void ClothDemo::createCloth() {
-    auto xform = glm::translate(glm::mat4(1), {0, 60, 0}) *  glm::rotate(glm::mat4(1), -glm::half_pi<float>(), {1, 0, 0});
-    auto plane = primitives::plane(cloth.gridSize.x - 1, cloth.gridSize.y - 1, cloth.size.x, cloth.size.y, xform, glm::vec4(0.2, 0.2, 0.2, 1.0));
+    auto xform = glm::translate(glm::mat4(1), {0, cloth.size.x , 0}) *  glm::rotate(glm::mat4(1), -glm::half_pi<float>(), {1, 0, 0});
+    auto plane = primitives::plane(cloth.gridSize.x - 1, cloth.gridSize.y - 1, cloth.size.x, cloth.size.y, xform, glm::vec4(0.4, 0.4, 0.4, 1.0));
+
+    auto [min, max] = primitives::bounds(plane);
+    spdlog::info("min: {}, max: {}", min, max);
+    clothCenter = (min + max) * 0.5f;
 
     cloth.vertices[0] = device.createCpuVisibleBuffer(plane.vertices.data(), sizeof(Vertex) * plane.vertices.size()
                                                     , VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
@@ -54,13 +58,13 @@ void ClothDemo::createCloth() {
 
     textures::fromFile(device, cloth.diffuseMap, "../../data/textures/cloth/Cloth_Diffuse_3K.jpg", true);
 
-    constants.inv_cloth_size = cloth.size/(cloth.gridSize - glm::vec2(1));
+    constants.inv_cloth_size = cloth.size/(cloth.gridSize);
 }
 
 void ClothDemo::createSphere(){
     auto& xform = sphere.ubo.xform;
-    xform = glm::translate(glm::mat4(1), {0, sphere.radius * 2, 0});
-    xform = glm::scale(xform, glm::vec3(sphere.radius));
+    xform = glm::translate(glm::mat4(1), {0, sphere.radius, 0});
+    xform = glm::scale(xform, glm::vec3(sphere.radius * 2, sphere.radius, sphere.radius));
     sphere.ubo.radius = sphere.radius;
     sphere.ubo.center = (xform * glm::vec4(0, 0, 0, 1)).xyz();
 
@@ -97,7 +101,7 @@ void ClothDemo::loadModel() {
 
 void ClothDemo::createFloor() {
     auto xform = glm::rotate(glm::mat4{1}, -glm::half_pi<float>(), {1, 0, 0});
-    auto plane = primitives::plane(50, 50, 250, 250, xform, {0, 0, 1, 0});
+    auto plane = primitives::plane(10, 10, 16, 16, xform, {0, 0, 1, 0});
 
     floor.vertices = device.createDeviceLocalBuffer(plane.vertices.data(), sizeof(Vertex) * plane.vertices.size(), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
     floor.indices = device.createDeviceLocalBuffer(plane.indices.data(), sizeof(uint32_t) * plane.indices.size(), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
@@ -168,9 +172,9 @@ void ClothDemo::drawWireframe(VkCommandBuffer commandBuffer) {
     vkCmdBindIndexBuffer(commandBuffer, floor.indices, 0, VK_INDEX_TYPE_UINT32);
     vkCmdDrawIndexed(commandBuffer, floor.indexCount, 1, 0, 0, 0);
 
-    vkCmdBindVertexBuffers(commandBuffer, 0, 1, sphere.vertices, &offset);
-    vkCmdBindIndexBuffer(commandBuffer, sphere.indices, 0, VK_INDEX_TYPE_UINT32);
-    vkCmdDrawIndexed(commandBuffer, sphere.indexCount, 1, 0, 0, 0);
+//    vkCmdBindVertexBuffers(commandBuffer, 0, 1, sphere.vertices, &offset);
+//    vkCmdBindIndexBuffer(commandBuffer, sphere.indices, 0, VK_INDEX_TYPE_UINT32);
+//    vkCmdDrawIndexed(commandBuffer, sphere.indexCount, 1, 0, 0, 0);
 
     static std::array<VkDeviceSize, 2> offsets{0u, 0u};
     static std::array<VkBuffer, 2> buffers{cloth.vertices[input_index], cloth.vertexAttributes };
@@ -232,13 +236,13 @@ void ClothDemo::drawShaded(VkCommandBuffer commandBuffer) {
     vkCmdBindIndexBuffer(commandBuffer, cloth.indices, 0, VK_INDEX_TYPE_UINT32);
     vkCmdDrawIndexed(commandBuffer, cloth.indexCount, 1, 0, 0, 0);
 
-    useTexture = 0;
-    std::memcpy(lightParams.data(), &useTexture, sizeof(int));
-    std::memcpy(lightParams.data() + sizeof(int), &shine, sizeof(float));
-    vkCmdPushConstants(commandBuffer, pipelineLayouts.shaded, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(Camera), sizeof(int) + sizeof(float), lightParams.data());
-    vkCmdBindVertexBuffers(commandBuffer, 0, 1, sphere.vertices, &offset);
-    vkCmdBindIndexBuffer(commandBuffer, sphere.indices, 0, VK_INDEX_TYPE_UINT32);
-    vkCmdDrawIndexed(commandBuffer, sphere.indexCount, 1, 0, 0, 0);
+//    useTexture = 0;
+//    std::memcpy(lightParams.data(), &useTexture, sizeof(int));
+//    std::memcpy(lightParams.data() + sizeof(int), &shine, sizeof(float));
+//    vkCmdPushConstants(commandBuffer, pipelineLayouts.shaded, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(Camera), sizeof(int) + sizeof(float), lightParams.data());
+//    vkCmdBindVertexBuffers(commandBuffer, 0, 1, sphere.vertices, &offset);
+//    vkCmdBindIndexBuffer(commandBuffer, sphere.indices, 0, VK_INDEX_TYPE_UINT32);
+//    vkCmdDrawIndexed(commandBuffer, sphere.indexCount, 1, 0, 0, 0);
 
 //      vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.spaceShip);
 //      cameraController->push(commandBuffer, pipelineLayouts.spaceShip, modelInstance.xform);
@@ -263,7 +267,7 @@ void ClothDemo::update(float time) {
     if(!ImGui::IsAnyItemActive()) {
         cameraController->update(time);
     }
-    constants.timeStep = frameTime/numIterations;
+//    constants.timeStep = frameTime/numIterations;
     constants.elapsedTime = elapsedTime;
   //  constants.timeStep = 0.0005f/numIterations;
   //  constants.timeStep = time/numIterations;
@@ -283,11 +287,11 @@ void ClothDemo::initCamera() {
 //    settings.offsetDistance = 60.f;
 //    settings.modelHeight = cloth.size.y;
     settings.floorOffset = cloth.size.x * 0.5;
-    settings.velocity = glm::vec3{10};
-    settings.acceleration = glm::vec3(20);
+    settings.velocity = glm::vec3{5};
+    settings.acceleration = glm::vec3(5);
     settings.aspectRatio = float(swapChain.extent.width)/float(swapChain.extent.height);
     cameraController = std::make_unique<SpectatorCameraController>(dynamic_cast<InputManager&>(*this), settings);
-    cameraController->lookAt({-20, 37, 8}, {0.5, -0.6, 0.6}, {0, 1, 0});
+    cameraController->lookAt({0, 2, 5}, {0, cloth.size.y * .5, 0}, {0, 1, 0});
 }
 
 void ClothDemo::createPipelines() {
@@ -797,7 +801,7 @@ void ClothDemo::createPositionDescriptorSet() {
 }
 
 void ClothDemo::createComputePipeline() {
-    auto computeModule = VulkanShaderModule{"../../data/shaders/cloth/cloth.comp.spv", device };
+    auto computeModule = VulkanShaderModule{load("cloth_implicit.comp.spv"), device };
 
     auto stage = initializers::vertexShaderStages({{computeModule, VK_SHADER_STAGE_COMPUTE_BIT}}).front();
 
@@ -819,13 +823,15 @@ VkCommandBuffer ClothDemo::dispatchCompute() {
 
     if(!startSim){
         if(elapsedTime > 5.0f){ // wait 5 seconds
-            numIterations = std::max(1.0f, 1/(frameTime * framePerSecond));
+            numIterations = std::max(1.0f, iterationsFPS/framePerSecond);
+//            constants.timeStep = 1.f/framePerSecond;
             frameTime *= numIterations;
             startSim = true;
+            spdlog::info("num iterations: {}, dt: {}", numIterations, constants.timeStep);
         }
         return nullptr;
     }
-
+//    spdlog::info("num iterations: {}, dt: {}", numIterations, frameTime/numIterations);
     commandPool.oneTimeCommand( [&](auto commandBuffer){
         static std::array<VkDescriptorSet, 3> descriptors{};
         static std::array<VkDescriptorSet, 3> rt_descriptors{};
@@ -1054,7 +1060,7 @@ void ClothDemo::renderUI(VkCommandBuffer commandBuffer) {
 
     ImGui::Begin("Cloth Simulation");
     ImGui::SetWindowSize("Cloth Simulation", {350, 400});
-    static int option = 1;
+    static int option = 0;
 
     ImGui::RadioButton("wireframe", &option, 0);
     ImGui::SameLine();
@@ -1165,11 +1171,12 @@ void ClothDemo::renderConvexHull(VkCommandBuffer commandBuffer) {
 
 int main(){
     Settings settings;
-    settings.vSync = false;
+    settings.width = settings.height = 1024;
     settings.depthTest = true;
     settings.enabledFeatures.fillModeNonSolid = true;
     settings.enabledFeatures.geometryShader = true;
     settings.queueFlags = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT;
+    settings.vSync = false;
     spdlog::set_level(spdlog::level::info);
 
     std::unique_ptr<Plugin> imGui = std::make_unique<ImGuiPlugin>();

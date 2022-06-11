@@ -170,26 +170,15 @@ namespace primitives{
      * @return a tuple of the minimum and maximum vertices of bounding box for the given meshes
      */
 //    template<typename Mesh>
-//    inline std::tuple<glm::vec3, glm::vec3> bounds(const std::vector<Mesh>& meshes){
-//        glm::vec3 min{ std::numeric_limits<float>::max() };
-//        glm::vec3 max( std::numeric_limits<float>::min() );
-//
-//        if constexpr (std::is_same_v<Mesh, Vertex>) {
-//            for (const auto &vertex : meshes) {
-//                min = glm::min(min, glm::vec3(vertex.position));
-//                max = glm::max(max, glm::vec3(vertex.position));
-//            }
-//        }
-//        else{
-//           for(const auto& mesh : meshes){
-//               const std::vector<Vertices>& vertices = mesh.vertices;
-//               for (const auto &vertex : vertices) {
-//                   min = glm::min(min, glm::vec3(vertex.position));
-//                   max = glm::max(max, glm::vec3(vertex.position));
-//               }
-//           }
-//        }
-//
-//        return std::make_tuple(min, max);
-//    }
+    inline std::tuple<glm::vec3, glm::vec3> bounds(const Vertices& mesh){
+        glm::vec3 min{ std::numeric_limits<float>::max() };
+        glm::vec3 max( std::numeric_limits<float>::min() );
+
+        for (const auto &vertex : mesh.vertices) {
+            min = glm::min(min, glm::vec3(vertex.position));
+            max = glm::max(max, glm::vec3(vertex.position));
+        }
+
+        return std::make_tuple(min, max);
+    }
 }

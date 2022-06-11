@@ -34,7 +34,6 @@ protected:
 
     void loadModel();
 
-
     void createFloor();
 
     void createPositionDescriptorSetLayout();
@@ -127,19 +126,20 @@ private:
 
     struct {
         glm::vec2 inv_cloth_size;
-        float timeStep;
+        float timeStep{0.0083};
         float mass = 1.0;
-        float ksStruct = 2000.0f;
-        float ksShear = 2000.25f;
-        float ksBend = 2000.25f;
-        float kdStruct = 500.5f;
-        float kdShear = 200.25f;
-        float kdBend = 200.25f;
-        float kd = 0.5f;
+        float ksStruct = 10.5f;
+        float ksShear = 0.25f;
+        float ksBend = 0.25f;
+        float kdStruct = 5.5f;
+        float kdShear = 0.25f;
+        float kdBend = 0.25f;
+        float kd = 0.05f;
         float elapsedTime = 0;
     } constants{};
 
     int numIterations = 1;
+    float iterationsFPS = 600;
 
     struct {
         VulkanBuffer vertices;
@@ -156,15 +156,15 @@ private:
         VkDescriptorSet descriptorSet;
         VulkanDescriptorSetLayout setLayout;
         Texture diffuseMap;
-        glm::vec2 size = glm::vec2(60.0f);
-        glm::vec2 gridSize{100};
+        glm::vec2 size = glm::vec2(4);
+        glm::vec2 gridSize{20};
     } cloth;
 
     struct Sphere{
         VulkanBuffer vertices;
         VulkanBuffer indices;
         VulkanBuffer uboBuffer;
-        float radius = 10;
+        float radius = 1;
         uint32_t indexCount;
 
         struct {
@@ -191,10 +191,10 @@ private:
     enum class Shading : int {
         WIREFRAME = 0,
         SHADED = 1
-    } shading = Shading::SHADED;
+    } shading = Shading::WIREFRAME;
     bool showPoints = false;
     bool showNormals = false;
-    float shine = 50;
+    float shine = 250;
 
    // TimestampQueryPool timerQueryPool;
     VkQueryPool queryPool = VK_NULL_HANDLE;
@@ -251,4 +251,6 @@ private:
         VulkanPipelineLayout layout;
         VulkanPipeline pipeline;
     } ch;
+
+    glm::vec3 clothCenter{0};
 };
