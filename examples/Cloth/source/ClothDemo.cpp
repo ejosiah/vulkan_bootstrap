@@ -291,7 +291,7 @@ void ClothDemo::initCamera() {
     settings.acceleration = glm::vec3(5);
     settings.aspectRatio = float(swapChain.extent.width)/float(swapChain.extent.height);
     cameraController = std::make_unique<SpectatorCameraController>(dynamic_cast<InputManager&>(*this), settings);
-    cameraController->lookAt({0, 2, 5}, {0, cloth.size.y * .5, 0}, {0, 1, 0});
+    cameraController->lookAt({-5, 2, 3}, {0, cloth.size.y * .5, 0}, {0, 1, 0});
 }
 
 void ClothDemo::createPipelines() {
@@ -823,8 +823,8 @@ VkCommandBuffer ClothDemo::dispatchCompute() {
 
     if(!startSim){
         if(elapsedTime > 5.0f){ // wait 5 seconds
-            numIterations = std::max(1.0f, iterationsFPS/framePerSecond);
-//            constants.timeStep = 1.f/framePerSecond;
+//            numIterations = std::max(1.0f, iterationsFPS/framePerSecond);
+//            constants.timeStep = std::max(0.005f, 1.f/framePerSecond);
             frameTime *= numIterations;
             startSim = true;
             spdlog::info("num iterations: {}, dt: {}", numIterations, constants.timeStep);
@@ -1059,7 +1059,7 @@ void ClothDemo::renderUI(VkCommandBuffer commandBuffer) {
     auto& imGuiPlugin = plugin<ImGuiPlugin>(IM_GUI_PLUGIN);
 
     ImGui::Begin("Cloth Simulation");
-    ImGui::SetWindowSize("Cloth Simulation", {350, 400});
+    ImGui::SetWindowSize("Cloth Simulation", {0, 0});
     static int option = 0;
 
     ImGui::RadioButton("wireframe", &option, 0);
@@ -1073,22 +1073,15 @@ void ClothDemo::renderUI(VkCommandBuffer commandBuffer) {
         ImGui::Checkbox("normals", &showNormals);
     }
 
-    if(ImGui::CollapsingHeader("Spring Constants", ImGuiTreeNodeFlags_DefaultOpen)){
-        ImGui::SliderFloat("structural", &constants.ksStruct, 10.0f, 1000.0f);
-        ImGui::SliderFloat("shear", &constants.ksShear, 0.1f, 200.0f);
-        ImGui::SliderFloat("bend", &constants.ksBend, 0.1f, 200.0f);
-    }
-    if(ImGui::CollapsingHeader("Damping Constants", ImGuiTreeNodeFlags_DefaultOpen)){
-        ImGui::SliderFloat("structural_d", &constants.kdStruct, 0.1f, 10.0f);
-        ImGui::SliderFloat("shear_d", &constants.kdShear, 0.1f, 10.0f);
-        ImGui::SliderFloat("bend_d", &constants.kdBend, 0.1f, 10.0f);
-        ImGui::SliderFloat("velocity", &constants.kd, 0.1f, 10.0f);
-    }
+    static bool wind = constants.simWind;
+    ImGui::Checkbox("wind", &wind);
+    constants.simWind = wind;
 
     ImGui::SliderFloat("shine", &shine, 1, 100);
     ImGui::Text("%d iteration(s), timeStep: %.3f ms", numIterations, frameTime * 1000);
     ImGui::Text("Application average %.3f ms/frame, (%d FPS)", 1000.0/framePerSecond, framePerSecond);
     ImGui::Text("compute: %.3f ms", computeDuration);
+//    ImGui::Text(fmt::format("Camera position: {}, target: {}", cameraController->position(), cameraController->target).c_str());
     ImGui::End();
 
     imGuiPlugin.draw(commandBuffer);
@@ -1176,7 +1169,7 @@ int main(){
     settings.enabledFeatures.fillModeNonSolid = true;
     settings.enabledFeatures.geometryShader = true;
     settings.queueFlags = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT;
-    settings.vSync = false;
+    settings.vSync = true;
     spdlog::set_level(spdlog::level::info);
 
     std::unique_ptr<Plugin> imGui = std::make_unique<ImGuiPlugin>();

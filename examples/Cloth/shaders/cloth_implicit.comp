@@ -44,6 +44,7 @@ layout(push_constant) uniform SIM_CONSTANTS {
     float kdBend;
     float kd;
     float elapsedTime;
+    int simWind;
 };
 
 layout(constant_id = 0) const float gravityY = -0.00981f;
@@ -146,36 +147,40 @@ void main(){
     float dt = timeStep;
     float inv_dt = 1/dt;
     vec3 pos = particleIn[id].position.xyz;
+    vec3 N = particleIn[id].normal;
     vec3 prev_pos = particleOut[id].position.xyz;
     vec3 velocity = (pos - prev_pos) * inv_dt;
 
     float t = elapsedTime;
-    float f = 10 * TWO_PI;
-    vec3 wind = vec3(0);
-    float amp = 2.5;
-//    wind.x = amp * sin(pos.x * f + t) * sin(pos.y * f + t);
-//    wind.y = amp * sin(pos.y * f + t) * sin(pos.z * f + t);
-//    wind.z = amp * sin(pos.z * f + t) * sin(pos.x * f + t);
-    // wind.z *= max(0, cos(f * t));
-    vec3 force = mass * gravity + kd * (wind-velocity);
+    float f = 2 * TWO_PI;
+    float amp = 0.2;
+    vec3 force = mass * gravity + kd * -velocity;
+
+    if(bool(simWind)){
+        vec3 wind = vec3(0);
+        wind.x = amp * sin(pos.x * f + t) * sin(pos.y * f + t);
+        wind.y = amp * sin(pos.y * f + t) * sin(pos.z * f + t);
+        wind.z = amp * sin(pos.z * f + t) * sin(pos.x * f + t);
+        force += kd * abs(dot(wind - velocity, N));
+    }
 
     for(int i = 0; i < 12; i++){
         vec3 nPos;
         vec3 nPrev_pos;
         float ks;
         float kd;
-        float l;
+        float l0;
 
-        if(!neighbour(i, nPos, nPrev_pos, ks, kd, l)){
+        if(!neighbour(i, nPos, nPrev_pos, ks, kd, l0)){
             continue;
         }
 
         vec3 d = nPos - pos;
-        vec3 d_norm = normalize(d);
-        float dist = length(d);
+        float l1 = length(d);
+        d /= l1;
         vec3 nVelocity = (nPos - nPrev_pos) * inv_dt;
 
-        vec3 f = d_norm * (ks * (dist - l) + kd * dot(nVelocity - velocity, d_norm));
+        vec3 f = d * (ks * (l1 - l0) + kd * dot(nVelocity - velocity, d));
 
         force += f;
     }

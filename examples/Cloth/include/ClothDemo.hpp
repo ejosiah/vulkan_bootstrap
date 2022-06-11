@@ -7,6 +7,11 @@
 #include "oclHelper.h"
 #include "convexHullbuilder.hpp"
 
+struct Particle{
+    glm::vec3 position{0};
+    glm::vec3 velocity{0};
+};
+
 class ClothDemo : public VulkanRayTraceBaseApp{
 public:
     explicit ClothDemo(const Settings& settings);
@@ -126,19 +131,20 @@ private:
 
     struct {
         glm::vec2 inv_cloth_size;
-        float timeStep{0.0083};
+        float timeStep{0.01666667};
         float mass = 1.0;
         float ksStruct = 10.5f;
         float ksShear = 0.25f;
         float ksBend = 0.25f;
-        float kdStruct = 5.5f;
-        float kdShear = 0.25f;
-        float kdBend = 0.25f;
+        float kdStruct = 5.5f/1000;
+        float kdShear = 0.25f/1000;
+        float kdBend = 0.25f/1000;
         float kd = 0.05f;
         float elapsedTime = 0;
+        int simWind{0};
     } constants{};
 
-    int numIterations = 1;
+    int numIterations = 10;
     float iterationsFPS = 600;
 
     struct {
@@ -185,7 +191,7 @@ private:
     } modelData;
     VulkanBuffer modelBuffer;
 
-    float frameTime = 0.0005;
+    float frameTime = 0.005;
     bool startSim = false;
 
     enum class Shading : int {
