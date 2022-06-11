@@ -47,9 +47,17 @@ void ClothDemo::createCloth() {
     spdlog::info("min: {}, max: {}", min, max);
     clothCenter = (min + max) * 0.5f;
 
-    cloth.vertices[0] = device.createCpuVisibleBuffer(plane.vertices.data(), sizeof(Vertex) * plane.vertices.size()
-                                                    , VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-    cloth.vertices[1] = device.createCpuVisibleBuffer(plane.vertices.data(), sizeof(Vertex) * plane.vertices.size()
+    std::vector<Particle> points;
+    points.reserve(plane.vertices.size());
+    for(auto& vertex : plane.vertices){
+        Particle particle{vertex.position.xyz()};
+        points.push_back(particle);
+    }
+    cloth.points[0] = device.createCpuVisibleBuffer(points.data(), BYTE_SIZE(points),VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+    cloth.points[1] = device.createCpuVisibleBuffer(points.data(), BYTE_SIZE(points),VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+
+
+    cloth.vertices = device.createCpuVisibleBuffer(plane.vertices.data(), sizeof(Vertex) * plane.vertices.size()
                                                     , VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
     cloth.vertexCount = plane.vertices.size();
 
@@ -177,7 +185,7 @@ void ClothDemo::drawWireframe(VkCommandBuffer commandBuffer) {
 //    vkCmdDrawIndexed(commandBuffer, sphere.indexCount, 1, 0, 0, 0);
 
     static std::array<VkDeviceSize, 2> offsets{0u, 0u};
-    static std::array<VkBuffer, 2> buffers{cloth.vertices[input_index], cloth.vertexAttributes };
+    static std::array<VkBuffer, 2> buffers{cloth.vertices, cloth.vertexAttributes };
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, buffers.data(), offsets.data());
     vkCmdBindIndexBuffer(commandBuffer, cloth.indices, 0, VK_INDEX_TYPE_UINT32);
 
@@ -232,7 +240,7 @@ void ClothDemo::drawShaded(VkCommandBuffer commandBuffer) {
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayouts.shaded, 0, 1, &cloth.descriptorSet, 0, nullptr);
     cameraController->push(commandBuffer, pipelineLayouts.shaded, identity);
     vkCmdPushConstants(commandBuffer, pipelineLayouts.shaded, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(Camera), sizeof(int) + sizeof(float), lightParams.data());
-    vkCmdBindVertexBuffers(commandBuffer, 0, 1, cloth.vertices[input_index], &offset);
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, cloth.vertices, &offset);
     vkCmdBindIndexBuffer(commandBuffer, cloth.indices, 0, VK_INDEX_TYPE_UINT32);
     vkCmdDrawIndexed(commandBuffer, cloth.indexCount, 1, 0, 0, 0);
 
@@ -596,61 +604,61 @@ void ClothDemo::createShaderBindingTables() {
 }
 
 void ClothDemo::rayTraceToComputeBarrier(VkCommandBuffer commandBuffer) {
-    VkBufferMemoryBarrier  barrier = initializers::bufferMemoryBarrier();
-    barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-    barrier.srcQueueFamilyIndex = *device.queueFamilyIndex.compute;
-    barrier.dstQueueFamilyIndex = *device.queueFamilyIndex.compute;
-    barrier.buffer = cloth.vertices[0];
-    barrier.offset = 0;
-    barrier.size = cloth.vertices[0].size;
-
-    static std::array<VkBufferMemoryBarrier, 2> barriers{};
-    barriers[0] = barrier;
-
-    barrier.buffer = cloth.vertices[1];
-    barriers[1] = barrier;
-
-
-    vkCmdPipelineBarrier(commandBuffer,
-                         VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
-                         VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                         0,
-                         0,
-                         nullptr,
-                         COUNT(barriers),
-                         barriers.data(),
-                         0,
-                         nullptr);
+//    VkBufferMemoryBarrier  barrier = initializers::bufferMemoryBarrier();
+//    barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+//    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+//    barrier.srcQueueFamilyIndex = *device.queueFamilyIndex.compute;
+//    barrier.dstQueueFamilyIndex = *device.queueFamilyIndex.compute;
+//    barrier.buffer = cloth.vertices[0];
+//    barrier.offset = 0;
+//    barrier.size = cloth.vertices[0].size;
+//
+//    static std::array<VkBufferMemoryBarrier, 2> barriers{};
+//    barriers[0] = barrier;
+//
+//    barrier.buffer = cloth.vertices[1];
+//    barriers[1] = barrier;
+//
+//
+//    vkCmdPipelineBarrier(commandBuffer,
+//                         VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+//                         VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+//                         0,
+//                         0,
+//                         nullptr,
+//                         COUNT(barriers),
+//                         barriers.data(),
+//                         0,
+//                         nullptr);
 }
 
 void ClothDemo::computeToRayTraceBarrier(VkCommandBuffer commandBuffer) {
-    VkBufferMemoryBarrier  barrier = initializers::bufferMemoryBarrier();
-    barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-    barrier.srcQueueFamilyIndex = *device.queueFamilyIndex.compute;
-    barrier.dstQueueFamilyIndex = *device.queueFamilyIndex.compute;
-    barrier.buffer = cloth.vertices[0];
-    barrier.offset = 0;
-    barrier.size = cloth.vertices[0].size;
-
-    static std::array<VkBufferMemoryBarrier, 2> barriers{};
-    barriers[0] = barrier;
-
-    barrier.buffer = cloth.vertices[1];
-    barriers[1] = barrier;
-
-
-    vkCmdPipelineBarrier(commandBuffer,
-                         VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                         VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
-                         0,
-                         0,
-                         nullptr,
-                         COUNT(barriers),
-                         barriers.data(),
-                         0,
-                         nullptr);
+//    VkBufferMemoryBarrier  barrier = initializers::bufferMemoryBarrier();
+//    barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+//    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+//    barrier.srcQueueFamilyIndex = *device.queueFamilyIndex.compute;
+//    barrier.dstQueueFamilyIndex = *device.queueFamilyIndex.compute;
+//    barrier.buffer = cloth.vertices[0];
+//    barrier.offset = 0;
+//    barrier.size = cloth.vertices[0].size;
+//
+//    static std::array<VkBufferMemoryBarrier, 2> barriers{};
+//    barriers[0] = barrier;
+//
+//    barrier.buffer = cloth.vertices[1];
+//    barriers[1] = barrier;
+//
+//
+//    vkCmdPipelineBarrier(commandBuffer,
+//                         VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+//                         VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+//                         0,
+//                         0,
+//                         nullptr,
+//                         COUNT(barriers),
+//                         barriers.data(),
+//                         0,
+//                         nullptr);
 }
 
 void ClothDemo::createPositionDescriptorSetLayout() {
@@ -692,6 +700,13 @@ void ClothDemo::createPositionDescriptorSetLayout() {
 
     collision.setLayout = device.createDescriptorSetLayout(bindings);
 
+    bindings.resize(1);
+    bindings[0].binding = 0;
+    bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    bindings[0].descriptorCount = 1;
+    bindings[0].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+    meshSet.setLayout = device.createDescriptorSetLayout(bindings);
+
 }
 
 void ClothDemo::createDescriptorPool() {
@@ -716,21 +731,22 @@ void ClothDemo::createDescriptorPool() {
 }
 
 void ClothDemo::createPositionDescriptorSet() {
-    assert(cloth.vertices[0].buffer != VK_NULL_HANDLE && cloth.vertices[1].buffer != VK_NULL_HANDLE);
+    assert(cloth.points[0].buffer != VK_NULL_HANDLE && cloth.points[1].buffer != VK_NULL_HANDLE);
 
 
-    auto descriptorSets = descriptorPool.allocate({ positionSetLayout, positionSetLayout, collision.setLayout, cloth.setLayout});
+    auto descriptorSets = descriptorPool.allocate({ positionSetLayout, positionSetLayout, collision.setLayout, cloth.setLayout, meshSet.setLayout});
     positionDescriptorSets[0] = descriptorSets[0];
     positionDescriptorSets[1] = descriptorSets[1];
     collision.descriptorSet = descriptorSets[2];
     cloth.descriptorSet = descriptorSets[3];
+    meshSet.descriptorSet = descriptorSets[4];
 
-    std::array<VkDescriptorBufferInfo, 5> bufferInfo{};
-    bufferInfo[0].buffer = cloth.vertices[0];
+    std::array<VkDescriptorBufferInfo, 6> bufferInfo{};
+    bufferInfo[0].buffer = cloth.points[0];
     bufferInfo[0].offset = 0;
     bufferInfo[0].range = VK_WHOLE_SIZE;
 
-    bufferInfo[1].buffer = cloth.vertices[1];
+    bufferInfo[1].buffer = cloth.points[1];
     bufferInfo[1].offset = 0;
     bufferInfo[1].range = VK_WHOLE_SIZE;
 
@@ -746,8 +762,12 @@ void ClothDemo::createPositionDescriptorSet() {
     bufferInfo[4].offset = 0;
     bufferInfo[4].range = VK_WHOLE_SIZE;
 
+    bufferInfo[5].buffer = cloth.vertices;
+    bufferInfo[5].offset = 0;
+    bufferInfo[5].range = VK_WHOLE_SIZE;
 
-    auto writes = initializers::writeDescriptorSets<6>();
+
+    auto writes = initializers::writeDescriptorSets<7>();
     writes[0].dstSet = positionDescriptorSets[0];
     writes[0].dstBinding = 0;
     writes[0].dstArrayElement = 0;
@@ -784,18 +804,25 @@ void ClothDemo::createPositionDescriptorSet() {
     writes[4].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     writes[4].pBufferInfo = &bufferInfo[4];
 
+    writes[5].dstSet = meshSet.descriptorSet;
+    writes[5].dstBinding = 0;
+    writes[5].dstArrayElement = 0;
+    writes[5].descriptorCount = 1;
+    writes[5].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    writes[5].pBufferInfo = &bufferInfo[5];
+
 
     VkDescriptorImageInfo imageInfo{};
     imageInfo.imageView = cloth.diffuseMap.imageView;
     imageInfo.sampler = cloth.diffuseMap.sampler;
     imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-    writes[5].dstSet = cloth.descriptorSet;
-    writes[5].dstBinding = 0;
-    writes[5].dstArrayElement = 0;
-    writes[5].descriptorCount = 1;
-    writes[5].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    writes[5].pImageInfo = &imageInfo;
+    writes[6].dstSet = cloth.descriptorSet;
+    writes[6].dstBinding = 0;
+    writes[6].dstArrayElement = 0;
+    writes[6].descriptorCount = 1;
+    writes[6].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    writes[6].pImageInfo = &imageInfo;
 
     vkUpdateDescriptorSets(device, COUNT(writes), writes.data(), 0, VK_NULL_HANDLE);
 }
@@ -810,7 +837,7 @@ void ClothDemo::createComputePipeline() {
     range.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
     range.size = sizeof(constants);
 
-    pipelineLayouts.compute = device.createPipelineLayout({positionSetLayout, positionSetLayout, collision.setLayout}, { range });
+    pipelineLayouts.compute = device.createPipelineLayout({positionSetLayout, positionSetLayout, collision.setLayout, meshSet.setLayout}, { range });
 
     auto info = initializers::computePipelineCreateInfo();
     info.stage = stage;
@@ -833,7 +860,7 @@ VkCommandBuffer ClothDemo::dispatchCompute() {
     }
 //    spdlog::info("num iterations: {}, dt: {}", numIterations, frameTime/numIterations);
     commandPool.oneTimeCommand( [&](auto commandBuffer){
-        static std::array<VkDescriptorSet, 3> descriptors{};
+        static std::array<VkDescriptorSet, 4> descriptors{};
         static std::array<VkDescriptorSet, 3> rt_descriptors{};
         vkCmdResetQueryPool(commandBuffer, queryPool, 0, 2);
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelines.compute);
@@ -843,6 +870,7 @@ VkCommandBuffer ClothDemo::dispatchCompute() {
             descriptors[0] = positionDescriptorSets[input_index];
             descriptors[1] = positionDescriptorSets[output_index];
             descriptors[2] = collision.descriptorSet;
+            descriptors[3] = meshSet.descriptorSet;
             vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayouts.compute, 0, COUNT(descriptors), descriptors.data(), 0, nullptr);
             vkCmdDispatch(commandBuffer, cloth.gridSize.x/10, cloth.gridSize.y/10, 1);
 
@@ -874,17 +902,6 @@ VkCommandBuffer ClothDemo::dispatchCompute() {
         vkCmdWriteTimestamp(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, queryPool, 1u);
     });
 
-
-    auto ptr0 = reinterpret_cast<Vertex*>(cloth.vertices[0].map());
-    auto ptr1 = reinterpret_cast<Vertex*>(cloth.vertices[1].map());
-
-//    for(int i = 0; i < 10; i++){
-//        auto p0 = ptr0[i].position.xyz();
-//        auto p1 = ptr1[i].position.xyz();
-//        auto vl = length((p0 - p1)/constants.timeStep);
-//        spdlog::info("speed: {}", vl);
-//    }
-
     return nullptr;
 }
 
@@ -894,14 +911,14 @@ void ClothDemo::computeToComputeBarrier(VkCommandBuffer commandBuffer) {
     barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
     barrier.srcQueueFamilyIndex = *device.queueFamilyIndex.compute;
     barrier.dstQueueFamilyIndex = *device.queueFamilyIndex.compute;
-    barrier.buffer = cloth.vertices[0];
+    barrier.buffer = cloth.points[0];
     barrier.offset = 0;
-    barrier.size = cloth.vertices[0].size;
+    barrier.size = cloth.points[0].size;
 
     static std::array<VkBufferMemoryBarrier, 2> barriers{};
     barriers[0] = barrier;
 
-    barrier.buffer = cloth.vertices[1];
+    barrier.buffer = cloth.points[1];
     barriers[1] = barrier;
 
 
@@ -938,121 +955,121 @@ void ClothDemo::runPhysics(float time) {
 }
 
 void ClothDemo::runPhysics0(float time, int i, int j) {
-    using namespace glm;
-    vec3 gravity = vec3(0, -9.81, 0);
-    float mass = constants.mass;
-    float kd = constants.kd;
-    float numPoints = cloth.gridSize.x * cloth.gridSize.y;
-    float ksStruct = constants.ksStruct;
-    float kdStruct = constants.kdStruct;
-    float ksShear = constants.ksShear;
-    float kdShear = constants.kdShear;
-    float ksBend = constants.ksBend;
-    float kdBend = constants.kdBend;
-
-    int width = cloth.gridSize.x;
-    int height = cloth.gridSize.y;
-
-    int id = j * width + i;
-
-    static std::array<ivec2, 12> neighbourIndices = {
-            ivec2(0, 1), ivec2(1, 0), ivec2(0, -1), ivec2(-1, 0),  // structural neigbhours
-            ivec2(-1, 1), ivec2(1, 1), ivec2(-1, -1), ivec2(1, -1),  // shear neigbhours
-            ivec2(0, 2), ivec2(0, -2), ivec2(-2, 0), ivec2(2, 0)    // bend neigbhours
-    };
-
-    cloth.vertices[input_index].map<glm::vec4>([&, i, j](glm::vec4 *positionIn) {
-        cloth.vertices[output_index].map<glm::vec4>([&](glm::vec4 *positionOut) {
-
-            auto neighbour = [&](int ii, vec3& pos, vec3& prev_pos, float& ks, float& kd, float& rest_length, ivec2 pid){
-                ivec2 coord = neighbourIndices[ii];
-                ivec2 index =  coord + ivec2(pid.x, pid.y);
-                if(index.x < 0 || index.x >= width || index.y < 0 || index.y >= height){
-                    return false;
-                }
-                uint nid = index.y * width + index.x;
-
-
-                pos = positionIn[nid].xyz;
-                prev_pos = positionOut[nid].xyz;
-
-                rest_length = length(vec2(coord) * constants.inv_cloth_size);
-                if(ii < 4){
-                    ks = ksStruct;
-                    kd = kdStruct;
-                }else if(ii < 8){
-                    ks = ksShear;
-                    kd = kdShear;
-                }else if(ii < 12){
-                    ks = ksBend;
-                    kd = kdBend;
-                }
-
-              //  spdlog::info("ii: {}, coord: {}, index: {}, nid: {}, length: {}", ii, vec2(coord), vec2(index), nid, rest_length);
-
-                return true;
-            };
-
-            float dt = constants.timeStep;
-            float inv_dt = 1 / dt;
-            vec3 pos = positionIn[id].xyz;
-            vec3 prev_pos = positionOut[id].xyz;
-            vec3 velocity = (pos - prev_pos) * inv_dt;
-            vec3 force = mass * gravity + kd * -velocity;
-            //vec3 force = vec3(0);
-
-            for(int ii = 0; ii < 12; ii++){
-                vec3 nPos;
-                vec3 nPrev_pos;
-                float ks;
-                float k;
-                float l;
-
-                if(!neighbour(ii, nPos, nPrev_pos, ks, k, l, {i, j})){
-                    continue;
-                }
-                vec3 d = nPos - pos;
-                if(d.x == 0 && d.y == 0 && d.z == 0){
-                    spdlog::info("No diff: id: {}, [{}, {}]", id,  i, j);
-                }
-
-                vec3 d_norm = normalize(d);
-                float dist = length(d);
-                vec3 nVelocity = (nPos - nPrev_pos) * inv_dt;
-
-                vec3 f = d_norm * (ks * (dist - l) + k * dot(nVelocity - velocity, d_norm));
-
-                force += f;
-
-                if(id == 5 && ii == 0) {
-                    spdlog::info(
-                            "id: {}\n\tni: {}\n\tpos: {}\n\tprev_pos: {}\n\tnPos: {}\n\tdiff: {}\n\tks: {}\n\tkd: {}\n\tspring force {}\n\tforce: {}",
-                            id, ii, pos, prev_pos, nPos, d, ks, k, f, force);
-                }
-            }
-
-            float inv_mass = 1.0f / mass;
-            if (id == (numPoints - width) || id == (numPoints - 1)) {
-                inv_mass = 0;
-            }
-
-            vec3 a = force * inv_mass;
-            auto dp = a * dt * dt;
-            vec3 p = 2.f * pos - prev_pos + a * dt * dt;
-
-              if (p.y < 0) p.y = 0;
-
-//            spdlog::info("p(t): {}, p(t - 1): {}", pos, prev_pos);
-//            spdlog::info("current: {}, new: {}, dp: {}", pos.xyz(), p.xyz(), dp);
-            positionIn[id].xyz = pos;
-            positionOut[id].xyz = p;
-
-            std::array<VmaAllocation, 2> allocations{cloth.vertices[0].allocation, cloth.vertices[0].allocation};
-            std::array<VkDeviceSize, 2> offsets{0, 0};
-            std::array<VkDeviceSize, 2> sizes{VK_WHOLE_SIZE, VK_WHOLE_SIZE};
-            vmaFlushAllocations(device.allocator, 2, allocations.data(), offsets.data(), sizes.data());
-        });
-    });
+//    using namespace glm;
+//    vec3 gravity = vec3(0, -9.81, 0);
+//    float mass = constants.mass;
+//    float kd = constants.kd;
+//    float numPoints = cloth.gridSize.x * cloth.gridSize.y;
+//    float ksStruct = constants.ksStruct;
+//    float kdStruct = constants.kdStruct;
+//    float ksShear = constants.ksShear;
+//    float kdShear = constants.kdShear;
+//    float ksBend = constants.ksBend;
+//    float kdBend = constants.kdBend;
+//
+//    int width = cloth.gridSize.x;
+//    int height = cloth.gridSize.y;
+//
+//    int id = j * width + i;
+//
+//    static std::array<ivec2, 12> neighbourIndices = {
+//            ivec2(0, 1), ivec2(1, 0), ivec2(0, -1), ivec2(-1, 0),  // structural neigbhours
+//            ivec2(-1, 1), ivec2(1, 1), ivec2(-1, -1), ivec2(1, -1),  // shear neigbhours
+//            ivec2(0, 2), ivec2(0, -2), ivec2(-2, 0), ivec2(2, 0)    // bend neigbhours
+//    };
+//
+//    cloth.vertices[input_index].map<glm::vec4>([&, i, j](glm::vec4 *positionIn) {
+//        cloth.vertices[output_index].map<glm::vec4>([&](glm::vec4 *positionOut) {
+//
+//            auto neighbour = [&](int ii, vec3& pos, vec3& prev_pos, float& ks, float& kd, float& rest_length, ivec2 pid){
+//                ivec2 coord = neighbourIndices[ii];
+//                ivec2 index =  coord + ivec2(pid.x, pid.y);
+//                if(index.x < 0 || index.x >= width || index.y < 0 || index.y >= height){
+//                    return false;
+//                }
+//                uint nid = index.y * width + index.x;
+//
+//
+//                pos = positionIn[nid].xyz;
+//                prev_pos = positionOut[nid].xyz;
+//
+//                rest_length = length(vec2(coord) * constants.inv_cloth_size);
+//                if(ii < 4){
+//                    ks = ksStruct;
+//                    kd = kdStruct;
+//                }else if(ii < 8){
+//                    ks = ksShear;
+//                    kd = kdShear;
+//                }else if(ii < 12){
+//                    ks = ksBend;
+//                    kd = kdBend;
+//                }
+//
+//              //  spdlog::info("ii: {}, coord: {}, index: {}, nid: {}, length: {}", ii, vec2(coord), vec2(index), nid, rest_length);
+//
+//                return true;
+//            };
+//
+//            float dt = constants.timeStep;
+//            float inv_dt = 1 / dt;
+//            vec3 pos = positionIn[id].xyz;
+//            vec3 prev_pos = positionOut[id].xyz;
+//            vec3 velocity = (pos - prev_pos) * inv_dt;
+//            vec3 force = mass * gravity + kd * -velocity;
+//            //vec3 force = vec3(0);
+//
+//            for(int ii = 0; ii < 12; ii++){
+//                vec3 nPos;
+//                vec3 nPrev_pos;
+//                float ks;
+//                float k;
+//                float l;
+//
+//                if(!neighbour(ii, nPos, nPrev_pos, ks, k, l, {i, j})){
+//                    continue;
+//                }
+//                vec3 d = nPos - pos;
+//                if(d.x == 0 && d.y == 0 && d.z == 0){
+//                    spdlog::info("No diff: id: {}, [{}, {}]", id,  i, j);
+//                }
+//
+//                vec3 d_norm = normalize(d);
+//                float dist = length(d);
+//                vec3 nVelocity = (nPos - nPrev_pos) * inv_dt;
+//
+//                vec3 f = d_norm * (ks * (dist - l) + k * dot(nVelocity - velocity, d_norm));
+//
+//                force += f;
+//
+//                if(id == 5 && ii == 0) {
+//                    spdlog::info(
+//                            "id: {}\n\tni: {}\n\tpos: {}\n\tprev_pos: {}\n\tnPos: {}\n\tdiff: {}\n\tks: {}\n\tkd: {}\n\tspring force {}\n\tforce: {}",
+//                            id, ii, pos, prev_pos, nPos, d, ks, k, f, force);
+//                }
+//            }
+//
+//            float inv_mass = 1.0f / mass;
+//            if (id == (numPoints - width) || id == (numPoints - 1)) {
+//                inv_mass = 0;
+//            }
+//
+//            vec3 a = force * inv_mass;
+//            auto dp = a * dt * dt;
+//            vec3 p = 2.f * pos - prev_pos + a * dt * dt;
+//
+//              if (p.y < 0) p.y = 0;
+//
+////            spdlog::info("p(t): {}, p(t - 1): {}", pos, prev_pos);
+////            spdlog::info("current: {}, new: {}, dp: {}", pos.xyz(), p.xyz(), dp);
+//            positionIn[id].xyz = pos;
+//            positionOut[id].xyz = p;
+//
+//            std::array<VmaAllocation, 2> allocations{cloth.vertices[0].allocation, cloth.vertices[0].allocation};
+//            std::array<VkDeviceSize, 2> offsets{0, 0};
+//            std::array<VkDeviceSize, 2> sizes{VK_WHOLE_SIZE, VK_WHOLE_SIZE};
+//            vmaFlushAllocations(device.allocator, 2, allocations.data(), offsets.data(), sizes.data());
+//        });
+//    });
 }
 
 void ClothDemo::renderUI(VkCommandBuffer commandBuffer) {

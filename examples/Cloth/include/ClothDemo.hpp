@@ -8,8 +8,8 @@
 #include "convexHullbuilder.hpp"
 
 struct Particle{
-    glm::vec3 position{0};
-    glm::vec3 velocity{0};
+   alignas(16) glm::vec3 position{0};
+    alignas(16) glm::vec3 velocity{0};
 };
 
 class ClothDemo : public VulkanRayTraceBaseApp{
@@ -130,6 +130,11 @@ private:
     } collision;
 
     struct {
+        VulkanDescriptorSetLayout setLayout;
+        VkDescriptorSet descriptorSet;
+    } meshSet;
+
+    struct {
         glm::vec2 inv_cloth_size;
         float timeStep{0.01666667};
         float mass = 1.0;
@@ -154,7 +159,8 @@ private:
     } floor;
 
     struct Cloth{
-        std::array<VulkanBuffer, 2> vertices;
+        VulkanBuffer vertices;
+        std::array<VulkanBuffer, 2> points;
         VulkanBuffer vertexAttributes;
         VulkanBuffer indices;
         uint32_t indexCount;

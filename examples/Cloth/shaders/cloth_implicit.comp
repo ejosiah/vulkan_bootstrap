@@ -8,13 +8,18 @@
 
 layout(local_size_x = 10, local_size_y = 10) in;
 
-struct Particle{
+struct VertexData{
     vec4 position;
     vec4 color;
     vec3 normal;
     vec3 tangent;
     vec3 bitangent;
     vec2 uv;
+};
+
+struct Particle{
+    vec3 position;
+    vec3 velocity;
 };
 
 layout(set = 0, binding = 0) buffer POINT_MASSES_IN{
@@ -30,6 +35,11 @@ layout(set = 2, binding = 0) uniform SPHERE_DATA {
     vec3 center;
     float radius;
 } sphere;
+
+layout(set = 3, binding = 0) buffer VERTEX_DATA{
+    VertexData vertices[];
+};
+
 
 
 layout(push_constant) uniform SIM_CONSTANTS {
@@ -146,9 +156,9 @@ void main(){
     //    float dt = 0.00083;
     float dt = timeStep;
     float inv_dt = 1/dt;
-    vec3 pos = particleIn[id].position.xyz;
-    vec3 N = particleIn[id].normal;
-    vec3 prev_pos = particleOut[id].position.xyz;
+    vec3 pos = particleIn[id].position;
+    vec3 N = vertices[id].normal;
+    vec3 prev_pos = particleOut[id].position;
     vec3 velocity = (pos - prev_pos) * inv_dt;
 
     float t = elapsedTime;
@@ -198,6 +208,7 @@ void main(){
 
     p.y = max(p.y, COLLISION_MARGIN);
 
-    particleOut[id].position.xyz = p;
-    particleOut[id].normal = calculateNormal(p);
+    particleOut[id].position = p;
+    vertices[id].position.xyz = p;
+    vertices[id].normal = calculateNormal(p);
 }
