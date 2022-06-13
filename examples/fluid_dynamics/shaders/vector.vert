@@ -23,6 +23,7 @@ layout(push_constant) uniform SimData {
 layout(location = 0) in vec3 position;
 
 layout(location = 0) out vec3 color;
+layout(location = 1) flat out vec2 vector;
 
 vec3 heatMap(vec3 u){
     float level = length(u)/maxMagintue;
@@ -68,12 +69,13 @@ void main(){
     float cellSize = 1/float(N);
     float x = i * cellSize;
     float y = j * cellSize;
-
-    vec2 p = vec2(rotor * (0.3 * position));
+    float scale = 0.3;
+    vec2 p = vec2(rotor * (scale * position));
 
     p = p.xy + 0.5;   // [-.5, .5] -> [0, 1]
     p = cellSize * p + vec2(x, y);
 
     color = heatMap(v);
+    vector = v.xy;
     gl_Position = projection * view * model  * vec4(p, 0, 1);
 }

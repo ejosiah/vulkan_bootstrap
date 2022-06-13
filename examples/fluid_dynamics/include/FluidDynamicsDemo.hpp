@@ -20,6 +20,8 @@ protected:
 
     void initVectorView();
 
+    void initParticles();
+
     void createDescriptorPool();
 
     void createDescriptorSetLayouts();
@@ -43,6 +45,8 @@ protected:
     void renderGrid(VkCommandBuffer commandBuffer);
 
     void renderVectorField(VkCommandBuffer commandBuffer);
+
+    void renderParticles(VkCommandBuffer commandBuffer);
 
     void update(float time) override;
 
@@ -101,6 +105,16 @@ protected:
         } thin;
     } vectorView;
 
+    struct {
+        VulkanPipeline pipeline;
+        VulkanPipelineLayout layout;
+        VulkanBuffer vertexBuffer;
+        VulkanBuffer particleBuffer;
+        VulkanDescriptorSetLayout setLayout;
+        VkDescriptorSet descriptorSet;
+        glm::vec2* particlePtr;
+    } particles;
+
     Camera camera;
     VulkanDescriptorSetLayout camSetLayout;
     VkDescriptorSet cameraSet;
@@ -109,5 +123,6 @@ protected:
     struct {
         int N{0};
         float maxMagnitude{1};
+        float dt{0};
     } constants;
 };

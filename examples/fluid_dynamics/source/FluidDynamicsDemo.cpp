@@ -18,10 +18,12 @@ FluidDynamicsDemo::FluidDynamicsDemo(const Settings& settings) : VulkanBaseApp("
 void FluidDynamicsDemo::initApp() {
     initGrid();
     initVectorView();
+    initSimData();
+    initParticles();
     initCamera();
+
     createDescriptorPool();
     createDescriptorSetLayouts();
-    initSimData();
     createCommandPool();
 
     updateDescriptorSets();
@@ -176,6 +178,23 @@ void FluidDynamicsDemo::createRenderPipeline() {
             .name("vector_thin")
         .build(vectorView.thin.layout);
 
+    particles.pipeline =
+        builder1
+            .basePipeline(vectorView.thick.pipeline)
+            .shaderStage()
+                .vertexShader(load("particle.vert.spv"))
+                .geometryShader(load("particle.geom.spv"))
+                .fragmentShader(load("particle.frag.spv"))
+            .inputAssemblyState()
+                .points()
+            .layout().clear()
+                .addPushConstantRange( VK_SHADER_STAGE_GEOMETRY_BIT, 0, sizeof(constants))
+                .addDescriptorSetLayout(camSetLayout)
+                .addDescriptorSetLayout(simData.setLayout)
+                .addDescriptorSetLayout(particles.setLayout)
+            .name("particles")
+        .build(particles.layout);
+
     //    @formatter:on
 }
 
@@ -225,11 +244,9 @@ VkCommandBuffer *FluidDynamicsDemo::buildCommandBuffers(uint32_t imageIndex, uin
     vkCmdBeginRenderPass(commandBuffer, &rPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
     renderGrid(commandBuffer);
-
     renderVectorField(commandBuffer);
-
+    renderParticles(commandBuffer);
     vkCmdEndRenderPass(commandBuffer);
-
     vkEndCommandBuffer(commandBuffer);
 
     return &commandBuffer;
@@ -260,8 +277,23 @@ void FluidDynamicsDemo::renderVectorField(VkCommandBuffer commandBuffer) {
 
 }
 
+void FluidDynamicsDemo::renderParticles(VkCommandBuffer commandBuffer) {
+    int n = simData.N * simData.N;
+
+    VkDeviceSize  offset = 0;
+    static std::array<VkDescriptorSet, 3> sets;
+    sets[0] = cameraSet;
+    sets[1] = simData.descriptorSets[0];
+    sets[2] = particles.descriptorSet;
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, particles.pipeline);
+    vkCmdPushConstants(commandBuffer, particles.layout, VK_SHADER_STAGE_GEOMETRY_BIT, 0, sizeof(constants), &constants);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, particles.layout, 0, COUNT(sets), sets.data(), 0, VK_NULL_HANDLE);
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, particles.vertexBuffer, &offset);
+    vkCmdDraw(commandBuffer, 1, n, 0, 0);
+}
+
 void FluidDynamicsDemo::update(float time) {
-    VulkanBaseApp::update(time);
+    constants.dt = time * 0.05f;
 }
 
 void FluidDynamicsDemo::checkAppInputs() {
@@ -281,7 +313,8 @@ void FluidDynamicsDemo::onPause() {
 }
 
 void FluidDynamicsDemo::initSimData() {
-    VkDeviceSize size = simData.N * simData.N;
+    const int N = simData.N;
+    VkDeviceSize size = N * N;
     auto byteSize =  size * sizeof(float);
     simData.densityBuffer[0] = device.createBuffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, byteSize,  "density_0");
     simData.densityBuffer[1] = device.createBuffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, byteSize,  "density_1");
@@ -295,23 +328,21 @@ void FluidDynamicsDemo::initSimData() {
     simData.u[0] = reinterpret_cast<float*>(simData.velocityBuffer[0].map());
     simData.u[1] = reinterpret_cast<float*>(simData.velocityBuffer[1].map());
 
-    const int N = simData.N;
     simData.v[0] = simData.u[0] + size;
     simData.v[1] = simData.u[1] + size;
     for(int i = 0; i <  N; i++){
         for(int j = 0; j < N; j++){
             int id = i * N + j;
-//            float x = 20.f * static_cast<float>(j)/static_cast<float>(N) - 10;
-//            float y = 20.f * static_cast<float>(i)/static_cast<float>(N) - 10;
-//            int id = i * N + j;
-//            float u = y * y * y - 9.f * y;
-//            float v = x * x * x - 9 * x;
+            float x = 10.f * static_cast<float>(i)/static_cast<float>(N) - 5;
+            float y = 10.f * static_cast<float>(j)/static_cast<float>(N) - 5;
+            float u = y * y * y - 9.f * y;
+            float v = x * x * x - 9 * x;
 
-            float x = static_cast<float>(i)/static_cast<float>(N) * glm::two_pi<float>();
-            float y = static_cast<float>(j)/static_cast<float>(N) * glm::pi<float>();
-
-            float u = glm::cos(x) * glm::sin(y);
-            float v = glm::sin(x) * glm::sin(y);
+//            float x = static_cast<float>(i)/static_cast<float>(N) * glm::two_pi<float>();
+//            float y = static_cast<float>(j)/static_cast<float>(N) * glm::pi<float>();
+//
+//            float u = glm::cos(x) * glm::sin(y);
+//            float v = glm::sin(x) * glm::sin(y);
 
             simData.u[0][id] = u;
             simData.u[1][id] = u;
@@ -320,9 +351,6 @@ void FluidDynamicsDemo::initSimData() {
             simData.v[1][id] = v;
         }
     }
-
-
-
 
     float maxMagnitude{std::numeric_limits<float>::min()};
 
@@ -360,36 +388,48 @@ void FluidDynamicsDemo::createDescriptorSetLayouts() {
             .binding(0)
                 .descriptorType(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
                 .descriptorCount(1)
-                .shaderStages(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT)
+                .shaderStages(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT | VK_SHADER_STAGE_GEOMETRY_BIT)
             .createLayout();
 
+    auto stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_GEOMETRY_BIT | VK_SHADER_STAGE_COMPUTE_BIT;
     simData.setLayout =
         device.descriptorSetLayoutBuilder()
             .binding(0)
                 .descriptorType(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
                 .descriptorCount(1)
-                .shaderStages(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_COMPUTE_BIT)
+                .shaderStages(stages)
             .binding(1)
                 .descriptorType(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
                 .descriptorCount(1)
-                .shaderStages(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_COMPUTE_BIT)
+                .shaderStages(stages)
             .binding(2)
                 .descriptorType(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
                 .descriptorCount(1)
-                .shaderStages(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_COMPUTE_BIT)
+                .shaderStages(stages)
             .createLayout();
 
-    auto sets = descriptorPool.allocate({ camSetLayout, simData.setLayout, simData.setLayout });
+    particles.setLayout =
+        device.descriptorSetLayoutBuilder()
+            .binding(0)
+                .descriptorType(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
+                .descriptorCount(1)
+                .shaderStages(VK_SHADER_STAGE_GEOMETRY_BIT)
+            .createLayout();
+
+
+    auto sets = descriptorPool.allocate({ camSetLayout, simData.setLayout, simData.setLayout, particles.setLayout });
     cameraSet = sets[0];
     simData.descriptorSets[0] = sets[1];
     simData.descriptorSets[1] = sets[2];
+    particles.descriptorSet = sets[3];
 
     device.setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>("sim_data", simData.descriptorSets[0]);
     device.setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>("sim_data_prev", simData.descriptorSets[1]);
+    device.setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>("particles", particles.descriptorSet);
 }
 
 void FluidDynamicsDemo::updateDescriptorSets() {
-    auto writes = initializers::writeDescriptorSets<7>();
+    auto writes = initializers::writeDescriptorSets<8>();
     
     writes[0].dstSet = cameraSet;
     writes[0].dstBinding = 0;
@@ -441,6 +481,13 @@ void FluidDynamicsDemo::updateDescriptorSets() {
     VkDescriptorBufferInfo densInfo1{simData.densityBuffer[1], 0, size};
     writes[6].pBufferInfo = &densInfo1;
 
+    writes[7].dstSet = particles.descriptorSet;
+    writes[7].dstBinding = 0;
+    writes[7].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    writes[7].descriptorCount = 1;
+    VkDescriptorBufferInfo particleInfo{particles.particleBuffer, 0, VK_WHOLE_SIZE};
+    writes[7].pBufferInfo = &particleInfo;
+
     
     device.updateDescriptorSets(writes);
 }
@@ -460,6 +507,24 @@ void FluidDynamicsDemo::initVectorView() {
     vectorView.thin.vertexBuffer = device.createDeviceLocalBuffer(vertices.data(), BYTE_SIZE(vertices), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
 }
 
+void FluidDynamicsDemo::initParticles() {
+    particles.vertexBuffer = device.createBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY, sizeof(glm::vec2), "particles_vertex");
+
+    std::vector<glm::vec2> data;
+    auto n = static_cast<float>(simData.N);
+    float halfSize = 0.5f/n;
+    for(int j = 0; j < simData.N; j++){
+        for(int i = 0; i < simData.N; i++){
+            float x = static_cast<float>(i)/n + halfSize;
+            float y = static_cast<float>(j)/n + halfSize;
+            data.emplace_back(x, y);
+        }
+    }
+
+    particles.particleBuffer = device.createCpuVisibleBuffer(data.data(), BYTE_SIZE(data), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+    particles.particlePtr = reinterpret_cast<glm::vec2*>(particles.particleBuffer.map());
+}
+
 int main(){
     try{
 
@@ -467,6 +532,8 @@ int main(){
         settings.width = settings.height = 1024;
         settings.enabledFeatures.tessellationShader = VK_TRUE;
         settings.enabledFeatures.wideLines = VK_TRUE;
+        settings.enabledFeatures.geometryShader = VK_TRUE;
+        settings.enabledFeatures.vertexPipelineStoresAndAtomics = VK_TRUE;
         settings.msaaSamples = VK_SAMPLE_COUNT_8_BIT;
         settings.depthTest = true;
 
