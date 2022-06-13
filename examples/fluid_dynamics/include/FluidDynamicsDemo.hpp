@@ -88,9 +88,17 @@ protected:
     } grid;
 
     struct {
-        VulkanPipeline pipeline;
-        VulkanPipelineLayout layout;
-        VulkanBuffer vertexBuffer;
+        struct {
+            VulkanPipeline pipeline;
+            VulkanPipelineLayout layout;
+            VulkanBuffer vertexBuffer;
+        } thick;
+
+        struct {
+            VulkanPipeline pipeline;
+            VulkanPipelineLayout layout;
+            VulkanBuffer vertexBuffer;
+        } thin;
     } vectorView;
 
     Camera camera;

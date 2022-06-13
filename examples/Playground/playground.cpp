@@ -195,13 +195,8 @@ vec3 Q(float u, float v, std::array<vec3, 16>& Ps){
 
 int main(){
 
-    glm::vec3 n{1, 0, 0};
-    glm::vec3 p{-918, -918, 0};
-    p = glm::normalize(p);
-    fmt::print("{}\n", p);
-    float cosTheta = glm::dot(n, p);
-    fmt::print("{}\n", cosTheta);
-    float d = glm::degrees(acos(cosTheta));
-    fmt::print("{}\n", d);
+    auto y = 0.25 * glm::cos(glm::radians(30.f));
+    fmt::print("{}\n", y);
+
     return 0;
 }
