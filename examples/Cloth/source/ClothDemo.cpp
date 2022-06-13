@@ -40,7 +40,10 @@ void ClothDemo::initApp() {
 }
 
 void ClothDemo::createCloth() {
-    auto xform = glm::translate(glm::mat4(1), {0, cloth.size.x , 0}) *  glm::rotate(glm::mat4(1), -glm::half_pi<float>(), {1, 0, 0});
+    float halfWidth = cloth.size.x * 0.5f;
+    glm::mat4 xform{1};
+    xform = glm::translate(xform, {0, cloth.size.x , halfWidth});
+    xform = glm::rotate(xform, -glm::half_pi<float>(), {1, 0, 0});
     auto plane = primitives::plane(cloth.gridSize.x - 1, cloth.gridSize.y - 1, cloth.size.x, cloth.size.y, xform, glm::vec4(0.4, 0.4, 0.4, 1.0));
 
     auto [min, max] = primitives::bounds(plane);
@@ -91,7 +94,7 @@ void ClothDemo::loadModel() {
     info.indexUsage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
     info.indexUsage |= VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
     //    phong::load(R"(C:\Users\Josiah Ebhomenye\OneDrive\media\models\Nissan FairladyZ 2009\basemeshobj.obj)", device, descriptorPool, model, info, true, 30);
-    phong::load(R"(C:\Users\Josiah Ebhomenye\OneDrive\media\models\werewolf.obj)", device, descriptorPool, model, info, true, 40);
+    phong::load(R"(C:\Users\Josiah Ebhomenye\OneDrive\media\models\werewolf.obj)", device, descriptorPool, model, info, true, 3);
   //  phong::load(R"(C:\Users\Josiah Ebhomenye\OneDrive\media\models\Lucy-statue\metallic-lucy-statue-stanford-scan.obj)",device, descriptorPool, model, info, true, 40);
  //   phong::load("../../data/models/bigship1.obj", device, descriptorPool, model, info, true, 40);
     modelInstance.object = rt::TriangleMesh{&model};
@@ -216,9 +219,9 @@ void ClothDemo::drawWireframe(VkCommandBuffer commandBuffer) {
         vkCmdDraw(commandBuffer, cloth.vertexCount, 1, 0, 0);
     }
 
-//    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.spaceShip);
-//    cameraController->push(commandBuffer, pipelineLayouts.spaceShip, modelInstance.xform);
-//    modelInstance.object.drawable->draw(commandBuffer, pipelineLayouts.spaceShip);
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.spaceShip);
+    cameraController->push(commandBuffer, pipelineLayouts.spaceShip, modelInstance.xform);
+    modelInstance.object.drawable->draw(commandBuffer, pipelineLayouts.spaceShip);
 }
 
 void ClothDemo::drawShaded(VkCommandBuffer commandBuffer) {
@@ -252,9 +255,9 @@ void ClothDemo::drawShaded(VkCommandBuffer commandBuffer) {
 //    vkCmdBindIndexBuffer(commandBuffer, sphere.indices, 0, VK_INDEX_TYPE_UINT32);
 //    vkCmdDrawIndexed(commandBuffer, sphere.indexCount, 1, 0, 0, 0);
 
-//      vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.spaceShip);
-//      cameraController->push(commandBuffer, pipelineLayouts.spaceShip, modelInstance.xform);
-//      modelInstance.object.drawable->draw(commandBuffer, pipelineLayouts.spaceShip);
+      vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.spaceShip);
+      cameraController->push(commandBuffer, pipelineLayouts.spaceShip, modelInstance.xform);
+      modelInstance.object.drawable->draw(commandBuffer, pipelineLayouts.spaceShip);
 
 //    renderConvexHull(commandBuffer);
 
@@ -750,7 +753,7 @@ void ClothDemo::createPositionDescriptorSet() {
     bufferInfo[1].offset = 0;
     bufferInfo[1].range = VK_WHOLE_SIZE;
 
-    bufferInfo[2].buffer = sphere.uboBuffer;
+    bufferInfo[2].buffer = modelBuffer;
     bufferInfo[2].offset = 0;
     bufferInfo[2].range = VK_WHOLE_SIZE;
 
@@ -828,7 +831,7 @@ void ClothDemo::createPositionDescriptorSet() {
 }
 
 void ClothDemo::createComputePipeline() {
-    auto computeModule = VulkanShaderModule{load("cloth_implicit.comp.spv"), device };
+    auto computeModule = VulkanShaderModule{load("cloth_triangle.comp.spv"), device };
 
     auto stage = initializers::vertexShaderStages({{computeModule, VK_SHADER_STAGE_COMPUTE_BIT}}).front();
 

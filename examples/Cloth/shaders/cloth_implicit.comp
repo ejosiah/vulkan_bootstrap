@@ -122,7 +122,7 @@ vec3 resolveRestingContact(vec3 pos, vec3 prev_pos, vec3 acc, vec3 contactNormal
     return prev_pos + velocity * dt;
 }
 
-void sphereCollisionTest(inout vec3 position){
+void collisionTest(inout vec3 position){
     vec3 p = (inverse(sphere.xform) * vec4(position, 1.0)).xyz; // bring into sphere local space
     float dist = length(p);
     float d = dist - 1;
@@ -204,7 +204,7 @@ void main(){
 
     vec3 p = 2 * pos - prev_pos + a * dt * dt;
 
-//    sphereCollisionTest(p);
+//    collisionTest(p);
 
     p.y = max(p.y, COLLISION_MARGIN);
 
