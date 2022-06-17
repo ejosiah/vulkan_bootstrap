@@ -21,6 +21,6 @@ VkPipelineTessellationStateCreateInfo &TessellationStateBuilder::buildTessellati
 
 GraphicsPipelineBuilder &TessellationStateBuilder::clear() {
     auto graphicsPipelineBuilder = reinterpret_cast<GraphicsPipelineBuilder*>(_parent);
-    graphicsPipelineBuilder->_tessellationStateBuilder = nullptr;
+    _info = {VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO};
     return *graphicsPipelineBuilder;
 }

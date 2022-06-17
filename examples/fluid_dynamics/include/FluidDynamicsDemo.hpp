@@ -48,6 +48,10 @@ protected:
 
     void renderParticles(VkCommandBuffer commandBuffer);
 
+    void renderUI(VkCommandBuffer commandBuffer);
+
+    void renderBrush(VkCommandBuffer commandBuffer);
+
     void update(float time) override;
 
     void checkAppInputs() override;
@@ -55,6 +59,10 @@ protected:
     void cleanup() override;
 
     void onPause() override;
+
+    void updateVelocityField();
+
+    void initBrush();
 
 protected:
     struct {
@@ -119,6 +127,28 @@ protected:
     VulkanDescriptorSetLayout camSetLayout;
     VkDescriptorSet cameraSet;
     VulkanBuffer camBuffer;
+
+    struct {
+        std::deque<std::tuple<glm::vec2, float>> trail;
+        std::map<int, glm::vec2> gridData;
+        VulkanBuffer patch;
+        VulkanPipeline pipeline;
+        VulkanPipelineLayout layout;
+        bool active{false};
+        struct {
+            glm::vec2 position{0.5};
+            float radius{0.05};
+        } constants;
+    } brush;
+
+    float speed{0.0f};
+    bool showGrid{true};
+    bool showVectorField{true};
+    bool showParticles{true};
+    bool debug{true};
+
+    static constexpr int PAINT_VECTOR_FIELD = 0;
+    int paintState{PAINT_VECTOR_FIELD};
 
     struct {
         int N{0};

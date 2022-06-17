@@ -34,6 +34,8 @@ layout(push_constant) uniform SimData {
 
 layout(location = 0) in vec2 particleId[];
 
+layout(location = 0) flat out vec2 out_velocity[];
+
 void main(void)
 {
     mat4 mvp = projection * view * model;
@@ -53,17 +55,21 @@ void main(void)
     float radius = 0.1 * cellSize;
     for(int i = 0; i <= NUM_SECTORS + 1; i++){
         gl_Position = mvp * vec4(position, 0, 1);
+        out_velocity[0] = v;
         EmitVertex();
 
         float angle = float(i)/NUM_SECTORS  * TWO_PI;
         float x = radius * cos(angle) + position.x;
         float y = radius * sin(angle) + position.y;
+        out_velocity[0] = v;
+
         gl_Position = mvp * vec4(x, y, 0, 1);
         EmitVertex();
 
         angle +=  TWO_PI/NUM_SECTORS;
         x = radius * cos(angle) + position.x;
         y = radius * sin(angle) + position.y;
+        out_velocity[0] = v;
         gl_Position = mvp * vec4(x, y, 0, 1);
         EmitVertex();
     }

@@ -476,6 +476,7 @@ void VulkanBaseApp::presentFrame() {
 }
 
 void VulkanBaseApp::nextFrame() {
+    mouse.left.released = mouse.middle.released = mouse.right.released = false;
     currentFrame = (currentFrame + 1)%MAX_IN_FLIGHT_FRAMES;
 }
 

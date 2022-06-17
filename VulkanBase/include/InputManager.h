@@ -85,6 +85,18 @@ struct Action{
 struct Mouse{
     glm::vec2 position{0};
     glm::vec2 relativePosition{0};
+    struct{
+        bool held{false};
+        bool released{false};
+    } left;
+    struct {
+        bool held{false};
+        bool released{false};
+    } middle;
+    struct {
+        bool held{false};
+        bool released{false};
+    } right;
 };
 
 class InputManager{
@@ -191,6 +203,16 @@ public:
         prevPos.x = event.pos.x;
         prevPos.y = event.pos.y;
 
+        if(event.button == MouseEvent::Button::LEFT){
+            mouse.left.held = true;
+        }
+        if(event.button == MouseEvent::Button::MIDDLE){
+            mouse.middle.held = true;
+        }
+        if(event.button == MouseEvent::Button::RIGHT){
+            mouse.right.held = true;
+        }
+
         int key = static_cast<int>(event.button);
         auto itr = mouseActions.find(key);
         if(itr != end(mouseActions)){
@@ -202,6 +224,8 @@ public:
         prevPos.x = prevPos.y = 0;
         mouse.relativePosition.x = 0;
         mouse.relativePosition.y = 0;
+        mouse.left.held = mouse.middle.held = mouse.right.held = false;
+        mouse.left.released = mouse.middle.released = mouse.right.released = true;
 
         int key = static_cast<int>(event.button);
         auto itr = mouseActions.find(key);

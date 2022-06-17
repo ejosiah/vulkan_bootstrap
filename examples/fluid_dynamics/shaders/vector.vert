@@ -45,7 +45,7 @@ void main(){
 
     vec2 quadtrant = sign(v1).xy;
 
-    bool q1 = all(equal(quadtrant, vec2(1, 1)));
+    bool q1 = all(equal(quadtrant, vec2(1, 1))) || all(equal(quadtrant, vec2(0, 1)));
     bool q2 = all(equal(quadtrant, vec2(-1, 1)));
     bool q3 = all(equal(quadtrant, vec2(-1, -1)));
     bool q4 = all(equal(quadtrant, vec2(1, -1)));

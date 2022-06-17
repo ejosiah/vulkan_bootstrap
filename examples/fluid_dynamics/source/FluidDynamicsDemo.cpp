@@ -2,6 +2,7 @@
 #include "GraphicsPipelineBuilder.hpp"
 #include "DescriptorSetBuilder.hpp"
 #include "fluid_dynamics_cpu.h"
+#include "ImGuiPlugin.hpp"
 
 FluidDynamicsDemo::FluidDynamicsDemo(const Settings& settings) : VulkanBaseApp("Real-Time Fluid Dynamics", settings) {
     fileManager.addSearchPath(".");
@@ -21,6 +22,7 @@ void FluidDynamicsDemo::initApp() {
     initSimData();
     initParticles();
     initCamera();
+    initBrush();
 
     createDescriptorPool();
     createDescriptorSetLayouts();
@@ -73,6 +75,7 @@ void FluidDynamicsDemo::createRenderPipeline() {
     auto builder = device.graphicsPipelineBuilder();
     grid.pipeline =
         builder
+            .allowDerivatives()
             .shaderStage()
                 .vertexShader(load("grid.vert.spv"))
                 .tessellationControlShader(load("grid.tesc.spv"))
@@ -120,6 +123,26 @@ void FluidDynamicsDemo::createRenderPipeline() {
                 .name("grid")
                 .pipelineCache(pipelineCache)
             .build(grid.layout);
+    auto builder2 = device.graphicsPipelineBuilder();
+
+    brush.pipeline =
+        builder
+            .basePipeline(grid.pipeline)
+            .shaderStage().clear()
+                .vertexShader(load("brush.vert.spv"))
+                .tessellationControlShader(load("brush.tesc.spv"))
+                .tessellationEvaluationShader(load("brush.tese.spv"))
+                .fragmentShader(load("brush.frag.spv"))
+            .vertexInputState().clear()
+                .addVertexBindingDescription(0, sizeof(glm::vec2), VK_VERTEX_INPUT_RATE_VERTEX)
+                .addVertexAttributeDescription(0, 0, VK_FORMAT_R32G32_SFLOAT, 0)
+            .tessellationState()
+                .patchControlPoints(2)
+            .layout().clear()
+                .addPushConstantRange(VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT, 0, sizeof(brush.constants))
+                .addDescriptorSetLayout(camSetLayout)
+            .name("brush")
+        .build(brush.layout);
 
     auto builder1 = device.graphicsPipelineBuilder();
     vectorView.thick.pipeline =
@@ -246,6 +269,9 @@ VkCommandBuffer *FluidDynamicsDemo::buildCommandBuffers(uint32_t imageIndex, uin
     renderGrid(commandBuffer);
     renderVectorField(commandBuffer);
     renderParticles(commandBuffer);
+    renderBrush(commandBuffer);
+    renderUI(commandBuffer);
+
     vkCmdEndRenderPass(commandBuffer);
     vkEndCommandBuffer(commandBuffer);
 
@@ -253,6 +279,7 @@ VkCommandBuffer *FluidDynamicsDemo::buildCommandBuffers(uint32_t imageIndex, uin
 }
 
 void FluidDynamicsDemo::renderGrid(VkCommandBuffer commandBuffer) {
+    if(!showGrid) return;
     int n = simData.N;
     VkDeviceSize offset = 0;
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, grid.pipeline);
@@ -263,6 +290,7 @@ void FluidDynamicsDemo::renderGrid(VkCommandBuffer commandBuffer) {
 }
 
 void FluidDynamicsDemo::renderVectorField(VkCommandBuffer commandBuffer) {
+    if(!showVectorField) return;
     int n = simData.N;
 
     VkDeviceSize  offset = 0;
@@ -278,6 +306,7 @@ void FluidDynamicsDemo::renderVectorField(VkCommandBuffer commandBuffer) {
 }
 
 void FluidDynamicsDemo::renderParticles(VkCommandBuffer commandBuffer) {
+    if(!showParticles) return;
     int n = simData.N * simData.N;
 
     VkDeviceSize  offset = 0;
@@ -292,12 +321,112 @@ void FluidDynamicsDemo::renderParticles(VkCommandBuffer commandBuffer) {
     vkCmdDraw(commandBuffer, 1, n, 0, 0);
 }
 
+void FluidDynamicsDemo::renderBrush(VkCommandBuffer commandBuffer) {
+    if(!brush.active) return;
+    VkDeviceSize offset = 0;
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, brush.pipeline);
+    vkCmdPushConstants(commandBuffer, brush.layout, VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT, 0, sizeof(brush.constants), &brush.constants);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, brush.layout, 0, 1, &cameraSet, 0, VK_NULL_HANDLE);
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, brush.patch, &offset);
+    vkCmdDraw(commandBuffer, 2, 1, 0, 0);
+
+}
+
+void FluidDynamicsDemo::renderUI(VkCommandBuffer commandBuffer) {
+    ImGui::Begin("Fluid Sim");
+    ImGui::SetWindowSize({0, 0});
+    ImGui::Checkbox("particles", &showParticles); ImGui::SameLine();
+    ImGui::Checkbox("grid", &showGrid); ImGui::SameLine();
+    ImGui::Checkbox("vector field", &showVectorField);
+    ImGui::SliderFloat("speed", &speed, 0.01, 1.0);
+
+    bool open = true;
+    brush.active = ImGui::CollapsingHeader("paint", &open, ImGuiTreeNodeFlags_DefaultOpen);
+    if(brush.active){
+        ImGui::RadioButton("vector field", &paintState, PAINT_VECTOR_FIELD);
+        ImGui::SliderFloat("brush size", &brush.constants.radius, 0.03, 0.25);
+    }
+    ImGui::End();
+
+    plugin(IM_GUI_PLUGIN).draw(commandBuffer);
+}
+
 void FluidDynamicsDemo::update(float time) {
-    constants.dt = time * 0.05f;
+    constants.dt = time * speed;
 }
 
 void FluidDynamicsDemo::checkAppInputs() {
-    VulkanBaseApp::checkAppInputs();
+    if(!ImGui::IsAnyItemActive()) {
+        if (brush.active && mouse.left.held) {
+            auto pos = mousePositionToWorldSpace(camera).xy();
+            brush.trail.push_front(std::make_tuple(pos, elapsedTime));
+            brush.constants.position = pos;
+            float cellSize = 1.f/simData.N;
+            int steps = (int(brush.constants.radius/cellSize));
+
+            auto n = static_cast<float>(simData.N);
+            for(int i = -steps; i <= steps; i++){
+                for(int j = -steps; j <= steps; j++){
+                    auto next = begin(brush.trail);
+
+                    auto [curPosition, time] = *next;
+                    auto offset = glm::vec2{i, j} * cellSize;
+                    auto cellId = glm::ivec2(glm::floor((curPosition +  offset) * n));
+
+                    glm::vec2 prevCenter{0};
+                    float prevTime{0};
+                    std::advance(next, 1);
+//                    if(brush.trail.size() > 10) {
+//                        spdlog::info("{}", *next);
+//                    }
+                    while(next != end(brush.trail)){
+                        auto [prevPos, dt] = *next;
+                        for(int k = -steps; k <= steps; k++){
+                            for(int l = -steps; l <= steps; l++){
+                                auto preOffset = glm::vec2{k, l} * cellSize;
+                                auto prevCellId = glm::ivec2(glm::floor((prevPos + preOffset) * n));
+//                                spdlog::info("{} =? {}", cellId, prevCellId);
+                                if(prevCellId == cellId){
+                                    prevCenter = prevPos;
+                                    prevTime = dt;
+
+                                }
+                            }
+                        }
+                        if(glm::all(glm::notEqual(glm::vec2(0), prevCenter))) {
+//                            spdlog::info("pn+1: {}, tn+1: {}, pn: {}, tn: {}", curPosition, elapsedTime, prevCenter,
+//                                         prevTime);
+                        }
+                        auto t = time - prevTime;
+                        auto v = (curPosition - prevCenter)/t;
+                        auto id = cellId.x * simData.N + cellId.y;
+                        simData.u[0][id] = v.x;
+                        simData.v[0][id] = v.y;
+                        std::advance(next, 1);
+                    }
+                }
+            }
+
+        }else if (brush.active && mouse.left.released){
+            brush.trail.clear();
+        }
+        else if (debug && mouse.left.released) {
+            auto pos = mousePositionToWorldSpace(camera).xy();
+            glm::ivec2 gridId = floor(pos.xy() * static_cast<float>(simData.N));
+            int id = gridId.y * simData.N + gridId.x;
+            glm::vec2 v{simData.u[0][id], simData.v[0][id]};
+            std::vector<glm::vec2> gridCellParticles;
+            for (int i = 0; i < particles.particleBuffer.sizeAs<glm::vec2>(); i++) {
+                auto p = particles.particlePtr[i];
+                gridId = floor(p.xy() * static_cast<float>(simData.N));
+                int id1 = gridId.y * simData.N + gridId.x;
+                if (id == id1) {
+                    gridCellParticles.push_back(p);
+                }
+            }
+            spdlog::info("cellID: {}, velocity: {}, particles: {}", id, v, gridCellParticles);
+        }
+    }
 }
 
 void FluidDynamicsDemo::cleanup() {
@@ -344,11 +473,11 @@ void FluidDynamicsDemo::initSimData() {
 //            float u = glm::cos(x) * glm::sin(y);
 //            float v = glm::sin(x) * glm::sin(y);
 
-            simData.u[0][id] = u;
-            simData.u[1][id] = u;
+            simData.u[0][id] = 0;
+            simData.u[1][id] = 0;
 
-            simData.v[0][id] = v;
-            simData.v[1][id] = v;
+            simData.v[0][id] = 1;
+            simData.v[1][id] = 1;
         }
     }
 
@@ -525,6 +654,15 @@ void FluidDynamicsDemo::initParticles() {
     particles.particlePtr = reinterpret_cast<glm::vec2*>(particles.particleBuffer.map());
 }
 
+void FluidDynamicsDemo::updateVelocityField() {
+
+}
+
+void FluidDynamicsDemo::initBrush() {
+    std::vector<glm::vec2> data(2, glm::vec2(0));
+    brush.patch = device.createDeviceLocalBuffer(data.data(), BYTE_SIZE(data), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+}
+
 int main(){
     try{
 
@@ -538,6 +676,8 @@ int main(){
         settings.depthTest = true;
 
         auto app = FluidDynamicsDemo{ settings };
+        std::unique_ptr<Plugin> plugin = std::make_unique<ImGuiPlugin>();
+        app.addPlugin(plugin);
         app.run();
     }catch(std::runtime_error& err){
         spdlog::error(err.what());

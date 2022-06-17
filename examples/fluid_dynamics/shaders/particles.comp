@@ -1,0 +1,35 @@
+#version 450
+
+layout(local_size_x_id = 100) in;
+
+layout(set = 1, binding = 0) buffer vector_u {
+    float u[];
+};
+
+layout(set = 1, binding = 1) buffer vector_v {
+    float v[];
+};
+
+layout(set = 2, binding = 0) buffer PARTICLE{
+    vec2 particles[];
+};
+
+layout(push_constant) uniform SimData {
+    int N;
+    float maxMagintue;
+    float dt;
+};
+
+
+void main(){
+    int particleId = int(gl_GlobalInvocationID.x);
+    float cellSize = 1/float(N);
+    vec2 position = particles[particleId];
+    vec2 cellId = floor(position * N);
+    int index = int(cellId.x * N + cellId.y);
+
+    vec2 v =  vec2(u[index], v[index]);
+    position += v * dt;
+
+    particles[particleId] = position;
+}
