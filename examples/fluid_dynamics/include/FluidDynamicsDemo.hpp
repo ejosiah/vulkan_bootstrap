@@ -86,6 +86,7 @@ protected:
         std::array<float*, 2> density{};
         std::array<float*, 2> u{};
         std::array<float*, 2> v{};
+        VkDeviceSize size;
         int N{30};
         float diff{1};
         float visc{1};

@@ -39,6 +39,7 @@
 #include <entt/entt.hpp>
 #include "Entity.hpp"
 #include "components.h"
+#include "ThreadPool.hpp"
 
 #ifndef NDEBUG
 constexpr bool enableValidation = true;
@@ -256,7 +257,7 @@ protected:
 
     byte_string load(const std::string& resource);
 
-    std::string resource(const std::string name);
+    std::string resource(const std::string& name);
 
     Entity createEntity(const std::string& name);
 
@@ -267,6 +268,12 @@ protected:
     glm::vec3 mousePositionToWorldSpace(const Camera& camera);
 
     void renderEntities(VkCommandBuffer commandBuffer, entt::registry& registry);
+
+    void onIdle(Proc&& proc);
+
+    void processIdleProcs();
+
+    void runInBackground(Proc&& proc);
 
 private:
     void setPaused(bool flag);
@@ -323,6 +330,9 @@ protected:
     static const std::string kAttachment_BACK;
     static const std::string kAttachment_MSAA;
     static const std::string kAttachment_DEPTH;
+
+    std::deque<Proc> idleProcs;
+    par::ThreadPool threadPool{1};
 
 private:
     static VulkanBaseApp* appInstance;

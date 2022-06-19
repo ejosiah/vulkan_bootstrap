@@ -207,3 +207,5 @@ constexpr uint nearestMultiple(uint n, uint x) {
     uint nModx = n % x;
     return nModx == 0 ? n : n + x - nModx;
 }
+
+using Proc = std::function<void()>;

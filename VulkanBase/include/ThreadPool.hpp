@@ -10,7 +10,7 @@ namespace par{
     public:
         using UniqueFunction = std::packaged_task<void()>;
 
-        explicit ThreadPool(unsigned int size);
+        ThreadPool(unsigned int size);
 
         ~ThreadPool();
 

@@ -46,7 +46,6 @@ void VulkanBaseApp::init() {
     exit = &mapToKey(Key::ESCAPE, "Exit", Action::detectInitialPressOnly());
     pause = &mapToKey(Key::P, "Pause", Action::detectInitialPressOnly());
     addPluginExtensions();
-
     initVulkan();
     postVulkanInit();
 
@@ -268,6 +267,7 @@ void VulkanBaseApp::mainLoop() {
             drawFrame();
             presentFrame();
             notifyPluginsOfEndFrame();
+            processIdleProcs();
             endFrame();
             nextFrame();
         }else{
@@ -688,7 +688,7 @@ byte_string VulkanBaseApp::load(const std::string &resource) {
     return fileManager.load(resource);
 }
 
-std::string VulkanBaseApp::resource(const std::string name) {
+std::string VulkanBaseApp::resource(const std::string& name) {
     auto res = fileManager.getFullPath(name);
     assert(res.has_value());
     return res->string();
@@ -783,4 +783,21 @@ void VulkanBaseApp::renderEntities(VkCommandBuffer commandBuffer, entt::registry
 
 inline InputManager &VulkanBaseApp::inputManager() {
     return dynamic_cast<InputManager&>(*this);
+}
+
+
+void VulkanBaseApp::onIdle(Proc &&proc) {
+    idleProcs.push_back(proc);
+}
+
+void VulkanBaseApp::processIdleProcs() {
+    while(!idleProcs.empty()){
+        auto proc = idleProcs.front();
+        proc();
+        idleProcs.pop_front();
+    }
+}
+
+void VulkanBaseApp::runInBackground(Proc &&proc) {
+    threadPool.async(proc);
 }

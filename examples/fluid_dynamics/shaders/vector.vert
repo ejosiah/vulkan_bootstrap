@@ -36,9 +36,9 @@ vec3 heatMap(vec3 u){
 }
 
 void main(){
-    int i = gl_InstanceIndex % N;
-    int j = gl_InstanceIndex / N;
-    int id = i * N + j;
+    int i = gl_InstanceIndex % N + 1;
+    int j = gl_InstanceIndex / N + 1;
+    int id = j * (N + 2) + i;
     vec3 v =  vec3(u[id], v[id], 0);
     vec3 v1 = normalize(v);
     float angle = 0;
@@ -67,8 +67,8 @@ void main(){
     );
 
     float cellSize = 1/float(N);
-    float x = i * cellSize;
-    float y = j * cellSize;
+    float x = (i-1) * cellSize;
+    float y = (j-1) * cellSize;
     float scale = 0.3;
     vec2 p = vec2(rotor * (scale * position));
 

@@ -379,6 +379,7 @@ void FluidDynamicsDemo::checkAppInputs() {
 //                    if(brush.trail.size() > 10) {
 //                        spdlog::info("{}", *next);
 //                    }
+                    bool moved = false;
                     while(next != end(brush.trail)){
                         auto [prevPos, dt] = *next;
                         for(int k = -steps; k <= steps; k++){
@@ -393,10 +394,16 @@ void FluidDynamicsDemo::checkAppInputs() {
                                 }
                             }
                         }
-                        if(glm::all(glm::notEqual(glm::vec2(0), prevCenter))) {
+//                        if(glm::all(glm::notEqual(glm::vec2(0), prevCenter))) {
 //                            spdlog::info("pn+1: {}, tn+1: {}, pn: {}, tn: {}", curPosition, elapsedTime, prevCenter,
 //                                         prevTime);
+//                        }
+
+                        if(glm::all(glm::equal(curPosition, prevCenter))){
+                            std::advance(next, 1);
+                            continue;
                         }
+
                         auto t = time - prevTime;
                         auto v = (curPosition - prevCenter)/t;
                         auto id = cellId.x * simData.N + cellId.y;
@@ -443,8 +450,8 @@ void FluidDynamicsDemo::onPause() {
 
 void FluidDynamicsDemo::initSimData() {
     const int N = simData.N;
-    VkDeviceSize size = N * N;
-    auto byteSize =  size * sizeof(float);
+    simData.size = (N+2) * (N+2);
+    auto byteSize =  simData.size  * sizeof(float);
     simData.densityBuffer[0] = device.createBuffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, byteSize,  "density_0");
     simData.densityBuffer[1] = device.createBuffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, byteSize,  "density_1");
 
@@ -457,11 +464,11 @@ void FluidDynamicsDemo::initSimData() {
     simData.u[0] = reinterpret_cast<float*>(simData.velocityBuffer[0].map());
     simData.u[1] = reinterpret_cast<float*>(simData.velocityBuffer[1].map());
 
-    simData.v[0] = simData.u[0] + size;
-    simData.v[1] = simData.u[1] + size;
-    for(int i = 0; i <  N; i++){
-        for(int j = 0; j < N; j++){
-            int id = i * N + j;
+    simData.v[0] = simData.u[0] + simData.size ;
+    simData.v[1] = simData.u[1] + simData.size ;
+    for(int i = 1; i <=  N; i++){
+        for(int j = 1; j <= N; j++){
+            int id = i * (N+2) + j;
             float x = 10.f * static_cast<float>(i)/static_cast<float>(N) - 5;
             float y = 10.f * static_cast<float>(j)/static_cast<float>(N) - 5;
             float u = y * y * y - 9.f * y;
@@ -483,7 +490,9 @@ void FluidDynamicsDemo::initSimData() {
 
     float maxMagnitude{std::numeric_limits<float>::min()};
 
-    for(int i = 0; i < size; i++){
+    auto i = simData.N + 2;
+    auto end = simData.N * (simData.N + 2) + simData.N + 1;
+    for(i = 0; i < end; i++){
         glm::vec2 u{simData.u[0][i], simData.v[0][i]};
         auto magnitude = glm::length(u);
         maxMagnitude = glm::max(maxMagnitude, magnitude);
@@ -567,7 +576,7 @@ void FluidDynamicsDemo::updateDescriptorSets() {
     VkDescriptorBufferInfo camInfo{ camBuffer, 0, VK_WHOLE_SIZE};
     writes[0].pBufferInfo = &camInfo;
 
-    VkDeviceSize  size = sizeof(float) * simData.N * simData.N;
+    VkDeviceSize  size = sizeof(float) * simData.size;
     writes[1].dstSet = simData.descriptorSets[0];
     writes[1].dstBinding = 0;
     writes[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;

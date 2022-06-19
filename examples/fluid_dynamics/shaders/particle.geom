@@ -43,8 +43,8 @@ void main(void)
     float cellSize = 1/float(N);
     vec2 particle = particles[int(particleId[0].x)];
     vec2 position = particle;
-    vec2 cellId = floor(position * N); // TODO consider particle outside grid
-    int index = int(cellId.x * N + cellId.y);
+    vec2 cellId = floor(position * N) + vec2(1,1);
+    int index = int(cellId.x * (N+2) + cellId.y);
 
 //    if(index >= 0 && index < N * N){
         vec2 v =  vec2(u[index], v[index]);
