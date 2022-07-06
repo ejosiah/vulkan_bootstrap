@@ -18,11 +18,15 @@ FluidDynamicsDemo::FluidDynamicsDemo(const Settings& settings) : VulkanBaseApp("
 
 void FluidDynamicsDemo::initApp() {
     initGrid();
-    initVectorView();
+    initVectorRender();
+    initDensityRender();
+    initRenderBuffer();
     initSimData();
     initParticles();
     initCamera();
     initBrush();
+    createUVTexture();
+    initFluidSim();
 
     createDescriptorPool();
     createDescriptorSetLayouts();
@@ -201,6 +205,27 @@ void FluidDynamicsDemo::createRenderPipeline() {
             .name("vector_thin")
         .build(vectorView.thin.layout);
 
+    density.pipeline =
+        builder1
+            .basePipeline(vectorView.thick.pipeline)
+            .shaderStage().clear()
+                .vertexShader(load("density.vert.spv"))
+                .fragmentShader(load("density.frag.spv"))
+            .inputAssemblyState()
+                .triangles()
+            .colorBlendState()
+                .attachment().clear()
+                .enableBlend()
+                .colorBlendOp().add()
+                .alphaBlendOp().add()
+                .srcColorBlendFactor().srcAlpha()
+                .dstColorBlendFactor().oneMinusSrcAlpha()
+                .srcAlphaBlendFactor().zero()
+                .dstAlphaBlendFactor().one()
+                .add()
+            .name("density")
+        .build(density.layout);
+
     particles.pipeline =
         builder1
             .basePipeline(vectorView.thick.pipeline)
@@ -210,6 +235,8 @@ void FluidDynamicsDemo::createRenderPipeline() {
                 .fragmentShader(load("particle.frag.spv"))
             .inputAssemblyState()
                 .points()
+            .colorBlendState()
+                .attachments(1)
             .layout().clear()
                 .addPushConstantRange( VK_SHADER_STAGE_GEOMETRY_BIT, 0, sizeof(constants))
                 .addDescriptorSetLayout(camSetLayout)
@@ -217,6 +244,22 @@ void FluidDynamicsDemo::createRenderPipeline() {
                 .addDescriptorSetLayout(particles.setLayout)
             .name("particles")
         .build(particles.layout);
+
+    render.pipeline =
+        builder1
+            .basePipeline(vectorView.thick.pipeline)
+            .shaderStage().clear()
+                .vertexShader(load("render.vert.spv"))
+                .fragmentShader(load("render.frag.spv"))
+            .vertexInputState().clear()
+                .addVertexBindingDescriptions(ClipSpace::bindingDescription())
+                .addVertexAttributeDescriptions(ClipSpace::attributeDescriptions())
+            .inputAssemblyState()
+                .triangleStrip()
+            .layout().clear()
+                .addDescriptorSetLayout(textureDescriptorSetLayout)
+            .name("render")
+        .build(render.layout);
 
     //    @formatter:on
 }
@@ -266,10 +309,12 @@ VkCommandBuffer *FluidDynamicsDemo::buildCommandBuffers(uint32_t imageIndex, uin
 
     vkCmdBeginRenderPass(commandBuffer, &rPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
+//    renderImage(commandBuffer);
     renderGrid(commandBuffer);
     renderVectorField(commandBuffer);
     renderParticles(commandBuffer);
     renderBrush(commandBuffer);
+    renderDensityField(commandBuffer);
     renderUI(commandBuffer);
 
     vkCmdEndRenderPass(commandBuffer);
@@ -305,6 +350,21 @@ void FluidDynamicsDemo::renderVectorField(VkCommandBuffer commandBuffer) {
 
 }
 
+void FluidDynamicsDemo::renderDensityField(VkCommandBuffer commandBuffer) {
+    if(!showDensityField) return;
+    int n = simData.N;
+
+    VkDeviceSize  offset = 0;
+    static std::array<VkDescriptorSet, 2> sets;
+    sets[0] = cameraSet;
+    sets[1] = simData.descriptorSets[0];
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, density.pipeline);
+    vkCmdPushConstants(commandBuffer, density.layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(constants), &constants);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, density.layout, 0, COUNT(sets), sets.data(), 0, VK_NULL_HANDLE);
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, density.vertexBuffer, &offset);
+    vkCmdDraw(commandBuffer, density.vertexBuffer.sizeAs<glm::vec2>(), n * n, 0, 0);
+}
+
 void FluidDynamicsDemo::renderParticles(VkCommandBuffer commandBuffer) {
     if(!showParticles) return;
     int n = simData.N * simData.N;
@@ -332,6 +392,14 @@ void FluidDynamicsDemo::renderBrush(VkCommandBuffer commandBuffer) {
 
 }
 
+void FluidDynamicsDemo::renderImage(VkCommandBuffer commandBuffer) {
+    VkDeviceSize offset = 0;
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, render.pipeline);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, render.layout, 0, 1, &textureDescriptorSet, 0, VK_NULL_HANDLE);
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, render.vertexBuffer, &offset);
+    vkCmdDraw(commandBuffer, 4, 1, 0, 0);
+}
+
 void FluidDynamicsDemo::renderUI(VkCommandBuffer commandBuffer) {
     ImGui::Begin("Fluid Sim");
     ImGui::SetWindowSize({0, 0});
@@ -343,75 +411,56 @@ void FluidDynamicsDemo::renderUI(VkCommandBuffer commandBuffer) {
     bool open = true;
     brush.active = ImGui::CollapsingHeader("paint", &open, ImGuiTreeNodeFlags_DefaultOpen);
     if(brush.active){
-        ImGui::RadioButton("vector field", &paintState, PAINT_VECTOR_FIELD);
+//        ImGui::RadioButton("vector field", &paintState, PAINT_VECTOR_FIELD);
+//        ImGui::RadioButton("density field", &paintState, PAINT_DENSITY_FIELD);
+        ImGui::RadioButton("Vector Field", &paintState, 0); ImGui::SameLine();
+        ImGui::RadioButton("Density Field", &paintState, 1); ImGui::SameLine();
+        ImGui::Checkbox("erase", &brush.erase);
         ImGui::SliderFloat("brush size", &brush.constants.radius, 0.03, 0.25);
     }
+    simStarted |= ImGui::Button("start sim");
     ImGui::End();
 
     plugin(IM_GUI_PLUGIN).draw(commandBuffer);
 }
 
+static bool first = true;
+
 void FluidDynamicsDemo::update(float time) {
     constants.dt = time * speed;
+
+    if(simStarted){
+
+//        runInBackground([&]{
+//            auto dt = float(1.0f/simData.N);
+//            fluid_sim(simData.N, dt, 1.0, 0, simData.u[1], simData.v[1], simData.u[0], simData.v[0], simData.density[0], simData.density[1]);
+//        });
+        gpuSimulation();
+    }
+}
+
+void FluidDynamicsDemo::gpuSimulation() {
+    if(first){
+//        first = false;
+        simCommandPool.oneTimeCommand([&](auto commandBuffer){
+            fluidSim.advect(commandBuffer);
+//            fluidSim.calculateDivergence(commandBuffer);
+        });
+        auto div =  simData.u[0];
+        const auto N = simData.N;
+        for(int i = N; i < N + 10; i++){
+            spdlog::info("{} => {}", i , div[i]);
+        }
+    }
 }
 
 void FluidDynamicsDemo::checkAppInputs() {
     if(!ImGui::IsAnyItemActive()) {
         if (brush.active && mouse.left.held) {
-            auto pos = mousePositionToWorldSpace(camera).xy();
-            brush.trail.push_front(std::make_tuple(pos, elapsedTime));
-            brush.constants.position = pos;
-            float cellSize = 1.f/simData.N;
-            int steps = (int(brush.constants.radius/cellSize));
-
-            auto n = static_cast<float>(simData.N);
-            for(int i = -steps; i <= steps; i++){
-                for(int j = -steps; j <= steps; j++){
-                    auto next = begin(brush.trail);
-
-                    auto [curPosition, time] = *next;
-                    auto offset = glm::vec2{i, j} * cellSize;
-                    auto cellId = glm::ivec2(glm::floor((curPosition +  offset) * n));
-
-                    glm::vec2 prevCenter{0};
-                    float prevTime{0};
-                    std::advance(next, 1);
-//                    if(brush.trail.size() > 10) {
-//                        spdlog::info("{}", *next);
-//                    }
-                    bool moved = false;
-                    while(next != end(brush.trail)){
-                        auto [prevPos, dt] = *next;
-                        for(int k = -steps; k <= steps; k++){
-                            for(int l = -steps; l <= steps; l++){
-                                auto preOffset = glm::vec2{k, l} * cellSize;
-                                auto prevCellId = glm::ivec2(glm::floor((prevPos + preOffset) * n));
-//                                spdlog::info("{} =? {}", cellId, prevCellId);
-                                if(prevCellId == cellId){
-                                    prevCenter = prevPos;
-                                    prevTime = dt;
-
-                                }
-                            }
-                        }
-//                        if(glm::all(glm::notEqual(glm::vec2(0), prevCenter))) {
-//                            spdlog::info("pn+1: {}, tn+1: {}, pn: {}, tn: {}", curPosition, elapsedTime, prevCenter,
-//                                         prevTime);
-//                        }
-
-                        if(glm::all(glm::equal(curPosition, prevCenter))){
-                            std::advance(next, 1);
-                            continue;
-                        }
-
-                        auto t = time - prevTime;
-                        auto v = (curPosition - prevCenter)/t;
-                        auto id = cellId.x * simData.N + cellId.y;
-                        simData.u[0][id] = v.x;
-                        simData.v[0][id] = v.y;
-                        std::advance(next, 1);
-                    }
-                }
+            if(paintState == PAINT_VECTOR_FIELD) {
+                updateVelocityField();
+            }else if(paintState == PAINT_DENSITY_FIELD){
+                updateDensityField();
             }
 
         }else if (brush.active && mouse.left.released){
@@ -425,13 +474,13 @@ void FluidDynamicsDemo::checkAppInputs() {
             std::vector<glm::vec2> gridCellParticles;
             for (int i = 0; i < particles.particleBuffer.sizeAs<glm::vec2>(); i++) {
                 auto p = particles.particlePtr[i];
-                gridId = floor(p.xy() * static_cast<float>(simData.N));
+                glm::ivec2 gridId = floor(p.xy() * static_cast<float>(simData.N));
                 int id1 = gridId.y * simData.N + gridId.x;
                 if (id == id1) {
                     gridCellParticles.push_back(p);
                 }
             }
-            spdlog::info("cellID: {}, velocity: {}, particles: {}", id, v, gridCellParticles);
+            spdlog::info("id: {}, gridID: {}, velocity: {}", id, glm::vec2(gridId), v);
         }
     }
 }
@@ -440,8 +489,11 @@ void FluidDynamicsDemo::cleanup() {
     simData.densityBuffer[0].unmap();
     simData.densityBuffer[1].unmap();
 
-    simData.velocityBuffer[0].unmap();
-    simData.velocityBuffer[1].unmap();
+    simData.uBuffer[0].unmap();
+    simData.uBuffer[1].unmap();
+
+    simData.vBuffer[0].unmap();
+    simData.vBuffer[1].unmap();
 }
 
 void FluidDynamicsDemo::onPause() {
@@ -455,36 +507,37 @@ void FluidDynamicsDemo::initSimData() {
     simData.densityBuffer[0] = device.createBuffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, byteSize,  "density_0");
     simData.densityBuffer[1] = device.createBuffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, byteSize,  "density_1");
 
-    simData.velocityBuffer[0] = device.createBuffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, byteSize * 2,  "velocity_0");
-    simData.velocityBuffer[1] = device.createBuffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, byteSize * 2,  "velocity_1");
+    simData.uBuffer[0] = device.createBuffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, byteSize ,  "velocity_u_0");
+    simData.uBuffer[1] = device.createBuffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, byteSize,  "velocity_u_1");
+
+    simData.vBuffer[0] = device.createBuffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, byteSize ,  "velocity_v_0");
+    simData.vBuffer[1] = device.createBuffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, byteSize,  "velocity_v_1");
 
     simData.density[0] = reinterpret_cast<float*>(simData.densityBuffer[0].map());
     simData.density[1] = reinterpret_cast<float*>(simData.densityBuffer[1].map());
 
-    simData.u[0] = reinterpret_cast<float*>(simData.velocityBuffer[0].map());
-    simData.u[1] = reinterpret_cast<float*>(simData.velocityBuffer[1].map());
+    simData.u[0] = reinterpret_cast<float*>(simData.uBuffer[0].map());
+    simData.u[1] = reinterpret_cast<float*>(simData.uBuffer[1].map());
 
-    simData.v[0] = simData.u[0] + simData.size ;
-    simData.v[1] = simData.u[1] + simData.size ;
+    simData.v[0] = reinterpret_cast<float*>(simData.vBuffer[0].map());
+    simData.v[1] = reinterpret_cast<float*>(simData.vBuffer[1].map());
+
     for(int i = 1; i <=  N; i++){
         for(int j = 1; j <= N; j++){
             int id = i * (N+2) + j;
-            float x = 10.f * static_cast<float>(i)/static_cast<float>(N) - 5;
-            float y = 10.f * static_cast<float>(j)/static_cast<float>(N) - 5;
-            float u = y * y * y - 9.f * y;
-            float v = x * x * x - 9 * x;
+            float x = 2.f * static_cast<float>(j-1)/static_cast<float>(N) - 1;
+            float y = 2.f * static_cast<float>(i-1)/static_cast<float>(N) - 1;
+//            float u = sin(2 * glm::pi<float>() * y);
+//            float v = cos(2 * glm::pi<float>() * x);
 
 //            float x = static_cast<float>(i)/static_cast<float>(N) * glm::two_pi<float>();
 //            float y = static_cast<float>(j)/static_cast<float>(N) * glm::pi<float>();
 //
-//            float u = glm::cos(x) * glm::sin(y);
-//            float v = glm::sin(x) * glm::sin(y);
+            float u = glm::cos(x) * glm::sin(y);
+            float v = glm::sin(x) * glm::sin(y);
 
-            simData.u[0][id] = 0;
-            simData.u[1][id] = 0;
-
-            simData.v[0][id] = 1;
-            simData.v[1][id] = 1;
+            simData.u[0][id] = u;
+            simData.v[0][id] = v;
         }
     }
 
@@ -500,6 +553,19 @@ void FluidDynamicsDemo::initSimData() {
 
     constants.N = simData.N;
     constants.maxMagnitude = maxMagnitude;
+}
+
+void FluidDynamicsDemo::initFluidSim() {
+//    auto dt = (1.0f/static_cast<float>(simData.N) * 5)/constants.maxMagnitude;
+    auto dt = 1.0f/static_cast<float>(simData.N);
+    spdlog::info("dt: {}", dt);
+    fluidSim = FluidSim{ &device, fileManager, simData.uBuffer[0], simData.vBuffer[0]
+            , simData.uBuffer[1], simData.vBuffer[1], simData.densityBuffer[0]
+            , simData.densityBuffer[1], simData.N, dt, 1.0};
+    fluidSim.init();
+//    fluidSim.set(colorTexture);
+    simCommandPool = device.createCommandPool(*device.queueFamilyIndex.compute, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
+
 }
 
 void FluidDynamicsDemo::initGrid() {
@@ -528,6 +594,14 @@ void FluidDynamicsDemo::createDescriptorSetLayouts() {
                 .descriptorCount(1)
                 .shaderStages(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT | VK_SHADER_STAGE_GEOMETRY_BIT)
             .createLayout();
+    
+    textureDescriptorSetLayout =
+        device.descriptorSetLayoutBuilder()
+            .binding(0)
+                .descriptorType(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
+                .descriptorCount(1)
+                .shaderStages(VK_SHADER_STAGE_FRAGMENT_BIT)
+            .createLayout();
 
     auto stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_GEOMETRY_BIT | VK_SHADER_STAGE_COMPUTE_BIT;
     simData.setLayout =
@@ -555,19 +629,21 @@ void FluidDynamicsDemo::createDescriptorSetLayouts() {
             .createLayout();
 
 
-    auto sets = descriptorPool.allocate({ camSetLayout, simData.setLayout, simData.setLayout, particles.setLayout });
+    auto sets = descriptorPool.allocate({ camSetLayout, simData.setLayout, simData.setLayout, particles.setLayout, textureDescriptorSetLayout });
     cameraSet = sets[0];
     simData.descriptorSets[0] = sets[1];
     simData.descriptorSets[1] = sets[2];
     particles.descriptorSet = sets[3];
+    textureDescriptorSet = sets[4];
 
     device.setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>("sim_data", simData.descriptorSets[0]);
     device.setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>("sim_data_prev", simData.descriptorSets[1]);
     device.setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>("particles", particles.descriptorSet);
+    device.setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>("image_texture", textureDescriptorSet);
 }
 
 void FluidDynamicsDemo::updateDescriptorSets() {
-    auto writes = initializers::writeDescriptorSets<8>();
+    auto writes = initializers::writeDescriptorSets<9>();
     
     writes[0].dstSet = cameraSet;
     writes[0].dstBinding = 0;
@@ -581,35 +657,35 @@ void FluidDynamicsDemo::updateDescriptorSets() {
     writes[1].dstBinding = 0;
     writes[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     writes[1].descriptorCount = 1;
-    VkDescriptorBufferInfo uInfo{simData.velocityBuffer[0], 0, size};
+    VkDescriptorBufferInfo uInfo{simData.uBuffer[0], 0, VK_WHOLE_SIZE};
     writes[1].pBufferInfo = &uInfo;
 
     writes[2].dstSet = simData.descriptorSets[0];
     writes[2].dstBinding = 1;
     writes[2].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     writes[2].descriptorCount = 1;
-    VkDescriptorBufferInfo vInfo{simData.velocityBuffer[0], size, VK_WHOLE_SIZE};
+    VkDescriptorBufferInfo vInfo{simData.vBuffer[0], 0, VK_WHOLE_SIZE};
     writes[2].pBufferInfo = &vInfo;
 
     writes[3].dstSet = simData.descriptorSets[0];
     writes[3].dstBinding = 2;
     writes[3].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     writes[3].descriptorCount = 1;
-    VkDescriptorBufferInfo densInfo{simData.densityBuffer[1], 0, size};
+    VkDescriptorBufferInfo densInfo{simData.densityBuffer[0], 0, VK_WHOLE_SIZE};
     writes[3].pBufferInfo = &densInfo;
 
     writes[4].dstSet = simData.descriptorSets[1];
     writes[4].dstBinding = 0;
     writes[4].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     writes[4].descriptorCount = 1;
-    VkDescriptorBufferInfo uInfo1{simData.velocityBuffer[1], 0, size};
+    VkDescriptorBufferInfo uInfo1{simData.uBuffer[1], 0, VK_WHOLE_SIZE};
     writes[4].pBufferInfo = &uInfo1;
 
     writes[5].dstSet = simData.descriptorSets[1];
     writes[5].dstBinding = 1;
     writes[5].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     writes[5].descriptorCount = 1;
-    VkDescriptorBufferInfo vInfo1{simData.velocityBuffer[1], size, VK_WHOLE_SIZE};
+    VkDescriptorBufferInfo vInfo1{simData.vBuffer[1], 0, VK_WHOLE_SIZE};
     writes[5].pBufferInfo = &vInfo1;
 
     writes[6].dstSet = simData.descriptorSets[1];
@@ -626,11 +702,17 @@ void FluidDynamicsDemo::updateDescriptorSets() {
     VkDescriptorBufferInfo particleInfo{particles.particleBuffer, 0, VK_WHOLE_SIZE};
     writes[7].pBufferInfo = &particleInfo;
 
+    writes[8].dstSet = textureDescriptorSet;
+    writes[8].dstBinding = 0;
+    writes[8].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    writes[8].descriptorCount = 1;
+    VkDescriptorImageInfo imageInfo{colorTexture.sampler, colorTexture.imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+    writes[8].pImageInfo = &imageInfo;
     
     device.updateDescriptorSets(writes);
 }
 
-void FluidDynamicsDemo::initVectorView() {
+void FluidDynamicsDemo::initVectorRender() {
     std::vector<glm::vec2> vertices {
             {-0.5, 0.5}, {0.0, 0.0}, {0.5, 0.0},
             {0.5, 0.0}, {0.0, 0.0}, {-0.5, -0.5}
@@ -643,6 +725,21 @@ void FluidDynamicsDemo::initVectorView() {
             {0.5, 0.0}, {0.25, -0.25}
     };
     vectorView.thin.vertexBuffer = device.createDeviceLocalBuffer(vertices.data(), BYTE_SIZE(vertices), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+}
+
+void FluidDynamicsDemo::initDensityRender() {
+    std::vector<glm::vec2> vertices {
+            {0, 0}, {1, 0}, {0, 1},
+            {0, 1}, {1, 0}, {1, 1}
+    };
+
+    density.vertexBuffer = device.createDeviceLocalBuffer(vertices.data(), BYTE_SIZE(vertices), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+}
+
+void FluidDynamicsDemo::initRenderBuffer() {
+    auto vertices = ClipSpace::Quad::positions;
+    render.vertexBuffer = device.createDeviceLocalBuffer(vertices.data(), BYTE_SIZE(vertices), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+
 }
 
 void FluidDynamicsDemo::initParticles() {
@@ -664,7 +761,103 @@ void FluidDynamicsDemo::initParticles() {
 }
 
 void FluidDynamicsDemo::updateVelocityField() {
+    auto pos = mousePositionToWorldSpace(camera).xy();
+    brush.trail.push_front(std::make_tuple(pos, elapsedTime));
+    brush.constants.position = pos;
+    float cellSize = 1.f/simData.N;
+    int steps = (int(brush.constants.radius/cellSize));
 
+    auto n = static_cast<float>(simData.N);
+    int min = simData.N + 1;
+    int max = simData.N * (simData.N+2) + simData.N;
+    for(int i = -steps; i <= steps; i++){
+        for(int j = -steps; j <= steps; j++){
+            auto next = begin(brush.trail);
+
+            auto [curPosition, time] = *next;
+            auto offset = glm::vec2{i, j} * cellSize;
+            auto cellId = glm::ivec2(glm::floor((curPosition +  offset) * n));
+            cellId += 1;
+            auto id = cellId.y * (simData.N+2) + cellId.x;
+            if(id < min || id > max) continue;
+
+            if(brush.erase){
+                simData.u[0][id] = 0;
+                simData.v[0][id] = 0;
+                continue;
+            }
+
+
+            glm::vec2 prevCenter{0};
+            float prevTime{0};
+            std::advance(next, 1);
+//                    if(brush.trail.size() > 10) {
+//                        spdlog::info("{}", *next);
+//                    }
+            bool moved = false;
+            while(next != end(brush.trail)){
+                auto [prevPos, dt] = *next;
+                for(int k = -steps; k <= steps; k++){
+                    for(int l = -steps; l <= steps; l++){
+                        auto preOffset = glm::vec2{k, l} * cellSize;
+                        auto prevCellId = glm::ivec2(glm::floor((prevPos + preOffset) * n));
+                        prevCellId += 1;
+                        id = prevCellId.y * (simData.N+2) + prevCellId.x;
+                        if(id < min || id > max) continue;
+//                                spdlog::info("{} =? {}", cellId, prevCellId);
+                        if(prevCellId == cellId){
+                            prevCenter = prevPos;
+                            prevTime = dt;
+
+                        }
+                    }
+                }
+//                        if(glm::all(glm::notEqual(glm::vec2(0), prevCenter))) {
+//                            spdlog::info("pn+1: {}, tn+1: {}, pn: {}, tn: {}", curPosition, elapsedTime, prevCenter,
+//                                         prevTime);
+//                        }
+
+                if(glm::all(glm::equal(curPosition, prevCenter))){
+                    std::advance(next, 1);
+                    continue;
+                }
+
+                auto t = time - prevTime;
+                auto v = (curPosition - prevCenter)/t;
+                v = glm::normalize(v) * 10.0f;
+                id = cellId.y * (simData.N+2) + cellId.x;
+                simData.u[0][id] = v.x;
+                simData.v[0][id] = v.y;
+                std::advance(next, 1);
+            }
+        }
+    }
+}
+
+void FluidDynamicsDemo::updateDensityField() {
+    auto pos = mousePositionToWorldSpace(camera).xy();
+    brush.trail.push_front(std::make_tuple(pos, elapsedTime));
+    brush.constants.position = pos;
+    float cellSize = 1.f/simData.N;
+    int steps = (int(brush.constants.radius/cellSize));
+
+    auto n = static_cast<float>(simData.N);
+    int min = simData.N + 1;
+    int max = simData.N * (simData.N+2) + simData.N;
+    for(int i = -steps; i <= steps; i++){
+        for(int j = -steps; j <= steps; j++){
+            auto next = begin(brush.trail);
+
+            auto [curPosition, time] = *next;
+            auto offset = glm::vec2{i, j} * cellSize;
+            auto cellId = glm::ivec2(glm::floor((curPosition +  offset) * n));
+            cellId += 1;
+            auto id = cellId.y * (simData.N+2) + cellId.x;
+            if(id < min || id > max) continue;
+            simData.density[0][id] = brush.erase ? 0.0f : 1.0f;
+
+        }
+    }
 }
 
 void FluidDynamicsDemo::initBrush() {
@@ -672,23 +865,30 @@ void FluidDynamicsDemo::initBrush() {
     brush.patch = device.createDeviceLocalBuffer(data.data(), BYTE_SIZE(data), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
 }
 
-int main(){
-    try{
+void FluidDynamicsDemo::createUVTexture() {
 
-        Settings settings;
-        settings.width = settings.height = 1024;
-        settings.enabledFeatures.tessellationShader = VK_TRUE;
-        settings.enabledFeatures.wideLines = VK_TRUE;
-        settings.enabledFeatures.geometryShader = VK_TRUE;
-        settings.enabledFeatures.vertexPipelineStoresAndAtomics = VK_TRUE;
-        settings.msaaSamples = VK_SAMPLE_COUNT_8_BIT;
-        settings.depthTest = true;
+    const uint32_t N = simData.N;
+    VkSamplerCreateInfo samplerInfo{};
+    samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    samplerInfo.magFilter = VK_FILTER_NEAREST;
+    samplerInfo.minFilter = VK_FILTER_NEAREST;
+    samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
 
-        auto app = FluidDynamicsDemo{ settings };
-        std::unique_ptr<Plugin> plugin = std::make_unique<ImGuiPlugin>();
-        app.addPlugin(plugin);
-        app.run();
-    }catch(std::runtime_error& err){
-        spdlog::error(err.what());
-    }
+    colorTexture.sampler = device.createSampler(samplerInfo);
+
+    textures::generate(device, colorTexture, N, N, [](auto i, auto j, auto w, auto h){
+        using namespace glm;
+        float x = 2 * (i/w) - 1;
+        float y = 2 * (j/w) - 1;
+        return vec3{
+                step(1.0, mod(floor((x + 1.0) / 0.2) + floor((y + 1.0) / 0.2), 2.0)),
+                step(1.0, mod(floor((x + 1.0) / 0.2) + floor((y + 1.0) / 0.2), 2.0)),
+                step(1.0, mod(floor((x + 1.0) / 0.2) + floor((y + 1.0) / 0.2), 2.0))
+        };
+    });
+
+
 }

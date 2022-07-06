@@ -1,19 +1,20 @@
 #include "fluid_dynamics_cpu.h"
+#include <spdlog/spdlog.h>
+#include <glm/glm.hpp>
 
 #define IX(i, j) ((i)+(N+2)*(j))
 #define SWAP(x0, x) {float *tmp=x0;x0=x;x=tmp;}
 
 void add_source(int N, float *x, const float *s, float dt) {
-    int i, size = (N + 2) * (N + 2);
-    for (i = 0; i < size; i++) x[i] += dt * s[i];
+    int  size = (N + 2) * (N + 2);
+    for (int i = 0; i < size; i++) x[i] += dt * s[i];
 }
 
 void diffuse(int N, int b, float *x, const float *x0, float diff, float dt) {
-    int i, j, k;
     float a = dt * diff * N * N;
-    for (k = 0; k < 20; k++) {
-        for (i = 1; i <= N; i++) {
-            for (j = 1; j <= N; j++) {
+    for (int k = 0; k < 20; k++) {
+        for (int i = 1; i <= N; i++) {
+            for (int j = 1; j <= N; j++) {
                 x[IX(i, j)] = (x0[IX(i, j)] + a * (x[IX(i - 1, j)] + x[IX(i + 1, j)] +
                                                    x[IX(i, j - 1)] + x[IX(i, j + 1)])) / (1 + 4 * a);
             }
@@ -23,27 +24,35 @@ void diffuse(int N, int b, float *x, const float *x0, float diff, float dt) {
 }
 
 void advect(int N, int b, float *d, const float *d0, const float *u, const float *v, float dt) {
-    int i, j, i0, j0, i1, j1;
-    float x, y, s0, t0, s1, t1, dt0;
-    dt0 = dt * N;
-    for (i = 1; i <= N; i++) {
-        for (j = 1; j <= N; j++) {
-            x = i - dt0 * u[IX(i, j)];
-            y = j - dt0 * v[IX(i, j)];
+    float dt0 = dt * N;
+    for (int i = 1; i <= N; i++) {
+        for (int j = 1; j <= N; j++) {
+            float _u = u[IX(i, j)];
+            float _v = v[IX(i, j)];
+            float x = i - dt0 * _u;
+            float y = j - dt0 * _v;
+            x = glm::isnan(x) ? 0 : x;
+            y = glm::isnan(y) ? 0 : y;
+
             if (x < 0.5) x = 0.5;
             if (x > N + 0.5) x = N + 0.5;
-            i0 = (int) x;
-            i1 = i0 + 1;
+            int i0 = (int) x;
+            int i1 = i0 + 1;
             if (y < 0.5) y = 0.5;
             if (y > N + 0.5) y = N + 0.5;
-            j0 = (int) y;
-            j1 = j0 + 1;
-            s1 = x - i0;
-            s0 = 1 - s1;
-            t1 = y - j0;
-            t0 = 1 - t1;
-            d[IX(i, j)] = s0 * (t0 * d0[IX(i0, j0)] + t1 * d0[IX(i0, j1)])
-                          + s1 * (t0 * d0[IX(i1, j0)] + t1 * d0[IX(i1, j1)]);
+            int j0 = (int) y;
+            int j1 = j0 + 1;
+            float s1 = x - i0;
+            float s0 = 1 - s1;
+            float t1 = y - j0;
+            float t0 = 1 - t1;
+            float q0 = d0[IX(i0, j0)];
+            float q1 = d0[IX(i0, j1)];
+            float q2 = d0[IX(i1, j0)];
+            float q3 = d0[IX(i1, j1)];
+
+            d[IX(i, j)] = s0 * (t0 * q0 + t1 * q1)
+                          + s1 * (t0 * q2 + t1 * q3);
         }
     }
     set_bnd(N, b, d);
@@ -61,23 +70,23 @@ void vel_step(int N, float *u, float *v, float *u0, float *v0, float visc, float
     add_source(N, u, u0, dt);
     add_source(N, v, v0, dt);
     SWAP (u0, u);
-    diffuse(N, 1, u, u0, visc, dt);
+//    diffuse(N, 1, u, u0, visc, dt);
     SWAP (v0, v);
-    diffuse(N, 2, v, v0, visc, dt);
-    project(N, u, v, u0, v0);
-    SWAP (u0, u);
-    SWAP (v0, v);
+//    diffuse(N, 2, v, v0, visc, dt);
+//    project(N, u, v, u0, v0);
+//    SWAP (u0, u);
+//    SWAP (v0, v);
     advect(N, 1, u, u0, u0, v0, dt);
     advect(N, 2, v, v0, u0, v0, dt);
-    project(N, u, v, u0, v0);
+//    project(N, u, v, u0, v0);
+    SWAP (u0, u);
+    SWAP (v0, v);
 }
 
 void project(int N, float *u, float *v, float *p, float *div) {
-    int i, j, k;
-    float h;
-    h = 1.0f / N;
-    for (i = 1; i <= N; i++) {
-        for (j = 1; j <= N; j++) {
+    float h = 1.0f / N;
+    for (int i = 1; i <= N; i++) {
+        for (int j = 1; j <= N; j++) {
             div[IX(i, j)] = -0.5f * h * (u[IX(i + 1, j)] - u[IX(i - 1, j)] +
                                          v[IX(i, j + 1)] - v[IX(i, j - 1)]);
             p[IX(i, j)] = 0;
@@ -85,17 +94,17 @@ void project(int N, float *u, float *v, float *p, float *div) {
     }
     set_bnd(N, 0, div);
     set_bnd(N, 0, p);
-    for (k = 0; k < 20; k++) {
-        for (i = 1; i <= N; i++) {
-            for (j = 1; j <= N; j++) {
+    for (int k = 0; k < 20; k++) {
+        for (int i = 1; i <= N; i++) {
+            for (int j = 1; j <= N; j++) {
                 p[IX(i, j)] = (div[IX(i, j)] + p[IX(i - 1, j)] + p[IX(i + 1, j)] +
                                p[IX(i, j - 1)] + p[IX(i, j + 1)]) / 4;
             }
         }
         set_bnd(N, 0, p);
     }
-    for (i = 1; i <= N; i++) {
-        for (j = 1; j <= N; j++) {
+    for (int i = 1; i <= N; i++) {
+        for (int j = 1; j <= N; j++) {
             u[IX(i, j)] -= 0.5f * (p[IX(i + 1, j)] - p[IX(i - 1, j)]) / h;
             v[IX(i, j)] -= 0.5f * (p[IX(i, j + 1)] - p[IX(i, j - 1)]) / h;
         }
@@ -120,6 +129,8 @@ void set_bnd(int N, int b, float *x) {
 
 void fluid_sim(int N, float dt, float diff, float visc, float *u, float *v, float *u_prev, float *v_prev, float *dens,
                float *dens_prev) {
+
     vel_step(N, u, v, u_prev, v_prev, visc, dt);
-    dens_step(N, dens, dens_prev, u, v, diff, dt);
+
+//    dens_step(N, dens, dens_prev, u, v, diff, dt);
 }

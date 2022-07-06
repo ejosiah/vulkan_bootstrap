@@ -135,7 +135,7 @@ struct VulkanImage : public Copyable{
         });
     }
 
-    void transitionLayout(VkCommandBuffer commandBuffer, VkImageLayout newLayout, const VkImageSubresourceRange& subresourceRange,
+    void transitionLayout(VkCommandBuffer commandBuffer, VkImageLayout newLayout, VkImageSubresourceRange subresourceRange,
                           VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask){
 
         VkImageMemoryBarrier barrier{};

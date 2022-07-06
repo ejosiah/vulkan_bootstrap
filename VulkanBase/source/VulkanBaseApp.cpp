@@ -143,19 +143,6 @@ void VulkanBaseApp::createInstance() {
     appInfo.apiVersion = VK_API_VERSION_1_2;
     appInfo.pEngineName = "";
 
-    VkInstanceCreateInfo createInfo{};
-    createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-    createInfo.pApplicationInfo = &appInfo;
-    createInfo.enabledExtensionCount = static_cast<uint32_t>(instanceExtensions.size());
-    createInfo.ppEnabledExtensionNames = instanceExtensions.data();
-
-    if(enableValidation){
-        createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
-        createInfo.ppEnabledLayerNames = validationLayers.data();
-        auto debugInfo = VulkanDebug::debugCreateInfo();
-        createInfo.pNext = &debugInfo;
-    }
-
     instance = VulkanInstance{appInfo, {instanceExtensions, validationLayers}};
 }
 

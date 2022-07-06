@@ -22,16 +22,16 @@ layout(location = 0) in vec2 position;
 layout(location = 0) out vec4 color;
 
 void main(){
-    int i = gl_InstanceIndex % N;
-    int j = gl_InstanceIndex / N;
-    int id = i * N + j;
+    int i = gl_InstanceIndex % N + 1;
+    int j = gl_InstanceIndex / N + 1;
+    int id = j * (N + 2) + i;
     float density =  densities[id];
     color = vec4(1);
     color.a = density;
 
     float cellSize = 1/float(N);
-    float x = i * cellSize;
-    float y = j * cellSize;
+    float x = (i-1) * cellSize;
+    float y = (j-1) * cellSize;
     vec2 p = cellSize * position + vec2(x, y);
     gl_Position = projection * view * model  * vec4(p, 0, 1);
 }

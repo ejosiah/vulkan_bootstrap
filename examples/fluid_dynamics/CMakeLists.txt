@@ -6,6 +6,12 @@ include_directories(${CMAKE_CURRENT_LIST_DIR}/include)
 
 file(GLOB_RECURSE CPP_FILES ${CMAKE_CURRENT_LIST_DIR}/include/*.*)
 file(GLOB_RECURSE HPP_FILES ${CMAKE_CURRENT_LIST_DIR}/source/*.cpp)
+file(GLOB_RECURSE HPP_FILES_TEST ${CMAKE_CURRENT_LIST_DIR}/source/*.cpp)
+
+file(GLOB_RECURSE TEST_FILES ${CMAKE_CURRENT_LIST_DIR}/tests/*.*)
+list(REMOVE_ITEM HPP_FILES_TEST ${CMAKE_CURRENT_LIST_DIR}/source/main.cpp)
+
+file(GLOB_RECURSE GTEST_LIBS ${CONAN_LIB_DIRS_GTEST}/*.lib)
 
 set(GLSL_SOURCE_DIR "shaders")
 set(SPV_DIR "${CMAKE_CURRENT_LIST_DIR}/spv")
@@ -19,3 +25,10 @@ if (OpenCL_FOUND)
     add_definitions( -DOPENCL_FOUND=1 )
     target_link_libraries(fluid_dynamics ${OpenCL_LIBRARIES})
 endif()
+
+message(STATUS ${HPP_FILES_TEST})
+
+include(GoogleTest)
+add_executable(fluid_sim_tests ${HPP_FILES_TEST} ${TEST_FILES})
+target_link_libraries(fluid_sim_tests PRIVATE VulkanBase ImGuiPlugin  ${GTEST_LIBS} ${CONAN_LIBS})
+gtest_add_tests(TARGET fluid_sim_tests)

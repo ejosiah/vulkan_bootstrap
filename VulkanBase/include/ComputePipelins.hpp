@@ -32,11 +32,11 @@ public:
 
     virtual std::vector<PipelineMetaData> pipelineMetaData();
 
-    VkPipeline pipeline(const std::string& name);
+    VkPipeline pipeline(const std::string& name) const;
 
-    VkPipelineLayout layout(const std::string& name);
+    VkPipelineLayout layout(const std::string& name) const;
 
 protected:
     VulkanDevice* device{};
-    std::map<std::string, Pipeline> pipelines{};
+    mutable std::map<std::string, Pipeline> pipelines{};
 };

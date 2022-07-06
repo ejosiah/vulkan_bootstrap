@@ -1,0 +1,32 @@
+#version 450
+
+#define IX(i, j) ((i)+(N+2)*(j))
+#define HORIZONTAL_BOUNARY 1
+#define VERTICAL_BOUNDARY 2
+
+layout(local_size_x = 32) in;
+
+layout(set = 0, binding = 0) buffer X{
+    float x[];
+};
+
+layout(push_constant) uniform constants {
+    int N;
+    int boundary;
+};
+
+void main(){
+    int i = int(gl_GlobalInvocationID.x);
+    if(i > N) return;
+
+    x[IX(0, i)]     = (boundary == HORIZONTAL_BOUNARY) ? -x[IX(1, i)] : x[IX(1, i)];
+    x[IX(N + 1, i)] = (boundary == HORIZONTAL_BOUNARY) ? -x[IX(N, i)] : x[IX(N, i)];
+    x[IX(i, 0)]     = (boundary == VERTICAL_BOUNDARY)  ? -x[IX(i, 1)] : x[IX(i, 1)];
+    x[IX(i, N + 1)] = (boundary == VERTICAL_BOUNDARY)  ? -x[IX(i, N)] : x[IX(i, N)];
+
+    x[IX(0, 0)]         = 0.5f * (x[IX(1, 0)] + x[IX(0, 1)]);
+    x[IX(0, N + 1)]     = 0.5f * (x[IX(1, N + 1)] + x[IX(0, N)]);
+    x[IX(N + 1, 0)]     = 0.5f * (x[IX(N, 0)] + x[IX(N + 1, 1)]);
+    x[IX(N + 1, N + 1)] = 0.5f * (x[IX(N, N + 1)] + x[IX(N + 1, N)]);
+
+}

@@ -16,6 +16,8 @@
 #include "builder_forwards.hpp"
 #include <bitset>
 
+class VulkanImageOps;
+
 // TODO make shared
 struct VulkanDevice{
 
@@ -633,6 +635,7 @@ struct VulkanDevice{
 
     template<typename Writes = std::vector<VkWriteDescriptorSet>, typename Copies = std::vector<VkCopyDescriptorSet>>
     inline void updateDescriptorSets(const Writes& writes, const Copies& copies = {}) const {
+        assert(logicalDevice != VK_NULL_HANDLE);
         vkUpdateDescriptorSets(logicalDevice, COUNT(writes), writes.data(), COUNT(copies), copies.data());
     }
 
@@ -657,6 +660,8 @@ struct VulkanDevice{
 
     [[nodiscard]]
     GraphicsPipelineBuilder graphicsPipelineBuilder() const;
+
+    VulkanImageOps imageOps();
 };
 
 #include "DescriptorSetBuilder.hpp"

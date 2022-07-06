@@ -1,0 +1,45 @@
+#version 450
+
+#extension GL_EXT_shader_atomic_float : enable
+
+layout(local_size_x_id = 0, local_size_y_id = 1) in;
+
+layout(set = 0, binding = 0) buffer Coefficents {
+    float A[];
+};
+
+layout(set = 0, binding = 1) buffer Solutions {
+    float b[];
+};
+
+layout(set = 1, binding = 0) buffer Unknown_X_k {
+    float x0[];
+};
+
+layout(set = 2, binding = 0) buffer Unknown_x_k_1 {
+    float x[];
+};
+
+layout(push_constant) uniform Constants {
+    int N;
+};
+
+void main(){
+    int i = int(gl_GlobalInvocationID.y);
+    int j = int(gl_GlobalInvocationID.x);
+
+    int ii = i * N + i;
+    float Aii = A[ii];
+
+    x[i] = (b[i]/ Aii);
+    barrier();
+
+    if(j == i) return;
+
+    int ij = i * N + j;
+
+    atomicAdd(x[i], -(A[ij]/Aii) * x0[j]);
+
+    barrier();
+    x0[i] = x[i];
+}

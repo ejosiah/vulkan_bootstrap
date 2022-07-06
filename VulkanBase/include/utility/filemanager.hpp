@@ -4,13 +4,15 @@
 
 class FileManager{
 public:
-    explicit FileManager(const std::vector<fs::path>&  searchPaths = {});
+    explicit FileManager(std::vector<fs::path> searchPaths = {});
 
     void addSearchPath(const fs::path& searchPath);
 
-    byte_string load(const std::string& resource);
+    [[nodiscard]]
+    byte_string load(const std::string& resource) const;
 
-    std::optional<fs::path> getFullPath(const std::string& resource);
+    [[nodiscard]]
+    std::optional<fs::path> getFullPath(const std::string& resource) const;
 
 private:
     std::vector<fs::path> searchPaths_;

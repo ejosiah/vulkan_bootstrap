@@ -33,12 +33,12 @@ std::vector<PipelineMetaData> ComputePipelines::pipelineMetaData() {
 }
 
 
-VkPipeline ComputePipelines::pipeline(const std::string& name){
+VkPipeline ComputePipelines::pipeline(const std::string& name) const {
     assert(pipelines.find(name) != end(pipelines));
     return pipelines[name].pipeline;
 }
 
-VkPipelineLayout ComputePipelines::layout(const std::string& name){
+VkPipelineLayout ComputePipelines::layout(const std::string& name) const {
     assert(pipelines.find(name) != end(pipelines));
     return pipelines[name].layout;
 }

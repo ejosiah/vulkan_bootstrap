@@ -44,7 +44,7 @@ void main(void)
     vec2 particle = particles[int(particleId[0].x)];
     vec2 position = particle;
     vec2 cellId = floor(position * N) + vec2(1,1);
-    int index = int(cellId.x * (N+2) + cellId.y);
+    int index = int(cellId.y * (N+2) + cellId.x);
 
 //    if(index >= 0 && index < N * N){
         vec2 v =  vec2(u[index], v[index]);

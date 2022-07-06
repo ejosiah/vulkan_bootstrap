@@ -1,4 +1,6 @@
 #include "VulkanBaseApp.h"
+#include "vulkan_context.hpp"
+#include "fluid_sim_gpu.h"
 
 struct PatchVertex{
     glm::vec2 point{0};
@@ -12,13 +14,19 @@ public:
 protected:
     void initApp() override;
 
+    void initFluidSim();
+
     void initSimData();
 
     void initGrid();
 
     void initCamera();
 
-    void initVectorView();
+    void initVectorRender();
+
+    void initDensityRender();
+
+    void initRenderBuffer();
 
     void initParticles();
 
@@ -46,13 +54,19 @@ protected:
 
     void renderVectorField(VkCommandBuffer commandBuffer);
 
+    void renderDensityField(VkCommandBuffer commandBuffer);
+
     void renderParticles(VkCommandBuffer commandBuffer);
 
     void renderUI(VkCommandBuffer commandBuffer);
 
     void renderBrush(VkCommandBuffer commandBuffer);
 
+    void renderImage(VkCommandBuffer commandBuffer);
+
     void update(float time) override;
+
+    void gpuSimulation();
 
     void checkAppInputs() override;
 
@@ -62,12 +76,17 @@ protected:
 
     void updateVelocityField();
 
+    void updateDensityField();
+
     void initBrush();
+
+    void createUVTexture();
 
 protected:
     struct {
         VulkanPipelineLayout layout;
         VulkanPipeline pipeline;
+        VulkanBuffer vertexBuffer;
     } render;
 
     struct {
@@ -82,14 +101,15 @@ protected:
 
     struct {
         std::array<VulkanBuffer, 2> densityBuffer;
-        std::array<VulkanBuffer, 2> velocityBuffer;
+        std::array<VulkanBuffer, 2> uBuffer;
+        std::array<VulkanBuffer, 2> vBuffer;
         std::array<float*, 2> density{};
         std::array<float*, 2> u{};
         std::array<float*, 2> v{};
         VkDeviceSize size;
-        int N{30};
+        int N{32};
         float diff{1};
-        float visc{1};
+        float visc{0};
         VulkanDescriptorSetLayout setLayout;
         std::array<VkDescriptorSet, 2> descriptorSets;
     } simData;
@@ -118,6 +138,13 @@ protected:
         VulkanPipeline pipeline;
         VulkanPipelineLayout layout;
         VulkanBuffer vertexBuffer;
+    } density;
+
+
+    struct {
+        VulkanPipeline pipeline;
+        VulkanPipelineLayout layout;
+        VulkanBuffer vertexBuffer;
         VulkanBuffer particleBuffer;
         VulkanDescriptorSetLayout setLayout;
         VkDescriptorSet descriptorSet;
@@ -136,24 +163,34 @@ protected:
         VulkanPipeline pipeline;
         VulkanPipelineLayout layout;
         bool active{false};
+        bool erase{true};
         struct {
             glm::vec2 position{0.5};
-            float radius{0.05};
+            float radius{0.0};
         } constants;
     } brush;
 
-    float speed{0.0f};
+    float speed{0.05};
     bool showGrid{true};
     bool showVectorField{true};
-    bool showParticles{true};
+    bool showDensityField{false};
+    bool showParticles{false};
     bool debug{true};
+    bool simStarted{false};
 
     static constexpr int PAINT_VECTOR_FIELD = 0;
-    int paintState{PAINT_VECTOR_FIELD};
+    static constexpr int PAINT_DENSITY_FIELD = 1;
+    int paintState{PAINT_DENSITY_FIELD};
 
     struct {
         int N{0};
         float maxMagnitude{1};
         float dt{0};
     } constants;
+
+    Texture colorTexture;
+    VulkanDescriptorSetLayout textureDescriptorSetLayout;
+    VkDescriptorSet textureDescriptorSet;
+    FluidSim fluidSim;
+    VulkanCommandPool simCommandPool;
 };

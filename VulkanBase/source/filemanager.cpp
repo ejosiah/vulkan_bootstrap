@@ -1,7 +1,9 @@
 #include "utility/filemanager.hpp"
 
-FileManager::FileManager(const std::vector<fs::path>& searchPaths)
-:searchPaths_{searchPaths}{
+#include <utility>
+
+FileManager::FileManager(std::vector<fs::path>  searchPaths)
+:searchPaths_{std::move(searchPaths)}{
 
 }
 
@@ -9,7 +11,7 @@ void FileManager::addSearchPath(const fs::path &searchPath) {
     searchPaths_.push_back(searchPath);
 }
 
-byte_string FileManager::load(const std::string &resource) {
+byte_string FileManager::load(const std::string &resource) const {
     auto maybePath = getFullPath(resource);
     if(!maybePath.has_value()){
         throw std::runtime_error{fmt::format("resource: {} does not exists", resource)};
@@ -17,7 +19,7 @@ byte_string FileManager::load(const std::string &resource) {
     return loadFile(maybePath->string());
 }
 
-std::optional<fs::path> FileManager::getFullPath(const std::string &resource) {
+std::optional<fs::path> FileManager::getFullPath(const std::string &resource) const {
     // TODO add recursive path search
     assert(!searchPaths_.empty());
     fs::path path = resource;
