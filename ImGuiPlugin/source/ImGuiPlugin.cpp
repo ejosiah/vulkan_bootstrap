@@ -11,6 +11,7 @@ ImGuiPlugin::ImGuiPlugin(std::vector<FontInfo> fontInfos, uint32_t subpass)
 }
 
 ImGuiPlugin::~ImGuiPlugin() {
+    if(!initialized) return;
     for(auto i = 0; i < ImGuiMouseCursor_COUNT; i++){
         glfwDestroyCursor(mouse.cursors[i]);
         mouse.cursors[i] = nullptr;
@@ -30,6 +31,7 @@ void ImGuiPlugin::init() {
     mapInputs();
     createDeviceObjects();
     loadFonts();
+    initialized = true;
 }
 
 void ImGuiPlugin::initWindowRenderBuffers() {

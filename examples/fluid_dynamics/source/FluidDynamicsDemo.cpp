@@ -401,27 +401,27 @@ void FluidDynamicsDemo::renderImage(VkCommandBuffer commandBuffer) {
 }
 
 void FluidDynamicsDemo::renderUI(VkCommandBuffer commandBuffer) {
-    ImGui::Begin("Fluid Sim");
-    ImGui::SetWindowSize({0, 0});
-    ImGui::Checkbox("particles", &showParticles); ImGui::SameLine();
-    ImGui::Checkbox("grid", &showGrid); ImGui::SameLine();
-    ImGui::Checkbox("vector field", &showVectorField);
-    ImGui::SliderFloat("speed", &speed, 0.01, 1.0);
-
-    bool open = true;
-    brush.active = ImGui::CollapsingHeader("paint", &open, ImGuiTreeNodeFlags_DefaultOpen);
-    if(brush.active){
-//        ImGui::RadioButton("vector field", &paintState, PAINT_VECTOR_FIELD);
-//        ImGui::RadioButton("density field", &paintState, PAINT_DENSITY_FIELD);
-        ImGui::RadioButton("Vector Field", &paintState, 0); ImGui::SameLine();
-        ImGui::RadioButton("Density Field", &paintState, 1); ImGui::SameLine();
-        ImGui::Checkbox("erase", &brush.erase);
-        ImGui::SliderFloat("brush size", &brush.constants.radius, 0.03, 0.25);
-    }
-    simStarted |= ImGui::Button("start sim");
-    ImGui::End();
-
-    plugin(IM_GUI_PLUGIN).draw(commandBuffer);
+//    ImGui::Begin("Fluid Sim");
+//    ImGui::SetWindowSize({0, 0});
+//    ImGui::Checkbox("particles", &showParticles); ImGui::SameLine();
+//    ImGui::Checkbox("grid", &showGrid); ImGui::SameLine();
+//    ImGui::Checkbox("vector field", &showVectorField);
+//    ImGui::SliderFloat("speed", &speed, 0.01, 1.0);
+//
+//    bool open = true;
+//    brush.active = ImGui::CollapsingHeader("paint", &open, ImGuiTreeNodeFlags_DefaultOpen);
+//    if(brush.active){
+////        ImGui::RadioButton("vector field", &paintState, PAINT_VECTOR_FIELD);
+////        ImGui::RadioButton("density field", &paintState, PAINT_DENSITY_FIELD);
+//        ImGui::RadioButton("Vector Field", &paintState, 0); ImGui::SameLine();
+//        ImGui::RadioButton("Density Field", &paintState, 1); ImGui::SameLine();
+//        ImGui::Checkbox("erase", &brush.erase);
+//        ImGui::SliderFloat("brush size", &brush.constants.radius, 0.03, 0.25);
+//    }
+//    simStarted |= ImGui::Button("start sim");
+//    ImGui::End();
+//
+//    plugin(IM_GUI_PLUGIN).draw(commandBuffer);
 }
 
 static bool first = true;

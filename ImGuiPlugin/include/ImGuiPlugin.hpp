@@ -138,5 +138,6 @@ protected:
     double time = 0.0;
     uint32_t subpass;
     bool drawRequested = true;
+    bool initialized = false;
 
 };

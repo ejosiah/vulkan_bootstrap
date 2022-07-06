@@ -49,7 +49,8 @@ protected:
     void SetUp() override {
         spdlog::set_level(spdlog::level::warn);
         initFileManager();
-        _context = new VulkanContext{ createInfo() };
+        auto info = createInfo();
+        _context = new VulkanContext{ info };
         _context->init();
         device = &_context->device;
         initBuffer();

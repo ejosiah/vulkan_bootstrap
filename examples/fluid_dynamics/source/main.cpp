@@ -13,6 +13,7 @@ int main(){
         settings.enabledFeatures.vertexPipelineStoresAndAtomics = VK_TRUE;
         settings.msaaSamples = VK_SAMPLE_COUNT_8_BIT;
         settings.depthTest = true;
+        settings.deviceExtensions.push_back("VK_EXT_shader_atomic_float2");
 
         auto app = FluidDynamicsDemo{ settings };
         std::unique_ptr<Plugin> plugin = std::make_unique<ImGuiPlugin>();

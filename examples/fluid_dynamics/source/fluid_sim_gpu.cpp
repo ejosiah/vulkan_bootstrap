@@ -17,6 +17,11 @@ FluidSim::FluidSim(VulkanDevice *device, FileManager fileMgr, VulkanBuffer u0, V
     _constants.N = N;
     _constants.dt = dt;
     _constants.dissipation = dissipation;
+    VkDeviceSize size = (_constants.N + 2) * (_constants.N + 2) * sizeof(float);
+    _divBuffer = device->createBuffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, size, "divergence");
+    _pressure = device->createBuffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, size, "pressure");
+    _gu = device->createBuffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, size, "pressure_gradient_u");
+    _gv = device->createBuffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, size, "pressure_gradient_v");
     sc[0] = sc[1] = N;
 }
 
@@ -79,9 +84,18 @@ void FluidSim::createDescriptorSets() {
                 .shaderStages(VK_SHADER_STAGE_COMPUTE_BIT)
             .createLayout();
 
+    _scalaFieldSetLayout =
+        device->descriptorSetLayoutBuilder()
+            .binding(0)
+                .descriptorType(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
+                .descriptorCount(1)
+                .shaderStages(VK_SHADER_STAGE_COMPUTE_BIT)
+            .createLayout();
+
 
     auto sets = _descriptorPool.allocate({
                              _velocitySetLayout, _velocitySetLayout, _quantitySetLayout, _quantitySetLayout,
+                             _scalaFieldSetLayout, _scalaFieldSetLayout, _velocitySetLayout
                            });
 
     _velocityDescriptorSet[0] = sets[0];
@@ -89,6 +103,10 @@ void FluidSim::createDescriptorSets() {
 
     _quantityDescriptorSet[0] = sets[2];
     _quantityDescriptorSet[1] = sets[3];
+
+    _divergenceDescriptorSet = sets[4];
+    _pressureDescriptorSet = sets[5];
+    _pressureGradientDescriptorSet = sets[6];
 }
 
 void FluidSim::set(Texture &color) {
@@ -105,7 +123,7 @@ void FluidSim::set(Texture &color) {
 }
 
 void FluidSim::updateDescriptorSets() {
-    auto writes = initializers::writeDescriptorSets<6>();
+    auto writes = initializers::writeDescriptorSets<7>();
     writes[0].dstSet = _velocityDescriptorSet[0];
     writes[0].dstBinding = 0;
     writes[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
@@ -147,6 +165,13 @@ void FluidSim::updateDescriptorSets() {
     writes[5].descriptorCount = 1;
     VkDescriptorBufferInfo qInfo{_q, 0, VK_WHOLE_SIZE};
     writes[5].pBufferInfo = &qInfo;
+    
+    writes[6].dstSet = _divergenceDescriptorSet;
+    writes[6].dstBinding = 0;
+    writes[6].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    writes[6].descriptorCount = 1;
+    VkDescriptorBufferInfo divInfo{_divBuffer, 0, VK_WHOLE_SIZE};
+    writes[6].pBufferInfo = &divInfo;
 
     device->updateDescriptorSets(writes);
 }
@@ -184,6 +209,19 @@ void FluidSim::advect(VkCommandBuffer commandBuffer) {
     std::swap(q_in, q_out);
 }
 
+void FluidSim::calculateDivergence(VkCommandBuffer commandBuffer) {
+    const int N = _constants.N;
+    static std::array<VkDescriptorSet, 2> sets;
+    sets[0] = _velocityDescriptorSet[0];
+    sets[1] = _divergenceDescriptorSet;
+    uint32_t workGroups = glm::max(N/32, 1);
+
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline("divergence"));
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, layout("divergence"), 0, COUNT(sets), sets.data(), 0, VK_NULL_HANDLE);
+    vkCmdPushConstants(commandBuffer, layout("advect"), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(int), &N);
+    vkCmdDispatch(commandBuffer, workGroups, workGroups, 1);
+}
+
 std::vector<PipelineMetaData> FluidSim::pipelineMetaData() {
     return {{
                     "advect",
@@ -198,6 +236,12 @@ std::vector<PipelineMetaData> FluidSim::pipelineMetaData() {
                             sc.data(),
                             BYTE_SIZE(sc)
                     }
+            },
+            {
+                "divergence",
+                    resource("divergence.comp.spv"),
+                    { &_velocitySetLayout, &_scalaFieldSetLayout},
+                    {{VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(int)}}
             }
     };
 }

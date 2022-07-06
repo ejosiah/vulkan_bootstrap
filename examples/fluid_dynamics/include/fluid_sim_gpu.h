@@ -33,6 +33,8 @@ public:
 
     void advect(VkCommandBuffer commandBuffer);
 
+    void calculateDivergence(VkCommandBuffer commandBuffer);
+
     void dissipation(float value);
 
     void setQuantity(VulkanBuffer q0, VulkanBuffer q);
@@ -44,10 +46,16 @@ public:
 
     std::string resource(const std::string& path);
 
-private:
+    VulkanBuffer _divBuffer, _pressure, _gu, _gv;
+
+public:
     VulkanDescriptorPool _descriptorPool;
     VulkanDescriptorSetLayout _velocitySetLayout;
     VulkanDescriptorSetLayout _quantitySetLayout;
+    VulkanDescriptorSetLayout _scalaFieldSetLayout;
+    VkDescriptorSet _divergenceDescriptorSet{};
+    VkDescriptorSet _pressureDescriptorSet{};
+    VkDescriptorSet _pressureGradientDescriptorSet{};
     std::array<VkDescriptorSet, 2> _velocityDescriptorSet{};
     std::array<VkDescriptorSet, 2> _quantityDescriptorSet{};
     VulkanBuffer _u0, _v0, _u, _v;
