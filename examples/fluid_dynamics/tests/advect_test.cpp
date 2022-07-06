@@ -17,7 +17,6 @@ TEST_F(AdvectTest, advectionShouldProduceTheCorrectQuantity){
     u0[2][2]  = 1;
     v0[2][2] = 1;
 
-//    q[2][2] = 5.5;
 
     advect();
 

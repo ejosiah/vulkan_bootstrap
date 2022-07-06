@@ -35,10 +35,6 @@ public:
 
     void dissipation(float value);
 
-//    void advectColor(VkCommandBuffer commandBuffer);
-
-//    void updateOutColor(Texture& srcTexture);
-
     void setQuantity(VulkanBuffer q0, VulkanBuffer q);
 
     void resize(VulkanBuffer u0, VulkanBuffer v0,
@@ -52,12 +48,8 @@ private:
     VulkanDescriptorPool _descriptorPool;
     VulkanDescriptorSetLayout _velocitySetLayout;
     VulkanDescriptorSetLayout _quantitySetLayout;
-    VulkanDescriptorSetLayout _colorInSetLayout;
-    VulkanDescriptorSetLayout _colorOutSetLayout;
     std::array<VkDescriptorSet, 2> _velocityDescriptorSet{};
     std::array<VkDescriptorSet, 2> _quantityDescriptorSet{};
-    std::array<VkDescriptorSet, 2> _colorOutDescriptorSet{};
-    std::array<VkDescriptorSet, 2> _colorInDescriptorSet{};
     VulkanBuffer _u0, _v0, _u, _v;
     VulkanBuffer _q0, _q;
     VulkanSampler textureSampler;

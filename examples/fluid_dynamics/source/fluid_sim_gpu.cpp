@@ -79,39 +79,16 @@ void FluidSim::createDescriptorSets() {
                 .shaderStages(VK_SHADER_STAGE_COMPUTE_BIT)
             .createLayout();
 
-    _colorInSetLayout =
-        device->descriptorSetLayoutBuilder()
-            .binding(0)
-                .descriptorType(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
-                .descriptorCount(1)
-                .shaderStages(VK_SHADER_STAGE_COMPUTE_BIT)
-                .immutableSamplers(textureSampler)
-            .createLayout();
-
-    _colorOutSetLayout =
-        device->descriptorSetLayoutBuilder()
-            .binding(0)
-                .descriptorType(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
-                .descriptorCount(1)
-                .shaderStages(VK_SHADER_STAGE_COMPUTE_BIT)
-            .createLayout();
 
     auto sets = _descriptorPool.allocate({
-                                                 _velocitySetLayout, _velocitySetLayout, _quantitySetLayout, _quantitySetLayout,
-                                                 _colorInSetLayout, _colorInSetLayout, _colorOutSetLayout, _colorOutSetLayout
-                                         });
+                             _velocitySetLayout, _velocitySetLayout, _quantitySetLayout, _quantitySetLayout,
+                           });
 
     _velocityDescriptorSet[0] = sets[0];
     _velocityDescriptorSet[1] = sets[1];
 
     _quantityDescriptorSet[0] = sets[2];
     _quantityDescriptorSet[1] = sets[3];
-
-    _colorInDescriptorSet[0] = sets[4];
-    _colorInDescriptorSet[1] = sets[5];
-
-    _colorOutDescriptorSet[0] = sets[6];
-    _colorOutDescriptorSet[1] = sets[7];
 }
 
 void FluidSim::set(Texture &color) {
@@ -125,36 +102,6 @@ void FluidSim::set(Texture &color) {
         scratchColors[0].image.transitionLayout(commandBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, subresourceRange, 0, VK_ACCESS_SHADER_READ_BIT, VK_PIPELINE_STAGE_NONE, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
         scratchColors[1].image.transitionLayout(commandBuffer, VK_IMAGE_LAYOUT_GENERAL, subresourceRange, 0, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_NONE, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
     });
-
-    auto writes = initializers::writeDescriptorSets<4>();
-
-    writes[0].dstSet = _colorInDescriptorSet[0];
-    writes[0].dstBinding = 0;
-    writes[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    writes[0].descriptorCount = 1;
-    VkDescriptorImageInfo colorInInfo{VK_NULL_HANDLE, scratchColors[0].imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
-    writes[0].pImageInfo = &colorInInfo;
-
-    writes[1].dstSet = _colorInDescriptorSet[1];
-    writes[1].dstBinding = 0;
-    writes[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    writes[1].descriptorCount = 1;
-    VkDescriptorImageInfo colorInSwapInfo{VK_NULL_HANDLE, scratchColors[1].imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
-    writes[1].pImageInfo = &colorInSwapInfo;
-
-    writes[2].dstSet = _colorOutDescriptorSet[0];
-    writes[2].dstBinding = 0;
-    writes[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    writes[2].descriptorCount = 1;
-    VkDescriptorImageInfo colorOutInfo{VK_NULL_HANDLE, scratchColors[0].imageView, VK_IMAGE_LAYOUT_GENERAL};
-    writes[2].pImageInfo = &colorOutInfo;
-
-    writes[3].dstSet = _colorOutDescriptorSet[1];
-    writes[3].dstBinding = 0;
-    writes[3].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    writes[3].descriptorCount = 1;
-    VkDescriptorImageInfo colorOutSwapInfo{VK_NULL_HANDLE, scratchColors[1].imageView, VK_IMAGE_LAYOUT_GENERAL};
-    writes[3].pImageInfo = &colorOutSwapInfo;
 }
 
 void FluidSim::updateDescriptorSets() {
@@ -229,88 +176,19 @@ void FluidSim::advect(VkCommandBuffer commandBuffer) {
     sets[0] = _velocityDescriptorSet[0];
     sets[1] = _quantityDescriptorSet[q_in];
     sets[2] = _quantityDescriptorSet[q_out];
-    spdlog::info("N: {}, dt: {}, dissipation: {}",_constants.N, _constants.dt, _constants.dissipation);
+    uint32_t workGroups = glm::max(_constants.N/32, 1);
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline("advect"));
     vkCmdPushConstants(commandBuffer, layout("advect"), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(_constants), &_constants);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, layout("advect"), 0, COUNT(sets), sets.data(), 0, VK_NULL_HANDLE);
-    vkCmdDispatch(commandBuffer, 1, 1, 1);
-//    std::swap(q_in, q_out);
+    vkCmdDispatch(commandBuffer, workGroups, workGroups, 1);
+    std::swap(q_in, q_out);
 }
-
-//void FluidSim::advectColor(VkCommandBuffer commandBuffer) {
-//    static std::array<VkDescriptorSet, 3> sets;
-//    sets[0] = _velocityDescriptorSet[0];
-//    sets[1] = _colorInDescriptorSet[color_in];
-//    sets[2] = _colorOutDescriptorSet[color_out];
-//
-//    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline("advect_color"));
-//    vkCmdPushConstants(commandBuffer, layout("advect_color"), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(_constants), &_constants);
-//    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, layout("advect_color"), 0, COUNT(sets), sets.data(), 0, VK_NULL_HANDLE);
-//    vkCmdDispatch(commandBuffer, 1, 1, 1);
-//
-//    updateOutColor(commandBuffer, scratchColors[color_out]);
-//    VkImageSubresourceRange subresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
-//
-//    color_in = !color_in;
-//    color_out = !color_out;
-//
-//    scratchColors[color_in].image.transitionLayout(commandBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, subresourceRange, VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_SHADER_READ_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
-//    scratchColors[color_out].image.transitionLayout(commandBuffer, VK_IMAGE_LAYOUT_GENERAL, subresourceRange, VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
-//
-//}
-//
-//void FluidSim::updateOutColor(VkCommandBuffer commandBuffer, Texture &srcTexture) {
-//    Texture& dstTexture = *outputColor;
-//    VkImageSubresourceRange subresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
-//
-//    auto dstOldLayout = dstTexture.image.currentLayout;
-//    if(dstOldLayout != VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL){
-//        dstTexture.image.transitionLayout(commandBuffer, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, subresourceRange
-//                , VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_TRANSFER_WRITE_BIT
-//                , VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
-//    }
-//
-//    srcTexture.image.transitionLayout(commandBuffer, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, subresourceRange
-//            , VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT
-//            , VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
-//
-//    VkImageSubresourceLayers imageSubresource{srcTexture.aspectMask, 0, 0, 1};
-//
-//    VkImageCopy region{};
-//    region.srcSubresource = imageSubresource;
-//    region.srcOffset = {0, 0, 0};
-//    region.dstSubresource = imageSubresource;
-//    region.dstOffset = {0, 0, 0};
-//    region.extent = {srcTexture.width, srcTexture.height, 1};
-//
-//    vkCmdCopyImage(commandBuffer, srcTexture.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, dstTexture.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
-//
-//    if(dstOldLayout != VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL){
-//        dstTexture.image.transitionLayout(commandBuffer, dstOldLayout, subresourceRange
-//                , VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT
-//                , VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
-//    }
-//}
 
 std::vector<PipelineMetaData> FluidSim::pipelineMetaData() {
     return {{
                     "advect",
                     resource("advect.comp.spv"),
                     { &_velocitySetLayout, &_quantitySetLayout, &_quantitySetLayout},
-                    { {VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(_constants)}},
-                    {
-                            {
-                                    {0, 0, sizeof(int)},
-                                    {1, sizeof(int), sizeof(int)}
-                            },
-                            sc.data(),
-                            BYTE_SIZE(sc)
-                    }
-            },
-            {
-                    "advect_color",
-                    resource("advect_color.comp.spv"),
-                    { &_velocitySetLayout, &_colorInSetLayout, &_colorOutSetLayout},
                     { {VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(_constants)}},
                     {
                             {
