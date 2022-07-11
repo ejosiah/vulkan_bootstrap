@@ -11,6 +11,8 @@
 #include <fmt/format.h>
 #include "fluid_sim_gpu.h"
 
+#define NOT_YET_IMPLEMENTED FAIL() << "Not yet implemented"
+
 struct Accessor2D{
     float* delegate{};
     int width{};

@@ -1,6 +1,7 @@
 // Type your code here, or load an example.
 #include <glm/glm.hpp>
 #include <fmt/format.h>
+#include <fmt/ranges.h>
 #include <glm\glm.hpp>
 #include <glm\gtc\packing.hpp>
 
@@ -12,191 +13,328 @@
 #include <array>
 
 const float PI = 3.14159265358979323846264338327950288;
+using namespace glm;
 
-float RadicalInverse_VdC(unsigned int bits)
-{
-    bits = (bits << 16u) | (bits >> 16u);
-    bits = ((bits & 0x55555555u) << 1u) | ((bits & 0xAAAAAAAAu) >> 1u);
-    bits = ((bits & 0x33333333u) << 2u) | ((bits & 0xCCCCCCCCu) >> 2u);
-    bits = ((bits & 0x0F0F0F0Fu) << 4u) | ((bits & 0xF0F0F0F0u) >> 4u);
-    bits = ((bits & 0x00FF00FFu) << 8u) | ((bits & 0xFF00FF00u) >> 8u);
-    return float(bits) * 2.3283064365386963e-10;
-}
+using Real = float;
 
-glm::vec2 Hammersley(unsigned int i, unsigned int N)
-{
-    return glm::vec2(float(i) / float(N), RadicalInverse_VdC(i));
-}
+template<size_t N>
+using Vector = std::array<float, N>;
 
-glm::vec3 ImportanceSampleGGX(glm::vec2 Xi, float roughness, glm::vec3 N)
-{
-    float a = roughness*roughness;
+template<size_t M, size_t N>
+using Matrix = std::array<std::array<float, N>, M>;
 
-    float phi = 2.0 * PI * Xi.x;
-    float cosTheta = sqrt((1.0 - Xi.y) / (1.0 + (a*a - 1.0) * Xi.y));
-    float sinTheta = sqrt(1.0 - cosTheta*cosTheta);
+template<size_t N>
+Vector<N> jacobi(const Matrix<N, N>& A, const Vector<N>& b, int iterations = 99, float tol = 0){
+    Vector<N> x0{}, x{}, e{1};
+    int k = 0;
 
-    // from spherical coordinates to cartesian coordinates
-    glm::vec3 H;
-    H.x = cos(phi) * sinTheta;
-    H.y = sin(phi) * sinTheta;
-    H.z = cosTheta;
+    auto converged = [&]{
+        return std::all_of(begin(e), end(e), [&](const auto& v){ return v <= tol; });
+    };
 
-    // from tangent-space vector to world-space sample vector
-    glm::vec3 up = abs(N.z) < 0.999 ? glm::vec3(0.0, 0.0, 1.0) : glm::vec3(1.0, 0.0, 0.0);
-    glm::vec3 tangent = normalize(cross(up, N));
-    glm::vec3 bitangent = cross(N, tangent);
 
-    glm::vec3 sampleVec = tangent * H.x + bitangent * H.y + N * H.z;
-    return normalize(sampleVec);
-}
+    while(!converged()){
 
-float GeometrySchlickGGX(float NdotV, float roughness)
-{
-    float a = roughness;
-    float k = (a * a) / 2.0;
+        if(k >= iterations) break;
+        x0 = x;
+        for(int i = 0; i < N; i++){
+            x[i] = b[i]/A[i][i];
+            for(int j = 0; j < N; j++){
+                if(i == j) continue;
+                x[i] -= (A[i][j] * x0[j])/A[i][i];
+            }
+            e[i] = (x[i] - x0[i])/x[i];
 
-    float nom = NdotV;
-    float denom = NdotV * (1.0 - k) + k;
-
-    return nom / denom;
-}
-
-float GeometrySmith(float roughness, float NoV, float NoL)
-{
-    float ggx2 = GeometrySchlickGGX(NoV, roughness);
-    float ggx1 = GeometrySchlickGGX(NoL, roughness);
-
-    return ggx1 * ggx2;
-}
-
-glm::vec2 IntegrateBRDF(float NdotV, float roughness)
-{
-    glm::vec3 V;
-    V.x = sqrt(1.0 - NdotV * NdotV);
-    V.y = 0.0;
-    V.z = NdotV;
-
-    float A = 0.0;
-    float B = 0.0;
-
-    glm::vec3 N = glm::vec3(0.0, 0.0, 1.0);
-
-    constexpr unsigned int samples = 1024;
-    for (unsigned int i = 0u; i < samples; ++i)
-    {
-        glm::vec2 Xi = Hammersley(i, samples);
-        glm::vec3 H = ImportanceSampleGGX(Xi, roughness, N);
-        glm::vec3 L = normalize(2.0f * dot(V, H) * H - V);
-
-        float NoL = glm::max(L.z, 0.0f);
-        float NoH = glm::max(H.z, 0.0f);
-        float VoH = glm::max(dot(V, H), 0.0f);
-        float NoV = glm::max(dot(N, V), 0.0f);
-
-        if (NoL > 0.0)
-        {
-            float G = GeometrySmith(roughness, NoV, NoL);
-
-            float G_Vis = (G * VoH) / (NoH * NoV);
-            float Fc = pow(1.0 - VoH, 5.0);
-
-            A += (1.0 - Fc) * G_Vis;
-            B += Fc * G_Vis;
         }
+        k++;
     }
 
-    auto res = glm::vec2(A / float(samples), B / float(samples));
+    if(converged()){
+        fmt::print("jacobi converged after {} iterations\n", k);
+    }else{
+        fmt::print("jacobi did not converge after {} iterations\n", k);
+        fmt::print("eps: {}\n", e);
+    }
 
-    if(any(isnan(res))){
-        fmt::print("nan found for NdotV: {} & roughness: {}\n", NdotV, roughness);
+    return x;
+
+}
+
+template<size_t N>
+Vector<N> gauss_seidel(const Matrix<N, N>& A, const Vector<N>& b,  int iterations = 99, float tol = 0){
+    Vector<N> x0{}, x{}, e{1};
+    int k = 0;
+
+    auto converged = [&]{
+        return std::all_of(begin(e), end(e), [&](const auto& v){ return v <= tol; });
+    };
+
+
+    while(!converged()){
+
+        if(k >= iterations) break;
+        for(int i = 0; i < N; i++){
+            float oldX = x[i];
+            x[i] = b[i]/A[i][i];
+            for(int j = 0; j < N; j++){
+                if(i == j) continue;
+                x[i] -= (A[i][j] * x0[j])/A[i][i];
+                x0[i] = x[i];
+            }
+            e[i] = (x[i] - oldX)/x[i];
+
+        }
+        k++;
+    }
+
+    if(converged()){
+        fmt::print("gauss-seidel converged after {} iterations\n", k);
+    }else{
+        fmt::print("gauss-seidel did not converge after {} iterations\n", k);
+    }
+
+    return x;
+}
+
+template<size_t N>
+float dot(Vector<N> a, Vector<N> b){
+    auto res = 0.0f;
+    for(int i = 0; i < N; i++){
+        res += a[i] * b[i];
     }
 
     return res;
 }
 
+template<size_t M, size_t N>
+Vector<M> operator*(const Matrix<M, N>& mat, const Vector<N>& v){
+    Vector<M> res{};
 
-using namespace glm;
-
-void basisFunctions(float* b, float* db, float t)
-{
-    float t1 = (1.0 - t);
-    float t12 = t1 * t1;
-    float t13 = t12 * t1;
-    // Bernstein polynomials
-    b[0] = t12 * t1;
-    b[1] = 3.0 * t12 * t;
-    b[2] = 3.0 * t1 * t * t;
-    b[3] = t * t * t;
-    // Derivatives
-    db[0] = -3.0 * t1 * t1;
-    db[1] = -6.0 * t * t1 + 3.0 * t12;
-    db[2] = -3.0 * t * t + 6.0 * t * t1;
-    db[3] = 3.0 * t * t;
-}
-
-vec3 C(float u, float v, std::array<vec3, 16>& Ps){
-    vec3 p00 = Ps[0];
-    vec3 p01 = Ps[1];
-    vec3 p02 = Ps[2];
-    vec3 p03 = Ps[3];
-    vec3 p10 = Ps[4];
-    vec3 p11 = Ps[5];
-    vec3 p12 = Ps[6];
-    vec3 p13 = Ps[7];
-    vec3 p20 = Ps[8];
-    vec3 p21 = Ps[9];
-    vec3 p22 = Ps[10];
-    vec3 p23 = Ps[11];
-    vec3 p30 = Ps[12];
-    vec3 p31 = Ps[13];
-    vec3 p32 = Ps[14];
-    vec3 p33 = Ps[15];
-    // Compute basis functions
-    float bu[4], bv[4];// Basis functions for u and
-    float dbu[4], dbv[4];// Derivitives for u and v
-
-    basisFunctions(bu, dbu, u);
-    basisFunctions(bv, dbv, v);
-    // Bezier interpolation
-    vec3 p =
-            p00*bu[0]*bv[0] + p01*bu[0]*bv[1] + p02*bu[0]*bv[2] +
-            p03*bu[0]*bv[3] +
-            p10*bu[1]*bv[0] + p11*bu[1]*bv[1] + p12*bu[1]*bv[2] +
-            p13*bu[1]*bv[3] +
-            p20*bu[2]*bv[0] + p21*bu[2]*bv[1] + p22*bu[2]*bv[2] +
-            p23*bu[2]*bv[3] +
-            p30*bu[3]*bv[0] + p31*bu[3]*bv[1] + p32*bu[3]*bv[2] +
-            p33*bu[3]*bv[3];
-
-    return p;
-}
-
-static constexpr std::array<float, 4> bc{1, 3, 3, 1};
-
-float B(int i, float u){
-    return bc[i] * pow(1.f - u, 3.f - i) * pow(u, i);
-}
-
-
-vec3 Q(float u, float v, std::array<vec3, 16>& Ps){
-    vec3 p{0};
-    for(int i = 0; i < 4; i++) {
-        fmt::print("[");
-        for (int j = 0; j < 4; j++) {
-            int ij = i * 4 + j;
-            p += B(i, u) * B(j, v) * Ps[ij];
-            fmt::print("{}, ", B(i, v) );
-        }
-        fmt::print("]\n");
+    for(int i = 0; i < M; i++){
+        Vector<N> row = mat[i];
+        res[i] = dot(row, v);
     }
-    return p;
+    return res;
+}
+
+template<size_t N>
+Vector<N> operator*(const Vector<N>& v, float s){
+    Vector<N> res = v;
+
+    for(auto& x : res){
+        x *= s;
+    }
+    return res;
+}
+
+template<size_t N>
+Vector<N> operator+(const Vector<N>& a, const Vector<N>& b){
+    Vector<N> c;
+
+    for(int i = 0; i < N; i++){
+        c[i] = a[i] + b[i];
+    }
+    return c;
+}
+
+template<size_t N>
+Vector<N> operator-(const Vector<N>& a, const Vector<N>& b){
+    Vector<N> c;
+
+    for(int i = 0; i < N; i++){
+        c[i] = a[i] - b[i];
+    }
+    return c;
+}
+
+template<size_t N>
+bool isZero(const Vector<N>& v){
+    for(int i = 0; i < N; i++){
+        if(v[i] != 0) return false;
+    }
+    return true;
+}
+
+bool isZero(const vec4& v){
+    return all(equal(v, vec4(0)));
+}
+
+template<size_t N>
+float magnitude(const Vector<N>& v){
+    return glm::sqrt(dot(v, v));
+}
+
+template<size_t N>
+float norm(const Vector<N>& v){
+    return glm::sqrt(dot(v, v));
+}
+
+template<size_t N>
+bool CG(const Matrix<N, N> &A, Vector<N> &x, const Vector<N> &b,
+                    const Matrix<N, N> &M, int &max_iter, Real &tol){
+    Real resid;
+    Vector<N> p{}, z{}, q{};
+    float alpha, beta, rho, rho_1;
+
+    Real normb = norm(b);
+    auto r = b - A*x;
+
+    if (normb == 0.0)
+        normb = 1;
+
+    if ((resid = norm(r) / normb) <= tol) {
+        tol = resid;
+        max_iter = 0;
+        return true;
+    }
+
+    for (int i = 1; i <= max_iter; i++) {
+        z = M * r;
+        rho = dot(r, z);
+
+        if (i == 1)
+            p = z;
+        else {
+            beta = rho / rho_1;
+            p = z + p * beta;
+        }
+
+        q = A*p;
+        alpha = rho / dot(p, q);
+
+        x = x + p * alpha;
+        r = r - q * alpha;
+
+        if ((resid = norm(r) / normb) <= tol) {
+            tol = resid;
+            max_iter = i;
+            return true;
+        }
+
+        rho_1 = rho;
+    }
+
+    tol = resid;
+    return false;
+}
+
+
+template<size_t N>
+Matrix<N, N> laplacian(float s = 1.0f, bool positiveDiag = false){
+    Matrix<N, N> M;
+    int n = int(sqrt(N));
+    for(int i = 0; i < N; i++) {
+        for (int j = 0; j < N; j++) {
+            int value = 0;
+            if ((j - 1) == i || (j + 1) == i) {
+                value = 1;
+            }
+            if (j == i) {
+//                if ((j % n) - 1 < 0 || (j % n) + 1 >= n) {
+//                    value = -1;
+//                } else {
+//                    value = -2;
+//                }
+                value = -2;
+            }
+            value *= s;
+            M[i][j] = positiveDiag ? -value : value;
+        }
+    }
+    return M;
+}
+
+template<size_t N>
+Matrix<N, N> Identity(){
+    Matrix<N, N> M;
+    for(int i = 0; i < N; i++){
+        for(int j = 0; j < N; j++){
+            M[i][j] = float(j == i);
+        }
+    }
+    return M;
+}
+
+template<size_t N>
+void log(const std::string& title, const Vector<N>& v){
+
 }
 
 int main(){
+    float tol = 0;
+    int iterations = 10000;
 
-    auto y = 0.25 * glm::cos(glm::radians(30.f));
-    fmt::print("{}\n", y);
+    constexpr int n = 3;
+    constexpr int N = n * n;
+    float dx = 1.0f/n;
+    auto lap = laplacian<N>(1/(dx * dx), true);
 
-    return 0;
+    std::array<vec2, N> field{};
+    for(int i = 0; i < n; i++){
+        for(int j = 0; j < n; j++){
+//            float x = 2 * (float(i)/n) - 1;
+            float y = 2 * (float(i)/n) - 1;
+            int index = i * n + j;
+            field[index] = {1, glm::sin(2.0f * pi<float>() * y)};
+        }
+    }
+
+//    fmt::print("vector field:\n\t");
+//    for(int i = 0; i < n; i++){
+//        for(int j = 0; j < n; j++){
+//            int index = i * n + j;
+//            fmt::print("{} ", field[index]);
+//        }
+//        fmt::print("\n\t");
+//    }
+
+    Vector<N> div{};
+
+    for(int i = 0; i < n; i++){
+        for(int j = 0; j < n; j++){
+            int index = i * n + j;
+            int right = min((i+1) * n + j, n-1);
+            int left = max((i-1) * n + j, 0);
+            int up = min(i * n + (j+1), n-1);
+            int down = max(i * n + (j-1), 0);
+            auto dudx = 0.5f * n * (field[right].x - field[left].x);
+            auto dudy = 0.5f * n * (field[up].y - field[down].y);
+            div[index] = dudx + dudy;
+        }
+    }
+
+//    fmt::print("\ndivergence:\n");
+//    for(int i = 0; i < n; i++){
+//        for(int j = 0; j < n; j++){
+//            int index = i * n + j;
+//            fmt::print("\t{} ", div[index]);
+//        }
+//        fmt::print("\n");
+//    }
+
+//    fmt::print("\nlaplacian:\n\t");
+//    for(int i = 0; i < N; i++){
+//        for(int j = 0; j < N; j++){
+//            fmt::print("{} ", lap[i][j]);
+//        }
+//        fmt::print("\n\t");
+//    }
+
+    auto x = jacobi(lap, div, iterations, tol);
+    fmt::print("x: {}\n\n", x);
+
+    x = gauss_seidel(lap, div,  iterations, tol);
+    fmt::print("x: {}\n\n", x);
+
+    auto precon = Identity<N>();
+    x = Vector<N>{};
+    auto converged = CG(lap, x, div, precon, iterations, tol);
+    if(converged){
+        fmt::print("GC converged after {} iterations\n", iterations);
+    }else{
+        fmt::print("GC  did not converge after {} iterations\n", iterations);
+    }
+    fmt::print("x: {}\n", x);
 }
+
+

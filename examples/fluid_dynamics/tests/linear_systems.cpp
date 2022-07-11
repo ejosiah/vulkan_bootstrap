@@ -16,8 +16,8 @@ std::array<float, N> jacobi(std::array<float, N * N> A, std::array<float, N> b){
             }
             epsilon[i] = (x[i] - x0[i])/x[i];
         }
+        fmt::print("error: {}\n", epsilon);
     }
-    fmt::print("error: {}\n", epsilon);
     return x;
 }
 
@@ -27,6 +27,7 @@ std::array<float, N> gauss_seidel(std::array<float, N * N> A, std::array<float, 
 
     for(int k = 0; k < K; k++){
         for(int i = 0; i < N; i++){
+            float oldX = x0[i];
             int index = i * N + i;
             auto Aii = A[index];
             x[i] = (b[i] / A[index]);
@@ -36,10 +37,10 @@ std::array<float, N> gauss_seidel(std::array<float, N * N> A, std::array<float, 
                 x[i] = x[i] - ((A[index]/Aii) * x0[j]);
                 x0[i] = x[i];
             }
-            epsilon[i] = (x[i] - x0[i])/x[i];
+            epsilon[i] = (x[i] - oldX)/x[i];
         }
+        fmt::print("solution: {}, error: {}\n", x, epsilon);
     }
-    fmt::print("error: {}\n", epsilon);
     return x;
 }
 
@@ -55,7 +56,7 @@ TEST_F(LinearSystemsFixture, jacobiIterationMethod){
 
 TEST_F(LinearSystemsFixture, gaussSeidelMethod){
 
-    auto _x = gauss_seidel<N, 20>(A, b);
+    auto _x = gauss_seidel(A, b);
     fmt::print("x: {}\n", _x);
     for(int i = 0; i < N; i++){
         ASSERT_NEAR(x[i], _x[i], 0.001);
