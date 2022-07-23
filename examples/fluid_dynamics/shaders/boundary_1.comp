@@ -1,0 +1,23 @@
+#version 450
+
+#define IX(i, j) ((i)*(N+2)+(j))
+#define HORIZONTAL_BOUNDARY 1
+#define VERTICAL_BOUNDARY 2
+
+layout(local_size_x = 1) in;
+
+layout(set = 0, binding = 0) buffer X{
+    float x[];
+};
+
+layout(push_constant) uniform constants {
+    int N;
+    int boundary;
+};
+
+void main(){
+    x[IX(0, 0)]         = 0.5f * (x[IX(1, 0)] + x[IX(0, 1)]);
+    x[IX(0, N + 1)]     = 0.5f * (x[IX(1, N + 1)] + x[IX(0, N)]);
+    x[IX(N + 1, 0)]     = 0.5f * (x[IX(N, 0)] + x[IX(N + 1, 1)]);
+    x[IX(N + 1, N + 1)] = 0.5f * (x[IX(N, N + 1)] + x[IX(N + 1, N)]);
+}

@@ -6,13 +6,22 @@
 #include "filemanager.hpp"
 #include "Texture.h"
 
+#define HORIZONTAL_BOUNDARY 1
+#define VERTICAL_BOUNDARY 2
+#define SCALAR_FIELD_BOUNDARY 0
+
+#define VELOCITY_FIELD_U "velocity_field_u"
+#define VELOCITY_FIELD_V "velocity_field_v"
+#define DENSITY "density"
+
+using Quantity = std::string;
+
 class FluidSim : public ComputePipelines{
 public:
     FluidSim() = default;
 
     FluidSim(VulkanDevice* device, FileManager fileMgr,  VulkanBuffer u0, VulkanBuffer v0,
-             VulkanBuffer u, VulkanBuffer v, VulkanBuffer q0, VulkanBuffer q1,
-             int N, float dt, float dissipation);
+             VulkanBuffer u, VulkanBuffer v, int N, float dt, float dissipation);
 
 
     void init();
@@ -23,6 +32,8 @@ public:
 
     void createDescriptorPool();
 
+    void setVectorFieldQuantity();
+
     std::vector<PipelineMetaData> pipelineMetaData() override;
 
     void createDescriptorSets();
@@ -31,18 +42,53 @@ public:
 
     void run(float speed);
 
-    void advect(VkCommandBuffer commandBuffer);
+    void velocityStep(VkCommandBuffer commandBuffer, float dt = 0.0f, float viscosity = 1.0f);
+
+    void quantityStep(VkCommandBuffer commandBuffer, const Quantity& quantity, float dt = 0.0f, float dissipation = 0.99f);
+
+    void advect(VkCommandBuffer commandBuffer, const Quantity& quantity, int boundary);
 
     void calculateDivergence(VkCommandBuffer commandBuffer);
 
+    void project(VkCommandBuffer commandBuffer, int iterations = 20);
+
+    void clearSupportBuffers(VkCommandBuffer commandBuffer);
+
+    void swapVectorFieldBuffers();
+
+    void diffuse(VkCommandBuffer commandBuffer, const Quantity& quantity, int boundary, int iterations = 20);
+
+    void computePressureGradient(VkCommandBuffer commandBuffer);
+
+    void solvePressureEquation(VkCommandBuffer commandBuffer, int iterations = 20);
+
+    void computeDivergenceFreeField(VkCommandBuffer commandBuffer);
+
+    void setBoundary(VkCommandBuffer commandBuffer, VkDescriptorSet descriptorSet, VulkanBuffer vulkanBuffer, int boundary);
+
+    void setBoundary(VkCommandBuffer commandBuffer, const Quantity& quantity, int boundary);
+
     void dissipation(float value);
 
-    void setQuantity(VulkanBuffer q0, VulkanBuffer q);
+    static void barrier(VkCommandBuffer commandBuffer, const VulkanBuffer& buffer);
 
-    void resize(VulkanBuffer u0, VulkanBuffer v0,
-                VulkanBuffer u, VulkanBuffer v,
-                VulkanBuffer q0, VulkanBuffer q1,
-                int N);
+    static void barrier(VkCommandBuffer commandBuffer, const std::vector<VulkanBuffer>& buffers);
+
+    void setQuantity(const Quantity& quantity, VulkanBuffer q0, VulkanBuffer q);
+
+    const VulkanBuffer& inputBuffer(const Quantity& quantity);
+
+    const VulkanBuffer& outputBuffer(const Quantity& quantity);
+
+    std::array<VkDescriptorSet, 2>& descriptorSet(const Quantity& quantity);
+
+    VkDescriptorSet inputDescriptorSet(const Quantity& quantity);
+
+    VkDescriptorSet outputDescriptorSet(const Quantity& quantity);
+
+    void resize(VulkanBuffer u0, VulkanBuffer v0,VulkanBuffer u, VulkanBuffer v, int N);
+
+    void createSupportBuffers();
 
     std::string resource(const std::string& path);
 
@@ -57,9 +103,11 @@ public:
     VkDescriptorSet _pressureDescriptorSet{};
     VkDescriptorSet _pressureGradientDescriptorSet{};
     std::array<VkDescriptorSet, 2> _velocityDescriptorSet{};
-    std::array<VkDescriptorSet, 2> _quantityDescriptorSet{};
-    VulkanBuffer _u0, _v0, _u, _v;
-    VulkanBuffer _q0, _q;
+    std::map<Quantity, std::array<VkDescriptorSet, 2>> _quantityDescriptorSets;
+    std::map<Quantity, int> _quantityIn;
+    std::map<Quantity, int> _quantityOut;
+    std::map<Quantity, std::array<VulkanBuffer, 2>> _quantityBuffer;
+    std::array<VulkanBuffer, 2> _u, _v;
     VulkanSampler textureSampler;
 
     int q_in = 0;
@@ -74,6 +122,18 @@ public:
         float dt{1};
         float dissipation{1};
     } _constants{};
+
+    struct {
+        int N;
+        int boundary{0};
+    } _boundaryConstants;
+
+    struct {
+        int N;
+        float alpha{1};
+        float rBeta{1};
+    } jacobiConstants;
+
     std::array<int, 2> sc{};
     FileManager _fileManager;
     std::array<Texture, 2> scratchColors;

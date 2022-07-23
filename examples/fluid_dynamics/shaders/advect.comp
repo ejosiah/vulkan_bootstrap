@@ -1,10 +1,5 @@
 #version 450
 
-#define IX(i, j) (int(i)+(N+2)*int(j))
-#define LEFT 0
-#define RIGHT 1
-#define BOTTOM 2
-#define TOP 3
 layout(local_size_x = 32, local_size_y = 32) in;
 
 layout(set = 0, binding = 0) buffer VelocityHorizontalComp {
@@ -47,7 +42,7 @@ const ivec2 neighbours[4] = ivec2[4](ivec2(-1, 0), ivec2(1, 0), ivec2(0, -1), iv
 
 
 void main(){
-    if(gl_GlobalInvocationID.x > N || gl_GlobalInvocationID.y > N){
+    if(gl_GlobalInvocationID.x >= N || gl_GlobalInvocationID.y >= N){
         return;
     }
 

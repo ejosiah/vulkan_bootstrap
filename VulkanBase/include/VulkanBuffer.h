@@ -116,13 +116,13 @@ struct VulkanBuffer{
         return &buffer;
     }
 
-    void* map(){
+    void* map() const {
         if(mapped) return mapped;
         vmaMapMemory(allocator, allocation, &mapped);
         return mapped;
     }
 
-    void unmap() {
+    void unmap() const {
         if(!mapped) return;
         vmaUnmapMemory(allocator, allocation);
         mapped = nullptr;
@@ -171,7 +171,7 @@ struct VulkanBuffer{
     VmaAllocation allocation = VK_NULL_HANDLE;
     VkDeviceSize  size = 0;
     std::string name{};
-    void* mapped = nullptr;
+    mutable void* mapped = nullptr;
     bool isMapped = false;
     bool mappable = false;
     static std::map<VkBuffer, std::atomic_uint32_t> refCounts;

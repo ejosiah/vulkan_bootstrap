@@ -443,7 +443,8 @@ void FluidDynamicsDemo::gpuSimulation() {
     if(first){
 //        first = false;
         simCommandPool.oneTimeCommand([&](auto commandBuffer){
-            fluidSim.advect(commandBuffer);
+            fluidSim.advect(commandBuffer, VELOCITY_FIELD_U, HORIZONTAL_BOUNDARY);
+            fluidSim.advect(commandBuffer, VELOCITY_FIELD_V, VERTICAL_BOUNDARY);
 //            fluidSim.calculateDivergence(commandBuffer);
         });
         auto div =  simData.u[0];
@@ -560,8 +561,7 @@ void FluidDynamicsDemo::initFluidSim() {
     auto dt = 1.0f/static_cast<float>(simData.N);
     spdlog::info("dt: {}", dt);
     fluidSim = FluidSim{ &device, fileManager, simData.uBuffer[0], simData.vBuffer[0]
-            , simData.uBuffer[1], simData.vBuffer[1], simData.densityBuffer[0]
-            , simData.densityBuffer[1], simData.N, dt, 1.0};
+            , simData.uBuffer[1], simData.vBuffer[1], simData.N, dt, 1.0};
     fluidSim.init();
 //    fluidSim.set(colorTexture);
     simCommandPool = device.createCommandPool(*device.queueFamilyIndex.compute, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);

@@ -1,0 +1,57 @@
+#version 450
+#define IX(i, j) ((i)*(N+2)+(j))
+
+layout(local_size_x = 32, local_size_y = 32) in;
+
+layout(set = 0, binding = 0) buffer VelocityHorizontalComp0 {
+    float u0[];
+};
+
+layout(set = 0, binding = 1) buffer VelocityVerticalComp0 {
+    float v0[];
+};
+
+layout(set = 1, binding = 0) buffer VelocityHorizontalComp {
+    float u[];
+};
+
+layout(set = 1, binding = 1) buffer VelocityVerticalComp {
+    float v[];
+};
+
+layout(set = 2, binding = 0) buffer PressureGradientHorizontalComp{
+    float gu[];
+};
+
+layout(set = 2, binding = 1) buffer PressureGradientVerticalComp{
+    float gv[];
+};
+
+layout(push_constant) uniform Constants{
+    int N;
+};
+
+vec2 getVelocityAt(int i){
+    return vec2(u0[i], v0[i]);
+}
+
+vec2 pressureGradientAt(int i){
+    return vec2(gu[i], gv[i]);
+}
+
+void main(){
+    if(gl_GlobalInvocationID.x >= N || gl_GlobalInvocationID.y >= N){
+        return;
+    }
+
+    vec2 coord = vec2(gl_GlobalInvocationID.xy) + 1;
+    int index = int(coord.y * (N+2) + coord.x);
+
+    vec2 w = getVelocityAt(index);
+    vec2 dp = pressureGradientAt(index);
+
+    vec2 du = w - dp;
+
+    u[index] = du.x;
+    v[index] = du.y;
+}

@@ -49,6 +49,8 @@ protected:
 
 
     void SetUp() override {
+        auto path = fs::absolute(".");
+        fmt::print("cwd: {}\n\n", path.string());
         spdlog::set_level(spdlog::level::warn);
         initFileManager();
         auto info = createInfo();
@@ -62,6 +64,8 @@ protected:
 
     void initFileManager(){
         _fileManager.addSearchPath(".");
+        // TODO install resource files to avoid relative/absolute paths specifications
+        _fileManager.addSearchPath(R"(C:\Users\Josiah Ebhomenye\CLionProjects\vulkan_bootstrap\examples\fluid_dynamics\spv)");
         _fileManager.addSearchPath("../../examples/fluid_dynamics");
         _fileManager.addSearchPath("../../examples/fluid_dynamics/spv");
         _fileManager.addSearchPath("../../data/shaders");
@@ -71,8 +75,7 @@ protected:
     void initFluidSim() {
         auto dt = _constants.dt;
         fluidSim = FluidSim{ device, _fileManager, _u0, _v0
-                , _u, _v, _q0
-                , _q, _constants.N, dt, 1.0};
+                , _u, _v, _constants.N, dt, 1.0};
         fluidSim.init();
     }
 
@@ -113,13 +116,6 @@ protected:
         _q.unmap();
     }
 
-    void advect()  {
-        context().device.computeCommandPool().oneTimeCommand([&](auto commandBuffer){
-            fluidSim.advect(commandBuffer);
-        });
-    }
-
-
 protected:
 
     VulkanContext& context() const {
@@ -142,15 +138,71 @@ protected:
 
     void N(int value){
         _constants.N = value;
+        fluidSim._constants.N = value;
     }
 
     void dt(float value){
         _constants.dt = value;
+        fluidSim._constants.dt = value;
     }
 
     void dissipation(float value){
         _constants.dissipation = value;
         fluidSim.dissipation(value);
+    }
+
+    void setVectorField(const std::vector<glm::vec2>& field){
+        const auto N = (_constants.N + 2) * (_constants.N + 2);
+
+        auto u = reinterpret_cast<float*>(_u0.map());
+        auto v = reinterpret_cast<float*>(_v0.map());
+        for(int i = 0; i < N; i++){
+            u[i] = field[i].x;
+            v[i] = field[i].y;
+        }
+        _u0.unmap();
+        _v0.unmap();
+    }
+
+    void setVectorField1(const std::vector<glm::vec2>& field){
+        const auto N = (_constants.N + 2) * (_constants.N + 2);
+
+        auto u = reinterpret_cast<float*>(_u.map());
+        auto v = reinterpret_cast<float*>(_v.map());
+        for(int i = 0; i < N; i++){
+            u[i] = field[i].x;
+            v[i] = field[i].y;
+        }
+        _u.unmap();
+        _v.unmap();
+    }
+
+    void setVectorField(const float* fu, const float* fv){
+        const auto N = (_constants.N + 2) * (_constants.N + 2);
+
+        auto u = reinterpret_cast<float*>(_u0.map());
+        auto v = reinterpret_cast<float*>(_v0.map());
+        for(int i = 0; i < N; i++){
+            u[i] = fu[i];
+            v[i] = fv[i];
+        }
+        _u0.unmap();
+        _v0.unmap();
+    }
+
+    void setScalaField(const std::vector<float>& field){
+        const auto N = (_constants.N + 2) * (_constants.N + 2);
+
+        auto f = reinterpret_cast<float*>(fluidSim._pressure.map());
+        for(int i = 0; i < N; i++){
+            f[i] = field[i];
+        }
+    }
+
+    void refresh(){
+        TearDown();
+        initBuffer();
+        initFluidSim();
     }
 
     struct {

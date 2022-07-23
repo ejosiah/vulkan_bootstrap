@@ -26,9 +26,8 @@ if (OpenCL_FOUND)
     target_link_libraries(fluid_dynamics ${OpenCL_LIBRARIES})
 endif()
 
-message(STATUS ${HPP_FILES_TEST})
 
 include(GoogleTest)
 add_executable(fluid_sim_tests ${HPP_FILES_TEST} ${TEST_FILES})
 target_link_libraries(fluid_sim_tests PRIVATE VulkanBase ImGuiPlugin  ${GTEST_LIBS} ${CONAN_LIBS})
-gtest_add_tests(TARGET fluid_sim_tests)
+gtest_discover_tests(fluid_sim_tests TEST_PREFIX FluidSim.)

@@ -1,5 +1,5 @@
 #version 450
-#define IX(i, j) (int(i)+(N+2)*int(j))
+#define IX(i, j) ((i)*(N+2)+(j))
 
 layout(local_size_x = 32, local_size_y = 32) in;
 
@@ -20,14 +20,14 @@ layout(push_constant) uniform Constants{
 };
 
 void main(){
-    if(gl_GlobalInvocationID.x > N || gl_GlobalInvocationID.y > N){
+    if(gl_GlobalInvocationID.x >= N || gl_GlobalInvocationID.y >= N){
         return;
     }
 
-    int j = int(gl_GlobalInvocationID.y + 1);
-    int i = int(gl_GlobalInvocationID.x + 1);
+    int i = int(gl_GlobalInvocationID.y + 1);
+    int j = int(gl_GlobalInvocationID.x + 1);
 
-    float dudx =  0.5 * N * (u[IX(i+1, j)] - u[IX(i-1, j)]);
-    float dudy =  0.5 * N * (v[IX(i, j+1)] - v[IX(i, j-1)]);
+    float dudx =  0.5 * N * (u[IX(i, j+1)] - u[IX(i, j-1)]);
+    float dudy =  0.5 * N * (v[IX(i+1, j)] - v[IX(i-1, j)]);
     div[IX(i, j)] = dudx + dudy;
 }

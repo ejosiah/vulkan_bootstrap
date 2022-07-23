@@ -1,5 +1,5 @@
 #include "fluid_sim_fixture.hpp"
-#define IX(i, j) (int(i)+(N+2)*int(j))
+#define LOC(i, j) ((i)*(N+2)+(j))
 
 using namespace glm;
 
@@ -12,19 +12,6 @@ public:
         _constants.N = 128;
         FluidSimFixture::SetUp();
     }
-
-    void setVectorField(const std::vector<vec2>& field){
-        const auto N = (_constants.N + 2) * (_constants.N + 2);
-
-        auto u = reinterpret_cast<float*>(_u0.map());
-        auto v = reinterpret_cast<float*>(_v0.map());
-        for(int i = 0; i < N; i++){
-            u[i] = field[i].x;
-            v[i] = field[i].y;
-        }
-        _u0.unmap();
-        _v0.unmap();
-    }
 };
 
 TEST_F(DivergenceTest, divergenceOfVectorFieldShouldBeCorrect){
@@ -35,10 +22,6 @@ TEST_F(DivergenceTest, divergenceOfVectorFieldShouldBeCorrect){
 
     auto g = [](float x, float y){
         return sin(x) * sin(y);
-    };
-
-    auto h = [](float x, float y){
-        return sin(x) * (cos(y) - sin(y));
     };
 
     const auto N = _constants.N;
@@ -71,11 +54,10 @@ TEST_F(DivergenceTest, divergenceOfVectorFieldShouldBeCorrect){
     for(int i = 1; i <= N; i++){
         for(int j = 1; j <= N; j++){
 
-            float dudx = 0.5f * (u[IX(i+1, j)] - u[IX(i-1, j)]) / delta;
-            float dudy = 0.5f * (v[IX(i, j+1)] - v[IX(i, j-1)]) / delta;
+            float dudx = 0.5f * (u[LOC(i, j+1)] - u[LOC(i, j-1)]) / delta;
+            float dudy = 0.5f * (v[LOC(i+1, j)] - v[LOC(i-1, j)]) / delta;
             float expected = dudx + dudy;
-
-            ASSERT_NEAR(expected, div[IX(i, j)], 0.001);
+            ASSERT_NEAR(expected, div[LOC(i, j)], 0.001);
         }
     }
 
