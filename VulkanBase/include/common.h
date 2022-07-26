@@ -66,7 +66,7 @@ using ubyte_string = std::vector<unsigned char>;
 
 constexpr float EPSILON = 0.000001;
 constexpr float MAX_FLOAT = std::numeric_limits<float>::max();
-constexpr float MIN_FLOAT = std::numeric_limits<float>::lowest();
+constexpr float MIN_FLOAT = std::numeric_limits<float>::min();
 constexpr std::chrono::seconds ONE_SECOND = std::chrono::seconds(1);
 
 #define STRINGIZE(x) STRINGIZE2(x)

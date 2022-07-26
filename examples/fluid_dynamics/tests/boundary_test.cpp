@@ -41,24 +41,21 @@ TEST_F(BoundaryTest, vectorFieldHorizontalBoundaryCheck){
     setVectorField(field);
 
     auto u = reinterpret_cast<float*>(_u0.map());
-    auto v = reinterpret_cast<float*>(_v0.map());
-
 
     for(int i = 0; i < (N+2); i++){
-        ASSERT_EQ(0, u[LOC(0, i)]);
-        ASSERT_EQ(0, u[LOC(N+1, i)]);
+        ASSERT_EQ(0, u[LOC(i, 0)]);
+        ASSERT_EQ(0, u[LOC(i, N+1)]);
 
-        ASSERT_EQ(0, v[LOC(i, 0)]);
-        ASSERT_EQ(0, v[LOC(i, N+1)]);
     }
 
 
     context().device.computeCommandPool().oneTimeCommand([&](auto commandBuffer){
-        fluidSim.setBoundary(commandBuffer, fluidSim._quantityDescriptorSets[VELOCITY_FIELD_U][0], fluidSim._u[0], HORIZONTAL_BOUNDARY);
+        fluidSim.setBoundary(commandBuffer, fluidSim._quantityDescriptorSets[VELOCITY_FIELD_U][0], fluidSim._u[0], HORIZONTAL_COMPONENT_BOUNDARY);
     });
 
     for(int i = 1; i <= N; i++){
-        ASSERT_EQ(u[LOC(i, 0)] + u[LOC(i, 1)], 0);
+        ASSERT_EQ(u[LOC(i, 0)], -u[LOC(i, 1)]);
+        ASSERT_EQ(u[LOC(i, N+1)], -u[LOC(i, N)]);
     }
 
     ASSERT_EQ(u[LOC(0, 0)]   , 0.5 * (u[LOC(1, 0)] + u[LOC(0, 1)])); // bottom left
@@ -66,6 +63,7 @@ TEST_F(BoundaryTest, vectorFieldHorizontalBoundaryCheck){
     ASSERT_EQ(u[LOC(N+1, 0)] , 0.5 * (u[LOC(N, 0)] + u[LOC(N+1, 1)]));  // top left
     ASSERT_EQ(u[LOC(N+1, N+1)] , 0.5 * (u[LOC(N, N+1)] + u[LOC(N+1, N)]));   // top right
 
+    _u0.unmap();
 }
 
 TEST_F(BoundaryTest, vectorFieldVerticalBoundaryCheck){
@@ -88,16 +86,17 @@ TEST_F(BoundaryTest, vectorFieldVerticalBoundaryCheck){
 
 
     for(int i = 0; i < (N+2); i++){
-        ASSERT_EQ(0, v[LOC(i, 0)]);
-        ASSERT_EQ(0, v[LOC(i, N+1)]);
+        ASSERT_EQ(0, v[LOC(0, i)]);
+        ASSERT_EQ(0, v[LOC(N+1, i)]);
     }
 
     context().device.computeCommandPool().oneTimeCommand([&](auto commandBuffer){
-        fluidSim.setBoundary(commandBuffer, fluidSim._quantityDescriptorSets[VELOCITY_FIELD_V][0], fluidSim._v[0], VERTICAL_BOUNDARY);
+        fluidSim.setBoundary(commandBuffer, fluidSim._quantityDescriptorSets[VELOCITY_FIELD_V][0], fluidSim._v[0], VERTICAL_COMPONENT_BOUNDARY);
     });
 
     for(int i = 1; i <= N; i++){
-        ASSERT_EQ(v[LOC(0, i)] + v[LOC(1, i)], 0);
+        ASSERT_EQ(v[LOC(0, i)],  -v[LOC(1, i)]);
+        ASSERT_EQ(v[LOC(N+1, i)],  -v[LOC(N, i)]);
     }
 
 
@@ -150,4 +149,41 @@ TEST_F(BoundaryTest, scalaFieldBoundaryCheck){
 
     ASSERT_EQ(p[LOC(N + 1, 0)]    , 0.5f * (p[LOC(N, 0)] + p[LOC(N + 1, 1)]));
     ASSERT_EQ(p[LOC(N + 1, N + 1)], 0.5f * (p[LOC(N, N + 1)] + p[LOC(N + 1, N)]));
+}
+
+TEST_F(BoundaryTest, DISABLED_boundaryOfConstantVectorFieldShouldAlsoBeConstant){
+    const auto N = _constants.N;
+    std::vector<vec2> field((N+2) * (N+2));
+
+    for(int j = 1; j <= N; j++){
+        for(int i = 1; i <= N; i++){
+            vec2 u{1, 0};
+            field[LOC(i, j)] = u;
+        }
+    }
+
+    setVectorField(field);
+
+    auto u = reinterpret_cast<float*>(_u0.map());
+
+    for(int i = 0; i < (N+2); i++){
+        ASSERT_EQ(0, u[LOC(0, i)]);
+        ASSERT_EQ(0, u[LOC(N+1, i)]);
+    }
+
+
+    context().device.computeCommandPool().oneTimeCommand([&](auto commandBuffer){
+        fluidSim.setBoundary(commandBuffer, fluidSim._quantityDescriptorSets[VELOCITY_FIELD_U][0], fluidSim._u[0], HORIZONTAL_COMPONENT_BOUNDARY);
+    });
+
+    for(int i = 1; i <= N; i++){
+        ASSERT_EQ(1, u[LOC(i, 0)] + u[LOC(i, 1)]);
+    }
+
+    ASSERT_EQ(u[LOC(0, 0)]   , 1); // bottom left
+    ASSERT_EQ(u[LOC(0, N+1)] , 1);  // bottom right
+    ASSERT_EQ(u[LOC(N+1, 0)] , 1);  // top left
+    ASSERT_EQ(u[LOC(N+1, N+1)] , 1);   // top right
+
+    _u0.unmap();
 }

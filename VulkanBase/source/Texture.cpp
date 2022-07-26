@@ -135,7 +135,7 @@ void textures::create(const VulkanDevice &device, Texture &texture, VkImageType 
     imageCreateInfo.arrayLayers = 1;
     imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
     imageCreateInfo.tiling = tiling;
-    imageCreateInfo.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
+    imageCreateInfo.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
     imageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
@@ -401,7 +401,7 @@ void textures::copy(VkCommandBuffer commandBuffer, Texture &srcTexture, Texture 
 }
 
 void textures::generate(const VulkanDevice &device, Texture &texture, uint32_t width, uint32_t height,
-                       ColorGen&& generator) {
+                       ColorGen&& generator, VkFormat format) {
     std::vector<unsigned char> canvas(width * height * 4);
 
     for(auto i = 0; i < height; i++){
@@ -414,5 +414,5 @@ void textures::generate(const VulkanDevice &device, Texture &texture, uint32_t w
             canvas[idx + 3] = 255;
         }
     }
-    create(device, texture, VK_IMAGE_TYPE_2D, VK_FORMAT_R8G8B8A8_UNORM, canvas.data(), {width, height, 1u});
+    create(device, texture, VK_IMAGE_TYPE_2D, format, canvas.data(), {width, height, 1u});
 }

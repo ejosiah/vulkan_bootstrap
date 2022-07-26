@@ -336,12 +336,12 @@ void FluidDynamicsDemo::renderGrid(VkCommandBuffer commandBuffer) {
 
 void FluidDynamicsDemo::renderVectorField(VkCommandBuffer commandBuffer) {
     if(!showVectorField) return;
-    int n = simData.N;
+    int n = (simData.N+2);
 
     VkDeviceSize  offset = 0;
     static std::array<VkDescriptorSet, 2> sets;
     sets[0] = cameraSet;
-    sets[1] = simData.descriptorSets[0];
+    sets[1] = simData.descriptorSets[fluidSim.v_in];
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vectorView.thin.pipeline);
     vkCmdPushConstants(commandBuffer, vectorView.thin.layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(constants), &constants);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vectorView.thin.layout, 0, COUNT(sets), sets.data(), 0, VK_NULL_HANDLE);
@@ -440,19 +440,11 @@ void FluidDynamicsDemo::update(float time) {
 }
 
 void FluidDynamicsDemo::gpuSimulation() {
-    if(first){
-//        first = false;
-        simCommandPool.oneTimeCommand([&](auto commandBuffer){
-            fluidSim.advect(commandBuffer, VELOCITY_FIELD_U, HORIZONTAL_BOUNDARY);
-            fluidSim.advect(commandBuffer, VELOCITY_FIELD_V, VERTICAL_BOUNDARY);
-//            fluidSim.calculateDivergence(commandBuffer);
-        });
-        auto div =  simData.u[0];
-        const auto N = simData.N;
-        for(int i = N; i < N + 10; i++){
-            spdlog::info("{} => {}", i , div[i]);
-        }
-    }
+    simCommandPool.oneTimeCommand([&](auto commandBuffer){
+//        fluidSim.advectVectorField(commandBuffer);
+//        fluidSim.swapVectorFieldBuffers();
+        fluidSim.velocityStep(commandBuffer, 0, 0);
+    });
 }
 
 void FluidDynamicsDemo::checkAppInputs() {
@@ -468,20 +460,44 @@ void FluidDynamicsDemo::checkAppInputs() {
             brush.trail.clear();
         }
         else if (debug && mouse.left.released) {
+            auto out = fluidSim.v_out;
+            auto n = simData.N + 2;
             auto pos = mousePositionToWorldSpace(camera).xy();
-            glm::ivec2 gridId = floor(pos.xy() * static_cast<float>(simData.N));
-            int id = gridId.y * simData.N + gridId.x;
-            glm::vec2 v{simData.u[0][id], simData.v[0][id]};
+            glm::ivec2 gridId = floor(pos.xy() * static_cast<float>(n));
+            int id = gridId.y * n + gridId.x;
+            glm::vec2 v{simData.u[out][id], simData.v[out][id]};
             std::vector<glm::vec2> gridCellParticles;
             for (int i = 0; i < particles.particleBuffer.sizeAs<glm::vec2>(); i++) {
                 auto p = particles.particlePtr[i];
-                glm::ivec2 gridId = floor(p.xy() * static_cast<float>(simData.N));
-                int id1 = gridId.y * simData.N + gridId.x;
+                glm::ivec2 gridId = floor(p.xy() * static_cast<float>(n));
+                int id1 = gridId.y * n + gridId.x;
                 if (id == id1) {
                     gridCellParticles.push_back(p);
                 }
             }
+            gpuSimulation();
+            out = fluidSim.v_in;
             spdlog::info("id: {}, gridID: {}, velocity: {}", id, glm::vec2(gridId), v);
+            if(gridId.x == 1){
+                id = gridId.y * n;
+                v = glm::vec2{simData.u[out][id], simData.v[out][id]};
+                spdlog::info("id: {}, gridID: {}, boundary: {}", id, glm::vec2(gridId), v);
+            }
+            if(gridId.x == simData.N){
+                id = gridId.y * n + (simData.N + 1);
+                v = glm::vec2{simData.u[out][id], simData.v[out][id]};
+                spdlog::info("id: {}, gridID: {}, boundary: {}", id, glm::vec2(gridId), v);
+            }
+            if(gridId.y == 1){
+                id = gridId.x;
+                v = glm::vec2{simData.u[out][id], simData.v[out][id]};
+                spdlog::info("id: {}, gridID: {}, boundary: {}", id, glm::vec2(gridId), v);
+            }
+            if(gridId.y == simData.N){
+                id = (gridId.y+1) * n + gridId.x;
+                v = glm::vec2{simData.u[out][id], simData.v[out][id]};
+                spdlog::info("id: {}, gridID: {}, boundary: {}", id, glm::vec2(gridId), v);
+            }
         }
     }
 }
@@ -523,22 +539,22 @@ void FluidDynamicsDemo::initSimData() {
     simData.v[0] = reinterpret_cast<float*>(simData.vBuffer[0].map());
     simData.v[1] = reinterpret_cast<float*>(simData.vBuffer[1].map());
 
-    for(int i = 1; i <=  N; i++){
-        for(int j = 1; j <= N; j++){
+    for(int i = 0; i < (N+2); i++){
+        for(int j = 0; j < (N+2); j++){
             int id = i * (N+2) + j;
-            float x = 2.f * static_cast<float>(j-1)/static_cast<float>(N) - 1;
-            float y = 2.f * static_cast<float>(i-1)/static_cast<float>(N) - 1;
+            float x = 2.f * static_cast<float>(j)/static_cast<float>(N) - 1;
+            float y = 2.f * static_cast<float>(i)/static_cast<float>(N) - 1;
 //            float u = sin(2 * glm::pi<float>() * y);
 //            float v = cos(2 * glm::pi<float>() * x);
 
 //            float x = static_cast<float>(i)/static_cast<float>(N) * glm::two_pi<float>();
 //            float y = static_cast<float>(j)/static_cast<float>(N) * glm::pi<float>();
-//
+
             float u = glm::cos(x) * glm::sin(y);
             float v = glm::sin(x) * glm::sin(y);
 
-            simData.u[0][id] = u;
-            simData.v[0][id] = v;
+            simData.u[0][id] = simData.u[1][id]  = 1;
+            simData.v[0][id] = simData.v[1][id] = glm::cos(glm::two_pi<float>() * x);
         }
     }
 
@@ -558,13 +574,22 @@ void FluidDynamicsDemo::initSimData() {
 
 void FluidDynamicsDemo::initFluidSim() {
 //    auto dt = (1.0f/static_cast<float>(simData.N) * 5)/constants.maxMagnitude;
-    auto dt = 1.0f/static_cast<float>(simData.N);
+//    auto dt = 1.0f/static_cast<float>(simData.N);
+    float dt = 1.0f/static_cast<float>(simData.N) * 0.01;
     spdlog::info("dt: {}", dt);
     fluidSim = FluidSim{ &device, fileManager, simData.uBuffer[0], simData.vBuffer[0]
             , simData.uBuffer[1], simData.vBuffer[1], simData.N, dt, 1.0};
     fluidSim.init();
 //    fluidSim.set(colorTexture);
     simCommandPool = device.createCommandPool(*device.queueFamilyIndex.compute, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
+    simCommandPool.oneTimeCommand([&](auto commandBuffer){
+        fluidSim.setBoundary(commandBuffer, VELOCITY_FIELD_U, HORIZONTAL_COMPONENT_BOUNDARY);
+        fluidSim.setBoundary(commandBuffer, VELOCITY_FIELD_V, VERTICAL_COMPONENT_BOUNDARY);
+        fluidSim.swapVectorFieldBuffers();
+        fluidSim.setBoundary(commandBuffer, VELOCITY_FIELD_U, HORIZONTAL_COMPONENT_BOUNDARY);
+        fluidSim.setBoundary(commandBuffer, VELOCITY_FIELD_V, VERTICAL_COMPONENT_BOUNDARY);
+        fluidSim.swapVectorFieldBuffers();
+    });
 
 }
 

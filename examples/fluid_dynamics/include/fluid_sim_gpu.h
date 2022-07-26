@@ -6,8 +6,8 @@
 #include "filemanager.hpp"
 #include "Texture.h"
 
-#define HORIZONTAL_BOUNDARY 1
-#define VERTICAL_BOUNDARY 2
+#define HORIZONTAL_COMPONENT_BOUNDARY 1
+#define VERTICAL_COMPONENT_BOUNDARY 2
 #define SCALAR_FIELD_BOUNDARY 0
 
 #define VELOCITY_FIELD_U "velocity_field_u"
@@ -46,6 +46,8 @@ public:
 
     void quantityStep(VkCommandBuffer commandBuffer, const Quantity& quantity, float dt = 0.0f, float dissipation = 0.99f);
 
+    void advectVectorField(VkCommandBuffer commandBuffer);
+
     void advect(VkCommandBuffer commandBuffer, const Quantity& quantity, int boundary);
 
     void calculateDivergence(VkCommandBuffer commandBuffer);
@@ -55,6 +57,8 @@ public:
     void clearSupportBuffers(VkCommandBuffer commandBuffer);
 
     void swapVectorFieldBuffers();
+
+    void diffuseVectorField(VkCommandBuffer commandBuffer, int iterations);
 
     void diffuse(VkCommandBuffer commandBuffer, const Quantity& quantity, int boundary, int iterations = 20);
 

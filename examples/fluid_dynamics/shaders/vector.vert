@@ -36,8 +36,8 @@ vec3 heatMap(vec3 u){
 }
 
 void main(){
-    int i = gl_InstanceIndex % N + 1;
-    int j = gl_InstanceIndex / N + 1;
+    int i = gl_InstanceIndex % (N+2);
+    int j = gl_InstanceIndex / (N+2);
     int id = j * (N + 2) + i;
     vec3 v =  vec3(u[id], v[id], 0);
     vec3 v1 = normalize(v);
@@ -46,8 +46,8 @@ void main(){
     vec2 quadtrant = sign(v1).xy;
 
     bool q1 = all(equal(quadtrant, vec2(1, 1))) || all(equal(quadtrant, vec2(0, 1)));
-    bool q2 = all(equal(quadtrant, vec2(-1, 1)));
-    bool q3 = all(equal(quadtrant, vec2(-1, -1)));
+    bool q2 = all(equal(quadtrant, vec2(-1, 1))) || all(equal(quadtrant, vec2(-1, 0)));
+    bool q3 = all(equal(quadtrant, vec2(-1, -1))) || all(equal(quadtrant, vec2(0, -1)));
     bool q4 = all(equal(quadtrant, vec2(1, -1)));
 
     if(q1){
@@ -66,9 +66,9 @@ void main(){
                   0,          0, 1
     );
 
-    float cellSize = 1/float(N);
-    float x = (i-1) * cellSize;
-    float y = (j-1) * cellSize;
+    float cellSize = 1/float(N+2);
+    float x = (i) * cellSize;
+    float y = (j) * cellSize;
     float scale = 0.3;
     vec2 p = vec2(rotor * (scale * position));
 

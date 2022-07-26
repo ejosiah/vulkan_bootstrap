@@ -201,12 +201,12 @@ TEST_F(AdvectTest, advectVelocityField){
     std::vector<float> cpu_u(size);
     std::vector<float> cpu_v(size);
 
-    advect(N, HORIZONTAL_BOUNDARY, cpu_u.data(), u0.data(), u0.data(), v0.data(), dt);
-    advect(N, VERTICAL_BOUNDARY, cpu_v.data(), v0.data(), u0.data(), v0.data(), dt);
+    advect(N, HORIZONTAL_COMPONENT_BOUNDARY, cpu_u.data(), u0.data(), u0.data(), v0.data(), dt);
+    advect(N, VERTICAL_COMPONENT_BOUNDARY, cpu_v.data(), v0.data(), u0.data(), v0.data(), dt);
 
     context().device.computeCommandPool().oneTimeCommand([&](auto commandBuffer){
-        fluidSim.advect(commandBuffer, VELOCITY_FIELD_U, HORIZONTAL_BOUNDARY);
-        fluidSim.advect(commandBuffer, VELOCITY_FIELD_V, VERTICAL_BOUNDARY);
+        fluidSim.advect(commandBuffer, VELOCITY_FIELD_U, HORIZONTAL_COMPONENT_BOUNDARY);
+        fluidSim.advect(commandBuffer, VELOCITY_FIELD_V, VERTICAL_COMPONENT_BOUNDARY);
     });
 
     auto gpu_u = reinterpret_cast<float*>(_u.map());

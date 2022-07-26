@@ -46,7 +46,6 @@ TEST_F(FluidSimTest, velocityStep){
     auto size = (N+2) * (N+2);
     std::vector<glm::vec2> field = createVectorField(N, size);
     setVectorField(field);
-//    setVectorField1(field);
 
     std::vector<float> u0;
     std::vector<float> v0;
@@ -57,36 +56,35 @@ TEST_F(FluidSimTest, velocityStep){
 
     std::vector<float> u(size);
     std::vector<float> v(size);
-//    u = u0;
-//    v = v0;
 
-//    diffuse0(N, HORIZONTAL_BOUNDARY, u.data(), u0.data(), viscosity, _constants.dt, iterations);
-//    diffuse0(N, VERTICAL_BOUNDARY, v.data(), v0.data(), viscosity, _constants.dt, iterations);
+    for (int k = 0; k < 10; k++) {
+        vel_step0(N, u.data(), v.data(), u0.data(), v0.data(), viscosity, _constants.dt, iterations);
 
-    vel_step0(N, u.data(), v.data(), u0.data(), v0.data(), viscosity, _constants.dt, iterations);
+        context().device.computeCommandPool().oneTimeCommand([&](auto commandBuffer) {
+            fluidSim.velocityStep(commandBuffer, dt, viscosity);
+        });
 
-//    context().device.computeCommandPool().oneTimeCommand([&](auto commandBuffer){
-//        fluidSim.diffuse(commandBuffer, VELOCITY_FIELD_U, HORIZONTAL_BOUNDARY, iterations);
-//        fluidSim.diffuse(commandBuffer, VELOCITY_FIELD_V, VERTICAL_BOUNDARY, iterations);
-//    });
+        auto gpu_u_buffer = fluidSim.inputBuffer(VELOCITY_FIELD_U);
+        auto gpu_v_buffer = fluidSim.inputBuffer(VELOCITY_FIELD_V);
 
-    context().device.computeCommandPool().oneTimeCommand([&](auto commandBuffer){
-       fluidSim.velocityStep(commandBuffer, dt, viscosity);
-    });
+        auto gpu_u = reinterpret_cast<float *>(gpu_u_buffer.map());
+        auto gpu_v = reinterpret_cast<float *>(gpu_v_buffer.map());
 
-    auto gpu_u_buffer = fluidSim.outputBuffer(VELOCITY_FIELD_U);
-    auto gpu_v_buffer = fluidSim.outputBuffer(VELOCITY_FIELD_V);
-
-    auto gpu_u = reinterpret_cast<float*>(gpu_u_buffer.map());
-    auto gpu_v = reinterpret_cast<float*>(gpu_v_buffer.map());
-
-    for(int i = 0; i < (N+2); i++){
-        for(int j = 0; j < (N+2); j++){
-            ASSERT_NEAR(u0[LOC(i, j)], gpu_u[LOC(i, j)], 0.0001);
-            ASSERT_NEAR(v0[LOC(i, j)], gpu_v[LOC(i, j)], 0.0001);
+        for (int i = 0; i < (N + 2); i++) {
+            for (int j = 0; j < (N + 2); j++) {
+                ASSERT_NEAR(u0[LOC(i, j)], gpu_u[LOC(i, j)], 0.0001);
+                ASSERT_NEAR(v0[LOC(i, j)], gpu_v[LOC(i, j)], 0.0001);
+            }
         }
+
+        gpu_u_buffer.unmap();
+        gpu_v_buffer.unmap();
+
+        u = u0;
+        v = v0;
+        _u.copy(u.data(), BYTE_SIZE(u), 0);
+        _v.copy(v.data(), BYTE_SIZE(u), 0);
+        fmt::print("\n");
     }
-    gpu_u_buffer.unmap();
-    gpu_v_buffer.unmap();
 
 }

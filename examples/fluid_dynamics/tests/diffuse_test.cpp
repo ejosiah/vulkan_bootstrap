@@ -73,12 +73,12 @@ TEST_F(DiffuseTest, diffuseVectorField){
     std::vector<float> v(size);
 
     float viscosity = 1;
-    diffuse0(N, HORIZONTAL_BOUNDARY, u.data(), u0.data(), viscosity, _constants.dt, iterations);
-    diffuse0(N, VERTICAL_BOUNDARY, v.data(), v0.data(), viscosity, _constants.dt, iterations);
+    diffuse0(N, HORIZONTAL_COMPONENT_BOUNDARY, u.data(), u0.data(), viscosity, _constants.dt, iterations);
+    diffuse0(N, VERTICAL_COMPONENT_BOUNDARY, v.data(), v0.data(), viscosity, _constants.dt, iterations);
 
     context().device.computeCommandPool().oneTimeCommand([&](auto commandBuffer){
-       fluidSim.diffuse(commandBuffer, VELOCITY_FIELD_U, HORIZONTAL_BOUNDARY, iterations);
-       fluidSim.diffuse(commandBuffer, VELOCITY_FIELD_V, VERTICAL_BOUNDARY, iterations);
+       fluidSim.diffuse(commandBuffer, VELOCITY_FIELD_U, HORIZONTAL_COMPONENT_BOUNDARY, iterations);
+       fluidSim.diffuse(commandBuffer, VELOCITY_FIELD_V, VERTICAL_COMPONENT_BOUNDARY, iterations);
     });
 
     auto gpu_u = reinterpret_cast<float*>(fluidSim._u[1].map());

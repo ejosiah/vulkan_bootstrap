@@ -52,7 +52,7 @@ namespace textures{
 
     void fromFile(const VulkanDevice& device, Texture& texture, std::string_view path, bool flipUv = false, VkFormat format = VK_FORMAT_R8G8B8A8_UNORM);
 
-    void generate(const VulkanDevice& device, Texture& texture, uint32_t width, uint32_t height, ColorGen&& generator);
+    void generate(const VulkanDevice& device, Texture& texture, uint32_t width, uint32_t height, ColorGen&& generator, VkFormat format = VK_FORMAT_R8G8B8A8_UNORM);
 
     void hdr(const VulkanDevice& device, Texture& texture, std::string_view path);
 

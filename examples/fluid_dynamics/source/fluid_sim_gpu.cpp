@@ -28,7 +28,7 @@ void FluidSim::init() {
 
 void FluidSim::createSupportBuffers() {
     VkDeviceSize size = (_constants.N + 2) * (_constants.N + 2) * sizeof(float);
-    _divBuffer = device->createBuffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, size, "divergence");
+    _divBuffer = device->createBuffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, size, "divergence");
     _pressure = device->createBuffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, size, "pressure");
     _gu = device->createBuffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, size, "pressure_gradient_u");
     _gv = device->createBuffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, size, "pressure_gradient_v");
@@ -238,15 +238,14 @@ void FluidSim::run(float speed) {
 
 void FluidSim::velocityStep(VkCommandBuffer commandBuffer, float dt, float viscosity) {
     int iterations = 80;
-    diffuse(commandBuffer, VELOCITY_FIELD_U, HORIZONTAL_BOUNDARY, iterations); // u0 -> u
-    diffuse(commandBuffer, VELOCITY_FIELD_V, VERTICAL_BOUNDARY, iterations);
+    diffuseVectorField(commandBuffer, iterations);
     swapVectorFieldBuffers();
     project(commandBuffer, iterations); // u -> u0
     swapVectorFieldBuffers();
-    advect(commandBuffer, VELOCITY_FIELD_U, HORIZONTAL_BOUNDARY); // u0 -> u
-    advect(commandBuffer, VELOCITY_FIELD_V, VERTICAL_BOUNDARY);
+    advectVectorField(commandBuffer);
     swapVectorFieldBuffers();
     project(commandBuffer, iterations); // u -> u0
+    swapVectorFieldBuffers();
 }
 
 void FluidSim::quantityStep(VkCommandBuffer commandBuffer, const Quantity &quantity, float dt, float dissipation) {}
@@ -266,6 +265,10 @@ FluidSim::resize(VulkanBuffer u0, VulkanBuffer v0, VulkanBuffer u, VulkanBuffer 
     createPipelines();
 }
 
+void FluidSim::advectVectorField(VkCommandBuffer commandBuffer) {
+    advect(commandBuffer, VELOCITY_FIELD_U, HORIZONTAL_COMPONENT_BOUNDARY); // u0 -> u
+    advect(commandBuffer, VELOCITY_FIELD_V, VERTICAL_COMPONENT_BOUNDARY);
+}
 
 void FluidSim::advect(VkCommandBuffer commandBuffer, const Quantity &quantity, int boundary) {
     static std::array<VkDescriptorSet, 3> sets;
@@ -298,6 +301,11 @@ void FluidSim::calculateDivergence(VkCommandBuffer commandBuffer) {
     barrier(commandBuffer, _divBuffer);
     setBoundary(commandBuffer, _divergenceDescriptorSet, _divBuffer, SCALAR_FIELD_BOUNDARY);
     barrier(commandBuffer, _divBuffer);
+}
+
+void FluidSim::diffuseVectorField(VkCommandBuffer commandBuffer, int iterations) {
+    diffuse(commandBuffer, VELOCITY_FIELD_U, HORIZONTAL_COMPONENT_BOUNDARY, iterations); // u0 -> u
+    diffuse(commandBuffer, VELOCITY_FIELD_V, VERTICAL_COMPONENT_BOUNDARY, iterations);
 }
 
 void FluidSim::diffuse(VkCommandBuffer commandBuffer, const Quantity& quantity, int boundary, int iterations) {
@@ -335,8 +343,8 @@ void FluidSim::project(VkCommandBuffer commandBuffer, int iterations) {
     solvePressureEquation(commandBuffer, iterations);
     computePressureGradient(commandBuffer);
     computeDivergenceFreeField(commandBuffer);
-    setBoundary(commandBuffer, VELOCITY_FIELD_U, HORIZONTAL_BOUNDARY);
-    setBoundary(commandBuffer, VELOCITY_FIELD_V, VERTICAL_BOUNDARY);
+    setBoundary(commandBuffer, VELOCITY_FIELD_U, HORIZONTAL_COMPONENT_BOUNDARY);
+    setBoundary(commandBuffer, VELOCITY_FIELD_V, VERTICAL_COMPONENT_BOUNDARY);
     barrier(commandBuffer, {_u[v_out], _v[v_out]});
 }
 
