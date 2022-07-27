@@ -1,25 +1,29 @@
 #version 450 core
 
+#include "calculus.glsl"
+
 layout(set = 0, binding = 0) uniform sampler2D vectorField;
 
 layout(push_constant) uniform Contants{
     float dt;
-    float rho;// density;
     float epsilon;
+    float rho;// density;
 };
 
 layout(location = 0) in vec2 uv;
-layout(location = 0) out vec4 div;
+layout(location = 0) out vec4 divOut;
 
 vec2 u(vec2 coord) {
     return texture(vectorField, fract(coord)).xy;
 }
 
-void main(){
-    float dx = epsilon;
-    float dy = epsilon;
+void main() {
+    vec3 delta = vec3(1.0/textureSize(vectorField, 0), 0);
+    vec2 dx = delta.xz;
+    vec2 dy = delta.zy;
     float alpha = (-2.0 * epsilon * rho / dt);
-    float dxdu = u(uv + vec2(dx, 0)).x - u(uv - vec2(dx, 0)).x;
-    float dydu = u(uv + vec2(0, dy)).y - u(uv - vec2(0, dy)).y;
-    div.x = alpha * (dxdu + dydu);
+    float dudx = (u(uv + dx).x - u(uv - dx).x)/(2*dx.x);
+    float dudy = (u(uv + dy).y - u(uv - dy).y)/(2*dy.y);
+
+    divOut.x = dudx + dudy;
 }

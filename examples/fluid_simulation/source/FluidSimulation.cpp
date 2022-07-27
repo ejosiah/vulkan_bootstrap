@@ -1,6 +1,7 @@
 #include "FluidSimulation.hpp"
 #include "GraphicsPipelineBuilder.hpp"
 #include "DescriptorSetBuilder.hpp"
+#include "vulkan_image_ops.h"
 
 FluidSimulation::FluidSimulation(const Settings& settings) : VulkanBaseApp("Fluid Simulation", settings) {
     fileManager.addSearchPath(".");
@@ -12,11 +13,12 @@ FluidSimulation::FluidSimulation(const Settings& settings) : VulkanBaseApp("Flui
     fileManager.addSearchPath("../../data/models");
     fileManager.addSearchPath("../../data/textures");
     fileManager.addSearchPath("../../data");
-    epsilon = 1.0f/float(width);    // TODO 2d epsilon
+    constants.epsilon = 1.0f/float(width);    // TODO 2d epsilon
 }
 
 void FluidSimulation::initApp() {
-    initAdvectStage();
+    createSamplers();
+    initSimulationStages();
     initVectorField();
     initColorField();
     initFullScreenQuad();
@@ -27,6 +29,7 @@ void FluidSimulation::initApp() {
 
     createPipelineCache();
     createRenderPipeline();
+    debugBuffer = device.createBuffer(VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_TO_CPU, sizeof(glm::vec4) * width * height, "debug");
 }
 
 void FluidSimulation::initVectorField() {
@@ -38,13 +41,13 @@ void FluidSimulation::initVectorField() {
         for(int j = 0; j < width; j++){
             auto x = 2 * float(j)/float(width) - 1;
             auto y = 2 * float(i)/float(height) - 1;
-            glm::vec2 u{glm::sin(two_pi * y), glm::sin(two_pi * x)};
+//            glm::vec2 u{glm::sin(two_pi * y), glm::sin(two_pi * x)};
+//            glm::vec2 u{1, glm::sin(two_pi * x)};
+//            glm::vec2 u{x, y}; // divergent fields 1;
+//            glm::vec2 u{glm::sin(two_pi * x), 0}; // divergent fields 2;
+            glm::vec2 u{y, x}; // divergent fields 3;
             maxLength = glm::max(glm::length(u), maxLength);
             field.emplace_back(u , 0, 0);
-//            field.emplace_back(1, glm::sin(two_pi * x), 0, 0);
-//            field.emplace_back(x, y, 0, 0); // divergent fields 1
-//            field.emplace_back(glm::sin(two_pi * x), 0, 0, 0); // divergent fields 2
-//            field.emplace_back(y, x, 0, 0); // divergent fields 3
         }
     }
 
@@ -75,11 +78,11 @@ void FluidSimulation::initVectorField() {
                      , sizeof(float));
 
     for(auto i = 0; i < 2; i++){
-        vectorField.framebuffer[i] = device.createFramebuffer(advectPipeline.renderPass, { vectorField.texture[i].imageView }, width, height);
+        vectorField.framebuffer[i] = device.createFramebuffer(simRenderPass, { vectorField.texture[i].imageView }, width, height);
         device.setName<VK_OBJECT_TYPE_FRAMEBUFFER>(fmt::format("{}_{}", "vector_field", i), vectorField.framebuffer[i].frameBuffer);
     }
-//    advectPipeline.constants.dt = (5.0f * dx)/maxLength;
-    spdlog::info("dt: {}", advectPipeline.constants.dt);
+    constants.dt = (5.0f * dx)/maxLength;
+//    spdlog::info("dt: {}, maxU: {}", constants.dt, maxLength);
 
 }
 
@@ -116,7 +119,7 @@ void FluidSimulation::initColorField() {
     device.setName<VK_OBJECT_TYPE_IMAGE_VIEW>(fmt::format("{}_{}", "color_field", 1), colorField.texture[1].imageView.handle);
 
     for(auto i = 0; i < 2; i++){
-        colorField.framebuffer[i] = device.createFramebuffer(advectPipeline.renderPass, { colorField.texture[i].imageView }, width, height);
+        colorField.framebuffer[i] = device.createFramebuffer(simRenderPass, { colorField.texture[i].imageView }, width, height);
         device.setName<VK_OBJECT_TYPE_FRAMEBUFFER>(fmt::format("{}_{}", "color_field", i), colorField.framebuffer[i].frameBuffer);
     }
 }
@@ -162,28 +165,42 @@ void FluidSimulation::createDescriptorSetLayouts() {
                 .shaderStages(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT)
             .createLayout();
     
-    auto sets = descriptorPool.allocate({ textureSetLayout, textureSetLayout, textureSetLayout, textureSetLayout});
+    auto sets = descriptorPool.allocate(
+            {
+                textureSetLayout, textureSetLayout, textureSetLayout, textureSetLayout
+                ,textureSetLayout, textureSetLayout, textureSetLayout, textureSetLayout
+            });
 
     vectorField.descriptorSet[0] = sets[0];
     vectorField.descriptorSet[1] = sets[1];
     colorField.descriptorSet[0] = sets[2];
     colorField.descriptorSet[1] = sets[3];
+    divergenceField.descriptorSet[0] = sets[4];
+    pressureField.descriptorSet[0] = sets[5];
+    pressureField.descriptorSet[1] = sets[6];
+    diffuseHelper.solutionDescriptorSet = sets[7];
 
     device.setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>(fmt::format("{}_{}", "vector_field", 0), vectorField.descriptorSet[0]);
     device.setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>(fmt::format("{}_{}", "vector_field", 1), vectorField.descriptorSet[1]);
 
     device.setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>(fmt::format("{}_{}", "color_field", 0), colorField.descriptorSet[0]);
     device.setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>(fmt::format("{}_{}", "color_field", 1), colorField.descriptorSet[1]);
+
+    device.setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>("divergence_field", divergenceField.descriptorSet[0]);
+
+    device.setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>(fmt::format("{}_{}", "pressure_field", 0), pressureField.descriptorSet[0]);
+    device.setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>(fmt::format("{}_{}", "pressure_field", 1), pressureField.descriptorSet[1]);
+    device.setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>("diffuse_solution_container", diffuseHelper.solutionDescriptorSet);
 }
 
 void FluidSimulation::updateDescriptorSets() {
-    auto writes = initializers::writeDescriptorSets<4>();
+    auto writes = initializers::writeDescriptorSets<8>();
     
     writes[0].dstSet = vectorField.descriptorSet[0];
     writes[0].dstBinding = 0;
     writes[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     writes[0].descriptorCount = 1;
-    VkDescriptorImageInfo v0Info{vectorField.texture[0].sampler
+    VkDescriptorImageInfo v0Info{linearSampler
                                  , vectorField.texture[0].imageView
                                  , VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
     writes[0].pImageInfo = &v0Info;
@@ -192,7 +209,7 @@ void FluidSimulation::updateDescriptorSets() {
     writes[1].dstBinding = 0;
     writes[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     writes[1].descriptorCount = 1;
-    VkDescriptorImageInfo v1Info{vectorField.texture[1].sampler
+    VkDescriptorImageInfo v1Info{linearSampler
                                  , vectorField.texture[1].imageView
                                  , VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
     writes[1].pImageInfo = &v1Info;
@@ -214,6 +231,40 @@ void FluidSimulation::updateDescriptorSets() {
                                  , colorField.texture[1].imageView
                                  , VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
     writes[3].pImageInfo = &c1Info;
+
+    writes[4].dstSet = divergenceField.descriptorSet[0];
+    writes[4].dstBinding = 0;
+    writes[4].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    writes[4].descriptorCount = 1;
+    VkDescriptorImageInfo divInfo{divergenceField.texture[0].sampler
+            , divergenceField.texture[0].imageView
+            , VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+    writes[4].pImageInfo = &divInfo;
+
+    writes[5].dstSet = pressureField.descriptorSet[0];
+    writes[5].dstBinding = 0;
+    writes[5].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    writes[5].descriptorCount = 1;
+    VkDescriptorImageInfo p0Info{pressureField.texture[0].sampler
+            , pressureField.texture[0].imageView
+            , VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+    writes[5].pImageInfo = &p0Info;
+
+    writes[6].dstSet = pressureField.descriptorSet[1];
+    writes[6].dstBinding = 0;
+    writes[6].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    writes[6].descriptorCount = 1;
+    VkDescriptorImageInfo p1Info{pressureField.texture[1].sampler
+            , pressureField.texture[1].imageView
+            , VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+    writes[6].pImageInfo = &p1Info;
+
+    writes[7].dstSet = diffuseHelper.solutionDescriptorSet;
+    writes[7].dstBinding = 0;
+    writes[7].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    writes[7].descriptorCount = 1;
+    VkDescriptorImageInfo diffuseInfo{diffuseHelper.texture.sampler, diffuseHelper.texture.imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+    writes[7].pImageInfo = &diffuseInfo;
 
     device.updateDescriptorSets(writes);
 }
@@ -312,26 +363,97 @@ void FluidSimulation::createRenderPipeline() {
                 .fragmentShader(resource("advect.frag.spv"))
             .layout().clear()
                 .addDescriptorSetLayouts({textureSetLayout, textureSetLayout})
-                .addPushConstantRange(VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(advectPipeline.constants))
-            .renderPass(advectPipeline.renderPass)
+                .addPushConstantRange(VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(constants))
+            .renderPass(simRenderPass)
             .name("advect")
         .build(advectPipeline.layout);
+
+    divergence.pipeline =
+        builder
+            .shaderStage()
+                .fragmentShader(resource("divergence.frag.spv"))
+            .layout().clear()
+                .addDescriptorSetLayout( textureSetLayout)
+                .addPushConstantRange(VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(constants))
+            .renderPass(simRenderPass)
+            .name("divergence")
+        .build(divergence.layout);
+
+    pressure.pipeline =
+        builder
+            .shaderStage()
+                .fragmentShader(resource("pressure_solver.frag.spv"))
+            .layout().clear()
+                .addDescriptorSetLayouts({textureSetLayout, textureSetLayout})
+                .addPushConstantRange(VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(constants))
+            .renderPass(simRenderPass)
+            .name("pressure_solver")
+        .build(pressure.layout);
+
+    divergenceFree.pipeline =
+        builder
+            .shaderStage()
+                .fragmentShader(resource("divergence_free_field.frag.spv"))
+            .layout().clear()
+                .addDescriptorSetLayouts({textureSetLayout, textureSetLayout})
+                .addPushConstantRange(VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(constants))
+            .renderPass(simRenderPass)
+            .name("divergence_free_field")
+        .build(divergenceFree.layout);
+
+    jacobi.pipeline =
+        builder
+            .shaderStage()
+                .fragmentShader(resource("jacobi.frag.spv"))
+            .layout().clear()
+                .addDescriptorSetLayouts({textureSetLayout, textureSetLayout})
+                .addPushConstantRange(VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(jacobi.constants))
+            .renderPass(simRenderPass)
+            .name("jacobi")
+        .build(jacobi.layout);
 
     //    @formatter:on
 }
 
-void FluidSimulation::initAdvectStage() {
+void FluidSimulation::initSimulationStages() {
+    initProjectionStage();
+}
 
+void FluidSimulation::initProjectionStage() {
+    initStage(simRenderPass, "fluid_simulation");
+
+    std::vector<glm::vec4> allocation( width * height);
+
+    textures::create(device, divergenceField.texture[0], VK_IMAGE_TYPE_2D, VK_FORMAT_R32G32B32A32_SFLOAT, allocation.data(), {width, height, 1}, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE
+                     , sizeof(float));
+    textures::create(device, pressureField.texture[0], VK_IMAGE_TYPE_2D, VK_FORMAT_R32G32B32A32_SFLOAT, allocation.data(), {width, height, 1}, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE
+                     , sizeof(float));
+    textures::create(device, pressureField.texture[1], VK_IMAGE_TYPE_2D, VK_FORMAT_R32G32B32A32_SFLOAT, allocation.data(), {width, height, 1}, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE
+                     , sizeof(float));
+
+    textures::create(device, diffuseHelper.texture, VK_IMAGE_TYPE_2D, VK_FORMAT_R32G32B32A32_SFLOAT, allocation.data(), {width, height, 1}, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE
+                     , sizeof(float));
+
+    divergenceField.framebuffer[0] = device.createFramebuffer(simRenderPass, { divergenceField.texture[0].imageView }, width, height);
+    device.setName<VK_OBJECT_TYPE_FRAMEBUFFER>("divergence_field", divergenceField.framebuffer[0].frameBuffer);
+
+    for(auto i = 0; i < 2; i++){
+        pressureField.framebuffer[i] = device.createFramebuffer(simRenderPass, { pressureField.texture[i].imageView }, width, height);
+        device.setName<VK_OBJECT_TYPE_FRAMEBUFFER>(fmt::format("{}_{}", "pressure_field", i), pressureField.framebuffer[i].frameBuffer);
+    }
+}
+
+void FluidSimulation::initStage(VulkanRenderPass &renderPass, const std::string &name) {
     VkAttachmentDescription attachmentDescription{
-        0,
-        VK_FORMAT_R32G32B32A32_SFLOAT,
-        VK_SAMPLE_COUNT_1_BIT,
-        VK_ATTACHMENT_LOAD_OP_CLEAR,
-        VK_ATTACHMENT_STORE_OP_STORE,
-        VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-        VK_ATTACHMENT_STORE_OP_STORE,
-        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+            0,
+            VK_FORMAT_R32G32B32A32_SFLOAT,
+            VK_SAMPLE_COUNT_1_BIT,
+            VK_ATTACHMENT_LOAD_OP_CLEAR,
+            VK_ATTACHMENT_STORE_OP_STORE,
+            VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+            VK_ATTACHMENT_STORE_OP_STORE,
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
     };
 
     std::vector<SubpassDescription> subpasses(1);
@@ -353,8 +475,8 @@ void FluidSimulation::initAdvectStage() {
     dependencies[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
     dependencies[1].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 
-    advectPipeline.renderPass = device.createRenderPass({attachmentDescription}, subpasses, dependencies);
-    device.setName<VK_OBJECT_TYPE_RENDER_PASS>("advect", advectPipeline.renderPass.renderPass);
+    renderPass = device.createRenderPass({attachmentDescription}, subpasses, dependencies);
+    device.setName<VK_OBJECT_TYPE_RENDER_PASS>(name, renderPass.renderPass);
 }
 
 
@@ -400,12 +522,13 @@ VkCommandBuffer *FluidSimulation::buildCommandBuffers(uint32_t imageIndex, uint3
 }
 
 void FluidSimulation::renderVectorField(VkCommandBuffer commandBuffer) {
+    if(!options.showArrows) return;
     VkDeviceSize offset = 0;
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, arrows.vertexBuffer, &offset);
 
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, arrows.pipeline);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, arrows.layout
-            , 0, 1, &vectorField.descriptorSet[0], 0
+            , 0, 1, &vectorField.descriptorSet[in], 0
             , VK_NULL_HANDLE);
 
     vkCmdDraw(commandBuffer, arrows.numArrows, 1, 0, 0);
@@ -420,6 +543,10 @@ void FluidSimulation::renderColorField(VkCommandBuffer commandBuffer) {
             , 0, 1, &colorField.descriptorSet[in], 0
             , VK_NULL_HANDLE);
 
+//    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, screenQuad.layout
+//            , 0, 1, &divergenceField.descriptorSet[0], 0
+//            , VK_NULL_HANDLE);
+
     vkCmdDraw(commandBuffer, 4, 1, 0, 0);
 }
 
@@ -432,12 +559,28 @@ void FluidSimulation::update(float time) {
 void FluidSimulation::runSimulation() {
     device.graphicsCommandPool().oneTimeCommand([&](auto commandBuffer){
         if(options.advectVField) {
+            diffuse(commandBuffer, vectorField, options.viscosity);
+            project(commandBuffer);
             advectVectorField(commandBuffer);
-            vectorField.swap();
+            project(commandBuffer);
         }
+        diffuse(commandBuffer, colorField, options.diffuseRate);
         advectColor(commandBuffer);
-        colorField.swap();
+
     });
+
+
+    static bool once = true;
+    if (once) {
+        once = false;
+        auto data = reinterpret_cast<glm::vec4 *>(debugBuffer.map());
+        for (int i = 0; i < height * 0.1; i++) {
+            for (int j = 0; j < width * 0.1; j++) {
+                int index = i * width + j;
+                spdlog::info("[{}, {}] => {}", j, i, data[index]);
+            }
+        }
+    }
 }
 
 void FluidSimulation::advectColor(VkCommandBuffer commandBuffer) {
@@ -447,6 +590,7 @@ void FluidSimulation::advectColor(VkCommandBuffer commandBuffer) {
     sets[1] = colorField.descriptorSet[in];
 
     advect(commandBuffer, sets,colorField.framebuffer[out]);
+    colorField.swap();
 }
 
 void FluidSimulation::advectVectorField(VkCommandBuffer commandBuffer) {
@@ -455,13 +599,144 @@ void FluidSimulation::advectVectorField(VkCommandBuffer commandBuffer) {
     sets[1] = vectorField.descriptorSet[in];
 
     advect(commandBuffer, sets,vectorField.framebuffer[out]);
+    vectorField.swap();
 }
 
 void FluidSimulation::advect(VkCommandBuffer commandBuffer, const std::array<VkDescriptorSet, 2> &sets,
                              VulkanFramebuffer &framebuffer) {
 
+    withRenderPass(commandBuffer, simRenderPass, framebuffer, [&](auto commandBuffer){
+        VkDeviceSize offset = 0;
+        vkCmdBindVertexBuffers(commandBuffer, 0, 1, screenQuad.vertices, &offset);
+
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, advectPipeline.pipeline);
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, advectPipeline.layout
+                , 0, COUNT(sets), sets.data(), 0, VK_NULL_HANDLE);
+
+        vkCmdPushConstants(commandBuffer, advectPipeline.layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(constants), &constants);
+        vkCmdDraw(commandBuffer, 4, 1, 0, 0);
+    });
+
+}
+
+void FluidSimulation::project(VkCommandBuffer commandBuffer) {
+    computeDivergence(commandBuffer);
+    solvePressure(commandBuffer);
+    computeDivergenceFreeField(commandBuffer);
+    vectorField.swap();
+}
+
+void FluidSimulation::computeDivergence(VkCommandBuffer commandBuffer) {
+    withRenderPass(commandBuffer, simRenderPass, divergenceField.framebuffer[0], [&](auto commandBuffer){
+
+        VkDeviceSize offset = 0;
+        vkCmdBindVertexBuffers(commandBuffer, 0, 1, screenQuad.vertices, &offset);
+
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, divergence.pipeline);
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, divergence.layout
+                , 0, 1, &vectorField.descriptorSet[in], 0, VK_NULL_HANDLE);
+
+        vkCmdPushConstants(commandBuffer, divergence.layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(constants), &constants);
+        vkCmdDraw(commandBuffer, 4, 1, 0, 0);
+    });
+    
+    divergenceField.texture[0].image.transitionLayout(commandBuffer, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, DEFAULT_SUB_RANGE
+                                                      , VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT
+                                                      , VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+
+    VkImageSubresourceLayers subresourceLayers{VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+    VkExtent3D extent3D{ static_cast<uint32_t>(width), static_cast<uint32_t>(height), 1};
+    VkBufferImageCopy pRegion{0, 0, 0, subresourceLayers, {0, 0, 0}, extent3D};
+    vkCmdCopyImageToBuffer(commandBuffer, divergenceField.texture[0].image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, debugBuffer, 1, &pRegion);
+    divergenceField.texture[0].image.transitionLayout(commandBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, DEFAULT_SUB_RANGE
+            , VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_SHADER_READ_BIT
+            , VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+}
+
+void FluidSimulation::solvePressure(VkCommandBuffer commandBuffer) {
+    auto alpha = -constants.epsilon * constants.epsilon;
+    auto rBeta = 0.25f;
+    for(int i = 0; i < options.poissonIterations; i++){
+        withRenderPass(commandBuffer, simRenderPass, pressureField.framebuffer[out], [&](auto commandBuffer){
+            jacobiIteration(commandBuffer, pressureField.descriptorSet[in], divergenceField.descriptorSet[in], alpha, rBeta);
+            pressureField.swap();
+        });
+    }
+}
+
+
+void FluidSimulation::diffuse(VkCommandBuffer commandBuffer, Field &field, float viscosity) {
+    diffuseHelper.texture.image.transitionLayout(commandBuffer, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, DEFAULT_SUB_RANGE
+            , VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_TRANSFER_WRITE_BIT
+            , VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+
+    field.texture[in].image.transitionLayout(commandBuffer, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, DEFAULT_SUB_RANGE
+            , VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT
+            , VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+
+    VkImageSubresourceLayers subresourceLayers{VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+    VkExtent3D extent3D{ static_cast<uint32_t>(width), static_cast<uint32_t>(height), 1};
+    VkImageCopy pRegion{subresourceLayers, {0, 0, 0}, subresourceLayers, {0, 0, 0}, extent3D};
+
+    vkCmdCopyImage(commandBuffer, field.texture[in].image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL
+                   , diffuseHelper.texture.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &pRegion);
+
+    field.texture[in].image.transitionLayout(commandBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, DEFAULT_SUB_RANGE
+            , VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_SHADER_READ_BIT
+            , VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+
+    diffuseHelper.texture.image.transitionLayout(commandBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, DEFAULT_SUB_RANGE
+                                                 , VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT
+                                                 , VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+
+
+    float alpha = (constants.epsilon * constants.epsilon)/(constants.dt * viscosity);
+    float rBeta = 1.0f/(4.0f + alpha);
+    for(int i = 0; i < options.poissonIterations; i++){
+        withRenderPass(commandBuffer, simRenderPass, field.framebuffer[out], [&](auto commandBuffer){
+            jacobiIteration(commandBuffer, field.descriptorSet[in], diffuseHelper.solutionDescriptorSet, alpha, rBeta);
+            field.swap();
+        });
+    }
+}
+
+
+void FluidSimulation::jacobiIteration(VkCommandBuffer commandBuffer, VkDescriptorSet unknownDescriptor, VkDescriptorSet solutionDescriptor, float alpha, float rBeta) {
+    jacobi.constants.alpha = alpha;
+    jacobi.constants.rBeta = rBeta;
+    VkDeviceSize offset = 0;
+    static std::array<VkDescriptorSet, 2> sets;
+    sets[0] = solutionDescriptor;
+    sets[1] = unknownDescriptor;
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, screenQuad.vertices, &offset);
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, jacobi.pipeline);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, jacobi.layout
+            , 0, COUNT(sets), sets.data(), 0, VK_NULL_HANDLE);
+
+    vkCmdPushConstants(commandBuffer, jacobi.layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(jacobi.constants), &jacobi.constants);
+    vkCmdDraw(commandBuffer, 4, 1, 0, 0);
+}
+
+void FluidSimulation::computeDivergenceFreeField(VkCommandBuffer commandBuffer) {
+    withRenderPass(commandBuffer, simRenderPass, vectorField.framebuffer[out], [&](auto commandBuffer){
+        VkDeviceSize offset = 0;
+        static std::array<VkDescriptorSet, 2> sets;
+        sets[0] = vectorField.descriptorSet[in];
+        sets[1] = pressureField.descriptorSet[in];
+        vkCmdBindVertexBuffers(commandBuffer, 0, 1, screenQuad.vertices, &offset);
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, divergenceFree.pipeline);
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, divergenceFree.layout
+                , 0, COUNT(sets), sets.data(), 0, VK_NULL_HANDLE);
+
+        vkCmdPushConstants(commandBuffer, divergenceFree.layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(constants), &constants);
+        vkCmdDraw(commandBuffer, 4, 1, 0, 0);
+    });
+}
+
+void FluidSimulation::withRenderPass(VkCommandBuffer commandBuffer, const VulkanRenderPass& renderPass
+                                     , const VulkanFramebuffer &framebuffer, GpuProcess &&process, glm::vec4 clearColor) {
     static std::array<VkClearValue, 1> clearValues;
-    clearValues[0].color = {0, 0, 0, 1};
+    clearValues[0].color = {clearColor.b, clearColor.g, clearColor.b, clearColor.a};
 
     VkRenderPassBeginInfo rPassInfo = initializers::renderPassBeginInfo();
     rPassInfo.clearValueCount = COUNT(clearValues);
@@ -469,19 +744,11 @@ void FluidSimulation::advect(VkCommandBuffer commandBuffer, const std::array<VkD
     rPassInfo.framebuffer = framebuffer;
     rPassInfo.renderArea.offset = {0u, 0u};
     rPassInfo.renderArea.extent = swapChain.extent;
-    rPassInfo.renderPass = advectPipeline.renderPass;
+    rPassInfo.renderPass = renderPass;
 
     vkCmdBeginRenderPass(commandBuffer, &rPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-    VkDeviceSize offset = 0;
-    vkCmdBindVertexBuffers(commandBuffer, 0, 1, screenQuad.vertices, &offset);
-
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, advectPipeline.pipeline);
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, advectPipeline.layout
-            , 0, COUNT(sets), sets.data(), 0, VK_NULL_HANDLE);
-
-    vkCmdPushConstants(commandBuffer, advectPipeline.layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(advectPipeline.constants), &advectPipeline.constants);
-    vkCmdDraw(commandBuffer, 4, 1, 0, 0);
+    process(commandBuffer);
 
     vkCmdEndRenderPass(commandBuffer);
 }
@@ -499,6 +766,23 @@ void FluidSimulation::onPause() {
     VulkanBaseApp::onPause();
 }
 
+void FluidSimulation::createSamplers() {
+    VkSamplerCreateInfo samplerInfo{};
+    samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    samplerInfo.magFilter = VK_FILTER_NEAREST;
+    samplerInfo.minFilter = VK_FILTER_NEAREST;
+    samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+    samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST ;
+
+    valueSampler = device.createSampler(samplerInfo);
+
+    samplerInfo.magFilter = VK_FILTER_LINEAR;
+    samplerInfo.minFilter = VK_FILTER_LINEAR;
+    linearSampler = device.createSampler(samplerInfo);
+}
 
 int main(){
     try{
@@ -507,7 +791,7 @@ int main(){
         settings.width = settings.height = 600;
         settings.depthTest = true;
         settings.vSync = true;
-
+//        spdlog::set_level(spdlog::level::err);
         auto app = FluidSimulation{settings };
         app.run();
     }catch(std::runtime_error& err){

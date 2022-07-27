@@ -249,6 +249,44 @@ void textures::create(const VulkanDevice &device, Texture &texture, VkImageType 
 
 }
 
+void textures::allocate(const VulkanDevice& device, Texture &texture, VkImageType imageType, VkFormat format, VkDeviceSize size,
+                        Dimension3D<uint32_t> dimensions, VkImageTiling tiling) {
+
+    VkImageCreateInfo imageCreateInfo{};
+    imageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    imageCreateInfo.imageType = imageType;
+    imageCreateInfo.format = format;
+    imageCreateInfo.extent = { static_cast<uint32_t>(dimensions.x), static_cast<uint32_t>(dimensions.y), dimensions.z};
+    imageCreateInfo.mipLevels = 1;
+    imageCreateInfo.arrayLayers = 1;
+    imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    imageCreateInfo.tiling = tiling;
+    imageCreateInfo.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
+    imageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
+    auto& commandPool = device.commandPoolFor(*device.queueFamilyIndex.graphics);
+
+    texture.image = device.createImage(imageCreateInfo, VMA_MEMORY_USAGE_GPU_ONLY);
+    texture.image.size = size;
+    texture.width = dimensions.x;
+    texture.height = dimensions.y;
+    texture.depth = dimensions.z;
+    texture.image.transitionLayout(commandPool, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+    VkImageSubresourceRange subresourceRange;
+    subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    subresourceRange.baseMipLevel = 0;
+    subresourceRange.levelCount = 1;
+    subresourceRange.baseArrayLayer = 0;
+    subresourceRange.layerCount = 1;
+
+    auto imageViewType = VK_IMAGE_VIEW_TYPE_2D;
+    imageViewType = imageType == VK_IMAGE_TYPE_3D ? VK_IMAGE_VIEW_TYPE_3D : imageViewType;
+    texture.imageView = texture.image.createView(format, imageViewType, subresourceRange);
+
+}
+
 
 void textures::checkerboard(const VulkanDevice &device, Texture &texture, const glm::vec3 &colorA, const glm::vec3 &colorB) {
     texture.width = texture.height = 256;

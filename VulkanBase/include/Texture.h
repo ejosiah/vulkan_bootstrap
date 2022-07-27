@@ -47,6 +47,9 @@ namespace textures{
             , Dimension3D<uint32_t> dimensions, VkSamplerAddressMode addressMode = VK_SAMPLER_ADDRESS_MODE_REPEAT
             , uint32_t sizeMultiplier = 1, VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL);
 
+    void allocate(const VulkanDevice& device, Texture& texture, VkImageType imageType, VkFormat format, VkDeviceSize size
+                  , Dimension3D<uint32_t> dimensions, VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL);
+
 
     RawImage loadImage(std::string_view path, bool flipUv = false);
 

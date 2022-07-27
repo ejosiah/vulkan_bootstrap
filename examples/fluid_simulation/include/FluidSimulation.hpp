@@ -16,6 +16,8 @@ struct Field{
     }
 };
 
+using GpuProcess = std::function<void(VkCommandBuffer)>;
+
 using ColorField = Field;
 using VectorField = Field;
 using PressureField = Field;
@@ -32,7 +34,11 @@ protected:
 
     void initColorField();
 
-    void initAdvectStage();
+    void initSimulationStages();
+
+    void initProjectionStage();
+
+    void initStage(VulkanRenderPass& renderPass, const std::string& name);
 
     void initFullScreenQuad();
 
@@ -68,11 +74,28 @@ protected:
 
     void advect(VkCommandBuffer commandBuffer, const std::array<VkDescriptorSet, 2>& sets, VulkanFramebuffer& framebuffer);
 
+    void project(VkCommandBuffer commandBuffer);
+
+    void computeDivergence(VkCommandBuffer commandBuffer);
+
+    void solvePressure(VkCommandBuffer commandBuffer);
+
+    void diffuse(VkCommandBuffer commandBuffer, Field& field, float viscosity = 1);
+
+    void jacobiIteration(VkCommandBuffer commandBuffer, VkDescriptorSet unknownDescriptor, VkDescriptorSet solutionDescriptor, float alpha, float rBeta);
+
+    void computeDivergenceFreeField(VkCommandBuffer commandBuffer);
+
+    void withRenderPass(VkCommandBuffer commandBuffer, const VulkanRenderPass& renderPass, const VulkanFramebuffer& framebuffer
+                        , GpuProcess&& process, glm::vec4 clearColor = glm::vec4(0));
+
     void checkAppInputs() override;
 
     void cleanup() override;
 
     void onPause() override;
+
+    void createSamplers();
 
 protected:
     struct {
@@ -101,10 +124,6 @@ protected:
     struct {
         VulkanPipeline pipeline;
         VulkanPipelineLayout layout;
-        VulkanRenderPass renderPass;
-        struct {
-            float dt{1.0f/240.f};
-        } constants;
     } advectPipeline;
 
 
@@ -118,17 +137,38 @@ protected:
     struct {
         VulkanPipeline pipeline;
         VulkanPipelineLayout layout;
-        VulkanRenderPass renderPass;
     } divergence;
+
+    struct {
+        VulkanPipeline pipeline;
+        VulkanPipelineLayout layout;
+    } pressure;
+
+
+    struct {
+        VulkanPipeline pipeline;
+        VulkanPipelineLayout layout;
+    } divergenceFree;
+
+    struct {
+        VulkanPipeline pipeline;
+        VulkanPipelineLayout layout;
+        struct{
+            float alpha;
+            float rBeta;
+        } constants;
+    } jacobi;
 
     static const int in{0};
     static const int out{1};
 
     struct {
-        bool advectVField = false;
-        bool project = false;
+        bool advectVField = true;
+        bool project = true;
         bool showArrows = true;
-        int poissonIterations = 80;
+        int poissonIterations = 30;
+        float viscosity = 1E-7;
+        float diffuseRate = 1E-7;
     } options;
 
     VectorField vectorField;
@@ -136,7 +176,19 @@ protected:
     DivergenceField divergenceField;
     PressureField pressureField;
 
-    float dt{1.0f/240.f};
-    float epsilon{1};
-    float rho{1};
+    struct {
+        float dt{1.0f / 120.f};
+        float epsilon{1};
+        float rho{1};
+    } constants;
+
+    struct {
+        Texture texture;
+        VkDescriptorSet solutionDescriptorSet;
+    } diffuseHelper;
+
+    VulkanRenderPass simRenderPass;
+    VulkanBuffer debugBuffer;
+    VulkanSampler valueSampler;
+    VulkanSampler linearSampler;
 };

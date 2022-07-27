@@ -28,17 +28,17 @@ struct fmt::formatter<glm::vec<L, T, Q>> {
             if constexpr (L == 2) {
                 return format_to(
                         ctx.out(),
-                        presentation == 'f' ? "[{:.3f}, {:.3f}]" : "[{:.3e}, {:.3e}]",
+                        presentation == 'f' ? "[{:.10f}, {:.10f}]" : "[{:.10e}, {:.10e}]",
                         v.x, v.y);
             }else if constexpr (L == 3){
                 return format_to(
                         ctx.out(),
-                        presentation == 'f' ? "[{:.3f}, {:.3f}, {:.3f}]" : "[{:.1e}, {:.1e}, {:.1e}]",
+                        presentation == 'f' ? "[{:.10f}, {:.10f}, {:.10f}]" : "[{:.1e}, {:.1e}, {:.1e}]",
                         v.x, v.y, v.z);
             } else if constexpr (L == 4){
                 return format_to(
                         ctx.out(),
-                        presentation == 'f' ? "[{:.3f}, {:.3f}, {:.3f}, {:.3f}]" : "[{:.1e}, {:.1e}, {:.1e}, {:.1e}]",
+                        presentation == 'f' ? "[{:.10f}, {:.10f}, {:.10f}, {:.10f}]" : "[{:.1e}, {:.1e}, {:.1e}, {:.1e}]",
                         v.x, v.y, v.z, v.w);
             }else {
                 std::string msg = fmt::format("Invalid vector length: {}", L);
@@ -71,7 +71,7 @@ struct fmt::formatter<glm::qua<T, Q>> {
     auto format(const glm::qua<T, Q>& q, FormatContext& ctx) {
         return format_to(
                 ctx.out(),
-                presentation == 'f' ? "[{:.3f}, < {:.3f}, {:.3f}, {:.3f}>]" : "[{:.1e}, <{:.1e}, {:.1e}, {:.1e} >]",
+                presentation == 'f' ? "[{:.10f}, < {:.10f}, {:.10f}, {:.10f}>]" : "[{:.1e}, <{:.1e}, {:.1e}, {:.1e} >]",
                 q.w, q.x, q.y, q.z);
     }
 };
@@ -102,18 +102,18 @@ struct fmt::formatter<glm::mat<C, R, T, Q>> {
         if constexpr (R == 2) {
             return format_to(
                     ctx.out(),
-                    presentation == 'f' ? "{:.3f}\n{:.3f}" : "{:.3e}\n{:.3e}]",
+                    presentation == 'f' ? "{:.10f}\n{:.10f}" : "{:.10e}\n{:.10e}]",
                     glm::row(mat, 0), glm::row(mat, 1));
         }else if constexpr (R == 3){
             return format_to(
                     ctx.out(),
-                    presentation == 'f' ? "{:.3f}\n{:.3f}\n{:.3f}" : "{:.1e}\n{:.1e}\n{:.1e}",
+                    presentation == 'f' ? "{:.10f}\n{:.10f}\n{:.10f}" : "{:.1e}\n{:.1e}\n{:.1e}",
                     glm::row(mat , 0), glm::row(mat, 1), glm::row(mat, 2));
         } else if constexpr (R == 4){
             return format_to(
                     ctx.out(),
                     presentation == 'f' ? "{:f}\n{:f}\n{:f}\n{:f}" : "{:e}\n{:e}\n{:e}\n{:e}",
-                    glm::row(mat , 0), glm::row(mat, 1), glm::row(mat, 2), glm::row(mat, 3));
+                    glm::row(mat , 0), glm::row(mat, 1), glm::row(mat, 2), glm::row(mat, 10));
         }else {
             std::string msg = fmt::format("No format defined for mat{}{}", C, R);
             throw std::runtime_error{msg};
