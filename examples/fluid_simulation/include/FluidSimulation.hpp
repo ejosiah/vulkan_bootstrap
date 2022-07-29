@@ -7,7 +7,7 @@ struct Vector{
 
 struct Field{
     std::array<Texture, 2> texture;
-    std::array<VkDescriptorSet, 2> descriptorSet;
+    std::array<VkDescriptorSet, 2> descriptorSet{nullptr, nullptr};
     std::array<VulkanFramebuffer, 2> framebuffer;
 
     void swap(){
@@ -22,6 +22,8 @@ using ColorField = Field;
 using VectorField = Field;
 using PressureField = Field;
 using DivergenceField = Field;
+using ForceField = Field;
+using VorticityField = Field;
 
 class FluidSimulation : public VulkanBaseApp{
 public:
@@ -68,9 +70,21 @@ protected:
 
     void runSimulation();
 
+    void computeVorticityConfinement(VkCommandBuffer commandBuffer);
+
+    void applyForces(VkCommandBuffer commandBuffer);
+
+    void userInputForce(VkCommandBuffer commandBuffer);
+
+    void clearForces(VkCommandBuffer commandBuffer);
+
+    void addSources(VkCommandBuffer commandBuffer, Field& sourceField, Field& destinationField);
+
     void advectColor(VkCommandBuffer commandBuffer);
 
     void advectVectorField(VkCommandBuffer commandBuffer);
+
+    static void clear(VkCommandBuffer commandBuffer, Texture& texture);
 
     void advect(VkCommandBuffer commandBuffer, const std::array<VkDescriptorSet, 2>& sets, VulkanFramebuffer& framebuffer);
 
@@ -80,7 +94,7 @@ protected:
 
     void solvePressure(VkCommandBuffer commandBuffer);
 
-    void diffuse(VkCommandBuffer commandBuffer, Field& field, float viscosity = 1);
+    void diffuse(VkCommandBuffer commandBuffer, Field& field, float rate = 1);
 
     void jacobiIteration(VkCommandBuffer commandBuffer, VkDescriptorSet unknownDescriptor, VkDescriptorSet solutionDescriptor, float alpha, float rBeta);
 
@@ -153,6 +167,38 @@ protected:
     struct {
         VulkanPipeline pipeline;
         VulkanPipelineLayout layout;
+        struct {
+            float dt;
+        } constants;
+    } addSource;
+
+    struct {
+        VulkanPipeline pipeline;
+        VulkanPipelineLayout layout;
+        struct {
+            glm::vec2 force{0};
+            glm::vec2 center{0};
+            float radius{1};
+            float dt;
+        } constants;
+    } forceGen;
+
+    struct {
+        VulkanPipeline pipeline;
+        VulkanPipelineLayout layout;
+    } vorticity;
+
+    struct {
+        VulkanPipeline pipeline;
+        VulkanPipelineLayout layout;
+        struct {
+            float vorticityConfinementScale{10};
+        } constants;
+    } vorticityForce;
+
+    struct {
+        VulkanPipeline pipeline;
+        VulkanPipelineLayout layout;
         struct{
             float alpha;
             float rBeta;
@@ -165,16 +211,18 @@ protected:
     struct {
         bool advectVField = true;
         bool project = true;
-        bool showArrows = true;
+        bool showArrows = false;
         int poissonIterations = 30;
-        float viscosity = 1E-7;
-        float diffuseRate = 1E-7;
+        float viscosity = MIN_FLOAT;
+        float diffuseRate = MIN_FLOAT;
     } options;
 
     VectorField vectorField;
     ColorField colorField;
     DivergenceField divergenceField;
     PressureField pressureField;
+    ForceField forceField;
+    VorticityField vorticityField;
 
     struct {
         float dt{1.0f / 120.f};
