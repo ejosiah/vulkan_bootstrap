@@ -192,7 +192,7 @@ protected:
         VulkanPipeline pipeline;
         VulkanPipelineLayout layout;
         struct {
-            float vorticityConfinementScale{10};
+            float vorticityConfinementScale{20};
         } constants;
     } vorticityForce;
 

@@ -41,11 +41,11 @@ void FluidSimulation::initVectorField() {
         for(int j = 0; j < width; j++){
             auto x = 2 * float(j)/float(width) - 1;
             auto y = 2 * float(i)/float(height) - 1;
-//            glm::vec2 u{glm::sin(two_pi * y), glm::sin(two_pi * x)};
+            glm::vec2 u{glm::sin(two_pi * y), glm::sin(two_pi * x)};
 //            glm::vec2 u{1, glm::sin(two_pi * x)};
 //            glm::vec2 u{x, y}; // divergent fields 1;
 //            glm::vec2 u{glm::sin(two_pi * x), 0}; // divergent fields 2;
-            glm::vec2 u{y, x}; // divergent fields 3;
+//            glm::vec2 u{y, x}; // divergent fields 3;
             maxLength = glm::max(glm::length(u), maxLength);
             field.emplace_back(u , 0, 0);
         }
@@ -170,7 +170,7 @@ void FluidSimulation::createDescriptorSetLayouts() {
             {
                 textureSetLayout, textureSetLayout, textureSetLayout, textureSetLayout
                 , textureSetLayout, textureSetLayout, textureSetLayout, textureSetLayout
-                , textureSetLayout, textureSetLayout
+                , textureSetLayout, textureSetLayout, textureSetLayout
             });
 
     vectorField.descriptorSet[0] = sets[0];
@@ -182,7 +182,8 @@ void FluidSimulation::createDescriptorSetLayouts() {
     pressureField.descriptorSet[1] = sets[6];
     diffuseHelper.solutionDescriptorSet = sets[7];
     forceField.descriptorSet[0] = sets[8];
-    vorticityField.descriptorSet[0] = sets[9];
+    forceField.descriptorSet[1] = sets[9];
+    vorticityField.descriptorSet[0] = sets[10];
 
     device.setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>(fmt::format("{}_{}", "vector_field", 0), vectorField.descriptorSet[0]);
     device.setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>(fmt::format("{}_{}", "vector_field", 1), vectorField.descriptorSet[1]);
@@ -195,12 +196,13 @@ void FluidSimulation::createDescriptorSetLayouts() {
     device.setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>(fmt::format("{}_{}", "pressure_field", 0), pressureField.descriptorSet[0]);
     device.setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>(fmt::format("{}_{}", "pressure_field", 1), pressureField.descriptorSet[1]);
     device.setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>("diffuse_solution_container", diffuseHelper.solutionDescriptorSet);
-    device.setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>("force_field", forceField.descriptorSet[0]);
+    device.setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>(fmt::format("{}_{}", "force_field", 0), forceField.descriptorSet[0]);
+    device.setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>(fmt::format("{}_{}", "force_field", 1), forceField.descriptorSet[1]);
     device.setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>("vorticity_field", vorticityField.descriptorSet[0]);
 }
 
 void FluidSimulation::updateDescriptorSets() {
-    auto writes = initializers::writeDescriptorSets<10>();
+    auto writes = initializers::writeDescriptorSets<11>();
     
     writes[0].dstSet = vectorField.descriptorSet[0];
     writes[0].dstBinding = 0;
@@ -281,14 +283,23 @@ void FluidSimulation::updateDescriptorSets() {
             , VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
     writes[8].pImageInfo = &forceInfo;
 
-    writes[9].dstSet = vorticityField.descriptorSet[0];
+    writes[9].dstSet = forceField.descriptorSet[1];
     writes[9].dstBinding = 0;
     writes[9].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     writes[9].descriptorCount = 1;
+    VkDescriptorImageInfo force1Info{forceField.texture[1].sampler
+            , forceField.texture[1].imageView
+            , VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+    writes[9].pImageInfo = &force1Info;
+
+    writes[10].dstSet = vorticityField.descriptorSet[0];
+    writes[10].dstBinding = 0;
+    writes[10].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    writes[10].descriptorCount = 1;
     VkDescriptorImageInfo vorticityInfo{vorticityField.texture[0].sampler
             , vorticityField.texture[0].imageView
             , VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
-    writes[9].pImageInfo = &vorticityInfo;
+    writes[10].pImageInfo = &vorticityInfo;
 
     device.updateDescriptorSets(writes);
 }
@@ -452,7 +463,7 @@ void FluidSimulation::createRenderPipeline() {
             .shaderStage()
                 .fragmentShader(resource("force.frag.spv"))
             .layout().clear()
-                .addDescriptorSetLayouts({textureSetLayout, textureSetLayout})
+                .addDescriptorSetLayouts({textureSetLayout})
                 .addPushConstantRange(VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(forceGen.constants))
             .renderPass(simRenderPass)
             .name("force_generator")
@@ -473,7 +484,7 @@ void FluidSimulation::createRenderPipeline() {
             .shaderStage()
                 .fragmentShader(resource("vorticity_force.frag.spv"))
             .layout().clear()
-                .addDescriptorSetLayout(textureSetLayout)
+                .addDescriptorSetLayouts({textureSetLayout, textureSetLayout})
                 .addPushConstantRange(VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(vorticityForce.constants))
             .renderPass(simRenderPass)
             .name("vorticity_force")
@@ -500,6 +511,8 @@ void FluidSimulation::initProjectionStage() {
 
     textures::create(device, forceField.texture[0], VK_IMAGE_TYPE_2D, VK_FORMAT_R32G32B32A32_SFLOAT, allocation.data(), {width, height, 1}, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE
                      , sizeof(float));
+    textures::create(device, forceField.texture[1], VK_IMAGE_TYPE_2D, VK_FORMAT_R32G32B32A32_SFLOAT, allocation.data(), {width, height, 1}, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE
+                     , sizeof(float));
 
     textures::create(device, vorticityField.texture[0], VK_IMAGE_TYPE_2D, VK_FORMAT_R32G32B32A32_SFLOAT, allocation.data(), {width, height, 1}, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE
                      , sizeof(float));
@@ -511,7 +524,9 @@ void FluidSimulation::initProjectionStage() {
     device.setName<VK_OBJECT_TYPE_FRAMEBUFFER>("divergence_field", divergenceField.framebuffer[0].frameBuffer);
 
     forceField.framebuffer[0] = device.createFramebuffer(simRenderPass, { forceField.texture[0].imageView }, width, height);
-    device.setName<VK_OBJECT_TYPE_FRAMEBUFFER>("force_field", forceField.framebuffer[0].frameBuffer);
+    forceField.framebuffer[1] = device.createFramebuffer(simRenderPass, { forceField.texture[1].imageView }, width, height);
+    device.setName<VK_OBJECT_TYPE_FRAMEBUFFER>(fmt::format("{}_{}", "force_field", 0), forceField.framebuffer[0].frameBuffer);
+    device.setName<VK_OBJECT_TYPE_FRAMEBUFFER>(fmt::format("{}_{}", "force_field", 1), forceField.framebuffer[1].frameBuffer);
 
     vorticityField.framebuffer[0] = device.createFramebuffer(simRenderPass, { vorticityField.texture[0].imageView }, width, height);
     device.setName<VK_OBJECT_TYPE_FRAMEBUFFER>("vorticity_field", vorticityField.framebuffer[0].frameBuffer);
@@ -638,6 +653,7 @@ void FluidSimulation::runSimulation() {
     device.graphicsCommandPool().oneTimeCommand([&](auto commandBuffer){
         VkDeviceSize offset = 0;
         vkCmdBindVertexBuffers(commandBuffer, 0, 1, screenQuad.vertices, &offset);
+        clearForces(commandBuffer);
         applyForces(commandBuffer);
         if(options.advectVField) {
             diffuse(commandBuffer, vectorField, options.viscosity);
@@ -647,7 +663,6 @@ void FluidSimulation::runSimulation() {
         }
         diffuse(commandBuffer, colorField, options.diffuseRate);
         advectColor(commandBuffer);
-        clearForces(commandBuffer);
     });
 
 
@@ -670,32 +685,38 @@ void FluidSimulation::computeVorticityConfinement(VkCommandBuffer commandBuffer)
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vorticity.layout, 0, 1, &vectorField.descriptorSet[in], 0, VK_NULL_HANDLE);
         vkCmdDraw(commandBuffer, 4, 1, 0, 0);
     });
-    withRenderPass(commandBuffer, simRenderPass, forceField.framebuffer[0], [&](auto commandBuffer){
+    withRenderPass(commandBuffer, simRenderPass, forceField.framebuffer[out], [&](auto commandBuffer){
+       static std::array<VkDescriptorSet, 2> sets;
+        sets[0] = vorticityField.descriptorSet[in];
+        sets[1] = forceField.descriptorSet[in];
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vorticityForce.pipeline);
         vkCmdPushConstants(commandBuffer, vorticityForce.layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(vorticityForce.constants), &vorticityForce.constants);
-        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vorticityForce.layout, 0, 1, &vorticityField.descriptorSet[in], 0, VK_NULL_HANDLE);
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vorticityForce.layout, 0, COUNT(sets), sets.data(), 0, VK_NULL_HANDLE);
         vkCmdDraw(commandBuffer, 4, 1, 0, 0);
     });
+    forceField.swap();
 }
 
 void FluidSimulation::applyForces(VkCommandBuffer commandBuffer) {
     forceGen.constants.dt = constants.dt;
     computeVorticityConfinement(commandBuffer);
-//    userInputForce(commandBuffer);
+    userInputForce(commandBuffer);
     addSources(commandBuffer, forceField, vectorField);
 }
 
 void FluidSimulation::userInputForce(VkCommandBuffer commandBuffer) {
-    withRenderPass(commandBuffer, simRenderPass, forceField.framebuffer[0], [&](auto commandBuffer){
+    withRenderPass(commandBuffer, simRenderPass, forceField.framebuffer[out], [&](auto commandBuffer){
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, forceGen.pipeline);
         vkCmdPushConstants(commandBuffer, forceGen.layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(forceGen.constants), &forceGen.constants);
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, forceGen.layout, 0, 1, &forceField.descriptorSet[in], 0, VK_NULL_HANDLE);
         vkCmdDraw(commandBuffer, 4, 1, 0, 0);
     });
+    forceField.swap();
+    forceGen.constants.force.x = 0;
+    forceGen.constants.force.y = 0;
 }
 
 void FluidSimulation::clearForces(VkCommandBuffer commandBuffer) {
-    forceGen.constants.force.x = 0;
-    forceGen.constants.force.y = 0;
     clear(commandBuffer, forceField.texture[0]);
 }
 

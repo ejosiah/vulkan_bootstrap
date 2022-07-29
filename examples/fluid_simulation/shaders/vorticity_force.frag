@@ -1,6 +1,7 @@
 #version 450 core
 
 layout(set = 0, binding = 0) uniform sampler2D vorticityField;
+layout(set = 1, binding = 0) uniform sampler2D forceField;
 
 layout(push_constant) uniform Constants{
     float csCale;
@@ -11,6 +12,10 @@ layout(location = 0) out vec4 force;
 
 float vort(vec2 coord) {
     return texture(vorticityField, fract(coord)).x;
+}
+
+vec2 accumForce(vec2 coord){
+    return texture(forceField, fract(coord)).xy;
 }
 
 void main(){
@@ -31,6 +36,5 @@ void main(){
 
     float vc = vort(uv);
     vec2 eps = delta.xy * csCale;
-//    force.xy = eps * vc * n * vec2(1, -1);
-    force.xy = eps * vc * n * vec2(1, -1);
+    force.xy = eps * vc * n * vec2(1, -1) + accumForce(uv);
 }
