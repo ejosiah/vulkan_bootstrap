@@ -47,8 +47,6 @@ constexpr bool enableValidation = true;
 constexpr bool enableValidation = false;
 #endif
 
-#define REPORT_ERROR(result, msg) if(result != VK_SUCCESS) throw std::runtime_error{msg}
-#define offsetOf(s,m) static_cast<uint32_t>(offsetof(s, m))
 
 constexpr int MAX_IN_FLIGHT_FRAMES = 2;
 

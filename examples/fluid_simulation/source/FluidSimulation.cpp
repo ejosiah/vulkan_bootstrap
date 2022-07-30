@@ -29,6 +29,7 @@ void FluidSimulation::initApp() {
 
     createPipelineCache();
     createRenderPipeline();
+    initFluidSolver();
     debugBuffer = device.createBuffer(VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_TO_CPU, sizeof(glm::vec4) * width * height, "debug");
 }
 
@@ -86,6 +87,36 @@ void FluidSimulation::initVectorField() {
 
 }
 
+void FluidSimulation::initFluidSolver() {
+
+    float dx = 1.0f/float(width);
+    std::vector<glm::vec4> field;
+    float maxLength = MIN_FLOAT;
+    constexpr auto two_pi = glm::two_pi<float>();
+    for(int i = 0; i < height; i++){
+        for(int j = 0; j < width; j++){
+            auto x = 2 * float(j)/float(width) - 1;
+            auto y = 2 * float(i)/float(height) - 1;
+            glm::vec2 u{glm::sin(two_pi * y), glm::sin(two_pi * x)};
+//            glm::vec2 u{1, glm::sin(two_pi * x)};
+//            glm::vec2 u{x, y}; // divergent fields 1;
+//            glm::vec2 u{glm::sin(two_pi * x), 0}; // divergent fields 2;
+//            glm::vec2 u{y, x}; // divergent fields 3;
+            maxLength = glm::max(glm::length(u), maxLength);
+            field.emplace_back(u , 0, 0);
+        }
+    }
+
+    auto stagingBuffer = device.createStagingBuffer(BYTE_SIZE(field));
+    stagingBuffer.copy(field);
+
+    fluidSolver = FluidSolver2D{&device, &descriptorPool, &renderPass, &fileManager, {width, height}};
+    fluidSolver.init();
+    fluidSolver.set(stagingBuffer);
+    fluidSolver.add(colorQuantity);
+
+}
+
 void FluidSimulation::initColorField() {
 
     auto checkerboard = [](int i, int j, float w, float h){
@@ -107,34 +138,40 @@ void FluidSimulation::initColorField() {
     }
 //    field = allocation;
 
-    textures::create(device, colorField.texture[0], VK_IMAGE_TYPE_2D, VK_FORMAT_R32G32B32A32_SFLOAT
+    textures::create(device, colorQuantity.field.texture[0], VK_IMAGE_TYPE_2D, VK_FORMAT_R32G32B32A32_SFLOAT
             , field.data(), {width, height, 1}, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE
             , sizeof(float));
-    textures::create(device, colorField.texture[1], VK_IMAGE_TYPE_2D, VK_FORMAT_R32G32B32A32_SFLOAT
+    textures::create(device, colorQuantity.field.texture[1], VK_IMAGE_TYPE_2D, VK_FORMAT_R32G32B32A32_SFLOAT
             , field.data(), {width, height, 1}, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE
             , sizeof(float));
 
 
-    textures::create(device, colorSource.texture[0], VK_IMAGE_TYPE_2D, VK_FORMAT_R32G32B32A32_SFLOAT
+    textures::create(device, colorQuantity.source.texture[0], VK_IMAGE_TYPE_2D, VK_FORMAT_R32G32B32A32_SFLOAT
             , allocation.data(), {width, height, 1}, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE
             , sizeof(float));
-    textures::create(device, colorSource.texture[1], VK_IMAGE_TYPE_2D, VK_FORMAT_R32G32B32A32_SFLOAT
+    textures::create(device, colorQuantity.source.texture[1], VK_IMAGE_TYPE_2D, VK_FORMAT_R32G32B32A32_SFLOAT
             , allocation.data(), {width, height, 1}, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE
             , sizeof(float));
 
-    device.setName<VK_OBJECT_TYPE_IMAGE>(fmt::format("{}_{}", "color_field", 0), colorField.texture[0].image.image);
-    device.setName<VK_OBJECT_TYPE_IMAGE>(fmt::format("{}_{}", "color_field", 1), colorField.texture[1].image.image);
+    device.setName<VK_OBJECT_TYPE_IMAGE>(fmt::format("{}_{}", "color_field", 0), colorQuantity.field.texture[0].image.image);
+    device.setName<VK_OBJECT_TYPE_IMAGE>(fmt::format("{}_{}", "color_field", 1), colorQuantity.field.texture[1].image.image);
 
-    device.setName<VK_OBJECT_TYPE_IMAGE_VIEW>(fmt::format("{}_{}", "color_field", 0), colorField.texture[0].imageView.handle);
-    device.setName<VK_OBJECT_TYPE_IMAGE_VIEW>(fmt::format("{}_{}", "color_field", 1), colorField.texture[1].imageView.handle);
+    device.setName<VK_OBJECT_TYPE_IMAGE_VIEW>(fmt::format("{}_{}", "color_field", 0), colorQuantity.field.texture[0].imageView.handle);
+    device.setName<VK_OBJECT_TYPE_IMAGE_VIEW>(fmt::format("{}_{}", "color_field", 1), colorQuantity.field.texture[1].imageView.handle);
 
     for(auto i = 0; i < 2; i++){
-        colorField.framebuffer[i] = device.createFramebuffer(simRenderPass, { colorField.texture[i].imageView }, width, height);
-        device.setName<VK_OBJECT_TYPE_FRAMEBUFFER>(fmt::format("{}_{}", "color_field", i), colorField.framebuffer[i].frameBuffer);
+        colorQuantity.field.framebuffer[i] = device.createFramebuffer(simRenderPass, { colorQuantity.field.texture[i].imageView }, width, height);
+        device.setName<VK_OBJECT_TYPE_FRAMEBUFFER>(fmt::format("{}_{}", "color_field", i), colorQuantity.field.framebuffer[i].frameBuffer);
 
-        colorSource.framebuffer[i] = device.createFramebuffer(simRenderPass, { colorSource.texture[i].imageView }, width, height);
-        device.setName<VK_OBJECT_TYPE_FRAMEBUFFER>(fmt::format("{}_{}", "color_source_field", i), colorField.framebuffer[i].frameBuffer);
+        colorQuantity.source.framebuffer[i] = device.createFramebuffer(simRenderPass, { colorQuantity.source.texture[i].imageView }, width, height);
+        device.setName<VK_OBJECT_TYPE_FRAMEBUFFER>(fmt::format("{}_{}", "color_source_field", i), colorQuantity.field.framebuffer[i].frameBuffer);
     }
+    colorQuantity.update = [&](VkCommandBuffer commandBuffer, VulkanRenderPass& renderPass, Field& field){
+        addDyeSource(commandBuffer, renderPass, field, {0.004, 0, 0}, {0.2, 0.2});
+        addDyeSource(commandBuffer, renderPass, field, {0, 0, 0.004}, {0.5, 0.9});
+        addDyeSource(commandBuffer, renderPass, field,  {0, 0.004, 0}, {0.8, 0.2});
+    };
+    fluidSolver.add(colorQuantity);
 }
 
 void FluidSimulation::initFullScreenQuad() {
@@ -177,7 +214,7 @@ void FluidSimulation::createDescriptorSetLayouts() {
                 .descriptorCount(1)
                 .shaderStages(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT)
             .createLayout();
-    
+
     auto sets = descriptorPool.allocate(
             {
                 textureSetLayout, textureSetLayout, textureSetLayout, textureSetLayout
@@ -188,8 +225,8 @@ void FluidSimulation::createDescriptorSetLayouts() {
 
     vectorField.descriptorSet[0] = sets[0];
     vectorField.descriptorSet[1] = sets[1];
-    colorField.descriptorSet[0] = sets[2];
-    colorField.descriptorSet[1] = sets[3];
+    colorQuantity.field.descriptorSet[0] = sets[2];
+    colorQuantity.field.descriptorSet[1] = sets[3];
     divergenceField.descriptorSet[0] = sets[4];
     pressureField.descriptorSet[0] = sets[5];
     pressureField.descriptorSet[1] = sets[6];
@@ -197,14 +234,14 @@ void FluidSimulation::createDescriptorSetLayouts() {
     forceField.descriptorSet[0] = sets[8];
     forceField.descriptorSet[1] = sets[9];
     vorticityField.descriptorSet[0] = sets[10];
-    colorSource.descriptorSet[0] = sets[11];
-    colorSource.descriptorSet[1] = sets[12];
+    colorQuantity.source.descriptorSet[0] = sets[11];
+    colorQuantity.source.descriptorSet[1] = sets[12];
 
     device.setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>(fmt::format("{}_{}", "vector_field", 0), vectorField.descriptorSet[0]);
     device.setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>(fmt::format("{}_{}", "vector_field", 1), vectorField.descriptorSet[1]);
 
-    device.setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>(fmt::format("{}_{}", "color_field", 0), colorField.descriptorSet[0]);
-    device.setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>(fmt::format("{}_{}", "color_field", 1), colorField.descriptorSet[1]);
+    device.setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>(fmt::format("{}_{}", "color_field", 0), colorQuantity.field.descriptorSet[0]);
+    device.setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>(fmt::format("{}_{}", "color_field", 1), colorQuantity.field.descriptorSet[1]);
 
     device.setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>("divergence_field", divergenceField.descriptorSet[0]);
 
@@ -218,13 +255,13 @@ void FluidSimulation::createDescriptorSetLayouts() {
 
     device.setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>("vorticity_field", vorticityField.descriptorSet[0]);
 
-    device.setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>(fmt::format("{}_{}", "color_source_field", 0), colorSource.descriptorSet[0]);
-    device.setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>(fmt::format("{}_{}", "color_source_field", 1), colorSource.descriptorSet[1]);
+    device.setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>(fmt::format("{}_{}", "color_source_field", 0), colorQuantity.source.descriptorSet[0]);
+    device.setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>(fmt::format("{}_{}", "color_source_field", 1), colorQuantity.source.descriptorSet[1]);
 }
 
 void FluidSimulation::updateDescriptorSets() {
     auto writes = initializers::writeDescriptorSets<13>();
-    
+
     writes[0].dstSet = vectorField.descriptorSet[0];
     writes[0].dstBinding = 0;
     writes[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
@@ -243,21 +280,21 @@ void FluidSimulation::updateDescriptorSets() {
                                  , VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
     writes[1].pImageInfo = &v1Info;
 
-    writes[2].dstSet = colorField.descriptorSet[0];
+    writes[2].dstSet = colorQuantity.field.descriptorSet[0];
     writes[2].dstBinding = 0;
     writes[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     writes[2].descriptorCount = 1;
-    VkDescriptorImageInfo c0Info{colorField.texture[0].sampler
-                                 , colorField.texture[0].imageView
+    VkDescriptorImageInfo c0Info{colorQuantity.field.texture[0].sampler
+                                 , colorQuantity.field.texture[0].imageView
                                  , VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
     writes[2].pImageInfo = &c0Info;
 
-    writes[3].dstSet = colorField.descriptorSet[1];
+    writes[3].dstSet = colorQuantity.field.descriptorSet[1];
     writes[3].dstBinding = 0;
     writes[3].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     writes[3].descriptorCount = 1;
-    VkDescriptorImageInfo c1Info{colorField.texture[1].sampler
-                                 , colorField.texture[1].imageView
+    VkDescriptorImageInfo c1Info{colorQuantity.field.texture[1].sampler
+                                 , colorQuantity.field.texture[1].imageView
                                  , VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
     writes[3].pImageInfo = &c1Info;
 
@@ -322,21 +359,21 @@ void FluidSimulation::updateDescriptorSets() {
             , VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
     writes[10].pImageInfo = &vorticityInfo;
 
-    writes[11].dstSet = colorSource.descriptorSet[0];
+    writes[11].dstSet = colorQuantity.source.descriptorSet[0];
     writes[11].dstBinding = 0;
     writes[11].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     writes[11].descriptorCount = 1;
-    VkDescriptorImageInfo csInfo{colorSource.texture[0].sampler
-            , colorSource.texture[0].imageView
+    VkDescriptorImageInfo csInfo{colorQuantity.source.texture[0].sampler
+            , colorQuantity.source.texture[0].imageView
             , VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
     writes[11].pImageInfo = &csInfo;
 
-    writes[12].dstSet = colorSource.descriptorSet[1];
+    writes[12].dstSet = colorQuantity.source.descriptorSet[1];
     writes[12].dstBinding = 0;
     writes[12].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     writes[12].descriptorCount = 1;
-    VkDescriptorImageInfo cs1Info{colorSource.texture[1].sampler
-            , colorSource.texture[1].imageView
+    VkDescriptorImageInfo cs1Info{colorQuantity.source.texture[1].sampler
+            , colorQuantity.source.texture[1].imageView
             , VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
     writes[12].pImageInfo = &cs1Info;
 
@@ -656,7 +693,8 @@ VkCommandBuffer *FluidSimulation::buildCommandBuffers(uint32_t imageIndex, uint3
 
     vkCmdBeginRenderPass(commandBuffer, &rPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-    renderVectorField(commandBuffer);
+    fluidSolver.renderVectorField(commandBuffer);
+//    renderVectorField(commandBuffer);
     renderColorField(commandBuffer);
 
     vkCmdEndRenderPass(commandBuffer);
@@ -683,7 +721,7 @@ void FluidSimulation::renderColorField(VkCommandBuffer commandBuffer) {
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, screenQuad.vertices, &offset);
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, screenQuad.pipeline);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, screenQuad.layout
-            , 0, 1, &colorField.descriptorSet[in], 0
+            , 0, 1, &colorQuantity.field.descriptorSet[in], 0
             , VK_NULL_HANDLE);
 
     vkCmdDraw(commandBuffer, 4, 1, 0, 0);
@@ -697,34 +735,25 @@ void FluidSimulation::update(float time) {
 
 void FluidSimulation::runSimulation() {
     device.graphicsCommandPool().oneTimeCommand([&](auto commandBuffer){
-        VkDeviceSize offset = 0;
-        vkCmdBindVertexBuffers(commandBuffer, 0, 1, screenQuad.vertices, &offset);
-        clearForces(commandBuffer);
-        applyForces(commandBuffer);
-        if(options.advectVField) {
-            diffuse(commandBuffer, vectorField, options.viscosity);
-            project(commandBuffer);
-            advectVectorField(commandBuffer);
-            project(commandBuffer);
-        }
-        clearSources(commandBuffer);
-        addColors(commandBuffer);
-        diffuse(commandBuffer, colorField, options.diffuseRate);
-        advectColor(commandBuffer);
+//        VkDeviceSize offset = 0;
+//        vkCmdBindVertexBuffers(commandBuffer, 0, 1, screenQuad.vertices, &offset);
+//        if(options.advectVField) {
+//            clearForces(commandBuffer);
+//            applyForces(commandBuffer);
+//            if(options.viscosity <= MIN_FLOAT) {
+//                diffuse(commandBuffer, vectorField, options.viscosity);
+//                project(commandBuffer);
+//            }
+//            advectVectorField(commandBuffer);
+//            project(commandBuffer);
+//        }
+//        clearSources(commandBuffer);
+//        addColors(commandBuffer);
+//        diffuse(commandBuffer, colorQuantity.field, options.diffuseRate);
+//        advectColor(commandBuffer);
+        fluidSolver.runSimulation(commandBuffer);
     });
 
-
-    static bool once = true;
-    if (once) {
-        once = false;
-        auto data = reinterpret_cast<glm::vec4 *>(debugBuffer.map());
-        for (int i = 0; i < height * 0.1; i++) {
-            for (int j = 0; j < width * 0.1; j++) {
-                int index = i * width + j;
-                spdlog::info("[{}, {}] => {}", j, i, data[index]);
-            }
-        }
-    }
 }
 
 void FluidSimulation::computeVorticityConfinement(VkCommandBuffer commandBuffer) {
@@ -771,28 +800,44 @@ void FluidSimulation::clearForces(VkCommandBuffer commandBuffer) {
 }
 
 void FluidSimulation::clearSources(VkCommandBuffer commandBuffer) {
-    clear(commandBuffer, colorSource.texture[in]);
-    clear(commandBuffer, colorSource.texture[out]);
+    clear(commandBuffer, colorQuantity.source.texture[in]);
+    clear(commandBuffer, colorQuantity.source.texture[out]);
 }
 
 void FluidSimulation::addColors(VkCommandBuffer commandBuffer) {
-    addDyeSource(commandBuffer, {0.004, 0, 0}, {0.2, 0.2});
-    addDyeSource(commandBuffer, {0, 0, 0.004}, {0.5, 0.9});
-    addDyeSource(commandBuffer, {0, 0.004, 0}, {0.8, 0.2});
-    addSources(commandBuffer, colorSource, colorField);
+//    addDyeSource(commandBuffer, {0.004, 0, 0}, {0.2, 0.2});
+//    addDyeSource(commandBuffer, {0, 0, 0.004}, {0.5, 0.9});
+//    addDyeSource(commandBuffer, {0, 0.004, 0}, {0.8, 0.2});
+    colorQuantity.update(commandBuffer, simRenderPass, colorQuantity.source);
+    addSources(commandBuffer, colorQuantity.source, colorQuantity.field);
 }
 
 void FluidSimulation::addDyeSource(VkCommandBuffer commandBuffer, glm::vec3 color, glm::vec2 source) {
     dyeSource.constants.dt = constants.dt;
     dyeSource.constants.color.rgb = color;
     dyeSource.constants.source = source;
-    withRenderPass(commandBuffer, simRenderPass, colorSource.framebuffer[out], [&](auto commandBuffer){
+    withRenderPass(commandBuffer, simRenderPass, colorQuantity.source.framebuffer[out], [&](auto commandBuffer){
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, dyeSource.pipeline);
         vkCmdPushConstants(commandBuffer, dyeSource.layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(dyeSource.constants), &dyeSource.constants);
-        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, dyeSource.layout, 0, 1, &colorSource.descriptorSet[in], 0, VK_NULL_HANDLE);
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, dyeSource.layout, 0, 1, &colorQuantity.source.descriptorSet[in], 0, VK_NULL_HANDLE);
         vkCmdDraw(commandBuffer, 4, 1, 0, 0);
     });
-    colorSource.swap();
+    colorQuantity.source.swap();
+}
+
+void FluidSimulation::addDyeSource(VkCommandBuffer commandBuffer, VulkanRenderPass &renderPass, Field &field,
+                                   glm::vec3 color, glm::vec2 source) {
+
+    dyeSource.constants.dt = constants.dt;
+    dyeSource.constants.color.rgb = color;
+    dyeSource.constants.source = source;
+    withRenderPass(commandBuffer, renderPass, field.framebuffer[out], [&](auto commandBuffer){
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, dyeSource.pipeline);
+        vkCmdPushConstants(commandBuffer, dyeSource.layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(dyeSource.constants), &dyeSource.constants);
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, dyeSource.layout, 0, 1, &field.descriptorSet[in], 0, VK_NULL_HANDLE);
+        vkCmdDraw(commandBuffer, 4, 1, 0, 0);
+    });
+    field.swap();
 }
 
 void FluidSimulation::addSources(VkCommandBuffer commandBuffer, Field &sourceField, Field &destinationField) {
@@ -814,10 +859,10 @@ void FluidSimulation::advectColor(VkCommandBuffer commandBuffer) {
 
     static std::array<VkDescriptorSet, 2> sets;
     sets[0] = vectorField.descriptorSet[in];
-    sets[1] = colorField.descriptorSet[in];
+    sets[1] = colorQuantity.field.descriptorSet[in];
 
-    advect(commandBuffer, sets,colorField.framebuffer[out]);
-    colorField.swap();
+    advect(commandBuffer, sets,colorQuantity.field.framebuffer[out]);
+    colorQuantity.field.swap();
 }
 
 void FluidSimulation::advectVectorField(VkCommandBuffer commandBuffer) {

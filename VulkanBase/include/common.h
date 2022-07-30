@@ -209,3 +209,6 @@ constexpr uint nearestMultiple(uint n, uint x) {
 }
 
 using Proc = std::function<void()>;
+
+#define REPORT_ERROR(result, msg) if(result != VK_SUCCESS) throw std::runtime_error{msg}
+#define offsetOf(s,m) static_cast<uint32_t>(offsetof(s, m))

@@ -4,6 +4,10 @@
 #include "VulkanRAII.h"
 #include "Texture.h"
 #include "filemanager.hpp"
+#include "glm/glm.hpp"
+
+using GpuProcess = std::function<void(VkCommandBuffer)>;
+using ExternalForce = std::function<void(VkCommandBuffer, VkDescriptorSet)>;
 
 struct Vector{
     glm::vec2 vertex;
@@ -21,14 +25,20 @@ struct Field{
     }
 };
 
-using GpuProcess = std::function<void(VkCommandBuffer)>;
-
-using ColorField = Field;
 using VectorField = Field;
 using PressureField = Field;
 using DivergenceField = Field;
 using ForceField = Field;
 using VorticityField = Field;
+
+using UpdateSource = std::function<void(VkCommandBuffer, VulkanRenderPass&, Field&)>;
+
+
+struct Quantity{
+    Field field;
+    Field source;
+    UpdateSource update;
+};
 
 class FluidSolver2D{
 public:
@@ -43,37 +53,61 @@ public:
         float dt{1.0f / 120.f};
     } options;
 
-    explicit FluidSolver2D(VulkanDevice* device, FileManager* fileManager);
+    FluidSolver2D() = default;
+
+    FluidSolver2D(VulkanDevice* device, VulkanDescriptorPool* descriptorPool, VulkanRenderPass* displayRenderPass, FileManager* fileManager, glm::vec2 gridSize);
 
     void init();
 
-    void initFullScreenQuad();
+    void createRenderPass();
 
-    void createDescriptorPool();
+    void initViewVectors();
+
+    void initSimData();
+
+    void initFullScreenQuad();
 
     void createDescriptorSetLayouts();
 
     void updateDescriptorSets();
 
+    void updateDescriptorSet(Field &field);
+
+    void updateDiffuseDescriptorSet();
+
     void createPipelines();
 
-    void set(VulkanBuffer vectorField);
+    void set(VulkanBuffer vectorFieldBuffer);
 
-    void add(GpuProcess&& force);
+    void add(ExternalForce&& force);
 
-    void runSimulation();
+    void runSimulation(VkCommandBuffer commandBuffer);
+
+    void velocityStep(VkCommandBuffer commandBuffer);
+
+    void quantityStep(VkCommandBuffer commandBuffer);
+
+    void quantityStep(VkCommandBuffer commandBuffer, Quantity& quantity);
+
+    void clearSources(VkCommandBuffer commandBuffer, Quantity &quantity);
+
+    void updateSources(VkCommandBuffer commandBuffer, Quantity &quantity);
+
+    void addSource(VkCommandBuffer commandBuffer, Quantity &quantity);
+
+    void diffuseQuantity(VkCommandBuffer commandBuffer, Quantity &quantity);
+
+    void advectQuantity(VkCommandBuffer commandBuffer, Quantity &quantity);
 
     void computeVorticityConfinement(VkCommandBuffer commandBuffer);
 
     void applyForces(VkCommandBuffer commandBuffer);
 
-    void userInputForce(VkCommandBuffer commandBuffer);
+    void applyExternalForces(VkCommandBuffer commandBuffer);
 
     void clearForces(VkCommandBuffer commandBuffer);
 
     void addSources(VkCommandBuffer commandBuffer, Field& sourceField, Field& destinationField);
-
-    void advectColor(VkCommandBuffer commandBuffer);
 
     void advectVectorField(VkCommandBuffer commandBuffer);
 
@@ -94,7 +128,13 @@ public:
     void computeDivergenceFreeField(VkCommandBuffer commandBuffer);
 
     void withRenderPass(VkCommandBuffer commandBuffer, const VulkanRenderPass& renderPass, const VulkanFramebuffer& framebuffer
-            , GpuProcess&& process, glm::vec4 clearColor = glm::vec4(0));
+            , GpuProcess&& process, glm::vec4 clearColor = glm::vec4(0)) const;
+
+    std::string resource(const std::string& name);
+
+    void renderVectorField(VkCommandBuffer commandBuffer);
+
+    void add(Quantity& quantity);
 
 private:
     VulkanDescriptorSetLayout textureSetLayout;
@@ -139,18 +179,8 @@ private:
         struct {
             float dt;
         } constants;
-    } addSource;
+    } addSourcePipeline;
 
-    struct {
-        VulkanPipeline pipeline;
-        VulkanPipelineLayout layout;
-        struct {
-            glm::vec2 force{0};
-            glm::vec2 center{0};
-            float radius{1};
-            float dt;
-        } constants;
-    } forceGen;
 
     struct {
         VulkanPipeline pipeline;
@@ -179,25 +209,36 @@ private:
 
 
     VectorField vectorField;
-    ColorField colorField;
     DivergenceField divergenceField;
     PressureField pressureField;
     ForceField forceField;
     VorticityField vorticityField;
+    std::vector<std::reference_wrapper<Quantity>> quantities;
 
+    std::vector<ExternalForce> externalForces;
 
     struct {
         Texture texture;
         VkDescriptorSet solutionDescriptorSet;
     } diffuseHelper;
 
-    VulkanRenderPass simRenderPass;
-    VulkanDescriptorPool descriptorPool;
-    VulkanBuffer debugBuffer;
+    VulkanRenderPass* displayRenderPass{};
+    VulkanDescriptorPool* descriptorPool{};
     VulkanSampler valueSampler;
     VulkanSampler linearSampler;
-    std::vector<GpuProcess> forces;
-    FileManager* fileManager{nullptr};
-    VulkanDevice* device;
+    FileManager* fileManager{};
+    bool vectorFieldSet{};
+    VulkanDevice* device{};
+    glm::vec2 gridSize{};
+    glm::vec2 delta{};
+    struct {
+        float dt{1.0f / 120.f};
+        float epsilon{1};
+        float rho{1};
+    } constants;
 
+    uint32_t width{};
+    uint32_t height{};
+
+    VulkanRenderPass renderPass;
 };

@@ -1,29 +1,7 @@
 #include "VulkanBaseApp.h"
-
-struct Vector{
-    glm::vec2 vertex;
-    glm::vec2 position;
-};
-
-struct Field{
-    std::array<Texture, 2> texture;
-    std::array<VkDescriptorSet, 2> descriptorSet{nullptr, nullptr};
-    std::array<VulkanFramebuffer, 2> framebuffer;
-
-    void swap(){
-        std::swap(descriptorSet[0], descriptorSet[1]);
-        std::swap(framebuffer[0], framebuffer[1]);
-    }
-};
-
-using GpuProcess = std::function<void(VkCommandBuffer)>;
+#include "fluid_solver_2d.h"
 
 using ColorField = Field;
-using VectorField = Field;
-using PressureField = Field;
-using DivergenceField = Field;
-using ForceField = Field;
-using VorticityField = Field;
 
 class FluidSimulation : public VulkanBaseApp{
 public:
@@ -33,6 +11,8 @@ protected:
     void initApp() override;
 
     void initVectorField();
+
+    void initFluidSolver();
 
     void initColorField();
 
@@ -83,6 +63,8 @@ protected:
     void addColors(VkCommandBuffer commandBuffer);
 
     void addDyeSource(VkCommandBuffer commandBuffer, glm::vec3 color, glm::vec2 source);
+
+    void addDyeSource(VkCommandBuffer commandBuffer, VulkanRenderPass& renderPass, Field& field, glm::vec3 color, glm::vec2 source);
 
     void addSources(VkCommandBuffer commandBuffer, Field& sourceField, Field& destinationField);
 
@@ -236,8 +218,7 @@ protected:
     } options;
 
     VectorField vectorField;
-    ColorField colorField;
-    ColorField colorSource;
+    Quantity colorQuantity;
     DivergenceField divergenceField;
     PressureField pressureField;
     ForceField forceField;
@@ -258,4 +239,5 @@ protected:
     VulkanBuffer debugBuffer;
     VulkanSampler valueSampler;
     VulkanSampler linearSampler;
+    FluidSolver2D fluidSolver;
 };
