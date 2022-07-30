@@ -136,6 +136,8 @@ public:
 
     void add(Quantity& quantity);
 
+    void dt(float value);
+
 private:
     VulkanDescriptorSetLayout textureSetLayout;
     struct {

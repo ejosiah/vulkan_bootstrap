@@ -19,7 +19,6 @@ FluidSimulation::FluidSimulation(const Settings& settings) : VulkanBaseApp("Flui
 void FluidSimulation::initApp() {
     createSamplers();
     initSimulationStages();
-    initVectorField();
     initColorField();
     initFullScreenQuad();
     createDescriptorPool();
@@ -33,59 +32,6 @@ void FluidSimulation::initApp() {
     debugBuffer = device.createBuffer(VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_TO_CPU, sizeof(glm::vec4) * width * height, "debug");
 }
 
-void FluidSimulation::initVectorField() {
-    float dx = 1.0f/float(width);
-    std::vector<glm::vec4> field;
-    float maxLength = MIN_FLOAT;
-    constexpr auto two_pi = glm::two_pi<float>();
-    for(int i = 0; i < height; i++){
-        for(int j = 0; j < width; j++){
-            auto x = 2 * float(j)/float(width) - 1;
-            auto y = 2 * float(i)/float(height) - 1;
-            glm::vec2 u{glm::sin(two_pi * y), glm::sin(two_pi * x)};
-//            glm::vec2 u{1, glm::sin(two_pi * x)};
-//            glm::vec2 u{x, y}; // divergent fields 1;
-//            glm::vec2 u{glm::sin(two_pi * x), 0}; // divergent fields 2;
-//            glm::vec2 u{y, x}; // divergent fields 3;
-            maxLength = glm::max(glm::length(u), maxLength);
-            field.emplace_back(u , 0, 0);
-        }
-    }
-
-    const int interval = 30;
-    std::vector<glm::vec2> triangles{
-            {0, 0.2}, {1, 0}, {0, -0.2}
-    };
-    std::vector<Vector> vectors;
-    for(auto i = interval/2; i < height; i += interval){
-        for(auto j = interval/2; j < width; j += interval){
-            for(int k = 0; k < 3; k++){
-                auto vertex = triangles[k];
-                glm::vec2 position{2 * (float(j)/float(width)) - 1
-                                   , 2 * (float(i)/float(height)) - 1};
-                vectors.push_back(Vector{vertex, position});
-            }
-        }
-    }
-
-    arrows.vertexBuffer = device.createDeviceLocalBuffer(vectors.data(), BYTE_SIZE(vectors), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-    arrows.numArrows = vectors.size();
-
-    textures::create(device, vectorField.texture[0], VK_IMAGE_TYPE_2D, VK_FORMAT_R32G32B32A32_SFLOAT
-                     , field.data(), {width, height, 1}, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE
-                     , sizeof(float));
-    textures::create(device, vectorField.texture[1], VK_IMAGE_TYPE_2D, VK_FORMAT_R32G32B32A32_SFLOAT
-                     , field.data(), {width, height, 1}, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE
-                     , sizeof(float));
-
-    for(auto i = 0; i < 2; i++){
-        vectorField.framebuffer[i] = device.createFramebuffer(simRenderPass, { vectorField.texture[i].imageView }, width, height);
-        device.setName<VK_OBJECT_TYPE_FRAMEBUFFER>(fmt::format("{}_{}", "vector_field", i), vectorField.framebuffer[i].frameBuffer);
-    }
-    constants.dt = (5.0f * dx)/maxLength;
-//    spdlog::info("dt: {}, maxU: {}", constants.dt, maxLength);
-
-}
 
 void FluidSimulation::initFluidSolver() {
 
@@ -97,11 +43,11 @@ void FluidSimulation::initFluidSolver() {
         for(int j = 0; j < width; j++){
             auto x = 2 * float(j)/float(width) - 1;
             auto y = 2 * float(i)/float(height) - 1;
-            glm::vec2 u{glm::sin(two_pi * y), glm::sin(two_pi * x)};
+//            glm::vec2 u{glm::sin(two_pi * y), glm::sin(two_pi * x)};
 //            glm::vec2 u{1, glm::sin(two_pi * x)};
 //            glm::vec2 u{x, y}; // divergent fields 1;
 //            glm::vec2 u{glm::sin(two_pi * x), 0}; // divergent fields 2;
-//            glm::vec2 u{y, x}; // divergent fields 3;
+            glm::vec2 u{y, x}; // divergent fields 3;
             maxLength = glm::max(glm::length(u), maxLength);
             field.emplace_back(u , 0, 0);
         }
@@ -113,6 +59,7 @@ void FluidSimulation::initFluidSolver() {
     fluidSolver = FluidSolver2D{&device, &descriptorPool, &renderPass, &fileManager, {width, height}};
     fluidSolver.init();
     fluidSolver.set(stagingBuffer);
+    fluidSolver.dt((5.0f * dx)/maxLength);
     fluidSolver.add(colorQuantity);
 
 }
@@ -219,26 +166,22 @@ void FluidSimulation::createDescriptorSetLayouts() {
             {
                 textureSetLayout, textureSetLayout, textureSetLayout, textureSetLayout
                 , textureSetLayout, textureSetLayout, textureSetLayout, textureSetLayout
-                , textureSetLayout, textureSetLayout, textureSetLayout, textureSetLayout
-                , textureSetLayout
+                , textureSetLayout, textureSetLayout, textureSetLayout
             });
 
-    vectorField.descriptorSet[0] = sets[0];
-    vectorField.descriptorSet[1] = sets[1];
-    colorQuantity.field.descriptorSet[0] = sets[2];
-    colorQuantity.field.descriptorSet[1] = sets[3];
-    divergenceField.descriptorSet[0] = sets[4];
-    pressureField.descriptorSet[0] = sets[5];
-    pressureField.descriptorSet[1] = sets[6];
-    diffuseHelper.solutionDescriptorSet = sets[7];
-    forceField.descriptorSet[0] = sets[8];
-    forceField.descriptorSet[1] = sets[9];
-    vorticityField.descriptorSet[0] = sets[10];
-    colorQuantity.source.descriptorSet[0] = sets[11];
-    colorQuantity.source.descriptorSet[1] = sets[12];
+;
+    colorQuantity.field.descriptorSet[0] = sets[0];
+    colorQuantity.field.descriptorSet[1] = sets[1];
+    divergenceField.descriptorSet[0] = sets[2];
+    pressureField.descriptorSet[0] = sets[3];
+    pressureField.descriptorSet[1] = sets[4];
+    diffuseHelper.solutionDescriptorSet = sets[5];
+    forceField.descriptorSet[0] = sets[6];
+    forceField.descriptorSet[1] = sets[7];
+    vorticityField.descriptorSet[0] = sets[8];
+    colorQuantity.source.descriptorSet[0] = sets[9];
+    colorQuantity.source.descriptorSet[1] = sets[10];
 
-    device.setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>(fmt::format("{}_{}", "vector_field", 0), vectorField.descriptorSet[0]);
-    device.setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>(fmt::format("{}_{}", "vector_field", 1), vectorField.descriptorSet[1]);
 
     device.setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>(fmt::format("{}_{}", "color_field", 0), colorQuantity.field.descriptorSet[0]);
     device.setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>(fmt::format("{}_{}", "color_field", 1), colorQuantity.field.descriptorSet[1]);
@@ -260,122 +203,105 @@ void FluidSimulation::createDescriptorSetLayouts() {
 }
 
 void FluidSimulation::updateDescriptorSets() {
-    auto writes = initializers::writeDescriptorSets<13>();
+    auto writes = initializers::writeDescriptorSets<11>();
 
-    writes[0].dstSet = vectorField.descriptorSet[0];
+
+    writes[0].dstSet = colorQuantity.field.descriptorSet[0];
     writes[0].dstBinding = 0;
     writes[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     writes[0].descriptorCount = 1;
-    VkDescriptorImageInfo v0Info{linearSampler
-                                 , vectorField.texture[0].imageView
-                                 , VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
-    writes[0].pImageInfo = &v0Info;
-
-    writes[1].dstSet = vectorField.descriptorSet[1];
-    writes[1].dstBinding = 0;
-    writes[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    writes[1].descriptorCount = 1;
-    VkDescriptorImageInfo v1Info{linearSampler
-                                 , vectorField.texture[1].imageView
-                                 , VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
-    writes[1].pImageInfo = &v1Info;
-
-    writes[2].dstSet = colorQuantity.field.descriptorSet[0];
-    writes[2].dstBinding = 0;
-    writes[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    writes[2].descriptorCount = 1;
     VkDescriptorImageInfo c0Info{colorQuantity.field.texture[0].sampler
                                  , colorQuantity.field.texture[0].imageView
                                  , VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
-    writes[2].pImageInfo = &c0Info;
+    writes[0].pImageInfo = &c0Info;
 
-    writes[3].dstSet = colorQuantity.field.descriptorSet[1];
-    writes[3].dstBinding = 0;
-    writes[3].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    writes[3].descriptorCount = 1;
+    writes[1].dstSet = colorQuantity.field.descriptorSet[1];
+    writes[1].dstBinding = 0;
+    writes[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    writes[1].descriptorCount = 1;
     VkDescriptorImageInfo c1Info{colorQuantity.field.texture[1].sampler
                                  , colorQuantity.field.texture[1].imageView
                                  , VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
-    writes[3].pImageInfo = &c1Info;
+    writes[1].pImageInfo = &c1Info;
 
-    writes[4].dstSet = divergenceField.descriptorSet[0];
-    writes[4].dstBinding = 0;
-    writes[4].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    writes[4].descriptorCount = 1;
+    writes[2].dstSet = divergenceField.descriptorSet[0];
+    writes[2].dstBinding = 0;
+    writes[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    writes[2].descriptorCount = 1;
     VkDescriptorImageInfo divInfo{divergenceField.texture[0].sampler
             , divergenceField.texture[0].imageView
             , VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
-    writes[4].pImageInfo = &divInfo;
+    writes[2].pImageInfo = &divInfo;
 
-    writes[5].dstSet = pressureField.descriptorSet[0];
-    writes[5].dstBinding = 0;
-    writes[5].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    writes[5].descriptorCount = 1;
+    writes[3].dstSet = pressureField.descriptorSet[0];
+    writes[3].dstBinding = 0;
+    writes[3].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    writes[3].descriptorCount = 1;
     VkDescriptorImageInfo p0Info{pressureField.texture[0].sampler
             , pressureField.texture[0].imageView
             , VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
-    writes[5].pImageInfo = &p0Info;
+    writes[3].pImageInfo = &p0Info;
 
-    writes[6].dstSet = pressureField.descriptorSet[1];
-    writes[6].dstBinding = 0;
-    writes[6].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    writes[6].descriptorCount = 1;
+    writes[4].dstSet = pressureField.descriptorSet[1];
+    writes[4].dstBinding = 0;
+    writes[4].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    writes[4].descriptorCount = 1;
     VkDescriptorImageInfo p1Info{pressureField.texture[1].sampler
             , pressureField.texture[1].imageView
             , VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
-    writes[6].pImageInfo = &p1Info;
+    writes[4].pImageInfo = &p1Info;
 
-    writes[7].dstSet = diffuseHelper.solutionDescriptorSet;
-    writes[7].dstBinding = 0;
-    writes[7].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    writes[7].descriptorCount = 1;
+    writes[5].dstSet = diffuseHelper.solutionDescriptorSet;
+    writes[5].dstBinding = 0;
+    writes[5].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    writes[5].descriptorCount = 1;
     VkDescriptorImageInfo diffuseInfo{diffuseHelper.texture.sampler, diffuseHelper.texture.imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
-    writes[7].pImageInfo = &diffuseInfo;
+    writes[5].pImageInfo = &diffuseInfo;
 
-    writes[8].dstSet = forceField.descriptorSet[0];
-    writes[8].dstBinding = 0;
-    writes[8].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    writes[8].descriptorCount = 1;
+    writes[6].dstSet = forceField.descriptorSet[0];
+    writes[6].dstBinding = 0;
+    writes[6].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    writes[6].descriptorCount = 1;
     VkDescriptorImageInfo forceInfo{forceField.texture[0].sampler
             , forceField.texture[0].imageView
             , VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
-    writes[8].pImageInfo = &forceInfo;
+    writes[6].pImageInfo = &forceInfo;
 
-    writes[9].dstSet = forceField.descriptorSet[1];
-    writes[9].dstBinding = 0;
-    writes[9].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    writes[9].descriptorCount = 1;
+    writes[7].dstSet = forceField.descriptorSet[1];
+    writes[7].dstBinding = 0;
+    writes[7].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    writes[7].descriptorCount = 1;
     VkDescriptorImageInfo force1Info{forceField.texture[1].sampler
             , forceField.texture[1].imageView
             , VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
-    writes[9].pImageInfo = &force1Info;
+    writes[7].pImageInfo = &force1Info;
 
-    writes[10].dstSet = vorticityField.descriptorSet[0];
-    writes[10].dstBinding = 0;
-    writes[10].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    writes[10].descriptorCount = 1;
+    writes[8].dstSet = vorticityField.descriptorSet[0];
+    writes[8].dstBinding = 0;
+    writes[8].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    writes[8].descriptorCount = 1;
     VkDescriptorImageInfo vorticityInfo{vorticityField.texture[0].sampler
             , vorticityField.texture[0].imageView
             , VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
-    writes[10].pImageInfo = &vorticityInfo;
+    writes[8].pImageInfo = &vorticityInfo;
 
-    writes[11].dstSet = colorQuantity.source.descriptorSet[0];
-    writes[11].dstBinding = 0;
-    writes[11].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    writes[11].descriptorCount = 1;
+    writes[9].dstSet = colorQuantity.source.descriptorSet[0];
+    writes[9].dstBinding = 0;
+    writes[9].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    writes[9].descriptorCount = 1;
     VkDescriptorImageInfo csInfo{colorQuantity.source.texture[0].sampler
             , colorQuantity.source.texture[0].imageView
             , VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
-    writes[11].pImageInfo = &csInfo;
+    writes[9].pImageInfo = &csInfo;
 
-    writes[12].dstSet = colorQuantity.source.descriptorSet[1];
-    writes[12].dstBinding = 0;
-    writes[12].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    writes[12].descriptorCount = 1;
+    writes[10].dstSet = colorQuantity.source.descriptorSet[1];
+    writes[10].dstBinding = 0;
+    writes[10].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    writes[10].descriptorCount = 1;
     VkDescriptorImageInfo cs1Info{colorQuantity.source.texture[1].sampler
             , colorQuantity.source.texture[1].imageView
             , VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
-    writes[12].pImageInfo = &cs1Info;
+    writes[10].pImageInfo = &cs1Info;
 
     device.updateDescriptorSets(writes);
 }
@@ -667,7 +593,7 @@ void FluidSimulation::onSwapChainDispose() {
 }
 
 void FluidSimulation::onSwapChainRecreation() {
-    initVectorField();
+    initFluidSolver();
     updateDescriptorSets();
     createRenderPipeline();
 }
@@ -701,19 +627,6 @@ VkCommandBuffer *FluidSimulation::buildCommandBuffers(uint32_t imageIndex, uint3
     vkEndCommandBuffer(commandBuffer);
 
     return &commandBuffer;
-}
-
-void FluidSimulation::renderVectorField(VkCommandBuffer commandBuffer) {
-    if(!options.showArrows) return;
-    VkDeviceSize offset = 0;
-    vkCmdBindVertexBuffers(commandBuffer, 0, 1, arrows.vertexBuffer, &offset);
-
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, arrows.pipeline);
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, arrows.layout
-            , 0, 1, &vectorField.descriptorSet[in], 0
-            , VK_NULL_HANDLE);
-
-    vkCmdDraw(commandBuffer, arrows.numArrows, 1, 0, 0);
 }
 
 void FluidSimulation::renderColorField(VkCommandBuffer commandBuffer) {
@@ -756,32 +669,6 @@ void FluidSimulation::runSimulation() {
 
 }
 
-void FluidSimulation::computeVorticityConfinement(VkCommandBuffer commandBuffer) {
-    if(!options.vorticity) return;
-    withRenderPass(commandBuffer, simRenderPass, vorticityField.framebuffer[0], [&](auto commandBuffer){
-        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vorticity.pipeline);
-        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vorticity.layout, 0, 1, &vectorField.descriptorSet[in], 0, VK_NULL_HANDLE);
-        vkCmdDraw(commandBuffer, 4, 1, 0, 0);
-    });
-    withRenderPass(commandBuffer, simRenderPass, forceField.framebuffer[out], [&](auto commandBuffer){
-       static std::array<VkDescriptorSet, 2> sets;
-        sets[0] = vorticityField.descriptorSet[in];
-        sets[1] = forceField.descriptorSet[in];
-        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vorticityForce.pipeline);
-        vkCmdPushConstants(commandBuffer, vorticityForce.layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(vorticityForce.constants), &vorticityForce.constants);
-        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vorticityForce.layout, 0, COUNT(sets), sets.data(), 0, VK_NULL_HANDLE);
-        vkCmdDraw(commandBuffer, 4, 1, 0, 0);
-    });
-    forceField.swap();
-}
-
-void FluidSimulation::applyForces(VkCommandBuffer commandBuffer) {
-    forceGen.constants.dt = constants.dt;
-    computeVorticityConfinement(commandBuffer);
-    userInputForce(commandBuffer);
-    addSources(commandBuffer, forceField, vectorField);
-}
-
 void FluidSimulation::userInputForce(VkCommandBuffer commandBuffer) {
     withRenderPass(commandBuffer, simRenderPass, forceField.framebuffer[out], [&](auto commandBuffer){
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, forceGen.pipeline);
@@ -792,37 +679,6 @@ void FluidSimulation::userInputForce(VkCommandBuffer commandBuffer) {
     forceField.swap();
     forceGen.constants.force.x = 0;
     forceGen.constants.force.y = 0;
-}
-
-void FluidSimulation::clearForces(VkCommandBuffer commandBuffer) {
-    clear(commandBuffer, forceField.texture[in]);
-    clear(commandBuffer, forceField.texture[out]);
-}
-
-void FluidSimulation::clearSources(VkCommandBuffer commandBuffer) {
-    clear(commandBuffer, colorQuantity.source.texture[in]);
-    clear(commandBuffer, colorQuantity.source.texture[out]);
-}
-
-void FluidSimulation::addColors(VkCommandBuffer commandBuffer) {
-//    addDyeSource(commandBuffer, {0.004, 0, 0}, {0.2, 0.2});
-//    addDyeSource(commandBuffer, {0, 0, 0.004}, {0.5, 0.9});
-//    addDyeSource(commandBuffer, {0, 0.004, 0}, {0.8, 0.2});
-    colorQuantity.update(commandBuffer, simRenderPass, colorQuantity.source);
-    addSources(commandBuffer, colorQuantity.source, colorQuantity.field);
-}
-
-void FluidSimulation::addDyeSource(VkCommandBuffer commandBuffer, glm::vec3 color, glm::vec2 source) {
-    dyeSource.constants.dt = constants.dt;
-    dyeSource.constants.color.rgb = color;
-    dyeSource.constants.source = source;
-    withRenderPass(commandBuffer, simRenderPass, colorQuantity.source.framebuffer[out], [&](auto commandBuffer){
-        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, dyeSource.pipeline);
-        vkCmdPushConstants(commandBuffer, dyeSource.layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(dyeSource.constants), &dyeSource.constants);
-        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, dyeSource.layout, 0, 1, &colorQuantity.source.descriptorSet[in], 0, VK_NULL_HANDLE);
-        vkCmdDraw(commandBuffer, 4, 1, 0, 0);
-    });
-    colorQuantity.source.swap();
 }
 
 void FluidSimulation::addDyeSource(VkCommandBuffer commandBuffer, VulkanRenderPass &renderPass, Field &field,
@@ -840,161 +696,7 @@ void FluidSimulation::addDyeSource(VkCommandBuffer commandBuffer, VulkanRenderPa
     field.swap();
 }
 
-void FluidSimulation::addSources(VkCommandBuffer commandBuffer, Field &sourceField, Field &destinationField) {
-    addSource.constants.dt = constants.dt;
-    withRenderPass(commandBuffer, simRenderPass, destinationField.framebuffer[out], [&](auto commandBuffer){
-        static std::array<VkDescriptorSet, 2> sets;
-        sets[0] = sourceField.descriptorSet[in];
-        sets[1] = destinationField.descriptorSet[in];
-        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, addSource.pipeline);
-        vkCmdPushConstants(commandBuffer, addSource.layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(addSource.constants), &addSource.constants);
-        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, addSource.layout
-                                , 0, COUNT(sets), sets.data(), 0, VK_NULL_HANDLE);
-        vkCmdDraw(commandBuffer, 4, 1, 0, 0);
-    });
-    destinationField.swap();
-}
 
-void FluidSimulation::advectColor(VkCommandBuffer commandBuffer) {
-
-    static std::array<VkDescriptorSet, 2> sets;
-    sets[0] = vectorField.descriptorSet[in];
-    sets[1] = colorQuantity.field.descriptorSet[in];
-
-    advect(commandBuffer, sets,colorQuantity.field.framebuffer[out]);
-    colorQuantity.field.swap();
-}
-
-void FluidSimulation::advectVectorField(VkCommandBuffer commandBuffer) {
-    static std::array<VkDescriptorSet, 2> sets;
-    sets[0] = vectorField.descriptorSet[in];
-    sets[1] = vectorField.descriptorSet[in];
-
-    advect(commandBuffer, sets,vectorField.framebuffer[out]);
-    vectorField.swap();
-}
-
-void FluidSimulation::advect(VkCommandBuffer commandBuffer, const std::array<VkDescriptorSet, 2> &sets,
-                             VulkanFramebuffer &framebuffer) {
-
-    withRenderPass(commandBuffer, simRenderPass, framebuffer, [&](auto commandBuffer){
-        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, advectPipeline.pipeline);
-        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, advectPipeline.layout
-                , 0, COUNT(sets), sets.data(), 0, VK_NULL_HANDLE);
-
-        vkCmdPushConstants(commandBuffer, advectPipeline.layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(constants), &constants);
-        vkCmdDraw(commandBuffer, 4, 1, 0, 0);
-    });
-
-}
-
-void FluidSimulation::project(VkCommandBuffer commandBuffer) {
-    if(!options.project) return;
-    computeDivergence(commandBuffer);
-    solvePressure(commandBuffer);
-    computeDivergenceFreeField(commandBuffer);
-    vectorField.swap();
-}
-
-void FluidSimulation::computeDivergence(VkCommandBuffer commandBuffer) {
-    withRenderPass(commandBuffer, simRenderPass, divergenceField.framebuffer[0], [&](auto commandBuffer){
-        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, divergence.pipeline);
-        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, divergence.layout
-                , 0, 1, &vectorField.descriptorSet[in], 0, VK_NULL_HANDLE);
-
-        vkCmdPushConstants(commandBuffer, divergence.layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(constants), &constants);
-        vkCmdDraw(commandBuffer, 4, 1, 0, 0);
-    });
-    
-    divergenceField.texture[0].image.transitionLayout(commandBuffer, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, DEFAULT_SUB_RANGE
-                                                      , VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT
-                                                      , VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
-
-    VkImageSubresourceLayers subresourceLayers{VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
-    VkExtent3D extent3D{ static_cast<uint32_t>(width), static_cast<uint32_t>(height), 1};
-    VkBufferImageCopy pRegion{0, 0, 0, subresourceLayers, {0, 0, 0}, extent3D};
-    vkCmdCopyImageToBuffer(commandBuffer, divergenceField.texture[0].image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, debugBuffer, 1, &pRegion);
-    divergenceField.texture[0].image.transitionLayout(commandBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, DEFAULT_SUB_RANGE
-            , VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_SHADER_READ_BIT
-            , VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
-}
-
-void FluidSimulation::solvePressure(VkCommandBuffer commandBuffer) {
-    auto alpha = -constants.epsilon * constants.epsilon;
-    auto rBeta = 0.25f;
-    for(int i = 0; i < options.poissonIterations; i++){
-        withRenderPass(commandBuffer, simRenderPass, pressureField.framebuffer[out], [&](auto commandBuffer){
-            jacobiIteration(commandBuffer, pressureField.descriptorSet[in], divergenceField.descriptorSet[in], alpha, rBeta);
-            pressureField.swap();
-        });
-    }
-}
-
-
-void FluidSimulation::diffuse(VkCommandBuffer commandBuffer, Field &field, float rate) {
-    if(rate == MIN_FLOAT) return;
-    diffuseHelper.texture.image.transitionLayout(commandBuffer, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, DEFAULT_SUB_RANGE
-            , VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_TRANSFER_WRITE_BIT
-            , VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
-
-    field.texture[in].image.transitionLayout(commandBuffer, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, DEFAULT_SUB_RANGE
-            , VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT
-            , VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
-
-    VkImageSubresourceLayers subresourceLayers{VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
-    VkExtent3D extent3D{ static_cast<uint32_t>(width), static_cast<uint32_t>(height), 1};
-    VkImageCopy pRegion{subresourceLayers, {0, 0, 0}, subresourceLayers, {0, 0, 0}, extent3D};
-
-    vkCmdCopyImage(commandBuffer, field.texture[in].image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL
-                   , diffuseHelper.texture.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &pRegion);
-
-    field.texture[in].image.transitionLayout(commandBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, DEFAULT_SUB_RANGE
-            , VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_SHADER_READ_BIT
-            , VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
-
-    diffuseHelper.texture.image.transitionLayout(commandBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, DEFAULT_SUB_RANGE
-                                                 , VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT
-                                                 , VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
-
-
-    float alpha = (constants.epsilon * constants.epsilon)/(constants.dt * rate);
-    float rBeta = 1.0f/(4.0f + alpha);
-    for(int i = 0; i < options.poissonIterations; i++){
-        withRenderPass(commandBuffer, simRenderPass, field.framebuffer[out], [&](auto commandBuffer){
-            jacobiIteration(commandBuffer, field.descriptorSet[in], diffuseHelper.solutionDescriptorSet, alpha, rBeta);
-            field.swap();
-        });
-    }
-}
-
-
-void FluidSimulation::jacobiIteration(VkCommandBuffer commandBuffer, VkDescriptorSet unknownDescriptor, VkDescriptorSet solutionDescriptor, float alpha, float rBeta) {
-    jacobi.constants.alpha = alpha;
-    jacobi.constants.rBeta = rBeta;
-    static std::array<VkDescriptorSet, 2> sets;
-    sets[0] = solutionDescriptor;
-    sets[1] = unknownDescriptor;
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, jacobi.pipeline);
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, jacobi.layout
-            , 0, COUNT(sets), sets.data(), 0, VK_NULL_HANDLE);
-
-    vkCmdPushConstants(commandBuffer, jacobi.layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(jacobi.constants), &jacobi.constants);
-    vkCmdDraw(commandBuffer, 4, 1, 0, 0);
-}
-
-void FluidSimulation::computeDivergenceFreeField(VkCommandBuffer commandBuffer) {
-    withRenderPass(commandBuffer, simRenderPass, vectorField.framebuffer[out], [&](auto commandBuffer){
-        static std::array<VkDescriptorSet, 2> sets;
-        sets[0] = vectorField.descriptorSet[in];
-        sets[1] = pressureField.descriptorSet[in];
-        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, divergenceFree.pipeline);
-        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, divergenceFree.layout
-                , 0, COUNT(sets), sets.data(), 0, VK_NULL_HANDLE);
-
-        vkCmdPushConstants(commandBuffer, divergenceFree.layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(constants), &constants);
-        vkCmdDraw(commandBuffer, 4, 1, 0, 0);
-    });
-}
 
 void FluidSimulation::withRenderPass(VkCommandBuffer commandBuffer, const VulkanRenderPass& renderPass
                                      , const VulkanFramebuffer &framebuffer, GpuProcess &&process, glm::vec4 clearColor) {
@@ -1014,20 +716,6 @@ void FluidSimulation::withRenderPass(VkCommandBuffer commandBuffer, const Vulkan
     process(commandBuffer);
 
     vkCmdEndRenderPass(commandBuffer);
-}
-
-void FluidSimulation::clear(VkCommandBuffer commandBuffer, Texture &texture) {
-    texture.image.transitionLayout(commandBuffer, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, DEFAULT_SUB_RANGE
-            , VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_TRANSFER_WRITE_BIT
-            , VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
-
-    VkClearColorValue color{ {0.f, 0.f, 0.f, 0.f}};
-    VkImageSubresourceRange range{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
-    vkCmdClearColorImage(commandBuffer, texture.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &color, 1, &range);
-
-    texture.image.transitionLayout(commandBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, DEFAULT_SUB_RANGE
-            , VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT
-            , VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 }
 
 void FluidSimulation::checkAppInputs() {

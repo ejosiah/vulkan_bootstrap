@@ -10,8 +10,6 @@ public:
 protected:
     void initApp() override;
 
-    void initVectorField();
-
     void initFluidSolver();
 
     void initColorField();
@@ -42,51 +40,16 @@ protected:
 
     VkCommandBuffer *buildCommandBuffers(uint32_t imageIndex, uint32_t &numCommandBuffers) override;
 
-    void renderVectorField(VkCommandBuffer commandBuffer);
-
     void renderColorField(VkCommandBuffer commandBuffer);
 
     void update(float time) override;
 
     void runSimulation();
 
-    void computeVorticityConfinement(VkCommandBuffer commandBuffer);
-
-    void applyForces(VkCommandBuffer commandBuffer);
-
     void userInputForce(VkCommandBuffer commandBuffer);
 
-    void clearForces(VkCommandBuffer commandBuffer);
-
-    void clearSources(VkCommandBuffer commandBuffer);
-
-    void addColors(VkCommandBuffer commandBuffer);
-
-    void addDyeSource(VkCommandBuffer commandBuffer, glm::vec3 color, glm::vec2 source);
 
     void addDyeSource(VkCommandBuffer commandBuffer, VulkanRenderPass& renderPass, Field& field, glm::vec3 color, glm::vec2 source);
-
-    void addSources(VkCommandBuffer commandBuffer, Field& sourceField, Field& destinationField);
-
-    void advectColor(VkCommandBuffer commandBuffer);
-
-    void advectVectorField(VkCommandBuffer commandBuffer);
-
-    static void clear(VkCommandBuffer commandBuffer, Texture& texture);
-
-    void advect(VkCommandBuffer commandBuffer, const std::array<VkDescriptorSet, 2>& sets, VulkanFramebuffer& framebuffer);
-
-    void project(VkCommandBuffer commandBuffer);
-
-    void computeDivergence(VkCommandBuffer commandBuffer);
-
-    void solvePressure(VkCommandBuffer commandBuffer);
-
-    void diffuse(VkCommandBuffer commandBuffer, Field& field, float rate = 1);
-
-    void jacobiIteration(VkCommandBuffer commandBuffer, VkDescriptorSet unknownDescriptor, VkDescriptorSet solutionDescriptor, float alpha, float rBeta);
-
-    void computeDivergenceFreeField(VkCommandBuffer commandBuffer);
 
     void withRenderPass(VkCommandBuffer commandBuffer, const VulkanRenderPass& renderPass, const VulkanFramebuffer& framebuffer
                         , GpuProcess&& process, glm::vec4 clearColor = glm::vec4(0));
@@ -217,7 +180,6 @@ protected:
         float diffuseRate = MIN_FLOAT;
     } options;
 
-    VectorField vectorField;
     Quantity colorQuantity;
     DivergenceField divergenceField;
     PressureField pressureField;

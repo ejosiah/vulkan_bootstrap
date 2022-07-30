@@ -432,7 +432,7 @@ void FluidSolver2D::velocityStep(VkCommandBuffer commandBuffer) {
 
     clearForces(commandBuffer);
     applyForces(commandBuffer);
-    if(options.viscosity <= MIN_FLOAT) {
+    if(options.viscosity > MIN_FLOAT) {
         diffuse(commandBuffer, vectorField, options.viscosity);
         project(commandBuffer);
     }
@@ -651,7 +651,7 @@ void FluidSolver2D::withRenderPass(VkCommandBuffer commandBuffer, const VulkanRe
 }
 
 void FluidSolver2D::diffuse(VkCommandBuffer commandBuffer, Field &field, float rate) {
-    if(rate == MIN_FLOAT) return;
+    if(rate <= MIN_FLOAT) return;
     diffuseHelper.texture.image.transitionLayout(commandBuffer, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, DEFAULT_SUB_RANGE
             , VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_TRANSFER_WRITE_BIT
             , VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
@@ -702,4 +702,8 @@ void FluidSolver2D::renderVectorField(VkCommandBuffer commandBuffer) {
 
 void FluidSolver2D::add(Quantity& quantity) {
     quantities.emplace_back(quantity);
+}
+
+void FluidSolver2D::dt(float value) {
+    constants.dt = value;
 }
