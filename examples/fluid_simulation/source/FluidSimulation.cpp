@@ -19,17 +19,16 @@ FluidSimulation::FluidSimulation(const Settings& settings) : VulkanBaseApp("Flui
 void FluidSimulation::initApp() {
     createSamplers();
     initSimulationStages();
-    initColorField();
     initFullScreenQuad();
     createDescriptorPool();
     createCommandPool();
     createDescriptorSetLayouts();
-    updateDescriptorSets();
 
+    initFluidSolver();
+    initColorField();
+    updateDescriptorSets();
     createPipelineCache();
     createRenderPipeline();
-    initFluidSolver();
-    debugBuffer = device.createBuffer(VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_TO_CPU, sizeof(glm::vec4) * width * height, "debug");
 }
 
 
@@ -60,7 +59,7 @@ void FluidSimulation::initFluidSolver() {
     fluidSolver.init();
     fluidSolver.set(stagingBuffer);
     fluidSolver.dt((5.0f * dx)/maxLength);
-    fluidSolver.add(colorQuantity);
+    fluidSolver.add(userInputForce());
 
 }
 
@@ -113,11 +112,11 @@ void FluidSimulation::initColorField() {
         colorQuantity.source.framebuffer[i] = device.createFramebuffer(simRenderPass, { colorQuantity.source.texture[i].imageView }, width, height);
         device.setName<VK_OBJECT_TYPE_FRAMEBUFFER>(fmt::format("{}_{}", "color_source_field", i), colorQuantity.field.framebuffer[i].frameBuffer);
     }
-    colorQuantity.update = [&](VkCommandBuffer commandBuffer, VulkanRenderPass& renderPass, Field& field){
-        addDyeSource(commandBuffer, renderPass, field, {0.004, 0, 0}, {0.2, 0.2});
-        addDyeSource(commandBuffer, renderPass, field, {0, 0, 0.004}, {0.5, 0.9});
-        addDyeSource(commandBuffer, renderPass, field,  {0, 0.004, 0}, {0.8, 0.2});
-    };
+//    colorQuantity.update = [&](VkCommandBuffer commandBuffer, VulkanRenderPass& renderPass, Field& field){
+//        addDyeSource(commandBuffer, renderPass, field, {0.004, 0, 0}, {0.2, 0.2});
+//        addDyeSource(commandBuffer, renderPass, field, {0, 0, 0.004}, {0.5, 0.9});
+//        addDyeSource(commandBuffer, renderPass, field,  {0, 0.004, 0}, {0.8, 0.2});
+//    };
     fluidSolver.add(colorQuantity);
 }
 
@@ -318,6 +317,7 @@ void FluidSimulation::createPipelineCache() {
 
 void FluidSimulation::createRenderPipeline() {
     //    @formatter:off
+    auto& simRenderPass = fluidSolver.renderPass;
     auto builder = device.graphicsPipelineBuilder();
     render.pipeline =
         builder
@@ -361,21 +361,6 @@ void FluidSimulation::createRenderPipeline() {
                 .pipelineCache(pipelineCache)
             .build(render.layout);
 
-    arrows.pipeline =
-        builder
-            .basePipeline(render.pipeline)
-            .shaderStage()
-                .vertexShader(resource("vectorField.vert.spv"))
-                .fragmentShader(resource("vectorField.frag.spv"))
-            .vertexInputState().clear()
-                .addVertexBindingDescription(0, sizeof(Vector), VK_VERTEX_INPUT_RATE_VERTEX)
-                .addVertexAttributeDescription(0, 0, VK_FORMAT_R32G32_SFLOAT, offsetOf(Vector, vertex))
-                .addVertexAttributeDescription(1, 0, VK_FORMAT_R32G32_SFLOAT, offsetOf(Vector, position))
-            .layout()
-                .addDescriptorSetLayout(textureSetLayout)
-            .name("vector_field")
-        .build(arrows.layout);
-
     screenQuad.pipeline =
         builder
             .basePipeline(render.pipeline)
@@ -392,74 +377,6 @@ void FluidSimulation::createRenderPipeline() {
             .name("fullscreen_quad")
         .build(screenQuad.layout);
 
-    advectPipeline.pipeline =
-        builder
-            .basePipeline(render.pipeline)
-            .shaderStage()
-                .vertexShader(resource("quad.vert.spv"))
-                .fragmentShader(resource("advect.frag.spv"))
-            .layout().clear()
-                .addDescriptorSetLayouts({textureSetLayout, textureSetLayout})
-                .addPushConstantRange(VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(constants))
-            .renderPass(simRenderPass)
-            .name("advect")
-        .build(advectPipeline.layout);
-
-    divergence.pipeline =
-        builder
-            .shaderStage()
-                .fragmentShader(resource("divergence.frag.spv"))
-            .layout().clear()
-                .addDescriptorSetLayout( textureSetLayout)
-                .addPushConstantRange(VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(constants))
-            .renderPass(simRenderPass)
-            .name("divergence")
-        .build(divergence.layout);
-
-    pressure.pipeline =
-        builder
-            .shaderStage()
-                .fragmentShader(resource("pressure_solver.frag.spv"))
-            .layout().clear()
-                .addDescriptorSetLayouts({textureSetLayout, textureSetLayout})
-                .addPushConstantRange(VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(constants))
-            .renderPass(simRenderPass)
-            .name("pressure_solver")
-        .build(pressure.layout);
-
-    divergenceFree.pipeline =
-        builder
-            .shaderStage()
-                .fragmentShader(resource("divergence_free_field.frag.spv"))
-            .layout().clear()
-                .addDescriptorSetLayouts({textureSetLayout, textureSetLayout})
-                .addPushConstantRange(VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(constants))
-            .renderPass(simRenderPass)
-            .name("divergence_free_field")
-        .build(divergenceFree.layout);
-
-    jacobi.pipeline =
-        builder
-            .shaderStage()
-                .fragmentShader(resource("jacobi.frag.spv"))
-            .layout().clear()
-                .addDescriptorSetLayouts({textureSetLayout, textureSetLayout})
-                .addPushConstantRange(VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(jacobi.constants))
-            .renderPass(simRenderPass)
-            .name("jacobi")
-        .build(jacobi.layout);
-
-    addSource.pipeline =
-        builder
-            .shaderStage()
-                .fragmentShader(resource("add_sources.frag.spv"))
-            .layout().clear()
-                .addDescriptorSetLayouts({textureSetLayout, textureSetLayout})
-                .addPushConstantRange(VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(addSource.constants))
-            .renderPass(simRenderPass)
-            .name("sources")
-        .build(addSource.layout);
-
     forceGen.pipeline =
         builder
             .shaderStage()
@@ -470,27 +387,6 @@ void FluidSimulation::createRenderPipeline() {
             .renderPass(simRenderPass)
             .name("force_generator")
         .build(forceGen.layout);
-
-    vorticity.pipeline =
-        builder
-            .shaderStage()
-                .fragmentShader(resource("vorticity.frag.spv"))
-            .layout().clear()
-                .addDescriptorSetLayout(textureSetLayout)
-            .renderPass(simRenderPass)
-            .name("vorticity")
-        .build(vorticity.layout);
-
-    vorticityForce.pipeline =
-        builder
-            .shaderStage()
-                .fragmentShader(resource("vorticity_force.frag.spv"))
-            .layout().clear()
-                .addDescriptorSetLayouts({textureSetLayout, textureSetLayout})
-                .addPushConstantRange(VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(vorticityForce.constants))
-            .renderPass(simRenderPass)
-            .name("vorticity_force")
-        .build(vorticityForce.layout);
 
     dyeSource.pipeline =
         builder
@@ -669,16 +565,16 @@ void FluidSimulation::runSimulation() {
 
 }
 
-void FluidSimulation::userInputForce(VkCommandBuffer commandBuffer) {
-    withRenderPass(commandBuffer, simRenderPass, forceField.framebuffer[out], [&](auto commandBuffer){
+ExternalForce FluidSimulation::userInputForce() {
+    return [&](VkCommandBuffer commandBuffer, VkDescriptorSet descriptorSet){
+        forceGen.constants.dt = fluidSolver.dt();
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, forceGen.pipeline);
         vkCmdPushConstants(commandBuffer, forceGen.layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(forceGen.constants), &forceGen.constants);
-        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, forceGen.layout, 0, 1, &forceField.descriptorSet[in], 0, VK_NULL_HANDLE);
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, forceGen.layout, 0, 1, &descriptorSet, 0, VK_NULL_HANDLE);
         vkCmdDraw(commandBuffer, 4, 1, 0, 0);
-    });
-    forceField.swap();
-    forceGen.constants.force.x = 0;
-    forceGen.constants.force.y = 0;
+        forceGen.constants.force.x = 0;
+        forceGen.constants.force.y = 0;
+    };
 }
 
 void FluidSimulation::addDyeSource(VkCommandBuffer commandBuffer, VulkanRenderPass &renderPass, Field &field,
@@ -726,7 +622,6 @@ void FluidSimulation::checkAppInputs() {
             auto mousePos = glm::vec3(mouse.position, 1);
             glm::vec4 viewport{0, 0, swapChain.width(), swapChain.height()};
             forceGen.constants.center =  glm::unProject(mousePos, glm::mat4(1), glm::mat4(1), viewport).xy();
-            spdlog::info("center: {}", forceGen.constants.center);
         }
     }else if(mouse.left.released){
         initialPress = true;
@@ -737,7 +632,6 @@ void FluidSimulation::checkAppInputs() {
         auto displacement = pos - forceGen.constants.center;
         forceGen.constants.force = displacement;
         forceGen.constants.center = .5f * forceGen.constants.center + .5f;
-        spdlog::info("pos: {}, center: {}, radius: {}, force: {}", pos, forceGen.constants.center, forceGen.constants.radius, forceGen.constants.force);
     }
 }
 

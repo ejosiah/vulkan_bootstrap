@@ -37,7 +37,7 @@ using UpdateSource = std::function<void(VkCommandBuffer, VulkanRenderPass&, Fiel
 struct Quantity{
     Field field;
     Field source;
-    UpdateSource update;
+    UpdateSource update = [](VkCommandBuffer, VulkanRenderPass&, Field&){};
 };
 
 class FluidSolver2D{
@@ -46,7 +46,7 @@ public:
         bool advectVField = true;
         bool project = true;
         bool showArrows = false;
-        bool vorticity = true;
+        bool vorticity = false;
         int poissonIterations = 30;
         float viscosity = MIN_FLOAT;
         float diffuseRate = MIN_FLOAT;
@@ -137,6 +137,8 @@ public:
     void add(Quantity& quantity);
 
     void dt(float value);
+
+    float dt();
 
 private:
     VulkanDescriptorSetLayout textureSetLayout;
@@ -242,5 +244,6 @@ private:
     uint32_t width{};
     uint32_t height{};
 
+public:
     VulkanRenderPass renderPass;
 };

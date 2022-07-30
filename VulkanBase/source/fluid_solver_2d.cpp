@@ -707,3 +707,7 @@ void FluidSolver2D::add(Quantity& quantity) {
 void FluidSolver2D::dt(float value) {
     constants.dt = value;
 }
+
+float FluidSolver2D::dt() {
+    return constants.dt;
+}

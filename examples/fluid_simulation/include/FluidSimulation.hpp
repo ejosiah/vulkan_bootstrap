@@ -46,8 +46,7 @@ protected:
 
     void runSimulation();
 
-    void userInputForce(VkCommandBuffer commandBuffer);
-
+    ExternalForce userInputForce();
 
     void addDyeSource(VkCommandBuffer commandBuffer, VulkanRenderPass& renderPass, Field& field, glm::vec3 color, glm::vec2 source);
 
