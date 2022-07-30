@@ -96,21 +96,30 @@ void FluidSimulation::initColorField() {
                 glm::step(1.0, glm::mod(floor((x + 1.0) / 0.2) + floor((y + 1.0) / 0.2), 2.0)),
                 glm::step(1.0, glm::mod(floor((x + 1.0) / 0.2) + floor((y + 1.0) / 0.2), 2.0))
         };
-//        return glm::vec3(1) *  glm::smoothstep(0.f, 0.1f, glm::sin(glm::two_pi<float>() * 5 * y));
     };
     std::vector<glm::vec4> field;
+    std::vector<glm::vec4> allocation(width * height);
     for(auto i = 0; i < height; i++){
         for(auto j = 0; j < width; j++){
             auto color = checkerboard(j, i, float(width), float(height));
             field.emplace_back(color, 1);
         }
     }
+//    field = allocation;
 
     textures::create(device, colorField.texture[0], VK_IMAGE_TYPE_2D, VK_FORMAT_R32G32B32A32_SFLOAT
             , field.data(), {width, height, 1}, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE
             , sizeof(float));
     textures::create(device, colorField.texture[1], VK_IMAGE_TYPE_2D, VK_FORMAT_R32G32B32A32_SFLOAT
             , field.data(), {width, height, 1}, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE
+            , sizeof(float));
+
+
+    textures::create(device, colorSource.texture[0], VK_IMAGE_TYPE_2D, VK_FORMAT_R32G32B32A32_SFLOAT
+            , allocation.data(), {width, height, 1}, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE
+            , sizeof(float));
+    textures::create(device, colorSource.texture[1], VK_IMAGE_TYPE_2D, VK_FORMAT_R32G32B32A32_SFLOAT
+            , allocation.data(), {width, height, 1}, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE
             , sizeof(float));
 
     device.setName<VK_OBJECT_TYPE_IMAGE>(fmt::format("{}_{}", "color_field", 0), colorField.texture[0].image.image);
@@ -122,6 +131,9 @@ void FluidSimulation::initColorField() {
     for(auto i = 0; i < 2; i++){
         colorField.framebuffer[i] = device.createFramebuffer(simRenderPass, { colorField.texture[i].imageView }, width, height);
         device.setName<VK_OBJECT_TYPE_FRAMEBUFFER>(fmt::format("{}_{}", "color_field", i), colorField.framebuffer[i].frameBuffer);
+
+        colorSource.framebuffer[i] = device.createFramebuffer(simRenderPass, { colorSource.texture[i].imageView }, width, height);
+        device.setName<VK_OBJECT_TYPE_FRAMEBUFFER>(fmt::format("{}_{}", "color_source_field", i), colorField.framebuffer[i].frameBuffer);
     }
 }
 
@@ -170,7 +182,8 @@ void FluidSimulation::createDescriptorSetLayouts() {
             {
                 textureSetLayout, textureSetLayout, textureSetLayout, textureSetLayout
                 , textureSetLayout, textureSetLayout, textureSetLayout, textureSetLayout
-                , textureSetLayout, textureSetLayout, textureSetLayout
+                , textureSetLayout, textureSetLayout, textureSetLayout, textureSetLayout
+                , textureSetLayout
             });
 
     vectorField.descriptorSet[0] = sets[0];
@@ -184,6 +197,8 @@ void FluidSimulation::createDescriptorSetLayouts() {
     forceField.descriptorSet[0] = sets[8];
     forceField.descriptorSet[1] = sets[9];
     vorticityField.descriptorSet[0] = sets[10];
+    colorSource.descriptorSet[0] = sets[11];
+    colorSource.descriptorSet[1] = sets[12];
 
     device.setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>(fmt::format("{}_{}", "vector_field", 0), vectorField.descriptorSet[0]);
     device.setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>(fmt::format("{}_{}", "vector_field", 1), vectorField.descriptorSet[1]);
@@ -195,14 +210,20 @@ void FluidSimulation::createDescriptorSetLayouts() {
 
     device.setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>(fmt::format("{}_{}", "pressure_field", 0), pressureField.descriptorSet[0]);
     device.setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>(fmt::format("{}_{}", "pressure_field", 1), pressureField.descriptorSet[1]);
+
     device.setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>("diffuse_solution_container", diffuseHelper.solutionDescriptorSet);
+
     device.setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>(fmt::format("{}_{}", "force_field", 0), forceField.descriptorSet[0]);
     device.setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>(fmt::format("{}_{}", "force_field", 1), forceField.descriptorSet[1]);
+
     device.setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>("vorticity_field", vorticityField.descriptorSet[0]);
+
+    device.setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>(fmt::format("{}_{}", "color_source_field", 0), colorSource.descriptorSet[0]);
+    device.setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>(fmt::format("{}_{}", "color_source_field", 1), colorSource.descriptorSet[1]);
 }
 
 void FluidSimulation::updateDescriptorSets() {
-    auto writes = initializers::writeDescriptorSets<11>();
+    auto writes = initializers::writeDescriptorSets<13>();
     
     writes[0].dstSet = vectorField.descriptorSet[0];
     writes[0].dstBinding = 0;
@@ -300,6 +321,24 @@ void FluidSimulation::updateDescriptorSets() {
             , vorticityField.texture[0].imageView
             , VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
     writes[10].pImageInfo = &vorticityInfo;
+
+    writes[11].dstSet = colorSource.descriptorSet[0];
+    writes[11].dstBinding = 0;
+    writes[11].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    writes[11].descriptorCount = 1;
+    VkDescriptorImageInfo csInfo{colorSource.texture[0].sampler
+            , colorSource.texture[0].imageView
+            , VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+    writes[11].pImageInfo = &csInfo;
+
+    writes[12].dstSet = colorSource.descriptorSet[1];
+    writes[12].dstBinding = 0;
+    writes[12].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    writes[12].descriptorCount = 1;
+    VkDescriptorImageInfo cs1Info{colorSource.texture[1].sampler
+            , colorSource.texture[1].imageView
+            , VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+    writes[12].pImageInfo = &cs1Info;
 
     device.updateDescriptorSets(writes);
 }
@@ -490,6 +529,17 @@ void FluidSimulation::createRenderPipeline() {
             .name("vorticity_force")
         .build(vorticityForce.layout);
 
+    dyeSource.pipeline =
+        builder
+            .shaderStage()
+                .fragmentShader(resource("color_source.frag.spv"))
+            .layout().clear()
+                .addDescriptorSetLayouts({textureSetLayout})
+                .addPushConstantRange(VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(dyeSource.constants))
+            .renderPass(simRenderPass)
+            .name("color_source")
+        .build(dyeSource.layout);
+
     //    @formatter:on
 }
 
@@ -636,10 +686,6 @@ void FluidSimulation::renderColorField(VkCommandBuffer commandBuffer) {
             , 0, 1, &colorField.descriptorSet[in], 0
             , VK_NULL_HANDLE);
 
-//    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, screenQuad.layout
-//            , 0, 1, &forceField.descriptorSet[0], 0
-//            , VK_NULL_HANDLE);
-
     vkCmdDraw(commandBuffer, 4, 1, 0, 0);
 }
 
@@ -661,6 +707,8 @@ void FluidSimulation::runSimulation() {
             advectVectorField(commandBuffer);
             project(commandBuffer);
         }
+        clearSources(commandBuffer);
+        addColors(commandBuffer);
         diffuse(commandBuffer, colorField, options.diffuseRate);
         advectColor(commandBuffer);
     });
@@ -680,6 +728,7 @@ void FluidSimulation::runSimulation() {
 }
 
 void FluidSimulation::computeVorticityConfinement(VkCommandBuffer commandBuffer) {
+    if(!options.vorticity) return;
     withRenderPass(commandBuffer, simRenderPass, vorticityField.framebuffer[0], [&](auto commandBuffer){
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vorticity.pipeline);
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vorticity.layout, 0, 1, &vectorField.descriptorSet[in], 0, VK_NULL_HANDLE);
@@ -717,9 +766,34 @@ void FluidSimulation::userInputForce(VkCommandBuffer commandBuffer) {
 }
 
 void FluidSimulation::clearForces(VkCommandBuffer commandBuffer) {
-    clear(commandBuffer, forceField.texture[0]);
+    clear(commandBuffer, forceField.texture[in]);
+    clear(commandBuffer, forceField.texture[out]);
 }
 
+void FluidSimulation::clearSources(VkCommandBuffer commandBuffer) {
+    clear(commandBuffer, colorSource.texture[in]);
+    clear(commandBuffer, colorSource.texture[out]);
+}
+
+void FluidSimulation::addColors(VkCommandBuffer commandBuffer) {
+    addDyeSource(commandBuffer, {0.004, 0, 0}, {0.2, 0.2});
+    addDyeSource(commandBuffer, {0, 0, 0.004}, {0.5, 0.9});
+    addDyeSource(commandBuffer, {0, 0.004, 0}, {0.8, 0.2});
+    addSources(commandBuffer, colorSource, colorField);
+}
+
+void FluidSimulation::addDyeSource(VkCommandBuffer commandBuffer, glm::vec3 color, glm::vec2 source) {
+    dyeSource.constants.dt = constants.dt;
+    dyeSource.constants.color.rgb = color;
+    dyeSource.constants.source = source;
+    withRenderPass(commandBuffer, simRenderPass, colorSource.framebuffer[out], [&](auto commandBuffer){
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, dyeSource.pipeline);
+        vkCmdPushConstants(commandBuffer, dyeSource.layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(dyeSource.constants), &dyeSource.constants);
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, dyeSource.layout, 0, 1, &colorSource.descriptorSet[in], 0, VK_NULL_HANDLE);
+        vkCmdDraw(commandBuffer, 4, 1, 0, 0);
+    });
+    colorSource.swap();
+}
 
 void FluidSimulation::addSources(VkCommandBuffer commandBuffer, Field &sourceField, Field &destinationField) {
     addSource.constants.dt = constants.dt;
@@ -926,7 +1000,9 @@ void FluidSimulation::checkAppInputs() {
         auto mousePos = glm::vec3(mouse.position, 1);
         glm::vec4 viewport{0, 0, swapChain.width(), swapChain.height()};
         auto pos =  glm::unProject(mousePos, glm::mat4(1), glm::mat4(1), viewport).xy();
-        forceGen.constants.force = glm::normalize(pos - forceGen.constants.center);
+
+        auto displacement = pos - forceGen.constants.center;
+        forceGen.constants.force = displacement;
         forceGen.constants.center = .5f * forceGen.constants.center + .5f;
         spdlog::info("pos: {}, center: {}, radius: {}, force: {}", pos, forceGen.constants.center, forceGen.constants.radius, forceGen.constants.force);
     }
