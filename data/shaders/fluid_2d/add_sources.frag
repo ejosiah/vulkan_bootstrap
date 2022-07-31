@@ -11,5 +11,5 @@ layout(push_constant) uniform Constants{
 };
 
 void main(){
-    value = texture(sourceField, uv) * dt + texture(destinationField, uv);
+    value = texture(sourceField, uv) * dt + texture(fract(destinationField), uv);
 }

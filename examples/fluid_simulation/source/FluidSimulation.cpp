@@ -10,6 +10,7 @@ FluidSimulation::FluidSimulation(const Settings& settings) : VulkanBaseApp("Flui
     fileManager.addSearchPath("../../examples/fluid_simulation/models");
     fileManager.addSearchPath("../../examples/fluid_simulation/textures");
     fileManager.addSearchPath("../../data/shaders");
+    fileManager.addSearchPath("../../data/shaders/fluid_2d");
     fileManager.addSearchPath("../../data/models");
     fileManager.addSearchPath("../../data/textures");
     fileManager.addSearchPath("../../data");
@@ -113,9 +114,9 @@ void FluidSimulation::initColorField() {
         device.setName<VK_OBJECT_TYPE_FRAMEBUFFER>(fmt::format("{}_{}", "color_source_field", i), color.field.framebuffer[i].frameBuffer);
     }
     color.update = [&](VkCommandBuffer commandBuffer, Field& field){
-        addDyeSource(commandBuffer, field, {0.004, 0, 0}, {0.2, 0.2});
-        addDyeSource(commandBuffer, field, {0, 0, 0.004}, {0.5, 0.9});
-        addDyeSource(commandBuffer, field,  {0, 0.004, 0}, {0.8, 0.2});
+        addDyeSource(commandBuffer, field, {0.004, -0.002, -0.002}, {0.2, 0.2});
+        addDyeSource(commandBuffer, field, {-0.002, -0.002, 0.004}, {0.5, 0.9});
+        addDyeSource(commandBuffer, field,  {-0.002, 0.004, -0.002}, {0.8, 0.2});
     };
     fluidSolver.add(color);
 }
