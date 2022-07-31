@@ -14,12 +14,6 @@ protected:
 
     void initColorField();
 
-    void initSimulationStages();
-
-    void initProjectionStage();
-
-    void initStage(VulkanRenderPass& renderPass, const std::string& name);
-
     void initFullScreenQuad();
 
     void createDescriptorPool();
@@ -48,10 +42,7 @@ protected:
 
     ExternalForce userInputForce();
 
-    void addDyeSource(VkCommandBuffer commandBuffer, VulkanRenderPass& renderPass, Field& field, glm::vec3 color, glm::vec2 source);
-
-    void withRenderPass(VkCommandBuffer commandBuffer, const VulkanRenderPass& renderPass, const VulkanFramebuffer& framebuffer
-                        , GpuProcess&& process, glm::vec4 clearColor = glm::vec4(0));
+    void addDyeSource(VkCommandBuffer commandBuffer, Field& field, glm::vec3 color, glm::vec2 source);
 
     void checkAppInputs() override;
 
@@ -84,44 +75,6 @@ protected:
         VulkanPipeline pipeline;
     } screenQuad;
 
-
-    struct {
-        VulkanPipeline pipeline;
-        VulkanPipelineLayout layout;
-    } advectPipeline;
-
-
-    struct {
-        VulkanPipeline pipeline;
-        VulkanPipelineLayout layout;
-        VulkanBuffer vertexBuffer;
-        uint32_t numArrows{0};
-    } arrows;
-
-    struct {
-        VulkanPipeline pipeline;
-        VulkanPipelineLayout layout;
-    } divergence;
-
-    struct {
-        VulkanPipeline pipeline;
-        VulkanPipelineLayout layout;
-    } pressure;
-
-
-    struct {
-        VulkanPipeline pipeline;
-        VulkanPipelineLayout layout;
-    } divergenceFree;
-
-    struct {
-        VulkanPipeline pipeline;
-        VulkanPipelineLayout layout;
-        struct {
-            float dt;
-        } constants;
-    } addSource;
-
     struct {
         VulkanPipeline pipeline;
         VulkanPipelineLayout layout;
@@ -132,28 +85,6 @@ protected:
             float dt;
         } constants;
     } forceGen;
-
-    struct {
-        VulkanPipeline pipeline;
-        VulkanPipelineLayout layout;
-    } vorticity;
-
-    struct {
-        VulkanPipeline pipeline;
-        VulkanPipelineLayout layout;
-        struct {
-            float vorticityConfinementScale{10};
-        } constants;
-    } vorticityForce;
-
-    struct {
-        VulkanPipeline pipeline;
-        VulkanPipelineLayout layout;
-        struct{
-            float alpha;
-            float rBeta;
-        } constants;
-    } jacobi;
 
     struct {
         VulkanPipeline pipeline;
@@ -169,21 +100,7 @@ protected:
     static const int in{0};
     static const int out{1};
 
-    struct {
-        bool advectVField = true;
-        bool project = true;
-        bool showArrows = false;
-        bool vorticity = true;
-        int poissonIterations = 30;
-        float viscosity = MIN_FLOAT;
-        float diffuseRate = MIN_FLOAT;
-    } options;
-
-    Quantity colorQuantity;
-    DivergenceField divergenceField;
-    PressureField pressureField;
-    ForceField forceField;
-    VorticityField vorticityField;
+    Quantity color;
 
     struct {
         float dt{1.0f / 120.f};
@@ -191,12 +108,6 @@ protected:
         float rho{1};
     } constants;
 
-    struct {
-        Texture texture;
-        VkDescriptorSet solutionDescriptorSet;
-    } diffuseHelper;
-
-    VulkanRenderPass simRenderPass;
     VulkanBuffer debugBuffer;
     VulkanSampler valueSampler;
     VulkanSampler linearSampler;

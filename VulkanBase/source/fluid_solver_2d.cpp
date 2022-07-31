@@ -460,7 +460,7 @@ void FluidSolver2D::clearSources(VkCommandBuffer commandBuffer, Quantity &quanti
 }
 
 void FluidSolver2D::updateSources(VkCommandBuffer commandBuffer, Quantity &quantity) {
-    quantity.update(commandBuffer, renderPass, quantity.source);
+    quantity.update(commandBuffer, quantity.source);
 }
 
 void FluidSolver2D::addSource(VkCommandBuffer commandBuffer, Quantity &quantity) {
@@ -488,7 +488,7 @@ void FluidSolver2D::applyForces(VkCommandBuffer commandBuffer) {
 
 void FluidSolver2D::applyExternalForces(VkCommandBuffer commandBuffer) {
     for(const auto& externalForce : externalForces){
-        withRenderPass(commandBuffer, renderPass, forceField.framebuffer[out], [&](auto commandBuffer){
+        withRenderPass(commandBuffer, forceField.framebuffer[out], [&](auto commandBuffer){
             externalForce(commandBuffer, forceField.descriptorSet[in]);
         });
         forceField.swap();
@@ -497,12 +497,12 @@ void FluidSolver2D::applyExternalForces(VkCommandBuffer commandBuffer) {
 
 void FluidSolver2D::computeVorticityConfinement(VkCommandBuffer commandBuffer) {
     if(!options.vorticity) return;
-    withRenderPass(commandBuffer, renderPass, vorticityField.framebuffer[0], [&](auto commandBuffer){
+    withRenderPass(commandBuffer, vorticityField.framebuffer[0], [&](auto commandBuffer){
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vorticity.pipeline);
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vorticity.layout, 0, 1, &vectorField.descriptorSet[in], 0, VK_NULL_HANDLE);
         vkCmdDraw(commandBuffer, 4, 1, 0, 0);
     });
-    withRenderPass(commandBuffer, renderPass, forceField.framebuffer[out], [&](auto commandBuffer){
+    withRenderPass(commandBuffer, forceField.framebuffer[out], [&](auto commandBuffer){
         static std::array<VkDescriptorSet, 2> sets;
         sets[0] = vorticityField.descriptorSet[in];
         sets[1] = forceField.descriptorSet[in];
@@ -535,7 +535,7 @@ void FluidSolver2D::clear(VkCommandBuffer commandBuffer, Texture &texture) {
 
 void FluidSolver2D::addSources(VkCommandBuffer commandBuffer, Field &sourceField, Field &destinationField) {
     addSourcePipeline.constants.dt = constants.dt;
-    withRenderPass(commandBuffer, renderPass, destinationField.framebuffer[out], [&](auto commandBuffer){
+    withRenderPass(commandBuffer, destinationField.framebuffer[out], [&](auto commandBuffer){
         static std::array<VkDescriptorSet, 2> sets;
         sets[0] = sourceField.descriptorSet[in];
         sets[1] = destinationField.descriptorSet[in];
@@ -560,7 +560,7 @@ void FluidSolver2D::advectVectorField(VkCommandBuffer commandBuffer) {
 void FluidSolver2D::advect(VkCommandBuffer commandBuffer, const std::array<VkDescriptorSet, 2> &sets,
                            VulkanFramebuffer &framebuffer) {
 
-    withRenderPass(commandBuffer, renderPass, framebuffer, [&](auto commandBuffer){
+    withRenderPass(commandBuffer, framebuffer, [&](auto commandBuffer){
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, advectPipeline.pipeline);
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, advectPipeline.layout
                 , 0, COUNT(sets), sets.data(), 0, VK_NULL_HANDLE);
@@ -579,7 +579,7 @@ void FluidSolver2D::project(VkCommandBuffer commandBuffer) {
 }
 
 void FluidSolver2D::computeDivergence(VkCommandBuffer commandBuffer) {
-    withRenderPass(commandBuffer, renderPass, divergenceField.framebuffer[0], [&](auto commandBuffer){
+    withRenderPass(commandBuffer, divergenceField.framebuffer[0], [&](auto commandBuffer){
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, divergence.pipeline);
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, divergence.layout
                 , 0, 1, &vectorField.descriptorSet[in], 0, VK_NULL_HANDLE);
@@ -593,7 +593,7 @@ void FluidSolver2D::solvePressure(VkCommandBuffer commandBuffer) {
     auto alpha = -constants.epsilon * constants.epsilon;
     auto rBeta = 0.25f;
     for(int i = 0; i < options.poissonIterations; i++){
-        withRenderPass(commandBuffer, renderPass, pressureField.framebuffer[out], [&](auto commandBuffer){
+        withRenderPass(commandBuffer, pressureField.framebuffer[out], [&](auto commandBuffer){
             jacobiIteration(commandBuffer, pressureField.descriptorSet[in], divergenceField.descriptorSet[in], alpha, rBeta);
             pressureField.swap();
         });
@@ -616,7 +616,7 @@ void FluidSolver2D::jacobiIteration(VkCommandBuffer commandBuffer, VkDescriptorS
 }
 
 void FluidSolver2D::computeDivergenceFreeField(VkCommandBuffer commandBuffer) {
-    withRenderPass(commandBuffer, renderPass, vectorField.framebuffer[out], [&](auto commandBuffer){
+    withRenderPass(commandBuffer, vectorField.framebuffer[out], [&](auto commandBuffer){
         static std::array<VkDescriptorSet, 2> sets;
         sets[0] = vectorField.descriptorSet[in];
         sets[1] = pressureField.descriptorSet[in];
@@ -629,8 +629,8 @@ void FluidSolver2D::computeDivergenceFreeField(VkCommandBuffer commandBuffer) {
     });
 }
 
-void FluidSolver2D::withRenderPass(VkCommandBuffer commandBuffer, const VulkanRenderPass &renderPass,
-                                   const VulkanFramebuffer &framebuffer, GpuProcess &&process, glm::vec4 clearColor) const {
+void FluidSolver2D::withRenderPass(VkCommandBuffer commandBuffer, const VulkanFramebuffer &framebuffer
+                                   , GpuProcess &&process, glm::vec4 clearColor) const {
 
     static std::array<VkClearValue, 1> clearValues;
     clearValues[0].color = {clearColor.b, clearColor.g, clearColor.b, clearColor.a};
@@ -679,7 +679,7 @@ void FluidSolver2D::diffuse(VkCommandBuffer commandBuffer, Field &field, float r
     float alpha = (constants.epsilon * constants.epsilon)/(constants.dt * rate);
     float rBeta = 1.0f/(4.0f + alpha);
     for(int i = 0; i < options.poissonIterations; i++){
-        withRenderPass(commandBuffer, renderPass, field.framebuffer[out], [&](auto commandBuffer){
+        withRenderPass(commandBuffer, field.framebuffer[out], [&](auto commandBuffer){
             jacobiIteration(commandBuffer, field.descriptorSet[in], diffuseHelper.solutionDescriptorSet, alpha, rBeta);
             field.swap();
         });

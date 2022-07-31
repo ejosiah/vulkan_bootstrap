@@ -31,14 +31,14 @@ using DivergenceField = Field;
 using ForceField = Field;
 using VorticityField = Field;
 
-using UpdateSource = std::function<void(VkCommandBuffer, VulkanRenderPass&, Field&)>;
+using UpdateSource = std::function<void(VkCommandBuffer, Field&)>;
 
 
 struct Quantity{
     Field field;
     Field source;
     float diffuseRate{0};
-    UpdateSource update = [](VkCommandBuffer, VulkanRenderPass&, Field&){};
+    UpdateSource update = [](VkCommandBuffer, Field&){};
 };
 
 class FluidSolver2D{
@@ -75,7 +75,7 @@ public:
 
     void velocityStep(VkCommandBuffer commandBuffer);
 
-    void withRenderPass(VkCommandBuffer commandBuffer, const VulkanRenderPass& renderPass, const VulkanFramebuffer& framebuffer
+    void withRenderPass(VkCommandBuffer commandBuffer, const VulkanFramebuffer& framebuffer
             , GpuProcess&& process, glm::vec4 clearColor = glm::vec4(0)) const;
 
     std::string resource(const std::string& name);
@@ -251,7 +251,7 @@ private:
         bool advectVField = true;
         bool project = true;
         bool showArrows = false;
-        bool vorticity = false;
+        bool vorticity = true;
         int poissonIterations = 30;
         float viscosity = MIN_FLOAT;
         float dt{1.0f / 120.f};
