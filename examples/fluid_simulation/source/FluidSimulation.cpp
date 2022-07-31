@@ -24,8 +24,8 @@ void FluidSimulation::initApp() {
     createCommandPool();
     createDescriptorSetLayouts();
 
-    initFluidSolver();
     initColorField();
+    initFluidSolver();
     updateDescriptorSets();
     createPipelineCache();
     createRenderPipeline();
@@ -58,6 +58,7 @@ void FluidSimulation::initFluidSolver() {
     fluidSolver = FluidSolver2D{&device, &descriptorPool, &renderPass, &fileManager, {width, height}};
     fluidSolver.init();
     fluidSolver.set(stagingBuffer);
+    fluidSolver.add(color);
     fluidSolver.dt((5.0f * dx)/maxLength);
     fluidSolver.add(userInputForce());
 
@@ -70,8 +71,8 @@ void FluidSimulation::initColorField() {
         auto y = 2 * (float(i)/h) - 1;
         return glm::vec3{
                 glm::step(1.0, glm::mod(floor((x + 1.0) / 0.2) + floor((y + 1.0) / 0.2), 2.0)),
-                glm::step(1.0, glm::mod(floor((x + 1.0) / 0.3) + floor((y + 1.0) / 0.3), 2.0)),
-                glm::step(1.0, glm::mod(floor((x + 1.0) / 0.4) + floor((y + 1.0) / 0.4), 2.0))
+                glm::step(1.0, glm::mod(floor((x + 1.0) / 0.2) + floor((y + 1.0) / 0.2), 2.0)),
+                glm::step(1.0, glm::mod(floor((x + 1.0) / 0.2) + floor((y + 1.0) / 0.2), 2.0))
         };
     };
     std::vector<glm::vec4> field;
@@ -105,20 +106,12 @@ void FluidSimulation::initColorField() {
     device.setName<VK_OBJECT_TYPE_IMAGE_VIEW>(fmt::format("{}_{}", "color_field", 0), color.field.texture[0].imageView.handle);
     device.setName<VK_OBJECT_TYPE_IMAGE_VIEW>(fmt::format("{}_{}", "color_field", 1), color.field.texture[1].imageView.handle);
 
-    auto& simRenderPass = fluidSolver.renderPass;
-    for(auto i = 0; i < 2; i++){
-        color.field.framebuffer[i] = device.createFramebuffer(simRenderPass, {color.field.texture[i].imageView }, width, height);
-        device.setName<VK_OBJECT_TYPE_FRAMEBUFFER>(fmt::format("{}_{}", "color_field", i), color.field.framebuffer[i].frameBuffer);
-
-        color.source.framebuffer[i] = device.createFramebuffer(simRenderPass, {color.source.texture[i].imageView }, width, height);
-        device.setName<VK_OBJECT_TYPE_FRAMEBUFFER>(fmt::format("{}_{}", "color_source_field", i), color.field.framebuffer[i].frameBuffer);
-    }
-    color.update = [&](VkCommandBuffer commandBuffer, Field& field){
-        addDyeSource(commandBuffer, field, {0.004, -0.002, -0.002}, {0.2, 0.2});
-        addDyeSource(commandBuffer, field, {-0.002, -0.002, 0.004}, {0.5, 0.9});
-        addDyeSource(commandBuffer, field,  {-0.002, 0.004, -0.002}, {0.8, 0.2});
-    };
-    fluidSolver.add(color);
+    color.name = "color_field";
+//    color.update = [&](VkCommandBuffer commandBuffer, Field& field){
+//        addDyeSource(commandBuffer, field, {0.004, -0.002, -0.002}, {0.2, 0.2});
+//        addDyeSource(commandBuffer, field, {-0.002, -0.002, 0.004}, {0.5, 0.9});
+//        addDyeSource(commandBuffer, field,  {-0.002, 0.004, -0.002}, {0.8, 0.2});
+//    };
 }
 
 void FluidSimulation::initFullScreenQuad() {
@@ -161,69 +154,69 @@ void FluidSimulation::createDescriptorSetLayouts() {
                 .descriptorCount(1)
                 .shaderStages(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT)
             .createLayout();
-
-    auto sets = descriptorPool.allocate(
-            {
-                textureSetLayout, textureSetLayout, textureSetLayout, textureSetLayout
-            });
-
-;
-    color.field.descriptorSet[0] = sets[0];
-    color.field.descriptorSet[1] = sets[1];
-    color.source.descriptorSet[0] = sets[2];
-    color.source.descriptorSet[1] = sets[3];
-
-
-    device.setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>(fmt::format("{}_{}", "color_field", 0), color.field.descriptorSet[0]);
-    device.setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>(fmt::format("{}_{}", "color_field", 1), color.field.descriptorSet[1]);
-
-
-    device.setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>(fmt::format("{}_{}", "color_source_field", 0), color.source.descriptorSet[0]);
-    device.setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>(fmt::format("{}_{}", "color_source_field", 1), color.source.descriptorSet[1]);
+//
+//    auto sets = descriptorPool.allocate(
+//            {
+//                textureSetLayout, textureSetLayout, textureSetLayout, textureSetLayout
+//            });
+//
+//;
+//    color.field.descriptorSet[0] = sets[0];
+//    color.field.descriptorSet[1] = sets[1];
+//    color.source.descriptorSet[0] = sets[2];
+//    color.source.descriptorSet[1] = sets[3];
+//
+//
+//    device.setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>(fmt::format("{}_{}", "color_field", 0), color.field.descriptorSet[0]);
+//    device.setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>(fmt::format("{}_{}", "color_field", 1), color.field.descriptorSet[1]);
+//
+//
+//    device.setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>(fmt::format("{}_{}", "color_source_field", 0), color.source.descriptorSet[0]);
+//    device.setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>(fmt::format("{}_{}", "color_source_field", 1), color.source.descriptorSet[1]);
 }
 
 void FluidSimulation::updateDescriptorSets() {
-    auto writes = initializers::writeDescriptorSets<4>();
-
-
-    writes[0].dstSet = color.field.descriptorSet[0];
-    writes[0].dstBinding = 0;
-    writes[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    writes[0].descriptorCount = 1;
-    VkDescriptorImageInfo c0Info{color.field.texture[0].sampler
-                                 , color.field.texture[0].imageView
-                                 , VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
-    writes[0].pImageInfo = &c0Info;
-
-    writes[1].dstSet = color.field.descriptorSet[1];
-    writes[1].dstBinding = 0;
-    writes[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    writes[1].descriptorCount = 1;
-    VkDescriptorImageInfo c1Info{color.field.texture[1].sampler
-                                 , color.field.texture[1].imageView
-                                 , VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
-    writes[1].pImageInfo = &c1Info;
-
-
-    writes[2].dstSet = color.source.descriptorSet[0];
-    writes[2].dstBinding = 0;
-    writes[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    writes[2].descriptorCount = 1;
-    VkDescriptorImageInfo csInfo{color.source.texture[0].sampler
-            , color.source.texture[0].imageView
-            , VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
-    writes[2].pImageInfo = &csInfo;
-
-    writes[3].dstSet = color.source.descriptorSet[1];
-    writes[3].dstBinding = 0;
-    writes[3].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    writes[3].descriptorCount = 1;
-    VkDescriptorImageInfo cs1Info{color.source.texture[1].sampler
-            , color.source.texture[1].imageView
-            , VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
-    writes[3].pImageInfo = &cs1Info;
-
-    device.updateDescriptorSets(writes);
+//    auto writes = initializers::writeDescriptorSets<4>();
+//
+//
+//    writes[0].dstSet = color.field.descriptorSet[0];
+//    writes[0].dstBinding = 0;
+//    writes[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+//    writes[0].descriptorCount = 1;
+//    VkDescriptorImageInfo c0Info{color.field.texture[0].sampler
+//                                 , color.field.texture[0].imageView
+//                                 , VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+//    writes[0].pImageInfo = &c0Info;
+//
+//    writes[1].dstSet = color.field.descriptorSet[1];
+//    writes[1].dstBinding = 0;
+//    writes[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+//    writes[1].descriptorCount = 1;
+//    VkDescriptorImageInfo c1Info{color.field.texture[1].sampler
+//                                 , color.field.texture[1].imageView
+//                                 , VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+//    writes[1].pImageInfo = &c1Info;
+//
+//
+//    writes[2].dstSet = color.source.descriptorSet[0];
+//    writes[2].dstBinding = 0;
+//    writes[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+//    writes[2].descriptorCount = 1;
+//    VkDescriptorImageInfo csInfo{color.source.texture[0].sampler
+//            , color.source.texture[0].imageView
+//            , VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+//    writes[2].pImageInfo = &csInfo;
+//
+//    writes[3].dstSet = color.source.descriptorSet[1];
+//    writes[3].dstBinding = 0;
+//    writes[3].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+//    writes[3].descriptorCount = 1;
+//    VkDescriptorImageInfo cs1Info{color.source.texture[1].sampler
+//            , color.source.texture[1].imageView
+//            , VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+//    writes[3].pImageInfo = &cs1Info;
+//
+//    device.updateDescriptorSets(writes);
 }
 
 void FluidSimulation::createCommandPool() {
@@ -471,7 +464,7 @@ int main(){
         settings.height = 600;
         settings.depthTest = true;
         settings.vSync = true;
-        spdlog::set_level(spdlog::level::err);
+//        spdlog::set_level(spdlog::level::err);
         auto app = FluidSimulation{settings };
         app.run();
     }catch(std::runtime_error& err){

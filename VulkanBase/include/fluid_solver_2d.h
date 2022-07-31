@@ -17,10 +17,12 @@ struct Vector{
 struct Field{
     std::array<Texture, 2> texture;
     std::array<VkDescriptorSet, 2> descriptorSet{nullptr, nullptr};
+    std::array<VkDescriptorSet, 2> advectDescriptorSet{nullptr, nullptr};
     std::array<VulkanFramebuffer, 2> framebuffer;
 
     void swap(){
         std::swap(descriptorSet[0], descriptorSet[1]);
+        std::swap(advectDescriptorSet[0], advectDescriptorSet[1]);
         std::swap(framebuffer[0], framebuffer[1]);
     }
 };
@@ -35,6 +37,7 @@ using UpdateSource = std::function<void(VkCommandBuffer, Field&)>;
 
 
 struct Quantity{
+    std::string name{};
     Field field;
     Field source;
     float diffuseRate{0};
@@ -49,6 +52,8 @@ public:
 
     void init();
 
+    void createSamplers();
+
     void createRenderPass();
 
     void initViewVectors();
@@ -59,11 +64,15 @@ public:
 
     void createDescriptorSetLayouts();
 
+    void createDescriptorSets(Quantity& quantity);
+
     void updateDescriptorSets();
 
     void updateDescriptorSet(Field &field);
 
     void updateDiffuseDescriptorSet();
+
+    void updateAdvectDescriptorSet();
 
     void createPipelines();
 
@@ -84,9 +93,11 @@ public:
 
     void add(Quantity& quantity);
 
+    void createFrameBuffer(Quantity& quantity);
+
     void dt(float value);
 
-    float dt();
+    float dt() const;
 
     void advectVelocity(bool flag);
 
@@ -145,6 +156,9 @@ protected:
 
 private:
     VulkanDescriptorSetLayout textureSetLayout;
+    VulkanDescriptorSetLayout samplerSet;
+    VulkanDescriptorSetLayout advectTextureSet;
+    VkDescriptorSet samplerDescriptorSet;
     struct {
         VulkanBuffer vertices;
         VulkanPipelineLayout layout;
@@ -251,7 +265,7 @@ private:
         bool advectVField = true;
         bool project = true;
         bool showArrows = false;
-        bool vorticity = true;
+        bool vorticity = false;
         int poissonIterations = 30;
         float viscosity = MIN_FLOAT;
         float dt{1.0f / 120.f};

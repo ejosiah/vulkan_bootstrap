@@ -18,6 +18,7 @@ FluidSolver2D::FluidSolver2D(VulkanDevice* device, VulkanDescriptorPool* descrip
 }
 
 void FluidSolver2D::init() {
+    createSamplers();
     initViewVectors();
     createRenderPass();
     initSimData();
@@ -25,6 +26,24 @@ void FluidSolver2D::init() {
     createDescriptorSetLayouts();
     updateDescriptorSets();
     createPipelines();
+}
+
+void FluidSolver2D::createSamplers() {
+    VkSamplerCreateInfo samplerInfo{};
+    samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    samplerInfo.magFilter = VK_FILTER_NEAREST;
+    samplerInfo.minFilter = VK_FILTER_NEAREST;
+    samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+    samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST ;
+
+    valueSampler = device->createSampler(samplerInfo);
+
+    samplerInfo.magFilter = VK_FILTER_LINEAR;
+    samplerInfo.minFilter = VK_FILTER_LINEAR;
+    linearSampler = device->createSampler(samplerInfo);
 }
 
 void FluidSolver2D::initViewVectors() {
@@ -137,6 +156,7 @@ void FluidSolver2D::initSimData(){
 
 void FluidSolver2D::initFullScreenQuad() {
     auto quad = ClipSpace::Quad::positions;
+    spdlog::info("quad: {}", quad);
     screenQuad.vertices = device->createDeviceLocalBuffer(quad.data(), BYTE_SIZE(quad), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
 }
 
@@ -148,39 +168,95 @@ void FluidSolver2D::createDescriptorSetLayouts() {
                     .descriptorType(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
                     .descriptorCount(1)
                     .shaderStages(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT)
+                    .immutableSamplers(valueSampler)
                     .createLayout();
+    
+    samplerSet =
+        device->descriptorSetLayoutBuilder()
+            .name("advect_sampler")
+            .binding(0)
+            .descriptorType(VK_DESCRIPTOR_TYPE_SAMPLER)
+            .descriptorCount(1)
+            .shaderStages(VK_SHADER_STAGE_FRAGMENT_BIT)
+        .createLayout();
+    
+    advectTextureSet =
+        device->descriptorSetLayoutBuilder()
+            .name("advect_texture")
+            .binding(0)
+            .descriptorType(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
+            .descriptorCount(1)
+            .shaderStages(VK_SHADER_STAGE_FRAGMENT_BIT)
+        .createLayout();
 
     auto sets = descriptorPool->allocate(
             {
-                    textureSetLayout, textureSetLayout, textureSetLayout, textureSetLayout
-                    , textureSetLayout, textureSetLayout, textureSetLayout, textureSetLayout
-                    , textureSetLayout,
+                      textureSetLayout, textureSetLayout, advectTextureSet, advectTextureSet
+                    , textureSetLayout, textureSetLayout, advectTextureSet, advectTextureSet
+                    , textureSetLayout, textureSetLayout, advectTextureSet, advectTextureSet
+                    , textureSetLayout, textureSetLayout, textureSetLayout, samplerSet,
             });
 
     vectorField.descriptorSet[0] = sets[0];
     vectorField.descriptorSet[1] = sets[1];
-    divergenceField.descriptorSet[0] = sets[2];
-    pressureField.descriptorSet[0] = sets[3];
-    pressureField.descriptorSet[1] = sets[4];
-    diffuseHelper.solutionDescriptorSet = sets[5];
-    forceField.descriptorSet[0] = sets[6];
-    forceField.descriptorSet[1] = sets[7];
-    vorticityField.descriptorSet[0] = sets[8];
+    vectorField.advectDescriptorSet[0] = sets[2];
+    vectorField.advectDescriptorSet[1] = sets[3];
+
+    pressureField.descriptorSet[0] = sets[4];
+    pressureField.descriptorSet[1] = sets[5];
+    pressureField.advectDescriptorSet[0] = sets[6];
+    pressureField.advectDescriptorSet[1] = sets[7];
+
+    forceField.descriptorSet[0] = sets[8];
+    forceField.descriptorSet[1] = sets[9];
+    forceField.advectDescriptorSet[0] = sets[10];
+    forceField.advectDescriptorSet[1] = sets[11];
+
+    diffuseHelper.solutionDescriptorSet = sets[12];
+    divergenceField.descriptorSet[0] = sets[13];
+    vorticityField.descriptorSet[0] = sets[14];
+    samplerDescriptorSet = sets[15];
+
 
     device->setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>(fmt::format("{}_{}", "vector_field", 0), vectorField.descriptorSet[0]);
     device->setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>(fmt::format("{}_{}", "vector_field", 1), vectorField.descriptorSet[1]);
+    device->setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>(fmt::format("{}_{}", "advect_vector_field", 0), vectorField.advectDescriptorSet[0]);
+    device->setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>(fmt::format("{}_{}", "advect_vector_field", 1), vectorField.advectDescriptorSet[1]);
 
-    device->setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>("divergence_field", divergenceField.descriptorSet[0]);
 
     device->setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>(fmt::format("{}_{}", "pressure_field", 0), pressureField.descriptorSet[0]);
     device->setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>(fmt::format("{}_{}", "pressure_field", 1), pressureField.descriptorSet[1]);
+    device->setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>(fmt::format("{}_{}", "advect_pressure_field", 0), pressureField.advectDescriptorSet[0]);
+    device->setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>(fmt::format("{}_{}", "advect_pressure_field", 1), pressureField.advectDescriptorSet[1]);
 
-    device->setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>("diffuse_solution_container", diffuseHelper.solutionDescriptorSet);
 
     device->setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>(fmt::format("{}_{}", "force_field", 0), forceField.descriptorSet[0]);
     device->setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>(fmt::format("{}_{}", "force_field", 1), forceField.descriptorSet[1]);
+    device->setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>(fmt::format("{}_{}", "advect_force_field", 0), forceField.advectDescriptorSet[0]);
+    device->setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>(fmt::format("{}_{}", "advect_force_field", 1), forceField.advectDescriptorSet[1]);
 
+    device->setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>("divergence_field", divergenceField.descriptorSet[0]);
+    device->setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>("diffuse_solution_container", diffuseHelper.solutionDescriptorSet);
     device->setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>("vorticity_field", vorticityField.descriptorSet[0]);
+}
+
+void FluidSolver2D::createDescriptorSets(Quantity &quantity) {
+    auto sets = descriptorPool->allocate(
+            {
+                    textureSetLayout, textureSetLayout, advectTextureSet, advectTextureSet
+                    , textureSetLayout, textureSetLayout
+            });
+
+    quantity.field.descriptorSet[0] = sets[0];
+    quantity.field.descriptorSet[1] = sets[1];
+    quantity.field.advectDescriptorSet[0] = sets[2];
+    quantity.field.advectDescriptorSet[1] = sets[3];
+
+    quantity.source.descriptorSet[0] = sets[4];
+    quantity.source.descriptorSet[1] = sets[5];
+
+    updateDescriptorSet(quantity.field);
+    updateDescriptorSet(quantity.source);
 }
 
 void FluidSolver2D::updateDescriptorSets() {
@@ -190,6 +266,7 @@ void FluidSolver2D::updateDescriptorSets() {
     updateDescriptorSet(forceField);
     updateDescriptorSet(vorticityField);
     updateDiffuseDescriptorSet();
+    updateAdvectDescriptorSet();
 }
 
 void FluidSolver2D::updateDescriptorSet(Field &field) {
@@ -200,16 +277,27 @@ void FluidSolver2D::updateDescriptorSet(Field &field) {
     write.dstBinding = 0;
     write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     write.descriptorCount = 1;
-    VkDescriptorImageInfo info0{field.texture[0].sampler, field.texture[0].imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+    VkDescriptorImageInfo info0{VK_NULL_HANDLE, field.texture[0].imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
     write.pImageInfo = &info0;
 
     writes.push_back(write);
 
-    VkDescriptorImageInfo info1{field.texture[1].sampler, field.texture[1].imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+    VkDescriptorImageInfo info1{VK_NULL_HANDLE, field.texture[1].imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
     if(field.descriptorSet[1]){
         write.dstSet = field.descriptorSet[1];
         write.pImageInfo = &info1;
         writes.push_back(write);
+
+        if(field.advectDescriptorSet[0]) {
+            write.dstSet = field.advectDescriptorSet[0];
+            write.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+            write.pImageInfo = &info0;
+            writes.push_back(write);
+
+            write.dstSet = field.advectDescriptorSet[1];
+            write.pImageInfo = &info1;
+            writes.push_back(write);
+        }
     }
     device->updateDescriptorSets(writes);
 }
@@ -220,9 +308,23 @@ void FluidSolver2D::updateDiffuseDescriptorSet() {
     writes[0].dstBinding = 0;
     writes[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     writes[0].descriptorCount = 1;
-    VkDescriptorImageInfo diffuseInfo{diffuseHelper.texture.sampler, diffuseHelper.texture.imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+    VkDescriptorImageInfo diffuseInfo{VK_NULL_HANDLE, diffuseHelper.texture.imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
     writes[0].pImageInfo = &diffuseInfo;
     device->updateDescriptorSets(writes);
+}
+
+void FluidSolver2D::updateAdvectDescriptorSet() {
+    auto writes = initializers::writeDescriptorSets<1>();
+    
+    writes[0].dstSet = samplerDescriptorSet;
+    writes[0].dstBinding = 0;
+    writes[0].descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
+    writes[0].descriptorCount = 1;
+    VkDescriptorImageInfo samplerInfo{linearSampler, VK_NULL_HANDLE, VK_IMAGE_LAYOUT_UNDEFINED};
+    writes[0].pImageInfo = &samplerInfo;
+
+    device->updateDescriptorSets(writes);
+
 }
 
 void FluidSolver2D::set(VulkanBuffer vectorFieldBuffer) {
@@ -325,7 +427,7 @@ void FluidSolver2D::createPipelines() {
                 .vertexShader(resource("quad.vert.spv"))
                 .fragmentShader(resource("advect.frag.spv"))
             .layout().clear()
-                .addDescriptorSetLayouts({textureSetLayout, textureSetLayout})
+                .addDescriptorSetLayouts({textureSetLayout, advectTextureSet, samplerSet})
                 .addPushConstantRange(VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(constants))
             .renderPass(renderPass)
             .name("advect")
@@ -474,7 +576,7 @@ void FluidSolver2D::diffuseQuantity(VkCommandBuffer commandBuffer, Quantity &qua
 void FluidSolver2D::advectQuantity(VkCommandBuffer commandBuffer, Quantity &quantity) {
     static std::array<VkDescriptorSet, 2> sets;
     sets[0] = vectorField.descriptorSet[in];
-    sets[1] = quantity.field.descriptorSet[in];
+    sets[1] = quantity.field.advectDescriptorSet[in];
 
     advect(commandBuffer, sets,quantity.field.framebuffer[out]);
     quantity.field.swap();
@@ -551,15 +653,20 @@ void FluidSolver2D::addSources(VkCommandBuffer commandBuffer, Field &sourceField
 void FluidSolver2D::advectVectorField(VkCommandBuffer commandBuffer) {
     static std::array<VkDescriptorSet, 2> sets;
     sets[0] = vectorField.descriptorSet[in];
-    sets[1] = vectorField.descriptorSet[in];
+    sets[1] = vectorField.advectDescriptorSet[in];
 
     advect(commandBuffer, sets,vectorField.framebuffer[out]);
     vectorField.swap();
 }
 
-void FluidSolver2D::advect(VkCommandBuffer commandBuffer, const std::array<VkDescriptorSet, 2> &sets,
+void FluidSolver2D::advect(VkCommandBuffer commandBuffer, const std::array<VkDescriptorSet, 2> &inSets,
                            VulkanFramebuffer &framebuffer) {
 
+
+    static std::array<VkDescriptorSet, 3> sets;
+    sets[0] = inSets[0];
+    sets[1] = inSets[1];
+    sets[2] = samplerDescriptorSet;
     withRenderPass(commandBuffer, framebuffer, [&](auto commandBuffer){
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, advectPipeline.pipeline);
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, advectPipeline.layout
@@ -701,14 +808,26 @@ void FluidSolver2D::renderVectorField(VkCommandBuffer commandBuffer) {
 }
 
 void FluidSolver2D::add(Quantity& quantity) {
+    createFrameBuffer(quantity);
+    createDescriptorSets(quantity);
     quantities.emplace_back(quantity);
+}
+
+void FluidSolver2D::createFrameBuffer(Quantity &quantity) {
+    for(auto i = 0; i < 2; i++){
+        quantity.field.framebuffer[i] = device->createFramebuffer(renderPass, {quantity.field.texture[i].imageView }, width, height);
+        device->setName<VK_OBJECT_TYPE_FRAMEBUFFER>(fmt::format("{}_{}", quantity.name, i), quantity.field.framebuffer[i].frameBuffer);
+
+        quantity.source.framebuffer[i] = device->createFramebuffer(renderPass, {quantity.source.texture[i].imageView }, width, height);
+        device->setName<VK_OBJECT_TYPE_FRAMEBUFFER>(fmt::format("{}_source_{}", quantity.name, i), quantity.field.framebuffer[i].frameBuffer);
+    }
 }
 
 void FluidSolver2D::dt(float value) {
     constants.dt = value;
 }
 
-float FluidSolver2D::dt() {
+float FluidSolver2D::dt() const {
     return constants.dt;
 }
 
