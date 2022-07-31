@@ -1,14 +1,15 @@
 #version 450 core
 
-layout(set = 0, binding = 0) uniform sampler2D vectorField;
-layout(set = 1, binding = 0) uniform texture2D quantity;
-layout(set = 2, binding = 0) uniform sampler linerSampler;
-
-layout(push_constant) uniform Contants{
+layout(set = 0, binding = 0) uniform Globals{
+    vec2 dx;
+    vec2 dy;
     float dt;
-    float epsilon;
-    float rho;// density;
+    int ensureBoundaryCondition;
 };
+
+layout(set = 1, binding = 0) uniform sampler2D vectorField;
+layout(set = 2, binding = 0) uniform texture2D quantity;
+layout(set = 3, binding = 0) uniform sampler linerSampler;
 
 layout(location = 0) in vec2 uv;
 layout(location = 0) out vec4 quantityOut;
