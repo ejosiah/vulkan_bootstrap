@@ -14,10 +14,12 @@ FluidSolver2D::FluidSolver2D(VulkanDevice* device, VulkanDescriptorPool* descrip
 , width(static_cast<uint32_t>(gridSize.x))
 , height(static_cast<uint32_t>(gridSize.y))
 {
-    constants.epsilon = 1.0f/gridSize.x;
+    globalConstants.dx.x = delta.x;
+    globalConstants.dy.y = delta.y;
 }
 
 void FluidSolver2D::init() {
+    initBuffers();
     createSamplers();
     initViewVectors();
     createRenderPass();
@@ -26,6 +28,10 @@ void FluidSolver2D::init() {
     createDescriptorSetLayouts();
     updateDescriptorSets();
     createPipelines();
+}
+
+void FluidSolver2D::initBuffers() {
+    globalConstantsBuffer = device->createCpuVisibleBuffer(&globalConstants, sizeof(globalConstants), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
     debugBuffer = device->createBuffer(VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_TO_CPU, sizeof(glm::vec4) * width * height, "debug");
 }
 
@@ -162,15 +168,24 @@ void FluidSolver2D::initFullScreenQuad() {
 }
 
 void FluidSolver2D::createDescriptorSetLayouts() {
+    globalConstantsSet =
+        device->descriptorSetLayoutBuilder()
+            .name("global_constants")
+            .binding(0)
+                .descriptorType(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
+                .descriptorCount(1)
+                .shaderStages(VK_SHADER_STAGE_FRAGMENT_BIT)
+            .createLayout();
+
     textureSetLayout =
-            device->descriptorSetLayoutBuilder()
-                    .name("texture_set")
-                    .binding(0)
-                    .descriptorType(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
-                    .descriptorCount(1)
-                    .shaderStages(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT)
-                    .immutableSamplers(valueSampler)
-                    .createLayout();
+        device->descriptorSetLayoutBuilder()
+           .name("texture_set")
+            .binding(0)
+                .descriptorType(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
+                .descriptorCount(1)
+                .shaderStages(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT)
+                .immutableSamplers(valueSampler)
+            .createLayout();
     
     samplerSet =
         device->descriptorSetLayoutBuilder()
@@ -195,7 +210,8 @@ void FluidSolver2D::createDescriptorSetLayouts() {
                       textureSetLayout, textureSetLayout, advectTextureSet, advectTextureSet
                     , textureSetLayout, textureSetLayout, advectTextureSet, advectTextureSet
                     , textureSetLayout, textureSetLayout, advectTextureSet, advectTextureSet
-                    , textureSetLayout, textureSetLayout, textureSetLayout, samplerSet,
+                    , textureSetLayout, textureSetLayout, textureSetLayout, samplerSet
+                    , globalConstantsSet
             });
 
     vectorField.descriptorSet[0] = sets[0];
@@ -217,7 +233,7 @@ void FluidSolver2D::createDescriptorSetLayouts() {
     divergenceField.descriptorSet[0] = sets[13];
     vorticityField.descriptorSet[0] = sets[14];
     samplerDescriptorSet = sets[15];
-
+    globalConstantsDescriptorSet = sets[16];
 
     device->setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>(fmt::format("{}_{}", "vector_field", 0), vectorField.descriptorSet[0]);
     device->setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>(fmt::format("{}_{}", "vector_field", 1), vectorField.descriptorSet[1]);
@@ -239,6 +255,7 @@ void FluidSolver2D::createDescriptorSetLayouts() {
     device->setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>("divergence_field", divergenceField.descriptorSet[0]);
     device->setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>("diffuse_solution_container", diffuseHelper.solutionDescriptorSet);
     device->setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>("vorticity_field", vorticityField.descriptorSet[0]);
+    device->setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>("global_constants", globalConstantsDescriptorSet);
 }
 
 void FluidSolver2D::createDescriptorSets(Quantity &quantity) {
@@ -261,6 +278,7 @@ void FluidSolver2D::createDescriptorSets(Quantity &quantity) {
 }
 
 void FluidSolver2D::updateDescriptorSets() {
+    updateUboDescriptorSets();
     updateDescriptorSet(vectorField);
     updateDescriptorSet(divergenceField);
     updateDescriptorSet(pressureField);
@@ -268,6 +286,19 @@ void FluidSolver2D::updateDescriptorSets() {
     updateDescriptorSet(vorticityField);
     updateDiffuseDescriptorSet();
     updateAdvectDescriptorSet();
+}
+
+void FluidSolver2D::updateUboDescriptorSets() {
+    auto writes = initializers::writeDescriptorSets<1>();
+    
+    writes[0].dstSet = globalConstantsDescriptorSet;
+    writes[0].dstBinding = 0;
+    writes[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    writes[0].descriptorCount = 1;
+    VkDescriptorBufferInfo gcInfo{globalConstantsBuffer, 0, VK_WHOLE_SIZE};
+    writes[0].pBufferInfo = &gcInfo;
+
+    device->updateDescriptorSets(writes);
 }
 
 void FluidSolver2D::updateDescriptorSet(Field &field) {
@@ -428,8 +459,7 @@ void FluidSolver2D::createPipelines() {
                 .vertexShader(resource("quad.vert.spv"))
                 .fragmentShader(resource("advect.frag.spv"))
             .layout().clear()
-                .addDescriptorSetLayouts({textureSetLayout, advectTextureSet, samplerSet})
-                .addPushConstantRange(VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(constants))
+                .addDescriptorSetLayouts({globalConstantsSet, textureSetLayout, advectTextureSet, samplerSet})
             .renderPass(renderPass)
             .name("advect")
         .build(advectPipeline.layout);
@@ -439,8 +469,7 @@ void FluidSolver2D::createPipelines() {
             .shaderStage()
                 .fragmentShader(resource("divergence.frag.spv"))
             .layout().clear()
-                .addDescriptorSetLayout( textureSetLayout)
-                .addPushConstantRange(VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(constants))
+                .addDescriptorSetLayouts( { globalConstantsSet, textureSetLayout})
             .renderPass(renderPass)
             .name("divergence")
         .build(divergence.layout);
@@ -450,8 +479,7 @@ void FluidSolver2D::createPipelines() {
             .shaderStage()
                 .fragmentShader(resource("divergence_free_field.frag.spv"))
             .layout().clear()
-                .addDescriptorSetLayouts({textureSetLayout, textureSetLayout})
-                .addPushConstantRange(VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(constants))
+                .addDescriptorSetLayouts({globalConstantsSet, textureSetLayout, textureSetLayout})
             .renderPass(renderPass)
             .name("divergence_free_field")
         .build(divergenceFree.layout);
@@ -461,7 +489,7 @@ void FluidSolver2D::createPipelines() {
             .shaderStage()
                 .fragmentShader(resource("jacobi.frag.spv"))
             .layout().clear()
-                .addDescriptorSetLayouts({textureSetLayout, textureSetLayout})
+                .addDescriptorSetLayouts({globalConstantsSet, textureSetLayout, textureSetLayout})
                 .addPushConstantRange(VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(jacobi.constants))
             .renderPass(renderPass)
             .name("jacobi")
@@ -483,7 +511,7 @@ void FluidSolver2D::createPipelines() {
             .shaderStage()
                 .fragmentShader(resource("vorticity.frag.spv"))
             .layout().clear()
-                .addDescriptorSetLayout(textureSetLayout)
+                .addDescriptorSetLayouts({globalConstantsSet, textureSetLayout})
             .renderPass(renderPass)
             .name("vorticity")
         .build(vorticity.layout);
@@ -493,7 +521,7 @@ void FluidSolver2D::createPipelines() {
             .shaderStage()
                 .fragmentShader(resource("vorticity_force.frag.spv"))
             .layout().clear()
-                .addDescriptorSetLayouts({textureSetLayout, textureSetLayout})
+                .addDescriptorSetLayouts({globalConstantsSet, textureSetLayout, textureSetLayout})
                 .addPushConstantRange(VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(vorticityForce.constants))
             .renderPass(renderPass)
             .name("vorticity_force")
@@ -592,14 +620,18 @@ void FluidSolver2D::applyExternalForces(VkCommandBuffer commandBuffer) {
 void FluidSolver2D::computeVorticityConfinement(VkCommandBuffer commandBuffer) {
     if(!options.vorticity) return;
     withRenderPass(commandBuffer, vorticityField.framebuffer[0], [&](auto commandBuffer){
+        static std::array<VkDescriptorSet, 2> sets;
+        sets[0] = globalConstantsDescriptorSet;
+        sets[1] = vectorField.descriptorSet[in];
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vorticity.pipeline);
-        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vorticity.layout, 0, 1, &vectorField.descriptorSet[in], 0, VK_NULL_HANDLE);
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vorticity.layout, 0, COUNT(sets), sets.data(), 0, VK_NULL_HANDLE);
         vkCmdDraw(commandBuffer, 4, 1, 0, 0);
     });
     withRenderPass(commandBuffer, forceField.framebuffer[out], [&](auto commandBuffer){
-        static std::array<VkDescriptorSet, 2> sets;
-        sets[0] = vorticityField.descriptorSet[in];
-        sets[1] = forceField.descriptorSet[in];
+        static std::array<VkDescriptorSet, 3> sets;
+        sets[0] = globalConstantsDescriptorSet;
+        sets[1] = vorticityField.descriptorSet[in];
+        sets[2] = forceField.descriptorSet[in];
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vorticityForce.pipeline);
         vkCmdPushConstants(commandBuffer, vorticityForce.layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(vorticityForce.constants), &vorticityForce.constants);
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vorticityForce.layout, 0, COUNT(sets), sets.data(), 0, VK_NULL_HANDLE);
@@ -628,7 +660,7 @@ void FluidSolver2D::clear(VkCommandBuffer commandBuffer, Texture &texture) {
 }
 
 void FluidSolver2D::addSources(VkCommandBuffer commandBuffer, Field &sourceField, Field &destinationField) {
-    addSourcePipeline.constants.dt = constants.dt;
+    addSourcePipeline.constants.dt = globalConstants.dt;
     withRenderPass(commandBuffer, destinationField.framebuffer[out], [&](auto commandBuffer){
         static std::array<VkDescriptorSet, 2> sets;
         sets[0] = sourceField.descriptorSet[in];
@@ -655,16 +687,16 @@ void FluidSolver2D::advect(VkCommandBuffer commandBuffer, const std::array<VkDes
                            VulkanFramebuffer &framebuffer) {
 
 
-    static std::array<VkDescriptorSet, 3> sets;
-    sets[0] = inSets[0];
-    sets[1] = inSets[1];
-    sets[2] = samplerDescriptorSet;
+    static std::array<VkDescriptorSet, 4> sets;
+    sets[0] = globalConstantsDescriptorSet;
+    sets[1] = inSets[0];
+    sets[2] = inSets[1];
+    sets[3] = samplerDescriptorSet;
     withRenderPass(commandBuffer, framebuffer, [&](auto commandBuffer){
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, advectPipeline.pipeline);
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, advectPipeline.layout
                 , 0, COUNT(sets), sets.data(), 0, VK_NULL_HANDLE);
 
-        vkCmdPushConstants(commandBuffer, advectPipeline.layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(constants), &constants);
         vkCmdDraw(commandBuffer, 4, 1, 0, 0);
     });
 }
@@ -678,18 +710,20 @@ void FluidSolver2D::project(VkCommandBuffer commandBuffer) {
 }
 
 void FluidSolver2D::computeDivergence(VkCommandBuffer commandBuffer) {
+    static std::array<VkDescriptorSet, 2> sets;
+    sets[0] = globalConstantsDescriptorSet;
+    sets[1] = vectorField.descriptorSet[in];
     withRenderPass(commandBuffer, divergenceField.framebuffer[0], [&](auto commandBuffer){
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, divergence.pipeline);
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, divergence.layout
-                , 0, 1, &vectorField.descriptorSet[in], 0, VK_NULL_HANDLE);
+                , 0, COUNT(sets), sets.data(), 0, VK_NULL_HANDLE);
 
-        vkCmdPushConstants(commandBuffer, divergence.layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(constants), &constants);
         vkCmdDraw(commandBuffer, 4, 1, 0, 0);
     });
 }
 
 void FluidSolver2D::solvePressure(VkCommandBuffer commandBuffer) {
-    auto alpha = -constants.epsilon * constants.epsilon;
+    auto alpha = -delta.x * delta.x;
     auto rBeta = 0.25f;
     for(int i = 0; i < options.poissonIterations; i++){
         withRenderPass(commandBuffer, pressureField.framebuffer[out], [&](auto commandBuffer){
@@ -703,9 +737,10 @@ void FluidSolver2D::jacobiIteration(VkCommandBuffer commandBuffer, VkDescriptorS
                                     VkDescriptorSet solutionDescriptor, float alpha, float rBeta) {
     jacobi.constants.alpha = alpha;
     jacobi.constants.rBeta = rBeta;
-    static std::array<VkDescriptorSet, 2> sets;
-    sets[0] = solutionDescriptor;
-    sets[1] = unknownDescriptor;
+    static std::array<VkDescriptorSet, 3> sets;
+    sets[0] = globalConstantsDescriptorSet;
+    sets[1] = solutionDescriptor;
+    sets[2] = unknownDescriptor;
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, jacobi.pipeline);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, jacobi.layout
             , 0, COUNT(sets), sets.data(), 0, VK_NULL_HANDLE);
@@ -716,14 +751,14 @@ void FluidSolver2D::jacobiIteration(VkCommandBuffer commandBuffer, VkDescriptorS
 
 void FluidSolver2D::computeDivergenceFreeField(VkCommandBuffer commandBuffer) {
     withRenderPass(commandBuffer, vectorField.framebuffer[out], [&](auto commandBuffer){
-        static std::array<VkDescriptorSet, 2> sets;
-        sets[0] = vectorField.descriptorSet[in];
-        sets[1] = pressureField.descriptorSet[in];
+        static std::array<VkDescriptorSet, 3> sets;
+        sets[0] = globalConstantsDescriptorSet;
+        sets[1] = vectorField.descriptorSet[in];
+        sets[2] = pressureField.descriptorSet[in];
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, divergenceFree.pipeline);
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, divergenceFree.layout
                 , 0, COUNT(sets), sets.data(), 0, VK_NULL_HANDLE);
 
-        vkCmdPushConstants(commandBuffer, divergenceFree.layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(constants), &constants);
         vkCmdDraw(commandBuffer, 4, 1, 0, 0);
     });
 }
@@ -775,7 +810,7 @@ void FluidSolver2D::diffuse(VkCommandBuffer commandBuffer, Field &field, float r
             , VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 
 
-    float alpha = (constants.epsilon * constants.epsilon)/(constants.dt * rate);
+    float alpha = (delta.x * delta.x)/(timeStep * rate);
     float rBeta = 1.0f/(4.0f + alpha);
     for(int i = 0; i < options.poissonIterations; i++){
         withRenderPass(commandBuffer, field.framebuffer[out], [&](auto commandBuffer){
@@ -816,11 +851,13 @@ void FluidSolver2D::createFrameBuffer(Quantity &quantity) {
 }
 
 void FluidSolver2D::dt(float value) {
-    constants.dt = value;
+    timeStep = value;
+    globalConstants.dt = timeStep;
+    updateUBOs();
 }
 
 float FluidSolver2D::dt() const {
-    return constants.dt;
+    return timeStep;
 }
 
 void FluidSolver2D::advectVelocity(bool flag) {
@@ -845,4 +882,13 @@ void FluidSolver2D::poissonIterations(int value) {
 
 void FluidSolver2D::viscosity(float value) {
     options.viscosity = value;
+}
+
+void FluidSolver2D::updateUBOs() {
+    globalConstantsBuffer.copy(&globalConstants, sizeof(globalConstants));
+}
+
+void FluidSolver2D::ensureBoundaryCondition(bool flag) {
+    globalConstants.ensureBoundaryCondition = static_cast<int>(flag);
+    updateUBOs();
 }

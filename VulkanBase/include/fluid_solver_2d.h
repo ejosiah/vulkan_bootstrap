@@ -52,6 +52,8 @@ public:
 
     void init();
 
+    void initBuffers();
+
     void createSamplers();
 
     void createRenderPass();
@@ -68,6 +70,8 @@ public:
 
     void updateDescriptorSets();
 
+    void updateUboDescriptorSets();
+
     void updateDescriptorSet(Field &field);
 
     void updateDiffuseDescriptorSet();
@@ -81,6 +85,8 @@ public:
     void add(ExternalForce&& force);
 
     void runSimulation(VkCommandBuffer commandBuffer);
+
+    void updateUBOs();
 
     void velocityStep(VkCommandBuffer commandBuffer);
 
@@ -110,6 +116,8 @@ public:
     void poissonIterations(int value);
 
     void viscosity(float value);
+
+    void ensureBoundaryCondition(bool flag);
 
 protected:
     void quantityStep(VkCommandBuffer commandBuffer);
@@ -247,11 +255,17 @@ private:
     VulkanDevice* device{};
     glm::vec2 gridSize{};
     glm::vec2 delta{};
+    float timeStep{1/120.f};
     struct {
+        glm::vec2 dx{0};
+        glm::vec2 dy{0};
         float dt{1.0f / 120.f};
-        float epsilon{1};
-        float rho{1};
-    } constants;
+        int ensureBoundaryCondition{1};
+    } globalConstants;
+    VulkanBuffer globalConstantsBuffer;
+
+    VulkanDescriptorSetLayout globalConstantsSet;
+    VkDescriptorSet globalConstantsDescriptorSet{};
 
     uint32_t width{};
     uint32_t height{};
@@ -259,12 +273,10 @@ private:
     struct {
         bool advectVField = true;
         bool project = true;
-        bool showArrows = true;
+        bool showArrows = false;
         bool vorticity = true;
-        bool ensureBoundaryCondition = true;
         int poissonIterations = 30;
         float viscosity = MIN_FLOAT;
-        float dt{1.0f / 120.f};
     } options;
     VulkanBuffer debugBuffer;
 public:
