@@ -468,7 +468,7 @@ void FluidSolver2D::addSource(VkCommandBuffer commandBuffer, Quantity &quantity)
 }
 
 void FluidSolver2D::diffuseQuantity(VkCommandBuffer commandBuffer, Quantity &quantity) {
-    diffuse(commandBuffer, quantity.field, options.diffuseRate);
+    diffuse(commandBuffer, quantity.field, quantity.diffuseRate);
 }
 
 void FluidSolver2D::advectQuantity(VkCommandBuffer commandBuffer, Quantity &quantity) {
@@ -710,4 +710,28 @@ void FluidSolver2D::dt(float value) {
 
 float FluidSolver2D::dt() {
     return constants.dt;
+}
+
+void FluidSolver2D::advectVelocity(bool flag) {
+    options.advectVField = flag;
+}
+
+void FluidSolver2D::project(bool flag) {
+    options.project = flag;
+}
+
+void FluidSolver2D::showVectors(bool flag) {
+    options.showArrows = flag;
+}
+
+void FluidSolver2D::applyVorticity(bool flag) {
+    options.vorticity = flag;
+}
+
+void FluidSolver2D::poissonIterations(int value) {
+    options.poissonIterations = value;
+}
+
+void FluidSolver2D::viscosity(float value) {
+    options.viscosity = value;
 }

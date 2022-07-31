@@ -42,11 +42,11 @@ void FluidSimulation::initFluidSolver() {
         for(int j = 0; j < width; j++){
             auto x = 2 * float(j)/float(width) - 1;
             auto y = 2 * float(i)/float(height) - 1;
-//            glm::vec2 u{glm::sin(two_pi * y), glm::sin(two_pi * x)};
+            glm::vec2 u{glm::sin(two_pi * y), glm::sin(two_pi * x)};
 //            glm::vec2 u{1, glm::sin(two_pi * x)};
 //            glm::vec2 u{x, y}; // divergent fields 1;
 //            glm::vec2 u{glm::sin(two_pi * x), 0}; // divergent fields 2;
-            glm::vec2 u{y, x}; // divergent fields 3;
+//            glm::vec2 u{y, x}; // divergent fields 3;
             maxLength = glm::max(glm::length(u), maxLength);
             field.emplace_back(u , 0, 0);
         }
@@ -70,8 +70,8 @@ void FluidSimulation::initColorField() {
         auto y = 2 * (float(i)/h) - 1;
         return glm::vec3{
                 glm::step(1.0, glm::mod(floor((x + 1.0) / 0.2) + floor((y + 1.0) / 0.2), 2.0)),
-                glm::step(1.0, glm::mod(floor((x + 1.0) / 0.2) + floor((y + 1.0) / 0.2), 2.0)),
-                glm::step(1.0, glm::mod(floor((x + 1.0) / 0.2) + floor((y + 1.0) / 0.2), 2.0))
+                glm::step(1.0, glm::mod(floor((x + 1.0) / 0.3) + floor((y + 1.0) / 0.3), 2.0)),
+                glm::step(1.0, glm::mod(floor((x + 1.0) / 0.4) + floor((y + 1.0) / 0.4), 2.0))
         };
     };
     std::vector<glm::vec4> field;
@@ -112,11 +112,11 @@ void FluidSimulation::initColorField() {
         colorQuantity.source.framebuffer[i] = device.createFramebuffer(simRenderPass, { colorQuantity.source.texture[i].imageView }, width, height);
         device.setName<VK_OBJECT_TYPE_FRAMEBUFFER>(fmt::format("{}_{}", "color_source_field", i), colorQuantity.field.framebuffer[i].frameBuffer);
     }
-//    colorQuantity.update = [&](VkCommandBuffer commandBuffer, VulkanRenderPass& renderPass, Field& field){
-//        addDyeSource(commandBuffer, renderPass, field, {0.004, 0, 0}, {0.2, 0.2});
-//        addDyeSource(commandBuffer, renderPass, field, {0, 0, 0.004}, {0.5, 0.9});
-//        addDyeSource(commandBuffer, renderPass, field,  {0, 0.004, 0}, {0.8, 0.2});
-//    };
+    colorQuantity.update = [&](VkCommandBuffer commandBuffer, VulkanRenderPass& renderPass, Field& field){
+        addDyeSource(commandBuffer, renderPass, field, {0.004, 0, 0}, {0.2, 0.2});
+        addDyeSource(commandBuffer, renderPass, field, {0, 0, 0.004}, {0.5, 0.9});
+        addDyeSource(commandBuffer, renderPass, field,  {0, 0.004, 0}, {0.8, 0.2});
+    };
     fluidSolver.add(colorQuantity);
 }
 
@@ -544,22 +544,6 @@ void FluidSimulation::update(float time) {
 
 void FluidSimulation::runSimulation() {
     device.graphicsCommandPool().oneTimeCommand([&](auto commandBuffer){
-//        VkDeviceSize offset = 0;
-//        vkCmdBindVertexBuffers(commandBuffer, 0, 1, screenQuad.vertices, &offset);
-//        if(options.advectVField) {
-//            clearForces(commandBuffer);
-//            applyForces(commandBuffer);
-//            if(options.viscosity <= MIN_FLOAT) {
-//                diffuse(commandBuffer, vectorField, options.viscosity);
-//                project(commandBuffer);
-//            }
-//            advectVectorField(commandBuffer);
-//            project(commandBuffer);
-//        }
-//        clearSources(commandBuffer);
-//        addColors(commandBuffer);
-//        diffuse(commandBuffer, colorQuantity.field, options.diffuseRate);
-//        advectColor(commandBuffer);
         fluidSolver.runSimulation(commandBuffer);
     });
 

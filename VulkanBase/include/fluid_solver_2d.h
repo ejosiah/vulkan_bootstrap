@@ -37,22 +37,12 @@ using UpdateSource = std::function<void(VkCommandBuffer, VulkanRenderPass&, Fiel
 struct Quantity{
     Field field;
     Field source;
+    float diffuseRate{0};
     UpdateSource update = [](VkCommandBuffer, VulkanRenderPass&, Field&){};
 };
 
 class FluidSolver2D{
 public:
-    struct {
-        bool advectVField = true;
-        bool project = true;
-        bool showArrows = false;
-        bool vorticity = false;
-        int poissonIterations = 30;
-        float viscosity = MIN_FLOAT;
-        float diffuseRate = MIN_FLOAT;
-        float dt{1.0f / 120.f};
-    } options;
-
     FluidSolver2D() = default;
 
     FluidSolver2D(VulkanDevice* device, VulkanDescriptorPool* descriptorPool, VulkanRenderPass* displayRenderPass, FileManager* fileManager, glm::vec2 gridSize);
@@ -85,6 +75,32 @@ public:
 
     void velocityStep(VkCommandBuffer commandBuffer);
 
+    void withRenderPass(VkCommandBuffer commandBuffer, const VulkanRenderPass& renderPass, const VulkanFramebuffer& framebuffer
+            , GpuProcess&& process, glm::vec4 clearColor = glm::vec4(0)) const;
+
+    std::string resource(const std::string& name);
+
+    void renderVectorField(VkCommandBuffer commandBuffer);
+
+    void add(Quantity& quantity);
+
+    void dt(float value);
+
+    float dt();
+
+    void advectVelocity(bool flag);
+
+    void project(bool flag);
+
+    void showVectors(bool flag);
+
+    void applyVorticity(bool flag);
+
+    void poissonIterations(int value);
+
+    void viscosity(float value);
+
+protected:
     void quantityStep(VkCommandBuffer commandBuffer);
 
     void quantityStep(VkCommandBuffer commandBuffer, Quantity& quantity);
@@ -126,19 +142,6 @@ public:
     void jacobiIteration(VkCommandBuffer commandBuffer, VkDescriptorSet unknownDescriptor, VkDescriptorSet solutionDescriptor, float alpha, float rBeta);
 
     void computeDivergenceFreeField(VkCommandBuffer commandBuffer);
-
-    void withRenderPass(VkCommandBuffer commandBuffer, const VulkanRenderPass& renderPass, const VulkanFramebuffer& framebuffer
-            , GpuProcess&& process, glm::vec4 clearColor = glm::vec4(0)) const;
-
-    std::string resource(const std::string& name);
-
-    void renderVectorField(VkCommandBuffer commandBuffer);
-
-    void add(Quantity& quantity);
-
-    void dt(float value);
-
-    float dt();
 
 private:
     VulkanDescriptorSetLayout textureSetLayout;
@@ -243,6 +246,16 @@ private:
 
     uint32_t width{};
     uint32_t height{};
+
+    struct {
+        bool advectVField = true;
+        bool project = true;
+        bool showArrows = false;
+        bool vorticity = false;
+        int poissonIterations = 30;
+        float viscosity = MIN_FLOAT;
+        float dt{1.0f / 120.f};
+    } options;
 
 public:
     VulkanRenderPass renderPass;
