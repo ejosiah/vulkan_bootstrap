@@ -260,7 +260,7 @@ private:
         glm::vec2 dx{0};
         glm::vec2 dy{0};
         float dt{1.0f / 120.f};
-        int ensureBoundaryCondition{0};
+        int ensureBoundaryCondition{1};
     } globalConstants;
     VulkanBuffer globalConstantsBuffer;
 
@@ -274,7 +274,7 @@ private:
         bool advectVField = true;
         bool project = true;
         bool showArrows = false;
-        bool vorticity = false;
+        bool vorticity = true;
         int poissonIterations = 30;
         float viscosity = MIN_FLOAT;
     } options;

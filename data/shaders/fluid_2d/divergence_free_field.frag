@@ -1,11 +1,14 @@
 #version 450 core
 
+
 layout(set = 0, binding = 0) uniform Globals{
     vec2 dx;
     vec2 dy;
     float dt;
     int ensureBoundaryCondition;
 };
+
+#include "common.glsl"
 
 layout(set = 1, binding = 0) uniform sampler2D vectorField;
 layout(set = 2, binding = 0) uniform sampler2D pressure;
@@ -14,11 +17,11 @@ layout(location = 0) in vec2 uv;
 layout(location = 0) out vec4 velocity_out;
 
 float p(vec2 coord) {
-    return texture(pressure, coord).x;
+    return texture(pressure, st(coord)).x;
 }
 
 vec2 u(vec2 coord) {
-    return texture(vectorField, coord).xy;
+    return texture(vectorField, st(coord)).xy;
 }
 
 vec2 pg(vec2 coord){

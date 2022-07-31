@@ -7,6 +7,8 @@ layout(set = 0, binding = 0) uniform Globals{
     int ensureBoundaryCondition;
 };
 
+#include "common.glsl"
+
 layout(set = 1, binding = 0) uniform sampler2D vorticityField;
 layout(set = 2, binding = 0) uniform sampler2D forceField;
 
@@ -18,11 +20,11 @@ layout(location = 0) in vec2 uv;
 layout(location = 0) out vec4 force;
 
 float vort(vec2 coord) {
-    return texture(vorticityField, coord).x;
+    return texture(vorticityField, st(coord)).x;
 }
 
 vec2 accumForce(vec2 coord){
-    return texture(forceField, coord).xy;
+    return texture(forceField, st(coord)).xy;
 }
 
 void main(){

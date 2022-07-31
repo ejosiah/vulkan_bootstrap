@@ -8,24 +8,16 @@ layout(set = 0, binding = 0) uniform Globals{
     int ensureBoundaryCondition;
 };
 
+#include "common.glsl"
+
 layout(set = 1, binding = 0) uniform sampler2D vectorField;
 
 layout(location = 0) in vec2 uv;
 layout(location = 0) out vec4 vort;
 
-bool checkBoundary(vec2 uv){
-    return bool(ensureBoundaryCondition) && (uv.x <= 0 || uv.x >= 1 || uv.y <= 0 || uv.y >= 1);
-}
-
-vec2 applyBoundaryCondition(vec2 uv, vec2 u){
-    if(checkBoundary(uv)){
-        u *= -1;
-    }
-    return u;
-}
 
 vec2 u(vec2 coord) {
-    return applyBoundaryCondition(coord, texture(vectorField, coord).xy);
+    return applyBoundaryCondition(coord, texture(vectorField, st(coord)).xy);
 }
 
 void main(){
