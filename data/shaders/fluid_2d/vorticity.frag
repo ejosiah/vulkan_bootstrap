@@ -7,8 +7,15 @@ layout(set = 0, binding = 0) uniform sampler2D vectorField;
 layout(location = 0) in vec2 uv;
 layout(location = 0) out vec4 vort;
 
+vec2 applyBoundaryCondition(vec2 uv, vec2 u){
+    if(uv.x <= 0 || uv.x >= 1 || uv.y <= 0 || uv.y >= 1){
+        u *= -1;
+    }
+    return u;
+}
+
 vec2 u(vec2 coord) {
-    return texture(vectorField, fract(coord)).xy;
+    return applyBoundaryCondition(coord, texture(vectorField, coord).xy);
 }
 
 void main(){

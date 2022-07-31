@@ -16,6 +16,6 @@ layout(location = 0) out vec4 quantityOut;
 void main(){
     vec2 u = texture(vectorField, uv).xy;
 
-    vec2 p = fract(uv - (0.5 * dt * u));
+    vec2 p = uv - (0.5 * dt * u);
     quantityOut = texture(sampler2D(quantity, linerSampler), p);
 }

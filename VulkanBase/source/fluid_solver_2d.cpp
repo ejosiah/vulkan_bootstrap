@@ -26,6 +26,7 @@ void FluidSolver2D::init() {
     createDescriptorSetLayouts();
     updateDescriptorSets();
     createPipelines();
+    debugBuffer = device->createBuffer(VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_TO_CPU, sizeof(glm::vec4) * width * height, "debug");
 }
 
 void FluidSolver2D::createSamplers() {
@@ -444,17 +445,6 @@ void FluidSolver2D::createPipelines() {
             .name("divergence")
         .build(divergence.layout);
 
-    pressure.pipeline =
-        builder
-            .shaderStage()
-                .fragmentShader(resource("pressure_solver.frag.spv"))
-            .layout().clear()
-                .addDescriptorSetLayouts({textureSetLayout, textureSetLayout})
-                .addPushConstantRange(VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(constants))
-            .renderPass(renderPass)
-            .name("pressure_solver")
-        .build(pressure.layout);
-
     divergenceFree.pipeline =
         builder
             .shaderStage()
@@ -535,6 +525,7 @@ void FluidSolver2D::velocityStep(VkCommandBuffer commandBuffer) {
     clearForces(commandBuffer);
     applyForces(commandBuffer);
     if(options.viscosity > MIN_FLOAT) {
+        jacobi.constants.isVectorField = 1;
         diffuse(commandBuffer, vectorField, options.viscosity);
         project(commandBuffer);
     }
@@ -570,6 +561,7 @@ void FluidSolver2D::addSource(VkCommandBuffer commandBuffer, Quantity &quantity)
 }
 
 void FluidSolver2D::diffuseQuantity(VkCommandBuffer commandBuffer, Quantity &quantity) {
+    jacobi.constants.isVectorField = 0;
     diffuse(commandBuffer, quantity.field, quantity.diffuseRate);
 }
 
