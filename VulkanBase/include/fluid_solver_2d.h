@@ -186,12 +186,6 @@ private:
     struct {
         VulkanPipeline pipeline;
         VulkanPipelineLayout layout;
-    } pressure;
-
-
-    struct {
-        VulkanPipeline pipeline;
-        VulkanPipelineLayout layout;
     } divergenceFree;
 
     struct {
@@ -220,8 +214,9 @@ private:
         VulkanPipeline pipeline;
         VulkanPipelineLayout layout;
         struct{
-            float alpha;
-            float rBeta;
+            float alpha{1};
+            float rBeta{1};
+            int isVectorField{0};
         } constants;
     } jacobi;
 
@@ -264,13 +259,13 @@ private:
     struct {
         bool advectVField = true;
         bool project = true;
-        bool showArrows = false;
+        bool showArrows = true;
         bool vorticity = false;
         int poissonIterations = 30;
         float viscosity = MIN_FLOAT;
         float dt{1.0f / 120.f};
     } options;
-
+    VulkanBuffer debugBuffer;
 public:
     VulkanRenderPass renderPass;
 };

@@ -11,11 +11,11 @@ layout(location = 0) in vec2 uv;
 layout(location = 0) out vec4 force;
 
 float vort(vec2 coord) {
-    return texture(vorticityField, fract(coord)).x;
+    return texture(vorticityField, coord).x;
 }
 
 vec2 accumForce(vec2 coord){
-    return texture(forceField, fract(coord)).xy;
+    return texture(forceField, coord).xy;
 }
 
 void main(){

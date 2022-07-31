@@ -13,8 +13,18 @@ layout(push_constant) uniform Contants{
 layout(location = 0) in vec2 uv;
 layout(location = 0) out vec4 divOut;
 
+vec2 applyBoundaryCondition(vec2 uv, vec2 u){
+    if(uv.x <= 0 || u.x >= 1){
+        u.x *= -1;
+    }
+    if(u.y <= 0 || u.y >= 1){
+        u.y *= -1;
+    }
+    return u;
+}
+
 vec2 u(vec2 coord) {
-    return texture(vectorField, fract(coord)).xy;
+    return applyBoundaryCondition(coord, texture(vectorField, coord).xy);
 }
 
 void main() {
@@ -26,4 +36,5 @@ void main() {
     float dudy = (u(uv + dy).y - u(uv - dy).y)/(2*dy.y);
 
     divOut.x = dudx + dudy;
+//    divOut.xy = uv + dy;
 }

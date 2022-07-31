@@ -71,8 +71,8 @@ void FluidSimulation::initColorField() {
         auto y = 2 * (float(i)/h) - 1;
         return glm::vec3{
                 glm::step(1.0, glm::mod(floor((x + 1.0) / 0.2) + floor((y + 1.0) / 0.2), 2.0)),
-                glm::step(1.0, glm::mod(floor((x + 1.0) / 0.2) + floor((y + 1.0) / 0.2), 2.0)),
-                glm::step(1.0, glm::mod(floor((x + 1.0) / 0.2) + floor((y + 1.0) / 0.2), 2.0))
+                glm::step(1.0, glm::mod(floor((x + 1.0) / 0.3) + floor((y + 1.0) / 0.3), 2.0)),
+                glm::step(1.0, glm::mod(floor((x + 1.0) / 0.4) + floor((y + 1.0) / 0.4), 2.0))
         };
     };
     std::vector<glm::vec4> field;
@@ -107,11 +107,11 @@ void FluidSimulation::initColorField() {
     device.setName<VK_OBJECT_TYPE_IMAGE_VIEW>(fmt::format("{}_{}", "color_field", 1), color.field.texture[1].imageView.handle);
 
     color.name = "color_field";
-//    color.update = [&](VkCommandBuffer commandBuffer, Field& field){
-//        addDyeSource(commandBuffer, field, {0.004, -0.002, -0.002}, {0.2, 0.2});
-//        addDyeSource(commandBuffer, field, {-0.002, -0.002, 0.004}, {0.5, 0.9});
-//        addDyeSource(commandBuffer, field,  {-0.002, 0.004, -0.002}, {0.8, 0.2});
-//    };
+    color.update = [&](VkCommandBuffer commandBuffer, Field& field){
+        addDyeSource(commandBuffer, field, {0.004, -0.002, -0.002}, {0.2, 0.2});
+        addDyeSource(commandBuffer, field, {-0.002, -0.002, 0.004}, {0.5, 0.9});
+        addDyeSource(commandBuffer, field,  {-0.002, 0.004, -0.002}, {0.8, 0.2});
+    };
 }
 
 void FluidSimulation::initFullScreenQuad() {

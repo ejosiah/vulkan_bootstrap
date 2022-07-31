@@ -13,11 +13,11 @@ layout(location = 0) in vec2 uv;
 layout(location = 0) out vec4 velocity_out;
 
 float p(vec2 coord) {
-    return texture(pressure, fract(coord)).x;
+    return texture(pressure, coord).x;
 }
 
 vec2 u(vec2 coord) {
-    return texture(vectorField, fract(coord)).xy;
+    return texture(vectorField, coord).xy;
 }
 
 vec2 pg(vec2 coord){
@@ -32,6 +32,5 @@ vec2 pg(vec2 coord){
 }
 
 void main() {
-
     velocity_out.xy = u(uv) - pg(uv);
 }
