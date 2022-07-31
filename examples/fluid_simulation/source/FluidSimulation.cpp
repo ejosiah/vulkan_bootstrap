@@ -42,11 +42,11 @@ void FluidSimulation::initFluidSolver() {
         for(int j = 0; j < width; j++){
             auto x = 2 * float(j)/float(width) - 1;
             auto y = 2 * float(i)/float(height) - 1;
-            glm::vec2 u{glm::sin(two_pi * y), glm::sin(two_pi * x)};
+//            glm::vec2 u{glm::sin(two_pi * y), glm::sin(two_pi * x)};
 //            glm::vec2 u{1, glm::sin(two_pi * x)};
 //            glm::vec2 u{x, y}; // divergent fields 1;
 //            glm::vec2 u{glm::sin(two_pi * x), 0}; // divergent fields 2;
-//            glm::vec2 u{y, x}; // divergent fields 3;
+            glm::vec2 u{y, x}; // divergent fields 3;
             maxLength = glm::max(glm::length(u), maxLength);
             field.emplace_back(u , 0, 0);
         }

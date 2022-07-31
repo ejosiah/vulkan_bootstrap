@@ -13,11 +13,8 @@ layout(push_constant) uniform Constants {
 };
 
 vec4 applyBoundaryCondition(vec2 uv, vec4 u){
-    if(uv.x <= 0 || u.x >= 1){
-        u.x *= -1;
-    }
-    if(u.y <= 0 || u.y >= 1){
-        u.y *= -1;
+    if(uv.x <= 0 || uv.x >= 1 || uv.y <= 0 || uv.y >= 1){
+        u *= -1;
     }
     return u;
 }

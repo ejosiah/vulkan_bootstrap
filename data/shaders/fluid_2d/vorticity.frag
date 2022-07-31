@@ -8,11 +8,8 @@ layout(location = 0) in vec2 uv;
 layout(location = 0) out vec4 vort;
 
 vec2 applyBoundaryCondition(vec2 uv, vec2 u){
-    if(uv.x <= 0 || u.x >= 1){
-        u.x *= -1;
-    }
-    if(u.y <= 0 || u.y >= 1){
-        u.y *= -1;
+    if(uv.x <= 0 || uv.x >= 1 || uv.y <= 0 || uv.y >= 1){
+        u *= -1;
     }
     return u;
 }

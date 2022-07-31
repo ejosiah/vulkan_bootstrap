@@ -260,7 +260,8 @@ private:
         bool advectVField = true;
         bool project = true;
         bool showArrows = true;
-        bool vorticity = false;
+        bool vorticity = true;
+        bool ensureBoundaryCondition = true;
         int poissonIterations = 30;
         float viscosity = MIN_FLOAT;
         float dt{1.0f / 120.f};

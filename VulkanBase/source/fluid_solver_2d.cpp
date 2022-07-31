@@ -517,28 +517,6 @@ void FluidSolver2D::runSimulation(VkCommandBuffer commandBuffer) {
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, screenQuad.vertices, &offset);
     velocityStep(commandBuffer);
     quantityStep(commandBuffer);
-
-    static bool once = true;
-    static int c = 0;
-    if (c < 10) {
-        c++;
-        once = false;
-        auto data = reinterpret_cast<glm::vec4 *>(debugBuffer.map());
-        int index = 0;
-        auto bottomLeft = data[index];
-        index = width - 1;
-        auto bottomRight = data[index];
-        index = (height - 1) * width;
-        auto topLeft = data[index];
-
-        index = (height - 1) * width + (width - 1);
-        auto topRight = data[index];
-        spdlog::info("\n\n[0, 0] => {}\n[1, 0] => {}\n[1, 0] => {}\n[1, 1] => {}\n", bottomLeft, bottomRight, topLeft, topRight);
-//        for(int i = 0; i < width; i++){
-//            spdlog::info("d[{}] => {}", i, data[i].xy());
-//        }
-        debugBuffer.unmap();
-    }
 }
 
 void FluidSolver2D::velocityStep(VkCommandBuffer commandBuffer) {
@@ -708,19 +686,6 @@ void FluidSolver2D::computeDivergence(VkCommandBuffer commandBuffer) {
         vkCmdPushConstants(commandBuffer, divergence.layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(constants), &constants);
         vkCmdDraw(commandBuffer, 4, 1, 0, 0);
     });
-
-    divergenceField.texture[0].image.transitionLayout(commandBuffer, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, DEFAULT_SUB_RANGE
-            , VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT
-            , VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
-
-    VkImageSubresourceLayers subresourceLayers{VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
-    VkExtent3D extent3D{ static_cast<uint32_t>(width), static_cast<uint32_t>(height), 1};
-    VkBufferImageCopy pRegion{0, 0, 0, subresourceLayers, {0, 0, 0}, extent3D};
-    vkCmdCopyImageToBuffer(commandBuffer, divergenceField.texture[0].image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, debugBuffer, 1, &pRegion);
-
-    divergenceField.texture[0].image.transitionLayout(commandBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, DEFAULT_SUB_RANGE
-            , VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_SHADER_READ_BIT
-            , VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 }
 
 void FluidSolver2D::solvePressure(VkCommandBuffer commandBuffer) {
