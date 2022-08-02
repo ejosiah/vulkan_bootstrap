@@ -52,7 +52,7 @@ void FluidSimulation::initFluidSolver() {
     }
 
     auto stagingBuffer = device.createStagingBuffer(BYTE_SIZE(field));
-//    stagingBuffer.copy(field);
+    stagingBuffer.copy(field);
 
     fluidSolver = FluidSolver2D{&device, &descriptorPool, &renderPass, &fileManager, {width, height}};
     fluidSolver.init();
@@ -60,6 +60,7 @@ void FluidSimulation::initFluidSolver() {
     fluidSolver.add(color);
     fluidSolver.dt((5.0f * dx)/maxLength);
     fluidSolver.add(userInputForce());
+    fluidSolver.showVectors(true);
 
 }
 
@@ -284,7 +285,6 @@ VkCommandBuffer *FluidSimulation::buildCommandBuffers(uint32_t imageIndex, uint3
     vkCmdBeginRenderPass(commandBuffer, &rPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
     fluidSolver.renderVectorField(commandBuffer);
-//    renderVectorField(commandBuffer);
     renderColorField(commandBuffer);
 
     vkCmdEndRenderPass(commandBuffer);
@@ -298,7 +298,7 @@ void FluidSimulation::renderColorField(VkCommandBuffer commandBuffer) {
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, screenQuad.vertices, &offset);
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, screenQuad.pipeline);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, screenQuad.layout
-            , 0, 1, &color.source.descriptorSet[in], 0
+            , 0, 1, &color.field.descriptorSet[in], 0
             , VK_NULL_HANDLE);
 
     vkCmdDraw(commandBuffer, 4, 1, 0, 0);

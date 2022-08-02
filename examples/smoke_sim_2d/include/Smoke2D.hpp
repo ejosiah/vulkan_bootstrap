@@ -87,9 +87,10 @@ protected:
         struct{
             glm::vec2 location{0.5, 0.98};
             float tempTarget{TARGET_TEMP};
+            float ambientTemp{AMBIENT_TEMP};
             float radius{0.001};
             float tempRate{1}; // 1
-            float densityRate{0};
+            float densityRate{1};
             float decayRate{0};
             float dt{TIME_STEP};
         } constants;
@@ -99,8 +100,8 @@ protected:
         VulkanPipelineLayout layout;
         VulkanPipeline pipeline;
         struct{
-            float densityDecayRate{1};
-            float temperatureDecayRate{0};
+            float densityDecayRate{0.001};
+            float temperatureDecayRate{0.001};
             float dt{TIME_STEP};
         } constants;
     } smokeDecay;
@@ -108,6 +109,9 @@ protected:
     struct {
         VulkanPipelineLayout layout;
         VulkanPipeline pipeline;
+        struct {
+            glm::vec3 dye = rgb(2, 255, 255);
+        } constants;
     } smokeRender;
 
     struct {
@@ -117,7 +121,7 @@ protected:
             glm::vec2 up{0, 1};
             float ambientTemp{AMBIENT_TEMP};
             float tempFactor{0.1}; // 0.1
-            float densityFactory{0};
+            float densityFactory{0.1};
         } constants;
     } buoyancyForceGen;
 

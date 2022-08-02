@@ -16,7 +16,7 @@ layout(location = 0) out vec4 valuesOut;
 void main(){
     vec2 values = texture(tempAndDensityField, fract(uv)).xy;
     float temp = values.x;
-    float density = values.x;
+    float density = values.y;
 
     valuesOut.x = temp * exp(-temperatureDecayRate * dt);
     valuesOut.y = density * exp(-densityDecayRate * dt);

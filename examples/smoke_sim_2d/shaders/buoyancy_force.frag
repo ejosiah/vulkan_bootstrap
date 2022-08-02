@@ -21,5 +21,5 @@ void main(){
     vec2 values = texture(tempAndDensityField, fract(uv)).xy;
     float temp = values.x;
     float density = values.x;
-    buoyancy.xy =  (densityFactory * density +  tempFactor * (temp - ambientTemp)) * up;
+    buoyancy.xy =  (-densityFactory * density +  tempFactor * (temp - ambientTemp)) * up;
 }

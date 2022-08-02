@@ -119,6 +119,7 @@ void Smoke2D::createRenderPipeline() {
                 .fragmentShader(resource("smoke_render.frag.spv"))
             .layout().clear()
                 .addDescriptorSetLayouts({fluidSolver.textureSetLayout})
+                .addPushConstantRange(VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(smokeRender.constants))
             .name("smoke_render")
         .build(smokeRender.layout);
 
@@ -126,6 +127,8 @@ void Smoke2D::createRenderPipeline() {
         builder
             .shaderStage()
                 .fragmentShader(resource("smoke_source.frag.spv"))
+            .colorBlendState()
+                .attachments(1)
             .layout().clear()
                 .addDescriptorSetLayout(fluidSolver.textureSetLayout)
                 .addPushConstantRange(VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(emitter.constants))
@@ -202,9 +205,10 @@ VkCommandBuffer *Smoke2D::buildCommandBuffers(uint32_t imageIndex, uint32_t &num
 
     vkCmdBeginRenderPass(commandBuffer, &rPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-    fluidSolver.renderVectorField(commandBuffer);
-    renderTemperature(commandBuffer);
+//    fluidSolver.renderVectorField(commandBuffer);
 //    renderSource(commandBuffer);
+    renderSmoke(commandBuffer);
+//    renderTemperature(commandBuffer);
 
     vkCmdEndRenderPass(commandBuffer);
 
@@ -229,6 +233,7 @@ void Smoke2D::renderSmoke(VkCommandBuffer commandBuffer) {
     VkDeviceSize offset = 0;
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, screenQuad, &offset);
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, smokeRender.pipeline);
+    vkCmdPushConstants(commandBuffer, smokeRender.layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(smokeRender.constants), &smokeRender.constants);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, smokeRender.layout
             , 0, 1, &temperatureAndDensity.field.descriptorSet[in], 0
             , VK_NULL_HANDLE);
@@ -249,6 +254,8 @@ void Smoke2D::renderSource(VkCommandBuffer commandBuffer) {
 }
 
 void Smoke2D::update(float time) {
+    auto title = fmt::format("{} - fps {}", this->title, framePerSecond);
+    glfwSetWindowTitle(window, title.c_str());
     device.graphicsCommandPool().oneTimeCommand([&](auto commandBuffer){
        fluidSolver.runSimulation(commandBuffer);
     });
@@ -299,8 +306,8 @@ void Smoke2D::initSolver() {
     initTemperatureAndDensityField();
     fluidSolver = FluidSolver2D{&device, &descriptorPool, &renderPass, &fileManager, {width, height}};
     fluidSolver.init();
-    fluidSolver.showVectors(false);
-    fluidSolver.applyVorticity(false);
+    fluidSolver.showVectors(true);
+    fluidSolver.applyVorticity(true);
     fluidSolver.add(temperatureAndDensity);
     fluidSolver.add(buoyancyForce());
 }
@@ -343,7 +350,8 @@ int main(){
     try{
 
         Settings settings;
-        settings.width = settings.height = 600;
+        settings.width = 600;
+        settings.height = 1000;
         settings.depthTest = true;
 
         auto app = Smoke2D{ settings };

@@ -212,3 +212,4 @@ using Proc = std::function<void()>;
 
 #define REPORT_ERROR(result, msg) if(result != VK_SUCCESS) throw std::runtime_error{msg}
 #define offsetOf(s,m) static_cast<uint32_t>(offsetof(s, m))
+#define rgb(r, g, b) (glm::vec3(r, g, b) * 0.0039215686274509803921568627451f)
