@@ -20,8 +20,6 @@ protected:
 
     void createDescriptorSetLayouts();
 
-    void updateDescriptorSets();
-
     void createCommandPool();
 
     void createPipelineCache();

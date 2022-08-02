@@ -573,6 +573,7 @@ void FluidSolver2D::quantityStep(VkCommandBuffer commandBuffer, Quantity &quanti
     addSource(commandBuffer, quantity);
     diffuseQuantity(commandBuffer, quantity);
     advectQuantity(commandBuffer, quantity);
+    postAdvection(commandBuffer, quantity);
 }
 
 void FluidSolver2D::clearSources(VkCommandBuffer commandBuffer, Quantity &quantity) {
@@ -600,6 +601,15 @@ void FluidSolver2D::advectQuantity(VkCommandBuffer commandBuffer, Quantity &quan
 
     advect(commandBuffer, sets,quantity.field.framebuffer[out]);
     quantity.field.swap();
+}
+
+void FluidSolver2D::postAdvection(VkCommandBuffer commandBuffer, Quantity &quantity) {
+    withRenderPass(commandBuffer, quantity.field.framebuffer[out], [&](VkCommandBuffer commandBuffer){
+       auto postAction = quantity.postAdvect(commandBuffer, quantity.field);
+       if(postAction){
+           quantity.field.swap();
+       }
+    });
 }
 
 void FluidSolver2D::applyForces(VkCommandBuffer commandBuffer) {

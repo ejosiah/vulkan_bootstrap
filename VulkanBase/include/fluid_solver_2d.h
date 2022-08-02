@@ -34,6 +34,7 @@ using ForceField = Field;
 using VorticityField = Field;
 
 using UpdateSource = std::function<void(VkCommandBuffer, Field&)>;
+using PostAdvect = std::function<bool(VkCommandBuffer, Field&)>;
 
 
 struct Quantity{
@@ -42,10 +43,13 @@ struct Quantity{
     Field source;
     float diffuseRate{0};
     UpdateSource update = [](VkCommandBuffer, Field&){};
+    PostAdvect postAdvect = [](VkCommandBuffer, Field&) { return false; };
 };
 
 class FluidSolver2D{
 public:
+    VulkanDescriptorSetLayout textureSetLayout;
+
     FluidSolver2D() = default;
 
     FluidSolver2D(VulkanDevice* device, VulkanDescriptorPool* descriptorPool, VulkanRenderPass* displayRenderPass, FileManager* fileManager, glm::vec2 gridSize);
@@ -134,6 +138,8 @@ protected:
 
     void advectQuantity(VkCommandBuffer commandBuffer, Quantity &quantity);
 
+    void postAdvection(VkCommandBuffer commandBuffer, Quantity &quantity);
+
     void computeVorticityConfinement(VkCommandBuffer commandBuffer);
 
     void applyForces(VkCommandBuffer commandBuffer);
@@ -163,10 +169,9 @@ protected:
     void computeDivergenceFreeField(VkCommandBuffer commandBuffer);
 
 private:
-    VulkanDescriptorSetLayout textureSetLayout;
     VulkanDescriptorSetLayout samplerSet;
     VulkanDescriptorSetLayout advectTextureSet;
-    VkDescriptorSet samplerDescriptorSet;
+    VkDescriptorSet samplerDescriptorSet{};
     struct {
         VulkanBuffer vertices;
         VulkanPipelineLayout layout;
@@ -214,7 +219,7 @@ private:
         VulkanPipeline pipeline;
         VulkanPipelineLayout layout;
         struct {
-            float vorticityConfinementScale{10};
+            float vorticityConfinementScale{0};
         } constants;
     } vorticityForce;
 

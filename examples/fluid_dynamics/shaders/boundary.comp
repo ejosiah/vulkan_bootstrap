@@ -18,9 +18,13 @@ layout(push_constant) uniform constants {
 void main(){
     if(gl_GlobalInvocationID.x >= N) return;
     int i = int(gl_GlobalInvocationID.x) + 1;
+    float scale = 1;
+    if(boundary == HORIZONTAL_COMPONENT_BOUNDARY || boundary == VERTICAL_COMPONENT_BOUNDARY){
+        scale = -1;
+    }
 
-    x[IX(i, 0)]     = (boundary == HORIZONTAL_COMPONENT_BOUNDARY) ? -x[IX(i, 1)] : x[IX(i, 1)];
-    x[IX(i, N + 1)] = (boundary == HORIZONTAL_COMPONENT_BOUNDARY) ? -x[IX(i, N)] : x[IX(i, N)];
-    x[IX(0, i)]     = (boundary == VERTICAL_COMPONENT_BOUNDARY)  ? -x[IX(1, i)] : x[IX(1, i)];
-    x[IX(N + 1, i)] = (boundary == VERTICAL_COMPONENT_BOUNDARY)  ? -x[IX(N, i)] : x[IX(N, i)];
+    x[IX(i, 0)]     = scale * x[IX(i, 1)];
+    x[IX(i, N + 1)] = scale * x[IX(i, N)];
+    x[IX(0, i)]     = scale * x[IX(1, i)];
+    x[IX(N + 1, i)] = scale * x[IX(N, i)];
 }

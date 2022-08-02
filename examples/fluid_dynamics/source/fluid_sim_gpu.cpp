@@ -238,10 +238,10 @@ void FluidSim::run(float speed) {
 
 void FluidSim::velocityStep(VkCommandBuffer commandBuffer, float dt, float viscosity) {
     int iterations = 80;
-    diffuseVectorField(commandBuffer, iterations);
-    swapVectorFieldBuffers();
-    project(commandBuffer, iterations); // u -> u0
-    swapVectorFieldBuffers();
+//    diffuseVectorField(commandBuffer, iterations);
+//    swapVectorFieldBuffers();
+//    project(commandBuffer, iterations); // u -> u0
+//    swapVectorFieldBuffers();
     advectVectorField(commandBuffer);
     swapVectorFieldBuffers();
     project(commandBuffer, iterations); // u -> u0

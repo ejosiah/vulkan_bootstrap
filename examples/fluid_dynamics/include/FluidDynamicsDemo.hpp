@@ -176,7 +176,7 @@ protected:
     bool showDensityField{false};
     bool showParticles{false};
     bool debug{true};
-    bool simStarted{false};
+    bool simStarted{true};
 
     static constexpr int PAINT_VECTOR_FIELD = 0;
     static constexpr int PAINT_DENSITY_FIELD = 1;

@@ -427,8 +427,8 @@ void FluidDynamicsDemo::renderUI(VkCommandBuffer commandBuffer) {
 static bool first = true;
 
 void FluidDynamicsDemo::update(float time) {
-    constants.dt = time * speed;
-
+//    constants.dt = time * speed;
+    constants.dt = 0.00833333333333333333333333333333f;
     if(simStarted){
 
 //        runInBackground([&]{
@@ -544,17 +544,17 @@ void FluidDynamicsDemo::initSimData() {
             int id = i * (N+2) + j;
             float x = 2.f * static_cast<float>(j)/static_cast<float>(N) - 1;
             float y = 2.f * static_cast<float>(i)/static_cast<float>(N) - 1;
-//            float u = sin(2 * glm::pi<float>() * y);
-//            float v = cos(2 * glm::pi<float>() * x);
+            float u = sin(2 * glm::pi<float>() * y);
+            float v = cos(2 * glm::pi<float>() * x);
 
 //            float x = static_cast<float>(i)/static_cast<float>(N) * glm::two_pi<float>();
 //            float y = static_cast<float>(j)/static_cast<float>(N) * glm::pi<float>();
 
-            float u = glm::cos(x) * glm::sin(y);
-            float v = glm::sin(x) * glm::sin(y);
+//            float u = glm::cos(x) * glm::sin(y);
+//            float v = glm::sin(x) * glm::sin(y);
 
-            simData.u[0][id] = simData.u[1][id]  = 1;
-            simData.v[0][id] = simData.v[1][id] = glm::cos(glm::two_pi<float>() * x);
+            simData.u[0][id] = simData.u[1][id]  = y;
+            simData.v[0][id] = simData.v[1][id] = x;
         }
     }
 
