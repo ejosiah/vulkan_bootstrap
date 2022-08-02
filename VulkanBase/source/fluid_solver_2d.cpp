@@ -503,7 +503,7 @@ void FluidSolver2D::createPipelines() {
                 .addDescriptorSetLayouts({textureSetLayout, textureSetLayout})
                 .addPushConstantRange(VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(addSourcePipeline.constants))
             .renderPass(renderPass)
-            .name("sources")
+            .name("add_sources")
         .build(addSourcePipeline.layout);
 
     vorticity.pipeline =
@@ -733,8 +733,8 @@ void FluidSolver2D::computeDivergence(VkCommandBuffer commandBuffer) {
 }
 
 void FluidSolver2D::solvePressure(VkCommandBuffer commandBuffer) {
-    auto alpha = -delta.x * delta.x;
-    auto rBeta = 0.25f;
+    auto alpha = -delta.x * delta.x * delta.y * delta.y;
+    auto rBeta = (1.0f/(2.0f * glm::dot(delta, delta)));
     for(int i = 0; i < options.poissonIterations; i++){
         withRenderPass(commandBuffer, pressureField.framebuffer[out], [&](auto commandBuffer){
             jacobiIteration(commandBuffer, pressureField.descriptorSet[in], divergenceField.descriptorSet[in], alpha, rBeta);
@@ -820,8 +820,8 @@ void FluidSolver2D::diffuse(VkCommandBuffer commandBuffer, Field &field, float r
             , VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 
 
-    float alpha = (delta.x * delta.x)/(timeStep * rate);
-    float rBeta = 1.0f/(4.0f + alpha);
+    float alpha = (delta.x * delta.x * delta.x * delta.y)/(timeStep * rate);
+    float rBeta = 1.0f/((2.0f * glm::dot(delta, delta)) + alpha);
     for(int i = 0; i < options.poissonIterations; i++){
         withRenderPass(commandBuffer, field.framebuffer[out], [&](auto commandBuffer){
             jacobiIteration(commandBuffer, field.descriptorSet[in], diffuseHelper.solutionDescriptorSet, alpha, rBeta);

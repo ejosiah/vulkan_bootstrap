@@ -39,5 +39,7 @@ vec4 x0(vec2 coord){
 }
 
 void main(){
-    x = (x0(uv + dx) + x0(uv - dx) + x0(uv + dy) + x0(uv - dy) + alpha * b(uv)) * rBeta;
+    float dxdx = dx.x * dx.x;
+    float dydy = dy.y * dy.y;
+    x = ((x0(uv + dx) + x0(uv - dx)) * dydy + (x0(uv + dy) + x0(uv - dy)) * dxdx + alpha * b(uv)) * rBeta;
 }
