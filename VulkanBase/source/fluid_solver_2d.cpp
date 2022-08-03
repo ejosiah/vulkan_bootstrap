@@ -545,6 +545,7 @@ void FluidSolver2D::runSimulation(VkCommandBuffer commandBuffer) {
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, screenQuad.vertices, &offset);
     velocityStep(commandBuffer);
     quantityStep(commandBuffer);
+    _elapsedTime += timeStep;
 }
 
 void FluidSolver2D::velocityStep(VkCommandBuffer commandBuffer) {
@@ -901,4 +902,8 @@ void FluidSolver2D::updateUBOs() {
 void FluidSolver2D::ensureBoundaryCondition(bool flag) {
     globalConstants.ensureBoundaryCondition = static_cast<int>(flag);
     updateUBOs();
+}
+
+float FluidSolver2D::elapsedTime() {
+    return _elapsedTime;
 }

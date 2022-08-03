@@ -123,6 +123,8 @@ public:
 
     void ensureBoundaryCondition(bool flag);
 
+    float elapsedTime();
+
 protected:
     void quantityStep(VkCommandBuffer commandBuffer);
 
@@ -261,6 +263,7 @@ private:
     glm::vec2 gridSize{};
     glm::vec2 delta{};
     float timeStep{1/120.f};
+    float _elapsedTime{};
     struct {
         glm::vec2 dx{0};
         glm::vec2 dy{0};
