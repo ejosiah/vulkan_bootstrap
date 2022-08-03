@@ -1,0 +1,24 @@
+#version 450 core
+
+#include "perlin_worley.glsl"
+
+layout(local_size_x = 32, local_size_y = 32, local_size_y = 1) in;
+
+layout(set = 0, binding = 0, rgba32f) uniform image3D image;
+
+void main(){
+    vec3 size = vec3(gl_NumWorkGroups.xyz * gl_WorkGroupSize.xyz);
+    vec3 uv = vec3(gl_GlobalInvocationID.xyz)/size;
+
+    float freq = 4.;
+
+    float pfbm= mix(1., perlinfbm(uv, 4., 7), .5);
+
+    vec4 col = vec4(0.);
+    col.g += worleyFbm(uv, freq);
+    col.b += worleyFbm(uv, freq*2.);
+    col.a += worleyFbm(uv, freq*4.);
+    col.r += remap(pfbm, 0., 1., col.g, 1.); // perlin-worley
+
+    imageStore(image, ivec2(gl_GlobalInvocationID.xyz), col);
+}
