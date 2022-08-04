@@ -1,0 +1,28 @@
+#version 460 core
+
+layout(local_size_x = 1024) in;
+
+layout(set = 0, binding = 0) buffer DATA {
+    float g_data[];
+};
+
+layout(set = 1, binding = 0) buffer SUMS {
+    float g_sums[];
+};
+
+layout(push_constant) uniform Constants{
+    int itemsPerWorkGroup;
+    int N;
+};
+
+void main(){
+    float sum = g_sums[gl_WorkGroupID.x];
+    int offset = int(gl_WorkGroupID.x * itemsPerWorkGroup);
+    int i = int(offset + gl_LocalInvocationIndex);
+    int step = int(gl_WorkGroupSize.x);
+    int n = offset + itemsPerWorkGroup;
+
+    for(i ; i < n; i += step){
+        g_data[i] += sum;
+    }
+}

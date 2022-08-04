@@ -150,6 +150,10 @@ struct VulkanCommandPool{
         return pool;
     }
 
+    operator bool() const {
+        return pool != VK_NULL_HANDLE;
+    }
+
     VkDevice device = VK_NULL_HANDLE;
     VkCommandPool pool = VK_NULL_HANDLE;
     VkQueue queue = VK_NULL_HANDLE;

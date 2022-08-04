@@ -276,6 +276,8 @@ protected:
 private:
     void setPaused(bool flag);
 
+    void cleanup0();
+
 protected:
     VulkanInstance instance;
     VulkanDebug vulkanDebug;

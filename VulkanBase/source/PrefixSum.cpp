@@ -1,6 +1,8 @@
 #include "PrefixSum.hpp"
 
-PrefixSum::PrefixSum(VulkanDevice *device) : ComputePipelines(device) {
+PrefixSum::PrefixSum(VulkanDevice *device, VulkanCommandPool* commandPool)
+: ComputePipelines(device)
+, _commandPool(commandPool){
 
 }
 

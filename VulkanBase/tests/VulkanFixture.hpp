@@ -18,6 +18,7 @@ protected:
     VulkanInstance instance;
     VulkanDevice device;
     VulkanDebug debug;
+    FileManager _fileManager;
     VulkanDescriptorPool descriptorPool;
     Settings settings;
     std::map<std::string, Pipeline> pipelines;
@@ -28,6 +29,7 @@ protected:
         spdlog::set_level(spdlog::level::warn);
         initVulkan();
         ext::init(instance);
+        initFileManager();
         postVulkanInit();
         createPipelines();
     }
@@ -38,6 +40,16 @@ protected:
         debug = VulkanDebug{ instance };
         createDevice();
         createDescriptorPool();
+    }
+
+    void initFileManager(){
+        _fileManager.addSearchPath(".");
+        // TODO install resource files to avoid relative/absolute paths specifications
+        _fileManager.addSearchPath("../../examples/fluid_dynamics");
+        _fileManager.addSearchPath("../../examples/fluid_dynamics/spv");
+        _fileManager.addSearchPath("../../data/shaders");
+        _fileManager.addSearchPath("../../data/shaders/algorithm");
+        _fileManager.addSearchPath("../../data");
     }
 
     void createDescriptorPool(){

@@ -16,6 +16,7 @@
 #include "VulkanInitializers.h"
 #include "Plugin.hpp"
 #include "VulkanRayQuerySupport.hpp"
+#include "gpu/algorithm.h"
 
 namespace chrono = std::chrono;
 
@@ -48,6 +49,8 @@ void VulkanBaseApp::init() {
     addPluginExtensions();
     initVulkan();
     postVulkanInit();
+
+    gpu::init(device, fileManager);
 
     createSwapChain();
     createSyncObjects();
@@ -230,7 +233,7 @@ void VulkanBaseApp::run() {
     init();
     mainLoop();
     cleanupPlugins();
-    cleanup();
+    cleanup0();
 }
 
 void VulkanBaseApp::mainLoop() {
@@ -787,4 +790,9 @@ void VulkanBaseApp::processIdleProcs() {
 
 void VulkanBaseApp::runInBackground(Proc &&proc) {
     threadPool.async(proc);
+}
+
+void VulkanBaseApp::cleanup0() {
+    cleanup();
+    gpu::shutdown();
 }

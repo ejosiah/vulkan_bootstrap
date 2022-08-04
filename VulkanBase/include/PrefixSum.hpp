@@ -5,7 +5,7 @@
 
 class PrefixSum : public ComputePipelines{
 public:
-    explicit PrefixSum(VulkanDevice* device = nullptr);
+    PrefixSum(VulkanDevice* device = nullptr, VulkanCommandPool* commandPool = nullptr);
 
     void init();
 
@@ -19,7 +19,8 @@ public:
         void* source = reinterpret_cast<void*>(&*_first);
         VulkanBuffer buffer = device->createCpuVisibleBuffer(source, size, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
         updateDataDescriptorSets(buffer);
-        device->graphicsCommandPool().oneTimeCommand([&buffer, this](auto cmdBuffer){
+        _commandPool = _commandPool ? _commandPool : const_cast<VulkanCommandPool*>(&device->graphicsCommandPool());
+        _commandPool->oneTimeCommand([&buffer, this](auto cmdBuffer) {
             operator()(cmdBuffer, buffer);
         });
         void* result = buffer.map();
@@ -45,6 +46,7 @@ private:
     VulkanBuffer sumsBuffer;
     uint32_t bufferOffsetAlignment;
     VulkanDescriptorPool descriptorPool;
+    VulkanCommandPool* _commandPool{};
 
     struct {
         int itemsPerWorkGroup = ITEMS_PER_WORKGROUP;

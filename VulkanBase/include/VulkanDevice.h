@@ -346,7 +346,7 @@ struct VulkanDevice{
             barrier.srcAccessMask = 0;
             barrier.dstAccessMask = 0;
             barrier.srcQueueFamilyIndex = *qfIndex;
-            barrier.dstQueueFamilyIndex = *queueFamilyIndex.graphics;
+            barrier.dstQueueFamilyIndex = queueFamilyIndex.graphics.has_value() ? *queueFamilyIndex.graphics : *qfIndex;
             barrier.buffer = buffer;
             barrier.offset = 0;
             barrier.size = buffer.size;
