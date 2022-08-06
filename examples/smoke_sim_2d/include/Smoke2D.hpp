@@ -14,6 +14,10 @@ protected:
 
     void createDescriptorPool();
 
+    void createDescriptorSet();
+
+    void updateDescriptorSets();
+
     void createCommandPool();
 
     void createPipelineCache();
@@ -22,9 +26,13 @@ protected:
 
     void createComputePipeline();
 
+    void initAmbientTempBuffer();
+
     void initTemperatureAndDensityField();
 
     void initSolver();
+
+    void copy(VkCommandBuffer commandBuffer, Texture& source, const VulkanBuffer& destination);
 
     void onSwapChainDispose() override;
 
@@ -51,6 +59,7 @@ protected:
     void onPause() override;
 
     ExternalForce buoyancyForce();
+
 
 //#define toKelvin(celsius) (273.15f + celsius)
 #define toKelvin(celsius) (celsius)
@@ -93,6 +102,7 @@ protected:
             float densityRate{1};
             float decayRate{0};
             float dt{TIME_STEP};
+            float time{0};
         } constants;
     } emitter;
 
@@ -100,8 +110,8 @@ protected:
         VulkanPipelineLayout layout;
         VulkanPipeline pipeline;
         struct{
-            float densityDecayRate{0.001};
-            float temperatureDecayRate{0.001};
+            float densityDecayRate{0};
+            float temperatureDecayRate{0};
             float dt{TIME_STEP};
         } constants;
     } smokeDecay;
@@ -119,7 +129,6 @@ protected:
         VulkanPipeline pipeline;
         struct{
             glm::vec2 up{0, 1};
-            float ambientTemp{AMBIENT_TEMP};
             float tempFactor{0.1}; // 0.1
             float densityFactory{0.1};
         } constants;
@@ -133,6 +142,14 @@ protected:
 
     TemperatureAndDensity temperatureAndDensity;
     FluidSolver2D fluidSolver;
+    VulkanDescriptorSetLayout ambientTempSet;
+    VkDescriptorSet ambientTempDescriptorSet;
+    VulkanBuffer ambientTempBuffer;
+    float* ambientTemp{};
+    float* temps;
+    VulkanBuffer tempField;
+    VulkanBuffer debugBuffer;
+    bool dynamicAmbientTemp{false};
 
     static constexpr int in{0};
     static constexpr int out{1};

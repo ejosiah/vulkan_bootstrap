@@ -1,6 +1,7 @@
 #include "Smoke2D.hpp"
 #include "GraphicsPipelineBuilder.hpp"
 #include "DescriptorSetBuilder.hpp"
+#include "gpu/algorithm.h"
 
 Smoke2D::Smoke2D(const Settings& settings) : VulkanBaseApp("2D Smoke Simulation", settings) {
     fileManager.addSearchPath(".");
@@ -16,13 +17,26 @@ Smoke2D::Smoke2D(const Settings& settings) : VulkanBaseApp("2D Smoke Simulation"
 }
 
 void Smoke2D::initApp() {
+    initAmbientTempBuffer();
     initFullScreenQuad();
     createDescriptorPool();
+    createDescriptorSet();
     initSolver();
+    updateDescriptorSets();
     createCommandPool();
     createPipelineCache();
     createRenderPipeline();
     createComputePipeline();
+}
+
+void Smoke2D::initAmbientTempBuffer() {
+    auto temp = AMBIENT_TEMP;
+    ambientTempBuffer = device.createCpuVisibleBuffer(&temp, sizeof(float), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+    tempField = device.createBuffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT
+            , VMA_MEMORY_USAGE_CPU_TO_GPU, width * height * sizeof(float));
+    debugBuffer = device.createStagingBuffer(sizeof(glm::vec4) * width * height);
+    ambientTemp = reinterpret_cast<float*>(ambientTempBuffer.map());
+    temps = reinterpret_cast<float*>(tempField.map());
 }
 
 void Smoke2D::initFullScreenQuad() {
@@ -53,6 +67,43 @@ void Smoke2D::createDescriptorPool() {
             }
     };
     descriptorPool = device.createDescriptorPool(maxSets, poolSizes, VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT);
+
+}
+
+void Smoke2D::createDescriptorSet() {
+    ambientTempSet =
+        device.descriptorSetLayoutBuilder()
+            .binding(0)
+                .descriptorType(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
+                .descriptorCount(1)
+                .shaderStages(VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_FRAGMENT_BIT)
+            .binding(1)
+                .descriptorType(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
+                .descriptorCount(1)
+                .shaderStages(VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_FRAGMENT_BIT)
+        .createLayout();
+
+    ambientTempDescriptorSet = descriptorPool.allocate({ ambientTempSet }).front();
+}
+
+void Smoke2D::updateDescriptorSets() {
+    auto writes = initializers::writeDescriptorSets<2>();
+
+    writes[0].dstSet = ambientTempDescriptorSet;
+    writes[0].dstBinding = 0;
+    writes[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    writes[0].descriptorCount = 1;
+    VkDescriptorBufferInfo inInfo{ tempField, 0, VK_WHOLE_SIZE};
+    writes[0].pBufferInfo = &inInfo;
+
+    writes[1].dstSet = ambientTempDescriptorSet;
+    writes[1].dstBinding = 1;
+    writes[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    writes[1].descriptorCount = 1;
+    VkDescriptorBufferInfo outInfo{ambientTempBuffer, 0, VK_WHOLE_SIZE};
+    writes[1].pBufferInfo = &outInfo;
+
+    device.updateDescriptorSets(writes);
 
 }
 
@@ -141,7 +192,7 @@ void Smoke2D::createRenderPipeline() {
             .shaderStage()
                 .fragmentShader(resource("buoyancy_force.frag.spv"))
             .layout().clear()
-                .addDescriptorSetLayouts({fluidSolver.textureSetLayout, fluidSolver.textureSetLayout})
+                .addDescriptorSetLayouts({fluidSolver.textureSetLayout, fluidSolver.textureSetLayout , ambientTempSet})
                 .addPushConstantRange(VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(buoyancyForceGen.constants))
             .renderPass(fluidSolver.renderPass)
             .name("buoyancy_force")
@@ -161,10 +212,10 @@ void Smoke2D::createRenderPipeline() {
 }
 
 void Smoke2D::createComputePipeline() {
-    auto module = VulkanShaderModule{ "../../data/shaders/pass_through.comp.spv", device};
+    auto module = VulkanShaderModule{ resource("temp_image_buffer.comp.spv"), device};
     auto stage = initializers::shaderStage({ module, VK_SHADER_STAGE_COMPUTE_BIT});
 
-    compute.layout = device.createPipelineLayout();
+    compute.layout = device.createPipelineLayout({fluidSolver.textureSetLayout, ambientTempSet});
 
     auto computeCreateInfo = initializers::computePipelineCreateInfo();
     computeCreateInfo.stage = stage;
@@ -254,7 +305,7 @@ void Smoke2D::renderSource(VkCommandBuffer commandBuffer) {
 }
 
 void Smoke2D::update(float time) {
-    auto title = fmt::format("{} - fps {}", this->title, framePerSecond);
+    auto title = fmt::format("{}, temperature {:.3f}, fps {}", this->title, *ambientTemp, framePerSecond);
     glfwSetWindowTitle(window, title.c_str());
     device.graphicsCommandPool().oneTimeCommand([&](auto commandBuffer){
        fluidSolver.runSimulation(commandBuffer);
@@ -262,12 +313,31 @@ void Smoke2D::update(float time) {
 }
 
 void Smoke2D::checkAppInputs() {
-    VulkanBaseApp::checkAppInputs();
+    if(mouse.left.released){
+        static Camera camera{};
+        glm::vec2 pos = mousePositionToWorldSpace(camera);
+        pos.y *= -1;
+        pos = .5f * pos + .5f;
+        spdlog::info("cam pos: {}", pos);
+        device.graphicsCommandPool().oneTimeCommand([&](auto commandBuffer){
+           temperatureAndDensity.source.texture[in].image.copyToBuffer(commandBuffer, debugBuffer);
+        });
+        auto debug = reinterpret_cast<glm::vec2*>(debugBuffer.map());
+        for(int i = 0; i < height; i++){
+            for(int j = 0; j < width; j++){
+                int index = i * width + j;
+                auto value = debug[index];
+                if(value.x > 0){
+                   spdlog::info("temp at [{}, {}] => {}", j, i, value.x);
+                }
+            }
+        }
+        debugBuffer.unmap();
+    }
 }
 
 void Smoke2D::cleanup() {
-    // TODO save pipeline cache
-    VulkanBaseApp::cleanup();
+    ambientTempBuffer.unmap();
 }
 
 void Smoke2D::onPause() {
@@ -314,6 +384,7 @@ void Smoke2D::initSolver() {
 
 void Smoke2D::emitSmoke(VkCommandBuffer commandBuffer, Field &field) {
     emitter.constants.dt = fluidSolver.dt();
+    emitter.constants.time = fluidSolver.elapsedTime();
     fluidSolver.withRenderPass(commandBuffer, field.framebuffer[out], [&](auto commandBuffer){
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, emitter.pipeline);
         vkCmdPushConstants(commandBuffer, emitter.layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(emitter.constants), &emitter.constants);
@@ -335,14 +406,30 @@ bool Smoke2D::decaySmoke(VkCommandBuffer commandBuffer, Field &field) {
 
 ExternalForce Smoke2D::buoyancyForce() {
     return [&](VkCommandBuffer commandBuffer, VkDescriptorSet descriptorSet){
-        static std::array<VkDescriptorSet, 2> sets;
+        static std::array<VkDescriptorSet, 3> sets;
         sets[0] = descriptorSet;
         sets[1] = temperatureAndDensity.field.descriptorSet[in];
+        sets[2] = ambientTempDescriptorSet;
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, buoyancyForceGen.pipeline);
         vkCmdPushConstants(commandBuffer, buoyancyForceGen.layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(buoyancyForceGen.constants), &buoyancyForceGen.constants);
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, buoyancyForceGen.layout, 0, COUNT(sets), sets.data(), 0, VK_NULL_HANDLE);
         vkCmdDraw(commandBuffer, 4, 1, 0, 0);
     };
+}
+
+void Smoke2D::copy(VkCommandBuffer commandBuffer, Texture &source, const VulkanBuffer& destination) {
+    static std::array<VkDescriptorSet, 2> sets;
+    sets[0] = temperatureAndDensity.field.descriptorSet[in];
+    sets[1] = ambientTempDescriptorSet;
+    addImageMemoryBarriers(commandBuffer, { source.image });
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, compute.pipeline);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, compute.layout,
+                            0, COUNT(sets), sets.data(), 0, VK_NULL_HANDLE);
+
+    uint32_t groupCountX = glm::min(1, width/32);
+    uint32_t groupCountY = glm::min(1, height/32);
+    vkCmdDispatch(commandBuffer, groupCountX, groupCountY, 1);
+    addBufferMemoryBarriers(commandBuffer, { destination });
 }
 
 
@@ -352,7 +439,6 @@ int main(){
         Settings settings;
         settings.width = 600;
         settings.height = 1000;
-        settings.depthTest = true;
 
         auto app = Smoke2D{ settings };
         app.run();

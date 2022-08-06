@@ -383,7 +383,7 @@ float sign(int a, int b){
     return a == b ? -1 : 1;
 }
 
-int main(){
+int mainold(){
 
     constexpr int n = 8;
     constexpr int N = n * n;
@@ -438,6 +438,24 @@ int main(){
         }
         fmt::print("\n");
     }
+    return 0;
 }
 
+#define toKelvin(celsius) (celsius)
 
+static constexpr float MIN_TEMP = toKelvin(-20);  // celsius
+static constexpr float AMBIENT_TEMP = toKelvin(0); // celsius
+static constexpr float MAX_TEMP = toKelvin(100); // celsius
+static constexpr float TARGET_TEMP = toKelvin(150); // celsius
+static constexpr float TIME_STEP = 0.008333333333; // seconds
+
+int main(){
+    glm::vec2 up{0, 1};
+    float tempFactor{0.1}; // 0.1
+    float densityFactory{0.1};
+    float temp = 22466666.f;
+    float density = 171530.453;
+    float ambientTemp{0};
+    auto buoyancy =  (-densityFactory * density +  tempFactor * (temp - ambientTemp)) * up;
+    fmt::print("{}", buoyancy);
+}

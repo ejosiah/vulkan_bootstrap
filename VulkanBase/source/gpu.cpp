@@ -4,6 +4,7 @@
 #include "memory"
 #include "fmt/format.h"
 #include <array>
+#include <spdlog/spdlog.h>
 
 namespace gpu {
 
@@ -45,11 +46,11 @@ namespace gpu {
                     .binding(0)
                         .descriptorType(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
                         .descriptorCount(1)
-                        .shaderStages(VK_SHADER_STAGE_COMPUTE_BIT)
+                        .shaderStages(VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_FRAGMENT_BIT)
                     .binding(1)
                         .descriptorType(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
                         .descriptorCount(1)
-                        .shaderStages(VK_SHADER_STAGE_COMPUTE_BIT)
+                        .shaderStages(VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_FRAGMENT_BIT)
                 .createLayout();
         }
 
@@ -190,7 +191,7 @@ namespace gpu {
                 .binding(0)
                     .descriptorCount(1)
                     .descriptorType(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
-                    .shaderStages(VK_SHADER_STAGE_COMPUTE_BIT)
+                    .shaderStages(VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_FRAGMENT_BIT)
                 .createLayout();
 
             inoutSetLayout =
@@ -198,11 +199,11 @@ namespace gpu {
                     .binding(0)
                         .descriptorType(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
                         .descriptorCount(1)
-                        .shaderStages(VK_SHADER_STAGE_COMPUTE_BIT)
+                        .shaderStages(VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_FRAGMENT_BIT)
                     .binding(1)
                         .descriptorType(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
                         .descriptorCount(1)
-                        .shaderStages(VK_SHADER_STAGE_COMPUTE_BIT)
+                        .shaderStages(VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_FRAGMENT_BIT)
                 .createLayout();
 
             auto sets = descriptorPool.allocate({ inoutSetLayout, inoutSetLayout, inoutSetLayout });
@@ -346,5 +347,9 @@ namespace gpu {
     void reduce(VkCommandBuffer commandBuffer, VkDescriptorSet inOutDescriptorSet, VulkanBuffer& input, Operation operation) {
         assert(g_scan != nullptr);
         g_scan->reduce(commandBuffer, input, inOutDescriptorSet);
+    }
+
+    float lastSum() {
+        return g_scan->lastSum();
     }
 }

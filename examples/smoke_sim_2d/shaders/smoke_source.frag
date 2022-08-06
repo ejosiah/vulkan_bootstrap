@@ -13,6 +13,7 @@ layout(push_constant) uniform Constants{
     float densityRate;
     float decayRate;
     float dt;
+    float time;
 };
 
 layout(location = 0) in vec2 uv;
@@ -29,6 +30,7 @@ void main(){
 
     float density = values.y;
     float newDensity = density + densityRate * dt;
+//    newDensity *= exp(-decayRate * time);
 
     vec2 d = (location - uv);
     valuesOut.x = newTemp * exp(-dot(d, d)/radius);

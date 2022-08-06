@@ -25,4 +25,6 @@ namespace gpu {
 
     std::string resource(const std::string& name);
 
+    float lastSum();
+
 }

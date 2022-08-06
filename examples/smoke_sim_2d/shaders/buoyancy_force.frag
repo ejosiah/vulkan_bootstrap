@@ -3,9 +3,12 @@
 layout(set = 0, binding = 0) uniform sampler2D forceField;
 layout(set = 1, binding = 0) uniform sampler2D tempAndDensityField;
 
+layout(set = 2, binding = 1) buffer Ubo {
+    float ambientTemp;
+};
+
 layout(push_constant) uniform Constants {
     vec2 up;
-    float ambientTemp;
     float tempFactor;
     float densityFactory;
 };

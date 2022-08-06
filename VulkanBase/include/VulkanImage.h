@@ -4,6 +4,7 @@
 #include "VulkanCopyable.h"
 #include "VulkanCommandBuffer.h"
 #include "VulkanRAII.h"
+#include "VulkanBuffer.h"
 
 static const VkImageSubresourceRange DEFAULT_SUB_RANGE{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
 
@@ -167,6 +168,23 @@ struct VulkanImage : public Copyable{
         ERR_GUARD_VULKAN(vkCreateImageView(device, &createInfo, nullptr, &view));
 
         return VulkanImageView{ device, view };
+    }
+    
+    void copyToBuffer(VkCommandBuffer commandBuffer, const VulkanBuffer& buffer, VkImageLayout oldLayout = VK_IMAGE_LAYOUT_UNDEFINED){
+        oldLayout = oldLayout == VK_IMAGE_LAYOUT_UNDEFINED ? currentLayout : oldLayout;
+        transitionLayout(commandBuffer, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL
+                , DEFAULT_SUB_RANGE, VK_ACCESS_SHADER_READ_BIT
+                , VK_ACCESS_TRANSFER_READ_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
+                , VK_PIPELINE_STAGE_TRANSFER_BIT);
+
+        VkBufferImageCopy region{0, 0, 0
+                                 , {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1}
+                                 , {0, 0, 0}, dimension};
+        vkCmdCopyImageToBuffer(commandBuffer, image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, buffer, 1, &region);
+
+        transitionLayout(commandBuffer, oldLayout
+                , DEFAULT_SUB_RANGE, VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_SHADER_READ_BIT
+                , VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
     }
 
     VkDevice device = VK_NULL_HANDLE;

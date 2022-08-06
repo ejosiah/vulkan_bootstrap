@@ -5,6 +5,7 @@ layout(set = 0, binding = 0) uniform Globals{
     vec2 dy;
     float dt;
     int ensureBoundaryCondition;
+    int useHermite;
 };
 
 #include "common.glsl"
@@ -23,7 +24,7 @@ void main(){
 
     vec2 p0 = floor(p - 0.5) + 0.5;
     vec2 f = p - p0;
-    vec2 t = f * f * (3 - 2 * f);
+    vec2 t = bool(useHermite) ? f * f * (3 - 2 * f) : f;
     p0  = p0 * (dx + dy);
     vec2 p1 = p0 + dx;
     vec2 p2 = p0 + dy;

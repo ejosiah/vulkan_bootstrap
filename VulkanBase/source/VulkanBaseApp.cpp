@@ -33,6 +33,11 @@ VulkanBaseApp::VulkanBaseApp(std::string_view name, const Settings& settings, st
 {
     appInstance = this;
     this->settings.deviceExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+    fileManager.addSearchPath("../../data/shaders");
+    fileManager.addSearchPath("../../data/models");
+    fileManager.addSearchPath("../../data/textures");
+    fileManager.addSearchPath("../../data");
+    fileManager.addSearchPath("../../data/shaders/fluid_2d");
 }
 
 VulkanBaseApp::~VulkanBaseApp(){
@@ -795,4 +800,39 @@ void VulkanBaseApp::runInBackground(Proc &&proc) {
 void VulkanBaseApp::cleanup0() {
     cleanup();
     gpu::shutdown();
+}
+
+void VulkanBaseApp::addBufferMemoryBarriers(VkCommandBuffer commandBuffer, const std::vector<VulkanBuffer> &buffers
+                                            ,VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask) {
+    std::vector<VkBufferMemoryBarrier> barriers(buffers.size());
+
+    for(int i = 0; i < buffers.size(); i++) {
+        barriers[i].sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+        barriers[i].srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+        barriers[i].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        barriers[i].offset = 0;
+        barriers[i].buffer = buffers[i];
+        barriers[i].size = buffers[i].size;
+    }
+
+    vkCmdPipelineBarrier(commandBuffer, srcStageMask, dstStageMask, 0, 0,nullptr
+                         , COUNT(barriers), barriers.data(), 0, nullptr);
+}
+
+void VulkanBaseApp::addImageMemoryBarriers(VkCommandBuffer commandBuffer, const std::vector<std::reference_wrapper<VulkanImage>> &images,
+                                           VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask) {
+    std::vector<VkImageMemoryBarrier> barriers(images.size());
+
+    for(int i = 0; i < images.size(); i++) {
+        barriers[i].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        barriers[i].srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT; // TODO add as param
+        barriers[i].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;  // TODO add as param
+        barriers[i].oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        barriers[i].newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        barriers[i].image = images[i].get();
+        barriers[i].subresourceRange = DEFAULT_SUB_RANGE;
+    }
+
+    vkCmdPipelineBarrier(commandBuffer, srcStageMask, dstStageMask, 0, 0,nullptr
+            , 0, nullptr, COUNT(barriers), barriers.data());
 }

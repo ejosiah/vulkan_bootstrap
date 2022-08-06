@@ -1,0 +1,22 @@
+#version 450 core
+
+layout(local_size_x = 32, local_size_y = 32) in;
+
+layout(set = 0, binding = 0) uniform sampler2D temperatureField;
+layout(set = 1, binding = 0) buffer BUFFER {
+    float destination[];
+};
+
+vec2 uv(){
+    vec2 pixelOffset = vec2(.5);
+    vec2 resolution = vec2(gl_NumWorkGroups.xy * gl_WorkGroupSize.xy);
+    return (vec2(gl_GlobalInvocationID.xy) + pixelOffset)/resolution;
+}
+
+void main(){
+    vec2 size = vec2(gl_NumWorkGroups.xy * gl_WorkGroupSize.xy);
+    int index = int(gl_GlobalInvocationID.y * size.x + gl_GlobalInvocationID.x);
+
+    destination[index] = texture(temperatureField, uv()).x;
+}
+

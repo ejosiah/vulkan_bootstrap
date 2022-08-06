@@ -174,7 +174,7 @@ void FluidSolver2D::createDescriptorSetLayouts() {
             .binding(0)
                 .descriptorType(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
                 .descriptorCount(1)
-                .shaderStages(VK_SHADER_STAGE_FRAGMENT_BIT)
+                .shaderStages(VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT)
             .createLayout();
 
     textureSetLayout =
@@ -183,7 +183,7 @@ void FluidSolver2D::createDescriptorSetLayouts() {
             .binding(0)
                 .descriptorType(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
                 .descriptorCount(1)
-                .shaderStages(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT)
+                .shaderStages(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT)
                 .immutableSamplers(valueSampler)
             .createLayout();
     
@@ -202,7 +202,7 @@ void FluidSolver2D::createDescriptorSetLayouts() {
             .binding(0)
             .descriptorType(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
             .descriptorCount(1)
-            .shaderStages(VK_SHADER_STAGE_FRAGMENT_BIT)
+            .shaderStages(VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT)
         .createLayout();
 
     auto sets = descriptorPool->allocate(
