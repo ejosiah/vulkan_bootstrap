@@ -12,6 +12,10 @@ protected:
 
     void initCanvas();
 
+    void loadModels();
+
+    void loadBunny();
+
     void createDescriptorPool();
 
     void createDescriptorSetLayouts();

@@ -17,8 +17,9 @@ ShaderBindingTableDemo::ShaderBindingTableDemo(const Settings& settings) : Vulka
 void ShaderBindingTableDemo::initApp() {
     initCanvas();
     initCamera();
-    createInverseCam();
     createDescriptorPool();
+    loadModels();
+    createInverseCam();
     createDescriptorSetLayouts();
     updateDescriptorSets();
     createCommandPool();
@@ -36,6 +37,54 @@ void ShaderBindingTableDemo::initCanvas() {
     device.graphicsCommandPool().oneTimeCommand([&](auto commandBuffer){
        textures::transfer(commandBuffer, stagingBuffer, canvas.image, {width, height}, VK_IMAGE_LAYOUT_GENERAL);
     });
+}
+
+void ShaderBindingTableDemo::loadModels() {
+    std::vector<rt::MeshObjectInstance> instances;
+    VulkanDrawable bunny;
+    loadBunny();
+
+    rt::MeshObjectInstance bunnyInstance{};
+    bunnyInstance.object = rt::TriangleMesh{ &drawables["bunny"]};
+    bunnyInstance.hitGroupId = 0;
+    bunnyInstance.xform = glm::rotate(glm::mat4(1), -glm::half_pi<float>(), {1, 0, 0});
+    bunnyInstance.xform = glm::translate(bunnyInstance.xform, -drawables["bunny"].bounds.min);
+    bunnyInstance.xformIT = glm::inverseTranspose(bunnyInstance.xform);
+    instances.push_back(bunnyInstance);
+
+    bunnyInstance.hitGroupId = 196;
+    bunnyInstance.xform = glm::translate(bunnyInstance.xform, glm::vec3(1, 0, 0));
+    instances.push_back(bunnyInstance);
+    createAccelerationStructure(instances);
+}
+
+void ShaderBindingTableDemo::loadBunny() {
+    phong::VulkanDrawableInfo info{};
+    info.vertexUsage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+    info.indexUsage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+    info.materialUsage |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+    info.materialIdUsage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+    info.generateMaterialId = true;
+    info.vertexUsage += VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    info.indexUsage += VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+
+    VulkanDrawable drawable;
+    phong::load(resource("bunny.obj"), device, descriptorPool, drawable, info, true, 1);
+
+    // bunny is Left handed so we need to flip its normals
+    auto vertexBuffer = device.createBuffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                                            VMA_MEMORY_USAGE_CPU_ONLY, drawable.vertexBuffer.size);
+
+    device.copy(drawable.vertexBuffer, vertexBuffer, drawable.vertexBuffer.size, 0, 0);
+
+    auto vertices = reinterpret_cast<Vertex*>(vertexBuffer.map());
+    auto size = vertexBuffer.size/sizeof(Vertex);
+    for(int i = 0; i < size; i++){
+        vertices[i].normal *= -1;
+    }
+    vertexBuffer.unmap();
+    device.copy(vertexBuffer, drawable.vertexBuffer, vertexBuffer.size);
+    drawables.insert(std::make_pair("bunny", std::move(drawable)));
 }
 
 void ShaderBindingTableDemo::createDescriptorPool() {
@@ -66,7 +115,7 @@ void ShaderBindingTableDemo::createDescriptorPool() {
 void ShaderBindingTableDemo::createDescriptorSetLayouts() {
     raytrace.descriptorSetLayout =
         device.descriptorSetLayoutBuilder()
-            .name("ray_trace")
+            .name("raytrace_base")
             .binding(0)
                 .descriptorType(VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR)
                 .descriptorCount(1)
@@ -80,13 +129,54 @@ void ShaderBindingTableDemo::createDescriptorSetLayouts() {
                 .descriptorCount(1)
                 .shaderStages(VK_SHADER_STAGE_RAYGEN_BIT_KHR)
         .createLayout();
+
+    raytrace.instanceDescriptorSetLayout =
+        device.descriptorSetLayoutBuilder()
+            .name("raytrace_instance")
+            .binding(0) // materials
+                .descriptorType(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
+                .descriptorCount(1)
+                .shaderStages(VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
+            .binding(1) // material ids
+                .descriptorType(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
+                .descriptorCount(1)
+                .shaderStages(VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
+            .binding(2) // scene objects
+                .descriptorType(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
+                .descriptorCount(1)
+                .shaderStages(VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
+        .createLayout();
+
+    raytrace.vertexDescriptorSetLayout =
+        device.descriptorSetLayoutBuilder()
+            .name("raytrace_vertex")
+            .binding(0) // vertex buffer binding
+                .descriptorType(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
+                .descriptorCount(1)
+                .shaderStages(VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
+            .binding(1)     // index buffer bindings
+                .descriptorType(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
+                .descriptorCount(1)
+                .shaderStages(VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
+            .binding(2)     // vertex offset buffer
+                .descriptorType(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
+                .descriptorCount(1)
+                .shaderStages(VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
+        .createLayout();
 }
 
 void ShaderBindingTableDemo::updateDescriptorSets() {
-    auto sets = descriptorPool.allocate( { raytrace.descriptorSetLayout });
+    auto sets = descriptorPool.allocate( { raytrace.descriptorSetLayout, raytrace.instanceDescriptorSetLayout, raytrace.vertexDescriptorSetLayout });
     raytrace.descriptorSet = sets[0];
-    
-    auto writes = initializers::writeDescriptorSets<3>();
+    device.setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>("raytrace_base", raytrace.descriptorSet);
+
+    raytrace.instanceDescriptorSet = sets[1];
+    device.setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>("raytrace_instance", raytrace.instanceDescriptorSet);
+
+    raytrace.vertexDescriptorSet = sets[2];
+    device.setName<VK_OBJECT_TYPE_DESCRIPTOR_SET>("raytrace_vertex", raytrace.vertexDescriptorSet);
+
+    auto writes = initializers::writeDescriptorSets<9>();
     
     VkWriteDescriptorSetAccelerationStructureKHR asWrites{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR};
     asWrites.accelerationStructureCount = 1;
@@ -110,6 +200,74 @@ void ShaderBindingTableDemo::updateDescriptorSets() {
     writes[2].descriptorCount = 1;
     VkDescriptorImageInfo imageInfo{ VK_NULL_HANDLE, canvas.imageView, VK_IMAGE_LAYOUT_GENERAL};
     writes[2].pImageInfo = &imageInfo;
+
+    std::array<VkDescriptorBufferInfo, 1> materialBufferInfo{};
+    materialBufferInfo[0].buffer = drawables["bunny"].materialBuffer;
+    materialBufferInfo[0].offset = 0;
+    materialBufferInfo[0].range = VK_WHOLE_SIZE;
+
+    writes[3].dstSet = raytrace.instanceDescriptorSet;
+    writes[3].dstBinding = 0;
+    writes[3].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    writes[3].descriptorCount = COUNT(materialBufferInfo);
+    writes[3].pBufferInfo = materialBufferInfo.data();
+
+    // instance descriptorSet
+    std::array<VkDescriptorBufferInfo, 1> matIdBufferInfo{};
+    matIdBufferInfo[0].buffer = drawables["bunny"].materialIdBuffer;
+    matIdBufferInfo[0].offset = 0;
+    matIdBufferInfo[0].range = VK_WHOLE_SIZE;
+
+    writes[4].dstSet = raytrace.instanceDescriptorSet;
+    writes[4].dstBinding = 1;
+    writes[4].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    writes[4].descriptorCount = COUNT(matIdBufferInfo);
+    writes[4].pBufferInfo = matIdBufferInfo.data();
+
+    VkDescriptorBufferInfo sceneBufferInfo{};
+    sceneBufferInfo.buffer = sceneObjectBuffer;
+    sceneBufferInfo.offset = 0;
+    sceneBufferInfo.range = VK_WHOLE_SIZE;
+
+    writes[5].dstSet= raytrace.instanceDescriptorSet;
+    writes[5].dstBinding = 2;
+    writes[5].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    writes[5].descriptorCount = 1;
+    writes[5].pBufferInfo = &sceneBufferInfo;
+
+    // vertex descriptorSet
+    std::array<VkDescriptorBufferInfo, 1> vertexBufferInfo{};
+    vertexBufferInfo[0].buffer = drawables["bunny"].vertexBuffer;
+    vertexBufferInfo[0].offset = 0;
+    vertexBufferInfo[0].range = VK_WHOLE_SIZE;
+
+    writes[6].dstSet = raytrace.vertexDescriptorSet;
+    writes[6].dstBinding = 0;
+    writes[6].descriptorCount = COUNT(vertexBufferInfo);
+    writes[6].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    writes[6].pBufferInfo = vertexBufferInfo.data();
+
+    std::array<VkDescriptorBufferInfo, 1> indexBufferInfo{};
+    indexBufferInfo[0].buffer = drawables["bunny"].indexBuffer;
+    indexBufferInfo[0].offset = 0;
+    indexBufferInfo[0].range = VK_WHOLE_SIZE;
+
+    writes[7].dstSet = raytrace.vertexDescriptorSet;
+    writes[7].dstBinding = 1;
+    writes[7].descriptorCount = COUNT(indexBufferInfo);
+    writes[7].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    writes[7].pBufferInfo = indexBufferInfo.data();
+
+    std::array<VkDescriptorBufferInfo, 1> offsetBufferInfo{};
+    offsetBufferInfo[0].buffer = drawables["bunny"].offsetBuffer;
+    offsetBufferInfo[0].offset = 0;
+    offsetBufferInfo[0].range = VK_WHOLE_SIZE;
+
+    writes[8].dstSet = raytrace.vertexDescriptorSet;
+    writes[8].dstBinding = 2;
+    writes[8].descriptorCount = COUNT(offsetBufferInfo);
+    writes[8].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    writes[8].pBufferInfo = offsetBufferInfo.data();
 
     device.updateDescriptorSets(writes);
 }
@@ -189,16 +347,27 @@ void ShaderBindingTableDemo::createRenderPipeline() {
 
 void ShaderBindingTableDemo::createRayTracingPipeline() {
     auto rayGenShaderModule = VulkanShaderModule{ resource("raygen.rgen.spv"), device };
+    auto hitGroup0ShaderModule = VulkanShaderModule{ resource("hitgroup0.rchit.spv"), device };
+    auto missGroup0ShaderModule = VulkanShaderModule{ resource("miss0.rmiss.spv"), device };
 
     auto stages = initializers::rayTraceShaderStages({
-        { rayGenShaderModule, VK_SHADER_STAGE_RAYGEN_BIT_KHR}
+        { rayGenShaderModule, VK_SHADER_STAGE_RAYGEN_BIT_KHR},
+        { missGroup0ShaderModule, VK_SHADER_STAGE_MISS_BIT_KHR},
+        { hitGroup0ShaderModule, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR},
+        { hitGroup0ShaderModule, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR},
     });
     std::vector<VkRayTracingShaderGroupCreateInfoKHR> shaderGroups;
     shaderGroups.push_back(shaderTablesDesc.rayGenGroup());
+    shaderGroups.push_back(shaderTablesDesc.addMissGroup("miss0"));
+    shaderGroups.push_back(shaderTablesDesc.addHitGroup("hit0"));
+    shaderGroups.push_back(shaderTablesDesc.addHitGroup("hit1"));
+
+    shaderTablesDesc.hitGroups.addRecord("hit0", glm::vec4(1, 0, 0, 1));
+    shaderTablesDesc.hitGroups.addRecord("hit1", glm::vec4(0, 1, 0, 1));
 
     dispose(raytrace.layout);
 
-    raytrace.layout = device.createPipelineLayout({ raytrace.descriptorSetLayout });
+    raytrace.layout = device.createPipelineLayout({ raytrace.descriptorSetLayout, raytrace.instanceDescriptorSetLayout, raytrace.vertexDescriptorSetLayout });
     VkRayTracingPipelineCreateInfoKHR createInfo{ VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR };
     createInfo.stageCount = COUNT(stages);
     createInfo.pStages = stages.data();
@@ -257,7 +426,7 @@ VkCommandBuffer *ShaderBindingTableDemo::buildCommandBuffers(uint32_t imageIndex
 void ShaderBindingTableDemo::rayTrace(VkCommandBuffer commandBuffer) {
     CanvasToRayTraceBarrier(commandBuffer);
 
-    std::vector<VkDescriptorSet> sets{ raytrace.descriptorSet };
+    std::vector<VkDescriptorSet> sets{ raytrace.descriptorSet, raytrace.instanceDescriptorSet, raytrace.vertexDescriptorSet };
     assert(raytrace.pipeline);
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, raytrace.pipeline);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, raytrace.layout, 0, COUNT(sets), sets.data(), 0, VK_NULL_HANDLE);

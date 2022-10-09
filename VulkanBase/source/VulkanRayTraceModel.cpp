@@ -67,7 +67,8 @@ std::vector<rt::InstanceGroup> rt::AccelerationStructureBuilder::add(const std::
             Instance instance;
             instance.blasId = blasIds[offsets[*objId] + j];
             instance.instanceCustomId = j;
-            instance.hitGroupId = dInstance.object.metaData[j].hitGroupId;
+//            instance.hitGroupId = dInstance.object.metaData[j].hitGroupId;
+            instance.hitGroupId = dInstance.hitGroupId;
             instance.mask = dInstance.object.metaData[j].mask;
             instance.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
             instance.xform = dInstance.xform;

@@ -62,7 +62,7 @@ namespace rt{
 
     struct MeshObjectInstance{
         TriangleMesh object;
-        uint32_t hitGroupId{0};
+        uint32_t hitGroupId:24;
         uint32_t mask{0xFF};
         glm::mat4 xform{ 1 };
         glm::mat4 xformIT{ 1 };
