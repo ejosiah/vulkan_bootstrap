@@ -31,6 +31,8 @@ namespace ext {
         pfn_vkDestroyAccelerationStructureKHR = procAddress<PFN_vkDestroyAccelerationStructureKHR>(instance, "vkDestroyAccelerationStructureKHR");
         pfn_vkCreateRayTracingPipelinesKHR = procAddress<PFN_vkCreateRayTracingPipelinesKHR>(instance, "vkCreateRayTracingPipelinesKHR");
         pfn_vkGetRayTracingShaderGroupHandlesKHR = procAddress<PFN_vkGetRayTracingShaderGroupHandlesKHR>(instance, "vkGetRayTracingShaderGroupHandlesKHR");
+        pfn_vkGetRayTracingShaderGroupHandlesKHR = procAddress<PFN_vkGetRayTracingShaderGroupHandlesKHR>(instance, "vkGetRayTracingShaderGroupHandlesKHR");
+
     }
 
 }

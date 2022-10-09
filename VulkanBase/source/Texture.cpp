@@ -323,6 +323,23 @@ void textures::checkerboard(unsigned char* data, const Dimension2D<uint32_t>& di
     }
 }
 
+void textures::checkerboard1(unsigned char* data, const Dimension2D<uint32_t>& dimensions, const glm::vec3& colorA, const glm::vec3& colorB, float repeat){
+    for(int i = 0; i < dimensions.y; i++){
+        for(int j = 0; j < dimensions.x; j++){
+            float x = glm::floor(static_cast<float>(j)/static_cast<float>(dimensions.x) * repeat);
+            float y = glm::floor(static_cast<float>(i)/static_cast<float>(dimensions.y) * repeat);
+
+            float t = glm::step(glm::mod(x + y, 2.f), 0.f);
+            auto color = glm::mix(colorA, colorB, t);
+            auto idx = (i * dimensions.x + j) * 4;
+            data[idx + 0]  = static_cast<unsigned char>(color.r * 255);
+            data[idx + 1]  = static_cast<unsigned char>(color.b * 255);
+            data[idx + 2]  = static_cast<unsigned char>(color.g * 255);
+            data[idx + 3] = 255;
+        }
+    }
+}
+
 void textures::color(unsigned char* data, const Dimension2D<uint32_t>& dimensions, const glm::vec3& color){
     for(auto i = 0; i < dimensions.y; i++){
         for(auto j = 0; j < dimensions.x; j++){
@@ -360,7 +377,7 @@ std::vector<unsigned char> textures::uvData(const Dimension2D<uint32_t> &dimensi
 }
 
 void textures::transfer(VkCommandBuffer commandBuffer, const VulkanBuffer& srcBuffer, VulkanImage& dstImage,
-                        Dimension2D<uint32_t> dimension2D) {
+                        Dimension2D<uint32_t> dimension2D, VkImageLayout sourceLayout) {
 
     VkImageSubresourceRange subresourceRange;
     subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -388,7 +405,7 @@ void textures::transfer(VkCommandBuffer commandBuffer, const VulkanBuffer& srcBu
     vkCmdCopyBufferToImage(commandBuffer, srcBuffer, dstImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
                            , 1,&region);
 
-    dstImage.transitionLayout(commandBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, subresourceRange, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+    dstImage.transitionLayout(commandBuffer, sourceLayout, subresourceRange, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 }
 
 void textures::copy(VkCommandBuffer commandBuffer, Texture &srcTexture, Texture &dstTexture) {

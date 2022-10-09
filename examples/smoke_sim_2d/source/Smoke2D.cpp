@@ -13,7 +13,6 @@ Smoke2D::Smoke2D(const Settings& settings) : VulkanBaseApp("2D Smoke Simulation"
     fileManager.addSearchPath("../../data/models");
     fileManager.addSearchPath("../../data/textures");
     fileManager.addSearchPath("../../data");
-    fileManager.addSearchPath("../../data/shaders/fluid_2d");
 }
 
 void Smoke2D::initApp() {

@@ -4,15 +4,8 @@
 #include "VulkanRayTraceModel.hpp"
 #include "VulkanDevice.h"
 #include "Canvas.hpp"
+#include "shader_binding_table.hpp"
 
-struct ShaderBindingTable{
-    VulkanBuffer buffer;
-    VkStridedDeviceAddressRegionKHR stridedDeviceAddressRegion;
-
-    operator VkStridedDeviceAddressRegionKHR*()  {
-        return &stridedDeviceAddressRegion;
-    }
-};
 
 class VulkanRayTraceBaseApp : public VulkanBaseApp{
 public:

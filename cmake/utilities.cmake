@@ -20,9 +20,18 @@ function(compile_glsl)
         set(INCLUDE_DIRS ${COMPILE_INCLUDE_DIRS})
     endif()
 
-    set(GLSLC_COMMAND "${GLSLC} -I ${INCLUDE_DIRS} --target-spv=${COMPILE_SPV_VERSION} ${COMPILE_SRC_FILE} -o ${COMPILE_OUT_FILE}")
+
+    set(GLSL_SHADER_TYPE "")
+    string(REGEX MATCH ".*\\.(rgen|rchit|rmiss).glsl" RAY_TRACE_STAGE ${COMPILE_SRC_FILE})
+    if(RAY_TRACE_STAGE)
+        set(GLSL_SHADER_TYPE "-fshader-stage=${CMAKE_MATCH_1}")
+        string(REPLACE ".glsl" "" COMPILE_OUT_FILE ${COMPILE_OUT_FILE})
+    endif()
+
+
+    set(GLSLC_COMMAND "${GLSLC} -I ${INCLUDE_DIRS} ${GLSL_SHADER_TYPE} --target-spv=${COMPILE_SPV_VERSION} ${COMPILE_SRC_FILE} -o ${COMPILE_OUT_FILE}")
     execute_process(
-        COMMAND ${GLSLC} -I ${INCLUDE_DIRS} --target-spv=${COMPILE_SPV_VERSION} ${COMPILE_SRC_FILE} -o ${COMPILE_OUT_FILE}
+        COMMAND ${GLSLC} -I ${INCLUDE_DIRS} ${GLSL_SHADER_TYPE} --target-spv=${COMPILE_SPV_VERSION} ${COMPILE_SRC_FILE} -o ${COMPILE_OUT_FILE}
         RESULT_VARIABLE GLSLC_COMPILE_OUTPUT
     )
     get_filename_component(SHADER_SRC_FILE ${COMPILE_SRC_FILE} NAME)
@@ -48,6 +57,9 @@ function(compile_glsl_directory)
         "${COMPILE_SRC_DIR}/*.comp"
         "${COMPILE_SRC_DIR}/*.tese"
         "${COMPILE_SRC_DIR}/*.tesc"
+        "${COMPILE_SRC_DIR}/*.rgen*"
+        "${COMPILE_SRC_DIR}/*.rchit*"
+        "${COMPILE_SRC_DIR}/*.rmiss*"
     )
 
     file(MAKE_DIRECTORY ${COMPILE_OUT_DIR})

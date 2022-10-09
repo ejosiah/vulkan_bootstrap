@@ -25,6 +25,10 @@ namespace initializers{
         return createInfos;
     }
 
+    inline std::vector<VkPipelineShaderStageCreateInfo> rayTraceShaderStages(const std::vector<ShaderInfo>& shaderInfos){
+        return vertexShaderStages(shaderInfos);
+    }
+
     inline VkPipelineShaderStageCreateInfo shaderStage(const ShaderInfo& shaderInfo){
         VkPipelineShaderStageCreateInfo createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;

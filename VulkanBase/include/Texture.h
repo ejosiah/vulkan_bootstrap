@@ -71,6 +71,8 @@ namespace textures{
 
     void checkerboard(unsigned char* data, const Dimension2D<uint32_t>& dimensions, const glm::vec3& colorA = glm::vec3(1), const glm::vec3& colorB = glm::vec3(0));
 
+    void checkerboard1(unsigned char* data, const Dimension2D<uint32_t>& dimensions, const glm::vec3& colorA = glm::vec3(1), const glm::vec3& colorB = glm::vec3(0), float repeat = 8);
+
     void color(unsigned char* data, const Dimension2D<uint32_t>& dimensions, const glm::vec3& color);
 
     void normalMap(unsigned char* data, const Dimension2D<uint32_t>& dimensions);
@@ -81,7 +83,7 @@ namespace textures{
 
     Texture brdf_lut(const VulkanDevice& device);
 
-    void transfer(VkCommandBuffer commandBuffer, const VulkanBuffer& srcBuffer, VulkanImage& dstImage, Dimension2D<uint32_t> dimension2D);
+    void transfer(VkCommandBuffer commandBuffer, const VulkanBuffer& srcBuffer, VulkanImage& dstImage, Dimension2D<uint32_t> dimension2D, VkImageLayout sourceLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
     void copy(VkCommandBuffer commandBuffer, Texture& srcTexture, Texture& dstTexture);
 

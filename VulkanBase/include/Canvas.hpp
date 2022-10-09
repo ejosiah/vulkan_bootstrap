@@ -36,7 +36,7 @@ struct Canvas{
     VulkanBuffer buffer;
     VulkanBuffer colorBuffer;
 
-    const VulkanBaseApp* app;
+    const VulkanBaseApp* app{};
     VkImageUsageFlags usageFlags = VK_IMAGE_USAGE_SAMPLED_BIT;
     VulkanImage image;
     VulkanImageView imageView;

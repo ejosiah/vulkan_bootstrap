@@ -19,7 +19,7 @@ void RayTracerDemo::initApp() {
     createDescriptorSets();
     createGraphicsPipeline();
     createRayTracePipeline();
-    createShaderbindingTables();
+    createShaderBindingTables();
     loadTexture();
 }
 
@@ -39,7 +39,7 @@ void RayTracerDemo::onSwapChainRecreation() {
     createGraphicsPipeline();
     createRayTracePipeline();
     camera->onResize(swapChain.extent.width, swapChain.extent.height);
-    createShaderbindingTables();
+    createShaderBindingTables();
 
 }
 
@@ -489,24 +489,9 @@ void RayTracerDemo::cleanup() {
 
 }
 
-void RayTracerDemo::createShaderbindingTables() {
+void RayTracerDemo::createShaderBindingTables() {
     assert(raytrace.pipeline);
-    const auto [handleSize, handleSizeAligned] = getShaderGroupHandleSizingInfo();
-    const auto groupCount = COUNT(shaderGroups);
-    uint32_t sbtSize = groupCount * handleSizeAligned;
-
-    std::vector<uint8_t> shaderHandleStorage(sbtSize);
-
-    ext.vkGetRayTracingShaderGroupHandlesKHR(device, raytrace.pipeline, 0, groupCount, sbtSize, shaderHandleStorage.data());
-
-    const VkBufferUsageFlags usageFlags = VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
-
-    void* rayGenPtr = shaderHandleStorage.data();
-    void* missPtr = shaderHandleStorage.data() + handleSizeAligned;
-    void* hitPtr = shaderHandleStorage.data() + handleSizeAligned * 3;
-    createShaderBindingTable(bindingTables.rayGenShader, rayGenPtr, usageFlags, VMA_MEMORY_USAGE_GPU_ONLY, 1);
-    createShaderBindingTable(bindingTables.missShader, missPtr, usageFlags, VMA_MEMORY_USAGE_GPU_ONLY, 2);
-    createShaderBindingTable(bindingTables.hitShader, hitPtr, usageFlags, VMA_MEMORY_USAGE_GPU_ONLY, 1);
+    bindingTables = shaderTablesDesc.compile(device, raytrace.pipeline);
 
 }
 
@@ -523,29 +508,10 @@ void RayTracerDemo::createRayTracePipeline() {
         {closestHitModule, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR}
     });
     shaderGroups.clear();
-    // Ray gen group
-    VkRayTracingShaderGroupCreateInfoKHR shaderGroup{};
-    shaderGroup.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
-    shaderGroup.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
-    shaderGroup.generalShader = shaderGroups.size();
-    shaderGroup.closestHitShader = VK_SHADER_UNUSED_KHR;
-    shaderGroup.anyHitShader = VK_SHADER_UNUSED_KHR;
-    shaderGroup.intersectionShader = VK_SHADER_UNUSED_KHR;
-    shaderGroups.push_back(shaderGroup);
-
-    // miss group
-    shaderGroup.generalShader = shaderGroups.size();
-    shaderGroups.push_back(shaderGroup);
-
-    // shadow group
-    shaderGroup.generalShader = shaderGroups.size();
-    shaderGroups.push_back(shaderGroup);
-
-    // closest hit group
-    shaderGroup.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR;
-    shaderGroup.generalShader = VK_SHADER_UNUSED_KHR;
-    shaderGroup.closestHitShader = shaderGroups.size();
-    shaderGroups.push_back(shaderGroup);
+    shaderGroups.push_back(shaderTablesDesc.rayGenGroup());
+    shaderGroups.push_back(shaderTablesDesc.addMissGroup("main"));
+    shaderGroups.push_back(shaderTablesDesc.addMissGroup("shadow"));
+    shaderGroups.push_back(shaderTablesDesc.addHitGroup("main"));
 
     dispose(raytrace.layout);
     raytrace.layout = device.createPipelineLayout(
@@ -575,7 +541,7 @@ void RayTracerDemo::rayTrace(VkCommandBuffer commandBuffer) {
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, raytrace.pipeline);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, raytrace.layout, 0, COUNT(sets), sets.data(), 0, VK_NULL_HANDLE);
 
-    vkCmdTraceRaysKHR(commandBuffer, bindingTables.rayGenShader, bindingTables.missShader, bindingTables.hitShader,
+    vkCmdTraceRaysKHR(commandBuffer, bindingTables.rayGen, bindingTables.miss, bindingTables.closestHit,
                       &callableShaderSbtEntry, swapChain.extent.width, swapChain.extent.height, 1);
 
     rayTraceToCanvasBarrier(commandBuffer);

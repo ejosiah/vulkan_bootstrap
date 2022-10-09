@@ -10,7 +10,9 @@
 
 struct ContextCreateInfo{
     VkApplicationInfo applicationInfo{};
-    ExtensionsAndValidationLayers instanceExtAndLayers;
+    ExtensionsAndValidationLayers instanceExtAndLayers{
+            {VK_EXT_DEBUG_UTILS_EXTENSION_NAME}
+    };
     ExtensionsAndValidationLayers deviceExtAndLayers;
     Settings settings;
     VkSurfaceKHR surface{ VK_NULL_HANDLE };

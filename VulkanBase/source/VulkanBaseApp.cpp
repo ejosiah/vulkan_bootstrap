@@ -37,7 +37,6 @@ VulkanBaseApp::VulkanBaseApp(std::string_view name, const Settings& settings, st
     fileManager.addSearchPath("../../data/models");
     fileManager.addSearchPath("../../data/textures");
     fileManager.addSearchPath("../../data");
-    fileManager.addSearchPath("../../data/shaders/fluid_2d");
 }
 
 VulkanBaseApp::~VulkanBaseApp(){

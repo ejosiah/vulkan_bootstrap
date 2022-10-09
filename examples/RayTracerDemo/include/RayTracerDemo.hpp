@@ -2,6 +2,7 @@
 #include "VulkanRayTraceModel.hpp"
 #include "Canvas.hpp"
 #include "VulkanRayTraceBaseApp.hpp"
+#include "shader_binding_table.hpp"
 
 class RayTracerDemo : public VulkanRayTraceBaseApp{
 public:
@@ -48,7 +49,7 @@ protected:
 
     void createBottomLevelAccelerationStructure();
 
-    void createShaderbindingTables();
+    void createShaderBindingTables();
 
     void loadTexture();
 
@@ -88,30 +89,11 @@ protected:
     bool useRayTracing = true;
     bool debugOn = false;
 
-    VulkanBuffer transformBuffer;
     std::vector<VkRayTracingShaderGroupCreateInfoKHR> shaderGroups{};
 
-
-    struct { ;
-        ShaderBindingTable rayGenShader;
-        ShaderBindingTable missShader;
-        ShaderBindingTable hitShader;
-    } bindingTables;
+    ShaderTablesDescription shaderTablesDesc;
+    ShaderBindingTables bindingTables;
 
     Texture texture;
-
-//    VulkanDrawable spaceShip;
-//    VulkanDrawableInstance spaceShipInstance;
-
-//    VulkanDrawable plane;
-//    VulkanDrawableInstance planeInstance;
-
     VulkanBuffer inverseCamProj;
-
-    VkPhysicalDeviceAccelerationStructureFeaturesKHR accelerationStructureFeatures{};
-
-    VkPhysicalDeviceBufferDeviceAddressFeatures enabledBufferDeviceAddressFeatures{};
-    VkPhysicalDeviceRayTracingPipelineFeaturesKHR enabledRayTracingPipelineFeatures{};
-    VkPhysicalDeviceAccelerationStructureFeaturesKHR enabledAccelerationStructureFeatures{};
-    VkPhysicalDeviceDescriptorIndexingFeatures enabledDescriptorIndexingFeatures{};
 };

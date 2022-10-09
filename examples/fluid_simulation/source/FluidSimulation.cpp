@@ -10,7 +10,6 @@ FluidSimulation::FluidSimulation(const Settings& settings) : VulkanBaseApp("Flui
     fileManager.addSearchPath("../../examples/fluid_simulation/models");
     fileManager.addSearchPath("../../examples/fluid_simulation/textures");
     fileManager.addSearchPath("../../data/shaders");
-    fileManager.addSearchPath("../../data/shaders/fluid_2d");
     fileManager.addSearchPath("../../data/models");
     fileManager.addSearchPath("../../data/textures");
     fileManager.addSearchPath("../../data");
@@ -168,6 +167,7 @@ void FluidSimulation::createPipelineCache() {
 
 void FluidSimulation::createRenderPipeline() {
     //    @formatter:off
+    auto& fluidSolverLayout = fluidSolver.textureSetLayout;
     auto& simRenderPass = fluidSolver.renderPass;
     auto builder = device.graphicsPipelineBuilder();
     render.pipeline =
@@ -224,16 +224,17 @@ void FluidSimulation::createRenderPipeline() {
             .inputAssemblyState()
                 .triangleStrip()
             .layout()
-                .addDescriptorSetLayout(textureSetLayout)
+                .addDescriptorSetLayout(fluidSolverLayout)
             .name("fullscreen_quad")
         .build(screenQuad.layout);
+
 
     forceGen.pipeline =
         builder
             .shaderStage()
                 .fragmentShader(resource("force.frag.spv"))
             .layout().clear()
-                .addDescriptorSetLayouts({textureSetLayout})
+                .addDescriptorSetLayouts({fluidSolverLayout})
                 .addPushConstantRange(VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(forceGen.constants))
             .renderPass(simRenderPass)
             .name("force_generator")
@@ -244,7 +245,7 @@ void FluidSimulation::createRenderPipeline() {
             .shaderStage()
                 .fragmentShader(resource("color_source.frag.spv"))
             .layout().clear()
-                .addDescriptorSetLayouts({textureSetLayout})
+                .addDescriptorSetLayouts({fluidSolverLayout})
                 .addPushConstantRange(VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(dyeSource.constants))
             .renderPass(simRenderPass)
             .name("color_source")

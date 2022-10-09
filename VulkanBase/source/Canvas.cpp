@@ -161,7 +161,7 @@ void Canvas::createBuffer() {
 void Canvas::createImageStorage() {
     auto imageInfo = initializers::imageCreateInfo(
             VK_IMAGE_TYPE_2D,
-            VK_FORMAT_R32G32B32A32_SFLOAT,
+            format,
             usageFlags,
             app->swapChain.extent.width,
             app->swapChain.extent.height
@@ -174,7 +174,7 @@ void Canvas::createImageStorage() {
     subresourceRange.levelCount = 1;
     subresourceRange.baseArrayLayer = 0;
     subresourceRange.layerCount = 1;
-    imageView = image.createView(VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_VIEW_TYPE_2D, subresourceRange);
+    imageView = image.createView(format, VK_IMAGE_VIEW_TYPE_2D, subresourceRange);
     app->device.graphicsCommandPool().oneTimeCommand([&](auto commandBuffer) {
         auto barrier = initializers::ImageMemoryBarrier();
         barrier.srcAccessMask = 0;

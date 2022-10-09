@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <string>
 #include "glm_format.h"
+#include "vulkan_context.hpp"
 #include <array>
 
 #define IX(i, j, N) ((i) * N + (j))
@@ -450,12 +451,38 @@ static constexpr float TARGET_TEMP = toKelvin(150); // celsius
 static constexpr float TIME_STEP = 0.008333333333; // seconds
 
 int main(){
-    glm::vec2 up{0, 1};
-    float tempFactor{0.1}; // 0.1
-    float densityFactory{0.1};
-    float temp = 22466666.f;
-    float density = 171530.453;
-    float ambientTemp{0};
-    auto buoyancy =  (-densityFactory * density +  tempFactor * (temp - ambientTemp)) * up;
-    fmt::print("{}", buoyancy);
+    ContextCreateInfo info{};
+    info.deviceExtAndLayers.extensions.push_back(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
+    info.deviceExtAndLayers.extensions.push_back(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
+    info.deviceExtAndLayers.extensions.push_back(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME);
+    VulkanContext ctx{info};
+    ctx.init();
+    VkPhysicalDeviceRayTracingPipelinePropertiesKHR rtProperties{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR};
+    VkPhysicalDeviceAccelerationStructurePropertiesKHR asProperties{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR};
+    rtProperties.pNext = &asProperties;
+    VkPhysicalDeviceProperties2 props{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2 };
+    props.pNext = &rtProperties;
+
+    vkGetPhysicalDeviceProperties2(ctx.device, &props);
+
+    fmt::print("VK Ray tracing properties:\n");
+    fmt::print("\tshaderGroupHandleSize: {} bytes\n", rtProperties.shaderGroupHandleSize);
+    fmt::print("\tmaxRayRecursionDepth: {}\n", rtProperties.maxRayRecursionDepth);
+    fmt::print("\tmaxShaderGroupStride: {} bytes\n", rtProperties.maxShaderGroupStride);
+    fmt::print("\tshaderGroupBaseAlignment: {} bytes\n", rtProperties.shaderGroupBaseAlignment);
+    fmt::print("\tshaderGroupHandleCaptureReplaySize: {} bytes\n", rtProperties.shaderGroupHandleCaptureReplaySize);
+    fmt::print("\tmaxRayDispatchInvocationCount: {}\n", rtProperties.maxRayDispatchInvocationCount);
+    fmt::print("\tshaderGroupHandleAlignment: {} bytes\n", rtProperties.shaderGroupHandleAlignment);
+    fmt::print("\tmaxRayHitAttributeSize: {} bytes\n", rtProperties.maxRayHitAttributeSize);
+
+    fmt::print("\n\nAcceleration Structure Properties:\n");
+    fmt::print("\tmaxGeometryCount: {}\n", asProperties.maxGeometryCount);
+    fmt::print("\tmaxInstanceCount: {}\n", asProperties.maxInstanceCount);
+    fmt::print("\tmaxPrimitiveCount: {}\n", asProperties.maxPrimitiveCount);
+    fmt::print("\tmaxPerStageDescriptorAccelerationStructures: {}\n", asProperties.maxPerStageDescriptorAccelerationStructures);
+    fmt::print("\tmaxPerStageDescriptorUpdateAfterBindAccelerationStructures: {}\n", asProperties.maxPerStageDescriptorUpdateAfterBindAccelerationStructures);
+    fmt::print("\tmaxDescriptorSetAccelerationStructures: {}\n", asProperties.maxDescriptorSetAccelerationStructures);
+    fmt::print("\tmaxDescriptorSetUpdateAfterBindAccelerationStructures: {}\n", asProperties.maxDescriptorSetUpdateAfterBindAccelerationStructures);
+    fmt::print("\tminAccelerationStructureScratchOffsetAlignment: {} bytes\n", asProperties.minAccelerationStructureScratchOffsetAlignment);
+
 }
