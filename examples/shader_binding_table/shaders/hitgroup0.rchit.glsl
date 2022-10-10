@@ -35,6 +35,7 @@ layout(shaderRecord) buffer block {
     vec3 color;
 };
 
+//vec3 color = vec3(1, 0, 1);
 
 hitAttributeEXT vec3 attribs;
 

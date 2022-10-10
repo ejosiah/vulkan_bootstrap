@@ -7,5 +7,5 @@ layout(location = 0) rayPayloadInEXT vec3 hitValue;
 
 void main()
 {
-    hitValue = mix(vec3(1), rgb(138, 175, 235), gl_WorldRayOriginEXT.y);
+    hitValue = mix(rgb(138, 175, 235), vec3(1), gl_WorldRayOriginEXT.y);
 }

@@ -366,7 +366,7 @@ void ShaderBindingTableDemo::createRayTracingPipeline() {
     shaderGroups.push_back(shaderTablesDesc.addHitGroup());
     shaderGroups.push_back(shaderTablesDesc.addCallableGroup());
 
-    shaderTablesDesc.hitGroups.get(0).addRecord(0, rgba(240, 129, 196));
+    shaderTablesDesc.hitGroups.get(0).addRecord(rgba(49, 245, 219));
 //    shaderTablesDesc.hitGroups.get(1).addRecord(0, rgba(29, 224, 205));
 
     dispose(raytrace.layout);

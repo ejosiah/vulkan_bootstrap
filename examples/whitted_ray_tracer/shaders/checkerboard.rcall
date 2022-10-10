@@ -3,11 +3,13 @@
 
 #include "ray_tracing_lang.glsl"
 
-vec3 GetColorFromPositionAndNormal( in vec3 worldPosition, in vec3 normal ) {
+vec3 GetColorFromPositionAndNormal( in vec3 worldPosition, in vec3 normal, float scale) {
     const float pi = 3.141519;
 
     vec3 scaledPos = 2 * worldPosition.xyz * pi * 2.0;
     vec3 scaledPos2 = 2 * worldPosition.xyz * pi * 2.0 / 10.0 + vec3( pi / 4.0 );
+    scaledPos *= scale;
+    scaledPos *= scale;
     float s = cos( scaledPos2.x ) * cos( scaledPos2.y ) * cos( scaledPos2.z );  // [-1,1] range
     float t = cos( scaledPos.x ) * cos( scaledPos.y ) * cos( scaledPos.z );     // [-1,1] range
 
@@ -23,12 +25,13 @@ vec3 GetColorFromPositionAndNormal( in vec3 worldPosition, in vec3 normal ) {
 
 struct PatternParams{
     vec3 worldPos;
+    vec3 normal;
     vec3 color;
+    float scale;
 };
 
-layout(location = 0) callableDataIn PatternParams pattern;
+layout(location = 0) callableDataIn PatternParams params;
 
 void main(){
-//    pattern.color = GetColorFromPositionAndNormal(pattern.worldPos, vec3(0, 1, 0));
-    pattern.color = vec3(0, 1, 0);
+    params.color = GetColorFromPositionAndNormal(params.worldPos, params.normal, params.scale);
 }
