@@ -3,7 +3,7 @@
 # create a new project
 Run the command below from root project level
 
-`g8 file://project_template.g8/ --name=project_name --classname=className --title="window title"`
+`g8 file://project_template.g8/ --name=project_name --classname=className --title="window title" --render=yes --compute=no --raytracing=no`
 
 # installing giter8
 

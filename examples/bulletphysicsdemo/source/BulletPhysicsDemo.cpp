@@ -348,7 +348,7 @@ void BulletPhysicsDemo::displayInfo(VkCommandBuffer commandBuffer) {
 }
 
 void BulletPhysicsDemo::createSkyBox() {
-    SkyBox::create(skyBox, R"(C:\Users\Josiah Ebhomenye Ebhomenye\OneDrive\media\textures\skybox\005)"
+    SkyBox::create(skyBox, R"(C:\Users\Josiah Ebhomenye\OneDrive\media\textures\skybox\005)"
                    , {"right.jpg", "left.jpg", "top.jpg", "bottom.jpg", "front.jpg", "back.jpg"});
 }
 

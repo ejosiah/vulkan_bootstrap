@@ -83,11 +83,6 @@ private:
 
     ShaderTablesDescription shaderTablesDesc;
     ShaderBindingTables bindingTables;
-//    struct {
-//        ShaderBindingTable rayGen;
-//        ShaderBindingTable miss;
-//        ShaderBindingTable closestHit;
-//    } bindingTables;
 
     std::unique_ptr<OrbitingCameraController> camera;
 };

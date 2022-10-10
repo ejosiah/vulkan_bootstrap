@@ -30,10 +30,13 @@ layout(set = 2, binding = 2) buffer VETEX_OFFSETS {
 } offsets[];
 
 layout(location = 0) rayPayloadInEXT vec3 hitValue;
+layout(location = 0) callableData vec3 outColor;
 
-layout(shaderRecord) buffer block {
-    vec3 color;
-};
+//layout(shaderRecord) buffer block {
+//    vec3 color;
+//};
+
+vec3 color = vec3(0, 0, 1);
 
 hitAttributeEXT vec3 attribs;
 
@@ -74,6 +77,7 @@ void main()
     float shininess = 50;
     float attenuation = 1.0;
 
-    vec3 diffuseColor = color * max(0, dot(N, L));
+    executeCallable(0, 0);
+    vec3 diffuseColor = outColor * max(0, dot(N, L));
     hitValue = attenuation * diffuseColor;
 }

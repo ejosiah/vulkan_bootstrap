@@ -350,21 +350,24 @@ void ShaderBindingTableDemo::createRayTracingPipeline() {
     auto hitGroup0ShaderModule = VulkanShaderModule{ resource("hitgroup0.rchit.spv"), device };
     auto hitGroup1ShaderModule = VulkanShaderModule{ resource("hitgroup1.rchit.spv"), device };
     auto missGroup0ShaderModule = VulkanShaderModule{ resource("miss0.rmiss.spv"), device };
+    auto callable0ShaderModule = VulkanShaderModule{ resource("callable0.rcall.spv"), device };
 
     auto stages = initializers::rayTraceShaderStages({
         { rayGenShaderModule, VK_SHADER_STAGE_RAYGEN_BIT_KHR},
         { missGroup0ShaderModule, VK_SHADER_STAGE_MISS_BIT_KHR},
         { hitGroup0ShaderModule, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR},
         { hitGroup1ShaderModule, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR},
+        { callable0ShaderModule, VK_SHADER_STAGE_CALLABLE_BIT_KHR},
     });
     std::vector<VkRayTracingShaderGroupCreateInfoKHR> shaderGroups;
     shaderGroups.push_back(shaderTablesDesc.rayGenGroup());
     shaderGroups.push_back(shaderTablesDesc.addMissGroup());
     shaderGroups.push_back(shaderTablesDesc.addHitGroup());
     shaderGroups.push_back(shaderTablesDesc.addHitGroup());
+    shaderGroups.push_back(shaderTablesDesc.addCallableGroup());
 
     shaderTablesDesc.hitGroups.get(0).addRecord(0, rgba(240, 129, 196));
-    shaderTablesDesc.hitGroups.get(1).addRecord(0, rgba(29, 224, 205));
+//    shaderTablesDesc.hitGroups.get(1).addRecord(0, rgba(29, 224, 205));
 
     dispose(raytrace.layout);
 
