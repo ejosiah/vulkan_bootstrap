@@ -149,7 +149,7 @@ void RayTracingImplicits::rayTrace(VkCommandBuffer commandBuffer) {
 
     VkStridedDeviceAddressRegionKHR addressRegion{};
 
-    vkCmdTraceRaysKHR(commandBuffer, bindingTables.rayGen, bindingTables.miss, bindingTables.hit, &addressRegion, swapChain.width(), swapChain.height(), 1);
+    vkCmdTraceRaysKHR(commandBuffer, bindingTables.rayGen, bindingTables.miss, bindingTables.closestHit, &addressRegion, swapChain.width(), swapChain.height(), 1);
 }
 
 void RayTracingImplicits::GraphicsToRayTracingBarrier(VkCommandBuffer commandBuffer) {
@@ -325,38 +325,26 @@ void RayTracingImplicits::createPipeline() {
 
     // Ray generation group
     auto rayGenShader = VulkanShaderModule{"../../data/shaders/raytracing_implicits/implicits.rgen.spv", device};
-    VkRayTracingShaderGroupCreateInfoKHR shaderGroupInfo{};
-    shaderGroupInfo.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
-    shaderGroupInfo.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
-    shaderGroupInfo.generalShader = stages.size();
-    shaderGroupInfo.closestHitShader = VK_SHADER_UNUSED_KHR;
-    shaderGroupInfo.anyHitShader = VK_SHADER_UNUSED_KHR;
-    shaderGroupInfo.intersectionShader = VK_SHADER_UNUSED_KHR;
-    shaderGroups.push_back(shaderGroupInfo);
+    shaderGroups.push_back(shaderTablesDesc.rayGenGroup());
     stages.push_back(initializers::shaderStage({ rayGenShader, VK_SHADER_STAGE_RAYGEN_BIT_KHR}));
 
     // miss group 0;
     auto missShader = VulkanShaderModule{"../../data/shaders/raytracing_implicits/implicits.rmiss.spv", device};
-    shaderGroupInfo.generalShader = stages.size();
-    shaderGroups.push_back(shaderGroupInfo);
+    shaderGroups.push_back(shaderTablesDesc.addMissGroup());
     stages.push_back(initializers::shaderStage({ missShader, VK_SHADER_STAGE_MISS_BIT_KHR}));
 
     // miss group 1
     auto shadowShader = VulkanShaderModule{"../../data/shaders/raytracing_implicits/shadow.rmiss.spv", device};
-    shaderGroupInfo.generalShader = stages.size();
-    shaderGroups.push_back(shaderGroupInfo);
+    shaderGroups.push_back(shaderTablesDesc.addMissGroup());
     stages.push_back(initializers::shaderStage({ shadowShader, VK_SHADER_STAGE_MISS_BIT_KHR}));
 
     // hit group 0;
     auto hitShader = VulkanShaderModule{"../../data/shaders/raytracing_implicits/implicits.rchit.spv", device};
     auto intersectShader = VulkanShaderModule{"../../data/shaders/raytracing_implicits/implicits.rint.spv", device};
-    shaderGroupInfo.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_PROCEDURAL_HIT_GROUP_KHR;
-    shaderGroupInfo.generalShader = VK_SHADER_UNUSED_KHR;
-    shaderGroupInfo.closestHitShader = stages.size();
     stages.push_back(initializers::shaderStage({ hitShader, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR}));
-    shaderGroupInfo.intersectionShader = stages.size();
     stages.push_back(initializers::shaderStage({ intersectShader, VK_SHADER_STAGE_INTERSECTION_BIT_KHR}));
-    shaderGroups.push_back(shaderGroupInfo);
+    shaderGroups.push_back(shaderTablesDesc.addHitGroup(VK_RAY_TRACING_SHADER_GROUP_TYPE_PROCEDURAL_HIT_GROUP_KHR, true,
+                                                        false, true));
 
     dispose(layout);
     layout = device.createPipelineLayout( { descriptorSetLayout, objectsDescriptorSetLayout },
@@ -374,23 +362,7 @@ void RayTracingImplicits::createPipeline() {
 }
 
 void RayTracingImplicits::createBindingTables() {
-    const auto [handleSize, handleSizeAligned] = getShaderGroupHandleSizingInfo();
-    const auto groupCount = shaderGroups.size();
-    const auto sbtSize = groupCount * handleSizeAligned;
-
-    std::vector<uint8_t> sbtGroupHandles(sbtSize);
-    vkGetRayTracingShaderGroupHandlesKHR(device, pipeline, 0, groupCount, sbtSize, sbtGroupHandles.data());
-
-    VkBufferUsageFlags usageFlags = VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
-
-    void* ptr = sbtGroupHandles.data();
-    createShaderBindingTable(bindingTables.rayGen, ptr, usageFlags, VMA_MEMORY_USAGE_GPU_ONLY, 1);
-
-    ptr = sbtGroupHandles.data() + handleSizeAligned;
-    createShaderBindingTable(bindingTables.miss, ptr, usageFlags, VMA_MEMORY_USAGE_GPU_ONLY, 2);
-
-    ptr = sbtGroupHandles.data() + handleSizeAligned * 3;
-    createShaderBindingTable(bindingTables.hit, ptr, usageFlags, VMA_MEMORY_USAGE_GPU_ONLY, 1);
+    bindingTables = shaderTablesDesc.compile(device, pipeline);
 }
 
 int main() {

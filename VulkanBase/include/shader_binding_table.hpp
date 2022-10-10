@@ -193,6 +193,11 @@ struct ShaderGroups{
         return stridedDeviceAddressRegionKHR;
     }
 
+    [[nodiscard]]
+    uint32_t groupCount() const {
+        return groups.size();
+    }
+
     void clear(){
         groups.clear();
     }
@@ -221,12 +226,12 @@ struct ShaderTablesDescription{
     ShaderGroups callableGroups{ GroupType::CALLABLE };
 
     VkRayTracingShaderGroupCreateInfoKHR rayGenGroup(){
-        rayGen.add(numGroups);
+        rayGen.add(totalHandles);
 
         VkRayTracingShaderGroupCreateInfoKHR shaderGroupInfo{};
         shaderGroupInfo.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
         shaderGroupInfo.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
-        shaderGroupInfo.generalShader = numGroups++;
+        shaderGroupInfo.generalShader = totalHandles++;
         shaderGroupInfo.closestHitShader = VK_SHADER_UNUSED_KHR;
         shaderGroupInfo.anyHitShader = VK_SHADER_UNUSED_KHR;
         shaderGroupInfo.intersectionShader = VK_SHADER_UNUSED_KHR;
@@ -235,12 +240,12 @@ struct ShaderTablesDescription{
     }
 
     VkRayTracingShaderGroupCreateInfoKHR addMissGroup(){
-        missGroups.add(numGroups);
+        missGroups.add(totalHandles);
 
         VkRayTracingShaderGroupCreateInfoKHR shaderGroupInfo{};
         shaderGroupInfo.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
         shaderGroupInfo.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
-        shaderGroupInfo.generalShader = numGroups++;
+        shaderGroupInfo.generalShader = totalHandles++;
         shaderGroupInfo.closestHitShader = VK_SHADER_UNUSED_KHR;
         shaderGroupInfo.anyHitShader = VK_SHADER_UNUSED_KHR;
         shaderGroupInfo.intersectionShader = VK_SHADER_UNUSED_KHR;
@@ -250,26 +255,26 @@ struct ShaderTablesDescription{
 
     VkRayTracingShaderGroupCreateInfoKHR addHitGroup(VkRayTracingShaderGroupTypeKHR type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR,
                                                      bool closestHitShader = true, bool anyHitShader = false, bool intersectionShader = false){
-        auto prevNumGroups = numGroups;
+        auto prevNumGroups = totalHandles;
         VkRayTracingShaderGroupCreateInfoKHR shaderGroupInfo{};
         shaderGroupInfo.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
         shaderGroupInfo.type = type;
         shaderGroupInfo.generalShader = VK_SHADER_UNUSED_KHR;
-        shaderGroupInfo.closestHitShader = closestHitShader ? numGroups++ : VK_SHADER_UNUSED_KHR;
-        shaderGroupInfo.anyHitShader = anyHitShader ? numGroups++ : VK_SHADER_UNUSED_KHR;
-        shaderGroupInfo.intersectionShader = intersectionShader ? numGroups++ : VK_SHADER_UNUSED_KHR;
+        shaderGroupInfo.closestHitShader = closestHitShader ? totalHandles++ : VK_SHADER_UNUSED_KHR;
+        shaderGroupInfo.anyHitShader = anyHitShader ? totalHandles++ : VK_SHADER_UNUSED_KHR;
+        shaderGroupInfo.intersectionShader = intersectionShader ? totalHandles++ : VK_SHADER_UNUSED_KHR;
 
-        auto handleCount = numGroups - prevNumGroups;
+        auto handleCount = totalHandles - prevNumGroups;
         hitGroups.add(prevNumGroups, handleCount);
         return shaderGroupInfo;
     }
 
     VkRayTracingShaderGroupCreateInfoKHR addCallableGroup(){
-        callableGroups.add(numGroups);
+        callableGroups.add(totalHandles);
         VkRayTracingShaderGroupCreateInfoKHR shaderGroupInfo{};
         shaderGroupInfo.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
         shaderGroupInfo.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
-        shaderGroupInfo.generalShader = numGroups++;
+        shaderGroupInfo.generalShader = totalHandles++;
         shaderGroupInfo.closestHitShader = VK_SHADER_UNUSED_KHR;
         shaderGroupInfo.anyHitShader = VK_SHADER_UNUSED_KHR;
         shaderGroupInfo.intersectionShader = VK_SHADER_UNUSED_KHR;
@@ -279,12 +284,13 @@ struct ShaderTablesDescription{
 
     ShaderBindingTables compile(const VulkanDevice& device, const VulkanPipeline& pipeline){
         initHandleSizeInfo(device);
-        uint32_t sbtSize = numGroups * handleSizeAligned;
+        uint32_t sbtSize = totalHandles * handleSizeAligned;
         spdlog::info("handleSize: {}, handleSizeAligned {}, sbtSize: {}", handleSize, handleSizeAligned, sbtSize);
 
         std::vector<uint8_t> shaderHandleStorage(sbtSize);
 
-        vkGetRayTracingShaderGroupHandlesKHR(device, pipeline, 0, numGroups, sbtSize, shaderHandleStorage.data());
+        auto groupCount = rayGen.groupCount() + missGroups.groupCount() + hitGroups.groupCount() + callableGroups.groupCount();
+        vkGetRayTracingShaderGroupHandlesKHR(device, pipeline, 0, groupCount, sbtSize, shaderHandleStorage.data());
 
         const VkBufferUsageFlags usageFlags = VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
 
@@ -353,7 +359,7 @@ struct ShaderTablesDescription{
 
 
     void clear(){
-        numGroups = 0;
+        totalHandles = 0;
         rayGen.clear();
         missGroups.clear();
         hitGroups.clear();
@@ -364,5 +370,5 @@ private:
     uint32_t handleSizeAligned{};
     uint32_t shaderGroupHandleAlignment{};
     uint32_t shaderGroupBaseAlignment{};
-    uint32_t numGroups = 0;
+    uint32_t totalHandles = 0;
 };

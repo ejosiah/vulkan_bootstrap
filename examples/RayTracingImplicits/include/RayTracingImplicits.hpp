@@ -1,6 +1,7 @@
 #pragma once
 
 #include "VulkanRayTraceBaseApp.hpp"
+#include "shader_binding_table.hpp"
 
 class RayTracingImplicits : public VulkanRayTraceBaseApp {
 public:
@@ -80,11 +81,13 @@ private:
         glm::mat4 projection;
     } cam;
 
-    struct {
-        ShaderBindingTable rayGen;
-        ShaderBindingTable miss;
-        ShaderBindingTable hit;
-    } bindingTables;
+    ShaderTablesDescription shaderTablesDesc;
+    ShaderBindingTables bindingTables;
+//    struct {
+//        ShaderBindingTable rayGen;
+//        ShaderBindingTable miss;
+//        ShaderBindingTable closestHit;
+//    } bindingTables;
 
     std::unique_ptr<OrbitingCameraController> camera;
 };

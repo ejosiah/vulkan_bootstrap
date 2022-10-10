@@ -509,9 +509,9 @@ void RayTracerDemo::createRayTracePipeline() {
     });
     shaderGroups.clear();
     shaderGroups.push_back(shaderTablesDesc.rayGenGroup());
-    shaderGroups.push_back(shaderTablesDesc.addMissGroup("main"));
-    shaderGroups.push_back(shaderTablesDesc.addMissGroup("shadow"));
-    shaderGroups.push_back(shaderTablesDesc.addHitGroup("main"));
+    shaderGroups.push_back(shaderTablesDesc.addMissGroup());
+    shaderGroups.push_back(shaderTablesDesc.addMissGroup());
+    shaderGroups.push_back(shaderTablesDesc.addHitGroup());
 
     dispose(raytrace.layout);
     raytrace.layout = device.createPipelineLayout(
