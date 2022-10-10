@@ -5,6 +5,8 @@
 #include <map>
 #include "VulkanDevice.h"
 #include "VulkanBuffer.h"
+#include "glm_format.h"
+#include "spdlog/spdlog.h"
 
 struct ShaderRecord{
     std::string name;
@@ -13,6 +15,7 @@ struct ShaderRecord{
     std::vector<unsigned char> record{};
     uint32_t handleSize{};
     uint32_t handleSizeAligned{};
+    uint32_t shaderGroupBaseAlignment{};
 
     template<typename T>
     void addData(const T& data){
@@ -35,7 +38,7 @@ struct ShaderRecord{
 
     [[nodiscard]]
     uint32_t stride() const {
-        return alignedSize(sizeAligned(), handleSizeAligned);
+        return alignedSize(sizeAligned(), shaderGroupBaseAlignment);
     }
 };
 
@@ -65,6 +68,7 @@ struct ShaderGroups {
         for(auto& [_, record] : group){
             record.handleSize = handleSize;
             record.handleSizeAligned = handleSizeAligned;
+            record.shaderGroupBaseAlignment = shaderGroupBaseAlignment;
         }
         _shaderGroupBaseAlignment = shaderGroupBaseAlignment;
         _stride = type == Type::RAY_GEN ? shaderGroupBaseAlignment : handleSizeAligned;
@@ -77,7 +81,11 @@ struct ShaderGroups {
 
     [[nodiscard]]
     uint32_t alignedSize() const {
-        return stride() * group.size();
+        auto size = 0u;
+        for(auto& [_, record] : group){
+            size += record.sizeAligned();
+        }
+        return size;
     }
 
     [[nodiscard]]
@@ -102,23 +110,28 @@ struct ShaderGroups {
         return stride;
     }
 
-    void transferRecords(unsigned char* dest){
+    void transferRecords(uint8_t* dest, uint32_t stride){
         auto offset = 0u;
         for(auto& [_, record] : group){
             offset += record.handleSizeAligned;
             const auto src = record.record.data();
+            if(src) {
+                spdlog::info("record: {}", *reinterpret_cast<const glm::vec4 *>(src));
+            }else{
+                continue;
+            }
             const auto size = record.record.size();
             std::memcpy(dest + offset, src, size);
             offset += size;
-            offset += record.stride() - record.size();
+            offset +=  stride - record.size();
         }
     }
 
     [[nodiscard]]
     VkStridedDeviceAddressRegionKHR getStridedDeviceAddressRegionKHR() const{
         VkStridedDeviceAddressRegionKHR stridedDeviceAddressRegionKHR{};
-        stridedDeviceAddressRegionKHR.stride = _stride;
-        stridedDeviceAddressRegionKHR.size = ::alignedSize(alignedSize(), _shaderGroupBaseAlignment);
+        stridedDeviceAddressRegionKHR.stride = stride();
+        stridedDeviceAddressRegionKHR.size = stride() * handleCount();
 
         return stridedDeviceAddressRegionKHR;
     }
@@ -204,7 +217,7 @@ struct ShaderTablesDescription{
 
     ShaderBindingTables compile(const VulkanDevice& device, const VulkanPipeline& pipeline){
         initHandleSizeInfo(device);
-        uint32_t sbtSize = getSbtSize();
+        uint32_t sbtSize = numGroups * handleSizeAligned;
         spdlog::info("handleSize: {}, handleSizeAligned {}, sbtSize: {}", handleSize, handleSizeAligned, sbtSize);
 
         std::vector<uint8_t> shaderHandleStorage(sbtSize);
@@ -219,10 +232,6 @@ struct ShaderTablesDescription{
         auto hitPtr = missPtr + missGroups.alignedSize();
         auto callablePtr = hitPtr + hitGroups.alignedSize();
 
-        rayGen.transferRecords(rayGenPtr);
-        missGroups.transferRecords(missPtr);
-        hitGroups.transferRecords(hitPtr);
-        callableGroups.transferRecords(callablePtr);
 
         ShaderBindingTables sbt;
         createShaderBindingTable(device, sbt.rayGen, rayGenPtr, usageFlags, VMA_MEMORY_USAGE_GPU_ONLY, rayGen);
@@ -253,19 +262,29 @@ struct ShaderTablesDescription{
 
     [[nodiscard]]
     uint32_t getSbtSize() const {
-        return
-            rayGen.getStridedDeviceAddressRegionKHR().size
-            + missGroups.getStridedDeviceAddressRegionKHR().size
-            + hitGroups.getStridedDeviceAddressRegionKHR().size
-            + callableGroups.getStridedDeviceAddressRegionKHR().size;
+//        return
+//            rayGen.stride() * rayGen.handleCount()
+//            + missGroups.stride() * missGroups.handleCount()
+//            + hitGroups.stride() * hitGroups.handleCount()
+//            + callableGroups.stride() * callableGroups.handleCount();
+        return alignedSize(handleSize, shaderGroupBaseAlignment) * numGroups;
     }
 
 
-    void createShaderBindingTable(const VulkanDevice& device, ShaderBindingTable& shaderBindingTable,  void* shaderHandleStoragePtr, VkBufferUsageFlags usageFlags, VmaMemoryUsage memoryUsage, const ShaderGroups& groups) const {
+    void createShaderBindingTable(const VulkanDevice& device, ShaderBindingTable& shaderBindingTable,  void* shaderHandleStoragePtr, VkBufferUsageFlags usageFlags, VmaMemoryUsage memoryUsage, ShaderGroups groups) const {
         if(groups.handleCount() == 0) return;
-        VkDeviceSize size = groups.size();
+
+        const auto stride = groups.stride();
+        const auto numHandles = groups.handleCount();
+        VkDeviceSize size =  stride * numHandles;
         auto stagingBuffer = device.createStagingBuffer(size);
-        stagingBuffer.copy(shaderHandleStoragePtr, size);
+
+        auto buffer = reinterpret_cast<uint8_t*>(stagingBuffer.map());
+        for(int i = 0; i < numHandles; i++){
+            std::memcpy(buffer + i * stride, shaderHandleStoragePtr, handleSizeAligned);
+        }
+        groups.transferRecords(buffer, stride);
+        stagingBuffer.unmap();
 
         shaderBindingTable.buffer = device.createBuffer(usageFlags | VK_BUFFER_USAGE_TRANSFER_DST_BIT, memoryUsage, size);
         device.copy(stagingBuffer, shaderBindingTable.buffer, size, 0, 0);
