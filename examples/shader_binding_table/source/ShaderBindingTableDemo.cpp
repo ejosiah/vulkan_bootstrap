@@ -359,12 +359,12 @@ void ShaderBindingTableDemo::createRayTracingPipeline() {
     });
     std::vector<VkRayTracingShaderGroupCreateInfoKHR> shaderGroups;
     shaderGroups.push_back(shaderTablesDesc.rayGenGroup());
-    shaderGroups.push_back(shaderTablesDesc.addMissGroup("miss0"));
-    shaderGroups.push_back(shaderTablesDesc.addHitGroup("hit0"));
-    shaderGroups.push_back(shaderTablesDesc.addHitGroup("hit1"));
+    shaderGroups.push_back(shaderTablesDesc.addMissGroup());
+    shaderGroups.push_back(shaderTablesDesc.addHitGroup());
+    shaderGroups.push_back(shaderTablesDesc.addHitGroup());
 
-    shaderTablesDesc.hitGroups.addRecord("hit0", rgba(240, 129, 196));
-    shaderTablesDesc.hitGroups.addRecord("hit1", rgba(29, 224, 205));
+    shaderTablesDesc.hitGroups.get(0).addRecord(0, rgba(240, 129, 196));
+    shaderTablesDesc.hitGroups.get(1).addRecord(0, rgba(29, 224, 205));
 
     dispose(raytrace.layout);
 

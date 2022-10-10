@@ -9,13 +9,7 @@
 #include "spdlog/spdlog.h"
 
 struct ShaderRecord{
-    std::string name;
-    uint32_t handleCount{0};
-    bool isRayGen{false};
     std::vector<unsigned char> record{};
-    uint32_t handleSize{};
-    uint32_t handleSizeAligned{};
-    uint32_t shaderGroupBaseAlignment{};
 
     template<typename T>
     void addData(const T& data){
@@ -27,104 +21,167 @@ struct ShaderRecord{
     }
 
     [[nodiscard]]
-    uint32_t sizeAligned() const {
-        return handleSizeAligned * handleCount + record.size();
-    }
-
-    [[nodiscard]]
     uint32_t size() const {
-        return handleSize * handleCount + record.size();
+        return record.size();
     }
 
-    [[nodiscard]]
-    uint32_t stride() const {
-        return alignedSize(sizeAligned(), shaderGroupBaseAlignment);
-    }
 };
 
-struct ShaderGroups {
+struct ShaderGroup {
 
-    enum class Type { RAY_GEN, MISS, CLOSEST_HIT, CALLABLE, NONE };
+    uint32_t groupOffset{};
+    uint32_t next{};
+    std::map<uint32_t, ShaderRecord> entry{};
+    uint32_t handleSize{0};
+    uint32_t handleSizeAligned{0};
+    uint32_t shaderGroupBaseAlignment{0};
 
-    Type type{NONE};
-    std::map<std::string, ShaderRecord> group;
-    uint32_t _shaderGroupBaseAlignment{0};
-    uint32_t _stride{0};
+    explicit ShaderGroup(uint32_t offset):groupOffset{offset}
+    {}
 
     [[nodiscard]]
     uint32_t handleCount() const {
-        uint32_t count = 0;
-        for(auto [_, record] : group){
-            count += record.handleCount;
-        }
-        return count;
+        return entry.size();
     }
 
-    void addGroup(const std::string& name, uint32_t handleCount = 0){
-        group[name] = ShaderRecord{ name, handleCount };
+    void addEntry(){
+        const auto index = groupOffset + next++;
+        entry.insert(std::make_pair(index, ShaderRecord{}));
     }
 
-    void set(uint32_t handleSize, uint32_t handleSizeAligned, uint32_t shaderGroupBaseAlignment){
-        for(auto& [_, record] : group){
-            record.handleSize = handleSize;
-            record.handleSizeAligned = handleSizeAligned;
-            record.shaderGroupBaseAlignment = shaderGroupBaseAlignment;
-        }
-        _shaderGroupBaseAlignment = shaderGroupBaseAlignment;
-        _stride = type == Type::RAY_GEN ? shaderGroupBaseAlignment : handleSizeAligned;
+    void set(uint32_t pHandleSize, uint32_t pHandleSizeAligned, uint32_t pShaderGroupBaseAlignment){
+        handleSize = pHandleSize;
+        handleSizeAligned = pHandleSizeAligned;
+        shaderGroupBaseAlignment = pShaderGroupBaseAlignment;
     }
 
     template<typename T>
-    void addRecord(const std::string& name, const T& record){
-        group[name].addData(record);
+    void addRecord(uint32_t index, const T& record){
+        const auto key = groupOffset + index;
+        assert(entry.find(key) != entry.end());
+        entry[key].addData(record);
     }
 
     [[nodiscard]]
     uint32_t alignedSize() const {
         auto size = 0u;
-        for(auto& [_, record] : group){
-            size += record.sizeAligned();
+        for(auto& [_, record] : entry){
+            size += record.size();
         }
-        return size;
+        return ::alignedSize(handleSize * handleCount() + size, handleSizeAligned);
     }
 
     [[nodiscard]]
     uint32_t size() const {
         auto size = 0u;
-        for(auto& [_, record] : group){
+        for(auto& [_, record] : entry){
             size += record.size();
         }
-        return size;
+        return handleSize * handleCount() + size;
+    }
+
+    [[nodiscard]]
+    uint32_t totalHandleSize() const {
+        return handleSizeAligned * handleCount();
     }
 
     void clear(){
-        group.clear();
+        entry.clear();
     }
 
     [[nodiscard]]
     uint32_t stride() const {
-        auto stride = 0u;
-        for(auto& [_, record] : group){
-            stride = glm::max(record.stride(), stride);
+        auto stride = ::alignedSize(handleSizeAligned, shaderGroupBaseAlignment);
+        for(const auto& [_, record] : entry){
+            auto rStride = ::alignedSize(handleSizeAligned + record.size(), shaderGroupBaseAlignment);
+            stride = glm::max(stride, rStride);
         }
         return stride;
     }
 
     void transferRecords(uint8_t* dest, uint32_t stride){
         auto offset = 0u;
-        for(auto& [_, record] : group){
-            offset += record.handleSizeAligned;
+        for(auto& [_, record] : entry){
+            offset += handleSizeAligned;
             const auto src = record.record.data();
-            if(src) {
-                spdlog::info("record: {}", *reinterpret_cast<const glm::vec4 *>(src));
-            }else{
-                continue;
-            }
             const auto size = record.record.size();
             std::memcpy(dest + offset, src, size);
-            offset += size;
-            offset +=  stride - record.size();
+            offset +=  stride - (offset + record.size());
         }
+    }
+};
+
+enum class GroupType { RAY_GEN, MISS, CLOSEST_HIT, CALLABLE, NONE };
+
+struct ShaderGroups{
+    
+    GroupType type{NONE};
+    std::vector<ShaderGroup> groups{};
+    
+    void add(uint32_t groupOffset, uint32_t handleCount = 1){
+        ShaderGroup group = ShaderGroup{ groupOffset };
+        for(auto i = 0; i < handleCount; i++) group.addEntry();
+        groups.push_back(group);
+    }
+
+    void set(uint32_t handleSize, uint32_t handleSizeAligned, uint32_t shaderGroupBaseAlignment){
+        for(auto& group : groups){
+            group.set(handleSize, handleSizeAligned, shaderGroupBaseAlignment);
+        }
+    }
+
+    void transferRecords(uint8_t* dest, uint32_t stride){
+        for(auto& group : groups){
+            group.transferRecords(dest, stride);
+            dest += stride * group.handleCount();
+        }
+    }
+    
+    [[nodiscard]]
+    uint32_t stride() const {
+        auto stride = 0u;
+        for(const auto& group : groups){
+            stride = glm::max(stride, group.stride());
+        }
+        return stride;
+    }
+    
+    ShaderGroup& get(const uint32_t index){
+        assert(groups.size() > index);
+        return groups[index];
+    }
+    
+    [[nodiscard]]
+    uint32_t sizeAligned() const {
+        auto size = 0u;
+        for(auto& group : groups){
+            size += group.alignedSize();
+        }
+        return size;
+    }
+
+    [[nodiscard]]
+    uint32_t totalHandleSize() const {
+        auto size = 0u;
+        for(auto& group : groups){
+            size += group.totalHandleSize();
+        }
+        return size;
+    }
+
+    [[nodiscard]]
+    uint32_t handleCount() const {
+        auto count = 0u;
+        for(auto& group : groups){
+            count += group.handleCount();
+        }
+        return count;
+    }
+
+    [[nodiscard]]
+    uint32_t groupOffset() const{
+        assert(!groups.empty());
+        return groups[0].groupOffset;
     }
 
     [[nodiscard]]
@@ -134,6 +191,10 @@ struct ShaderGroups {
         stridedDeviceAddressRegionKHR.size = stride() * handleCount();
 
         return stridedDeviceAddressRegionKHR;
+    }
+
+    void clear(){
+        groups.clear();
     }
 };
 
@@ -154,26 +215,14 @@ struct ShaderBindingTables {
 };
 
 struct ShaderTablesDescription{
-    ShaderGroups rayGen{ShaderGroups::Type::RAY_GEN};
-    ShaderGroups missGroups{ShaderGroups::Type::MISS};
-    ShaderGroups hitGroups{ShaderGroups::Type::CLOSEST_HIT};
-    ShaderGroups callableGroups{ShaderGroups::Type::CALLABLE};
+    ShaderGroups rayGen{GroupType::RAY_GEN};
+    ShaderGroups missGroups{ GroupType::MISS};
+    ShaderGroups hitGroups{ GroupType::CLOSEST_HIT};
+    ShaderGroups callableGroups{ GroupType::CALLABLE };
 
     VkRayTracingShaderGroupCreateInfoKHR rayGenGroup(){
-        rayGen.addGroup("ray_generation", 1);
-        VkRayTracingShaderGroupCreateInfoKHR shaderGroupInfo{};
-        shaderGroupInfo.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
-        shaderGroupInfo.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
-        shaderGroupInfo.generalShader = 0;
-        shaderGroupInfo.closestHitShader = VK_SHADER_UNUSED_KHR;
-        shaderGroupInfo.anyHitShader = VK_SHADER_UNUSED_KHR;
-        shaderGroupInfo.intersectionShader = VK_SHADER_UNUSED_KHR;
+        rayGen.add(numGroups);
 
-        return shaderGroupInfo;
-    }
-
-    VkRayTracingShaderGroupCreateInfoKHR addMissGroup(const std::string& name){
-        missGroups.addGroup(name, 1);
         VkRayTracingShaderGroupCreateInfoKHR shaderGroupInfo{};
         shaderGroupInfo.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
         shaderGroupInfo.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
@@ -185,8 +234,21 @@ struct ShaderTablesDescription{
         return shaderGroupInfo;
     }
 
-    VkRayTracingShaderGroupCreateInfoKHR addHitGroup(const std::string& name,
-                                                     VkRayTracingShaderGroupTypeKHR type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR,
+    VkRayTracingShaderGroupCreateInfoKHR addMissGroup(){
+        missGroups.add(numGroups);
+
+        VkRayTracingShaderGroupCreateInfoKHR shaderGroupInfo{};
+        shaderGroupInfo.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
+        shaderGroupInfo.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
+        shaderGroupInfo.generalShader = numGroups++;
+        shaderGroupInfo.closestHitShader = VK_SHADER_UNUSED_KHR;
+        shaderGroupInfo.anyHitShader = VK_SHADER_UNUSED_KHR;
+        shaderGroupInfo.intersectionShader = VK_SHADER_UNUSED_KHR;
+
+        return shaderGroupInfo;
+    }
+
+    VkRayTracingShaderGroupCreateInfoKHR addHitGroup(VkRayTracingShaderGroupTypeKHR type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR,
                                                      bool closestHitShader = true, bool anyHitShader = false, bool intersectionShader = false){
         auto prevNumGroups = numGroups;
         VkRayTracingShaderGroupCreateInfoKHR shaderGroupInfo{};
@@ -198,12 +260,12 @@ struct ShaderTablesDescription{
         shaderGroupInfo.intersectionShader = intersectionShader ? numGroups++ : VK_SHADER_UNUSED_KHR;
 
         auto handleCount = numGroups - prevNumGroups;
-        hitGroups.addGroup(name, handleCount);
+        hitGroups.add(prevNumGroups, handleCount);
         return shaderGroupInfo;
     }
 
-    VkRayTracingShaderGroupCreateInfoKHR addCallableGroup(const std::string& name){
-        callableGroups.addGroup(name);
+    VkRayTracingShaderGroupCreateInfoKHR addCallableGroup(){
+        callableGroups.add(numGroups);
         VkRayTracingShaderGroupCreateInfoKHR shaderGroupInfo{};
         shaderGroupInfo.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
         shaderGroupInfo.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
@@ -228,16 +290,16 @@ struct ShaderTablesDescription{
 
 
         auto rayGenPtr = shaderHandleStorage.data();
-        auto missPtr = rayGenPtr + rayGen.alignedSize();
-        auto hitPtr = missPtr + missGroups.alignedSize();
-        auto callablePtr = hitPtr + hitGroups.alignedSize();
+        auto missPtr = rayGenPtr + rayGen.totalHandleSize();
+        auto hitPtr = missPtr + missGroups.totalHandleSize();
+        auto callablePtr = hitPtr + hitGroups.totalHandleSize();
 
 
         ShaderBindingTables sbt;
         createShaderBindingTable(device, sbt.rayGen, rayGenPtr, usageFlags, VMA_MEMORY_USAGE_GPU_ONLY, rayGen);
         createShaderBindingTable(device, sbt.miss, missPtr, usageFlags, VMA_MEMORY_USAGE_GPU_ONLY, missGroups);
         createShaderBindingTable(device, sbt.closestHit, hitPtr, usageFlags, VMA_MEMORY_USAGE_GPU_ONLY, hitGroups);
-        createShaderBindingTable(device, sbt.callable, hitPtr, usageFlags, VMA_MEMORY_USAGE_GPU_ONLY, callableGroups);
+        createShaderBindingTable(device, sbt.callable, callablePtr, usageFlags, VMA_MEMORY_USAGE_GPU_ONLY, callableGroups);
 
         clear();
 
@@ -260,18 +322,7 @@ struct ShaderTablesDescription{
         callableGroups.set(handleSize, handleSizeAligned, shaderGroupBaseAlignment);
     }
 
-    [[nodiscard]]
-    uint32_t getSbtSize() const {
-//        return
-//            rayGen.stride() * rayGen.handleCount()
-//            + missGroups.stride() * missGroups.handleCount()
-//            + hitGroups.stride() * hitGroups.handleCount()
-//            + callableGroups.stride() * callableGroups.handleCount();
-        return alignedSize(handleSize, shaderGroupBaseAlignment) * numGroups;
-    }
-
-
-    void createShaderBindingTable(const VulkanDevice& device, ShaderBindingTable& shaderBindingTable,  void* shaderHandleStoragePtr, VkBufferUsageFlags usageFlags, VmaMemoryUsage memoryUsage, ShaderGroups groups) const {
+    void createShaderBindingTable(const VulkanDevice& device, ShaderBindingTable& shaderBindingTable, void* shaderHandleStoragePtr, VkBufferUsageFlags usageFlags, VmaMemoryUsage memoryUsage, ShaderGroups& groups) const {
         if(groups.handleCount() == 0) return;
 
         const auto stride = groups.stride();
@@ -302,7 +353,7 @@ struct ShaderTablesDescription{
 
 
     void clear(){
-        numGroups = 1;
+        numGroups = 0;
         rayGen.clear();
         missGroups.clear();
         hitGroups.clear();
@@ -313,5 +364,5 @@ private:
     uint32_t handleSizeAligned{};
     uint32_t shaderGroupHandleAlignment{};
     uint32_t shaderGroupBaseAlignment{};
-    uint32_t numGroups = 1;
+    uint32_t numGroups = 0;
 };
