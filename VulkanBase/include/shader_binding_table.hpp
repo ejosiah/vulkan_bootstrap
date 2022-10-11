@@ -221,6 +221,25 @@ struct ShaderTablesDescription{
         return shaderGroupInfo;
     }
 
+    void addGroups(const VkRayTracingPipelineCreateInfoKHR& createInfo){
+        assert(createInfo.groupCount > 0);
+
+        for(int i = 1; i < createInfo.groupCount; i++){
+            const auto group = createInfo.pGroups[i];
+            if(group.type == VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR){
+                if(createInfo.pStages[group.generalShader].stage == VK_SHADER_STAGE_RAYGEN_BIT_KHR){
+                    rayGenGroup(group.generalShader);
+                }else if(createInfo.pStages[group.generalShader].stage == VK_SHADER_STAGE_MISS_BIT_KHR){
+                    addMissGroup(group.generalShader);
+                }else if(createInfo.pStages[group.generalShader].stage == VK_SHADER_STAGE_CALLABLE_BIT_KHR){
+                    addCallableGroup(group.generalShader);
+                }
+            }else{
+                addHitGroup(group.closestHitShader, group.intersectionShader, group.anyHitShader, group.type);
+            }
+        }
+    }
+
     ShaderBindingTables compile(const VulkanDevice& device, const VulkanPipeline& pipeline){
         initHandleSizeInfo(device);
         uint32_t sbtSize = numGroups * handleSizeAligned;
