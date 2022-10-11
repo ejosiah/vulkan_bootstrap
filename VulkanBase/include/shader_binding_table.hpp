@@ -161,14 +161,14 @@ struct ShaderTablesDescription{
     ShaderGroups hitGroups{ GroupType::CLOSEST_HIT};
     ShaderGroups callableGroups{ GroupType::CALLABLE };
 
-    VkRayTracingShaderGroupCreateInfoKHR rayGenGroup(){
+    VkRayTracingShaderGroupCreateInfoKHR rayGenGroup(uint32_t shaderIndex = 0){
         numGroups++;
         rayGen.add();
 
         VkRayTracingShaderGroupCreateInfoKHR shaderGroupInfo{};
         shaderGroupInfo.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
         shaderGroupInfo.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
-        shaderGroupInfo.generalShader = shaderIndex++;
+        shaderGroupInfo.generalShader = shaderIndex;
         shaderGroupInfo.closestHitShader = VK_SHADER_UNUSED_KHR;
         shaderGroupInfo.anyHitShader = VK_SHADER_UNUSED_KHR;
         shaderGroupInfo.intersectionShader = VK_SHADER_UNUSED_KHR;
@@ -176,14 +176,14 @@ struct ShaderTablesDescription{
         return shaderGroupInfo;
     }
 
-    VkRayTracingShaderGroupCreateInfoKHR addMissGroup(){
+    VkRayTracingShaderGroupCreateInfoKHR addMissGroup(uint32_t shaderIndex){
         numGroups++;
         missGroups.add();
 
         VkRayTracingShaderGroupCreateInfoKHR shaderGroupInfo{};
         shaderGroupInfo.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
         shaderGroupInfo.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
-        shaderGroupInfo.generalShader = shaderIndex++;
+        shaderGroupInfo.generalShader = shaderIndex;
         shaderGroupInfo.closestHitShader = VK_SHADER_UNUSED_KHR;
         shaderGroupInfo.anyHitShader = VK_SHADER_UNUSED_KHR;
         shaderGroupInfo.intersectionShader = VK_SHADER_UNUSED_KHR;
@@ -191,30 +191,29 @@ struct ShaderTablesDescription{
         return shaderGroupInfo;
     }
 
-    VkRayTracingShaderGroupCreateInfoKHR addHitGroup(VkRayTracingShaderGroupTypeKHR type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR,
-                                                     bool closestHitShader = true, bool anyHitShader = false, bool intersectionShader = false){
+    VkRayTracingShaderGroupCreateInfoKHR addHitGroup( uint32_t closestHitShader, uint32_t intersectionShader = VK_SHADER_UNUSED_KHR,
+                                                      uint32_t anyHitShader = VK_SHADER_UNUSED_KHR,
+                                                      VkRayTracingShaderGroupTypeKHR type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR){
         numGroups++;
-        auto prevNumGroups = shaderIndex;
         VkRayTracingShaderGroupCreateInfoKHR shaderGroupInfo{};
         shaderGroupInfo.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
         shaderGroupInfo.type = type;
         shaderGroupInfo.generalShader = VK_SHADER_UNUSED_KHR;
-        shaderGroupInfo.closestHitShader = closestHitShader ? shaderIndex++ : VK_SHADER_UNUSED_KHR;
-        shaderGroupInfo.anyHitShader = anyHitShader ? shaderIndex++ : VK_SHADER_UNUSED_KHR;
-        shaderGroupInfo.intersectionShader = intersectionShader ? shaderIndex++ : VK_SHADER_UNUSED_KHR;
+        shaderGroupInfo.closestHitShader = closestHitShader;
+        shaderGroupInfo.anyHitShader = anyHitShader;
+        shaderGroupInfo.intersectionShader = intersectionShader;
 
-        auto handleCount = shaderIndex - prevNumGroups;
         hitGroups.add();
         return shaderGroupInfo;
     }
 
-    VkRayTracingShaderGroupCreateInfoKHR addCallableGroup(){
+    VkRayTracingShaderGroupCreateInfoKHR addCallableGroup(uint32_t shaderIndex){
         numGroups++;
         callableGroups.add();
         VkRayTracingShaderGroupCreateInfoKHR shaderGroupInfo{};
         shaderGroupInfo.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
         shaderGroupInfo.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
-        shaderGroupInfo.generalShader = shaderIndex++;
+        shaderGroupInfo.generalShader = shaderIndex;
         shaderGroupInfo.closestHitShader = VK_SHADER_UNUSED_KHR;
         shaderGroupInfo.anyHitShader = VK_SHADER_UNUSED_KHR;
         shaderGroupInfo.intersectionShader = VK_SHADER_UNUSED_KHR;
@@ -298,7 +297,6 @@ struct ShaderTablesDescription{
 
 
     void clear(){
-        shaderIndex = 0;
         numGroups = 0;
         rayGen.clear();
         missGroups.clear();
@@ -310,6 +308,5 @@ private:
     uint32_t handleSizeAligned{};
     uint32_t shaderGroupHandleAlignment{};
     uint32_t shaderGroupBaseAlignment{};
-    uint32_t shaderIndex = 0; // FIXME remove this and pass in shaderIndex
     uint32_t numGroups = 0;
 };
