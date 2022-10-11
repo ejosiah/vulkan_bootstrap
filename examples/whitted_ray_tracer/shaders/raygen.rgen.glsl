@@ -25,7 +25,7 @@ void main(){
     float tmin = 0.001;
     float tmax = 10000.0;
 
-    hitValue = vec3(1, 0, 0);
+    hitValue = vec3(0);
 
     traceRay(topLevelAs, gl_RayFlagsOpaque, 0xFF, 0, 0, 0, origin.xyz, tmin, direction.xyz, tmax, 0);
 

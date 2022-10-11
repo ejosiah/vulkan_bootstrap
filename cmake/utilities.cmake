@@ -60,6 +60,7 @@ function(compile_glsl_directory)
         "${COMPILE_SRC_DIR}/*.rgen*"
         "${COMPILE_SRC_DIR}/*.rchit*"
         "${COMPILE_SRC_DIR}/*.rmiss*"
+        "${COMPILE_SRC_DIR}/*.rcall*"
     )
 
     file(MAKE_DIRECTORY ${COMPILE_OUT_DIR})

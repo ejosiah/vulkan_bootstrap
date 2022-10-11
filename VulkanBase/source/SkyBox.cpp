@@ -197,7 +197,7 @@ VulkanDevice &SkyBox::device() {
     return *g_device;
 }
 
-void SkyBox::load(Texture &skyboxTexture, const std::string& directory, const std::array<std::string, 6>& faceNames) {
+void SkyBox::load(Texture &skyboxTexture, const std::string& directory, const std::array<std::string, 6>& faceNames, VulkanDevice* pDevice) {
     int texWidth = 0;
     int texHeight = 0;
     int prevWidth = 0;
@@ -205,6 +205,7 @@ void SkyBox::load(Texture &skyboxTexture, const std::string& directory, const st
     int texChannels;
 
     std::vector<stbi_uc*> faces;
+    const VulkanDevice& aDevice = pDevice ? *pDevice : device();
     for(const auto& faceName : faceNames){
         auto path = fmt::format("{}\\{}", directory, faceName);
         if(prevWidth != texWidth || prevHeight != texHeight){
@@ -218,7 +219,7 @@ void SkyBox::load(Texture &skyboxTexture, const std::string& directory, const st
 
     VkDeviceSize faceSize = texWidth * texHeight * STBI_rgb_alpha;
     VkDeviceSize imageSize = faceSize * 6;
-    VulkanBuffer stagingBuffer = device().createBuffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, imageSize);
+    VulkanBuffer stagingBuffer = aDevice.createBuffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, imageSize);
 
     for(auto i = 0; i < 6; i++){
         stagingBuffer.copy(faces[i], faceSize, faceSize * i);
@@ -238,8 +239,8 @@ void SkyBox::load(Texture &skyboxTexture, const std::string& directory, const st
     imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
-    auto& commandPool = device().graphicsCommandPool();
-    skyboxTexture.image = device().createImage(imageInfo, VMA_MEMORY_USAGE_GPU_ONLY);
+    auto& commandPool = aDevice.graphicsCommandPool();
+    skyboxTexture.image = aDevice.createImage(imageInfo, VMA_MEMORY_USAGE_GPU_ONLY);
 
     VkImageSubresourceRange subresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 6};
     skyboxTexture.image.transitionLayout(commandPool, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, subresourceRange);
@@ -261,7 +262,7 @@ void SkyBox::load(Texture &skyboxTexture, const std::string& directory, const st
         copyRegions[face] = region;
     }
 
-    device().graphicsCommandPool().oneTimeCommand([&](auto commandBuffer){
+    aDevice.graphicsCommandPool().oneTimeCommand([&](auto commandBuffer){
         vkCmdCopyBufferToImage(commandBuffer, stagingBuffer, skyboxTexture.image
                                , VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
                                ,COUNT(copyRegions), copyRegions.data());
@@ -277,8 +278,8 @@ void SkyBox::load(Texture &skyboxTexture, const std::string& directory, const st
     viewInfo.subresourceRange = subresourceRange;
 
     VkImageView view;
-    ERR_GUARD_VULKAN(vkCreateImageView(device(), &viewInfo, nullptr, &view));
-    skyboxTexture.imageView = VulkanImageView{ device(), view };
+    ERR_GUARD_VULKAN(vkCreateImageView(aDevice, &viewInfo, nullptr, &view));
+    skyboxTexture.imageView = VulkanImageView{ aDevice, view };
 
     VkSamplerCreateInfo  sampler = initializers::samplerCreateInfo();
     sampler.magFilter = VK_FILTER_LINEAR;
@@ -294,12 +295,12 @@ void SkyBox::load(Texture &skyboxTexture, const std::string& directory, const st
     sampler.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
     sampler.maxAnisotropy = 1.0f;
 
-    if(g_app->settings.enabledFeatures.samplerAnisotropy){
-        sampler.maxAnisotropy = device().getLimits().maxSamplerAnisotropy;
+    if(g_app && g_app->settings.enabledFeatures.samplerAnisotropy){
+        sampler.maxAnisotropy = aDevice.getLimits().maxSamplerAnisotropy;
         sampler.anisotropyEnable = VK_TRUE;
     }
 
-    skyboxTexture.sampler = device().createSampler(sampler);
+    skyboxTexture.sampler = aDevice.createSampler(sampler);
 
     for(const auto& pixels : faces){
         stbi_image_free(pixels);

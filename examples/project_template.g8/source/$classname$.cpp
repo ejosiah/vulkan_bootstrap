@@ -394,11 +394,11 @@ void $classname$::update(float time) {
 }
 
 void $classname$::checkAppInputs() {
-    VulkanBaseApp::checkAppInputs();
+    camera->processInput();
 }
 
 void $classname$::cleanup() {
-    camera->processInput();
+    VulkanBaseApp::cleanup();
 }
 
 void $classname$::onPause() {

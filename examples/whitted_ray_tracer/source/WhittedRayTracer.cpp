@@ -1,6 +1,7 @@
 #include "WhittedRayTracer.hpp"
 #include "GraphicsPipelineBuilder.hpp"
 #include "DescriptorSetBuilder.hpp"
+#include "sampling.hpp"
 
 WhittedRayTracer::WhittedRayTracer(const Settings& settings) : VulkanRayTraceBaseApp("Whitted Ray tracer", settings) {
     fileManager.addSearchPath(".");
@@ -42,20 +43,58 @@ void WhittedRayTracer::initCamera() {
 }
 
 void WhittedRayTracer::createModels() {
+    createPlanes();
+    createSpheres();
+    ctMatBuffer = device.createDeviceLocalBuffer(ctMaterials.data(), BYTE_SIZE(ctMaterials),
+                                                 VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT);
+    asInstances = rtBuilder.buildTlas();
+}
+
+void WhittedRayTracer::createPlanes() {
     imp::Plane plane{{0, 1, 0}, 0};
     planes.planes.push_back(plane);
-    planes.planeBuffer = device.createDeviceLocalBuffer(planes.planes.data(),
-                                                        planes.planes.size() * sizeof(imp::Plane),
-                                                        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+    planes.buffer = device.createDeviceLocalBuffer(planes.planes.data(),
+                                                   planes.planes.size() * sizeof(imp::Plane),
+                                                   VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT);
+    rtBuilder.add(planes.planes, static_cast<uint32_t>(imp::ImplicitType::PLANE), 1000, Brdf::Cook_Torrance);
 
-    rtBuilder.add(planes.planes);
+    Material mat{glm::vec3(1)};
+    ctMaterials.push_back(mat);
 
-    imp::Sphere sphere{glm::vec3(0, 0.2, 0), 0.2};
-    spheres[0].spheres.push_back(sphere);
-    spheres[0].buffer = device.createDeviceLocalBuffer(spheres[0].spheres.data(), BYTE_SIZE(spheres[0].spheres), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-    rtBuilder.add(spheres[0].spheres);
+}
 
-    asInstances = rtBuilder.buildTlas();
+void WhittedRayTracer::createSpheres() {
+    auto seed = 1 << 20;
+    auto x = rng(0, 1, seed);
+    auto radius = rng( 0.1, 0.5, seed);
+    auto center = [&](float y){
+        auto u = [&]{ return glm::vec2(x(), x()); };
+        constexpr float placementArea = 5;
+        auto p = sampling::uniformSampleDisk(u()) * placementArea;
+        return glm::vec3(p.x, y, p.y);
+    };
+
+    auto& lSpheres = spheres[0].spheres;
+    while(lSpheres.size() < NUM_SPHERES){
+        imp::Sphere sphere;
+        sphere.radius = radius();
+        sphere.center = center(sphere.radius);
+
+        auto collision = std::any_of(lSpheres.begin(), lSpheres.end(), [&](auto& sceneSphere){
+            auto ed = sphere.radius + sceneSphere.radius;
+            auto d = sphere.center - sceneSphere.center;
+            return glm::dot(d, d) <= ed * ed;
+        });
+
+        if(collision){
+            continue;
+        }
+        lSpheres.push_back(sphere);
+        Material mat{randomColor().xyz() };
+        ctMaterials.push_back(mat);
+    }
+    spheres[0].buffer = device.createDeviceLocalBuffer(lSpheres.data(), BYTE_SIZE(lSpheres), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT);
+    rtBuilder.add(spheres[0].spheres, static_cast<uint32_t>(imp::ImplicitType::SPHERE), Brdf::Cook_Torrance);
 }
 
 void WhittedRayTracer::createSkyBox() {
@@ -97,7 +136,7 @@ void WhittedRayTracer::createDescriptorSetLayouts() {
             .binding(0)
                 .descriptorType(VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR)
                 .descriptorCount(1)
-                .shaderStages(VK_SHADER_STAGE_RAYGEN_BIT_KHR)
+                .shaderStages(VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
             .binding(1)
                 .descriptorType(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
                 .descriptorCount(1)
@@ -181,7 +220,7 @@ void WhittedRayTracer::updateDescriptorSets(){
     writes[5].dstBinding = 1;
     writes[5].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     writes[5].descriptorCount = 1;
-    VkDescriptorBufferInfo planeInfo{ planes.planeBuffer, 0, VK_WHOLE_SIZE};
+    VkDescriptorBufferInfo planeInfo{planes.buffer, 0, VK_WHOLE_SIZE};
     writes[5].pBufferInfo = &planeInfo;
 
     device.updateDescriptorSets(writes);
@@ -215,13 +254,27 @@ void WhittedRayTracer::createRayTracingPipeline() {
     auto rayGenShaderModule = VulkanShaderModule{ resource("raygen.rgen.spv"), device };
     auto missShaderModule = VulkanShaderModule{ resource("miss.rmiss.spv"), device };
     auto diffuseHitShaderModule = VulkanShaderModule{ resource("diffuse_hit.rchit.spv"), device };
+    auto mirrorHitShaderModule = VulkanShaderModule{ resource("mirror.rchit.spv"), device };
+    auto glassHitShaderModule = VulkanShaderModule{ resource("glass.rchit.spv"), device };
     auto implicitsIntersectShaderModule = VulkanShaderModule{resource("raytracing_implicits/implicits.rint.spv"), device};
     auto checkerboardShaderModule = VulkanShaderModule{resource("checkerboard.rcall.spv"), device};
+
+    device.setName<VK_OBJECT_TYPE_SHADER_MODULE>("ray_gen", rayGenShaderModule);
+    device.setName<VK_OBJECT_TYPE_SHADER_MODULE>("miss", missShaderModule);
+    device.setName<VK_OBJECT_TYPE_SHADER_MODULE>("ct_hit", diffuseHitShaderModule);
+    device.setName<VK_OBJECT_TYPE_SHADER_MODULE>("mirror_hit", mirrorHitShaderModule);
+    device.setName<VK_OBJECT_TYPE_SHADER_MODULE>("glass_hit", glassHitShaderModule);
+    device.setName<VK_OBJECT_TYPE_SHADER_MODULE>("implicit_intersect", implicitsIntersectShaderModule);
+    device.setName<VK_OBJECT_TYPE_SHADER_MODULE>("checker_board_callable", checkerboardShaderModule);
 
     auto stages = initializers::rayTraceShaderStages({
          { rayGenShaderModule, VK_SHADER_STAGE_RAYGEN_BIT_KHR},
          { missShaderModule, VK_SHADER_STAGE_MISS_BIT_KHR},
          { diffuseHitShaderModule, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR},
+         { implicitsIntersectShaderModule, VK_SHADER_STAGE_INTERSECTION_BIT_KHR},   // FIXME share intersect shader
+         { mirrorHitShaderModule, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR},
+         { implicitsIntersectShaderModule, VK_SHADER_STAGE_INTERSECTION_BIT_KHR},  // FIXME share intersect shader
+         { glassHitShaderModule, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR},
          { implicitsIntersectShaderModule, VK_SHADER_STAGE_INTERSECTION_BIT_KHR},
          { checkerboardShaderModule, VK_SHADER_STAGE_CALLABLE_BIT_KHR},
      });
@@ -230,7 +283,22 @@ void WhittedRayTracer::createRayTracingPipeline() {
     shaderGroups.push_back(shaderTablesDesc.rayGenGroup());
     shaderGroups.push_back(shaderTablesDesc.addMissGroup());
     shaderGroups.push_back(shaderTablesDesc.addHitGroup(VK_RAY_TRACING_SHADER_GROUP_TYPE_PROCEDURAL_HIT_GROUP_KHR, true, false, true));
+    shaderGroups.push_back(shaderTablesDesc.addHitGroup(VK_RAY_TRACING_SHADER_GROUP_TYPE_PROCEDURAL_HIT_GROUP_KHR, true, false, true));
+    shaderGroups.push_back(shaderTablesDesc.addHitGroup(VK_RAY_TRACING_SHADER_GROUP_TYPE_PROCEDURAL_HIT_GROUP_KHR, true, false, true));
     shaderGroups.push_back(shaderTablesDesc.addCallableGroup());
+
+    auto address = device.getAddress(spheres[0].buffer);
+    shaderTablesDesc.hitGroups.get(Cook_Torrance).addRecord(address);
+    shaderTablesDesc.hitGroups.get(Mirror).addRecord(address);
+    shaderTablesDesc.hitGroups.get(Glass).addRecord(address);
+    address = device.getAddress(planes.buffer);
+    shaderTablesDesc.hitGroups.get(Cook_Torrance).addRecord(address);
+    shaderTablesDesc.hitGroups.get(Mirror).addRecord(address);
+    shaderTablesDesc.hitGroups.get(Glass).addRecord(address);
+    address = device.getAddress(ctMatBuffer);
+    shaderTablesDesc.hitGroups.get(Cook_Torrance).addRecord(address);
+    shaderTablesDesc.hitGroups.get(Mirror).addRecord(address);
+    shaderTablesDesc.hitGroups.get(Glass).addRecord(address);
 
     dispose(raytrace.layout);
 
@@ -240,7 +308,7 @@ void WhittedRayTracer::createRayTracingPipeline() {
     createInfo.pStages = stages.data();
     createInfo.groupCount = COUNT(shaderGroups);
     createInfo.pGroups = shaderGroups.data();
-    createInfo.maxPipelineRayRecursionDepth = 0;
+    createInfo.maxPipelineRayRecursionDepth = 5;
     createInfo.layout = raytrace.layout;
 
     raytrace.pipeline = device.createRayTracingPipeline(createInfo);
@@ -372,11 +440,10 @@ void WhittedRayTracer::update(float time) {
 }
 
 void WhittedRayTracer::checkAppInputs() {
-    VulkanBaseApp::checkAppInputs();
+    camera->processInput();
 }
 
 void WhittedRayTracer::cleanup() {
-    camera->processInput();
 }
 
 void WhittedRayTracer::onPause() {

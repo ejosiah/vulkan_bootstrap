@@ -37,4 +37,15 @@
 #define executeCallable executeCallableEXT
 #define nonuniform nonuniformEXT
 
+// Ray falgs
+#define gl_RayFlagsNone gl_RayFlagsNoneEXT
+#define gl_RayFlagsOpaque gl_RayFlagsOpaqueEXT
+#define gl_RayFlagsNoOpaque gl_RayFlagsNoOpaqueEXT
+#define gl_RayFlagsTerminateOnFirstHit gl_RayFlagsTerminateOnFirstHitEXT
+#define gl_RayFlagsSkipClosestHitShader gl_RayFlagsSkipClosestHitShaderEXT
+#define gl_RayFlagsCullBackFacingTriangles gl_RayFlagsCullBackFacingTrianglesEXT
+#define gl_RayFlagsCullFrontFacingTriangles gl_RayFlagsCullFrontFacingTrianglesEXT
+#define gl_RayFlagsCullOpaque gl_RayFlagsCullOpaqueEXT
+#define gl_RayFlagsCullNoOpaque gl_RayFlagsCullNoOpaqueEXT
+
 #endif // GLSL_RAY_TRACING_GLSL

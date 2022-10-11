@@ -23,7 +23,7 @@ struct SkyBox{
 
     static void updateDescriptorSet(SkyBox& skyBox);
 
-    static void load(Texture& skyboxTexture, const std::string& directory, const std::array<std::string, 6>& faceNames);
+    static void load(Texture& skyboxTexture, const std::string& directory, const std::array<std::string, 6>& faceNames, VulkanDevice* pDevice = nullptr);
 
     static VulkanDevice& device();
 

@@ -3,6 +3,20 @@
 #include "shader_binding_table.hpp"
 #include "SkyBox.hpp"
 
+ struct Material{
+    alignas(16) glm::vec3 albedo{0};
+    glm::vec2 padding{0};
+    float metalness{0};
+    float roughness{0};
+};
+
+struct Glass{
+    alignas(16) glm::vec3 albedo{0};
+    float ior{1.52};
+};
+
+enum Brdf{ Cook_Torrance = 0, Mirror, Glass };
+
 class WhittedRayTracer : public VulkanRayTraceBaseApp {
 public:
     explicit WhittedRayTracer(const Settings& settings = {});
@@ -13,6 +27,10 @@ protected:
     void initCamera();
 
     void createModels();
+
+    void createPlanes();
+
+    void createSpheres();
 
     void createSkyBox();
 
@@ -79,7 +97,7 @@ protected:
 
     struct {
         std::vector<imp::Plane> planes;
-        VulkanBuffer planeBuffer;
+        VulkanBuffer buffer;
         rt::ImplicitObject asRef;
     } planes;
 
@@ -89,6 +107,13 @@ protected:
         rt::ImplicitObject asRef;
     } spheres[3];
 
+    VulkanBuffer ctMatBuffer;
+    VulkanBuffer glassMatBuffer;
+    std::vector<Material> ctMaterials;
+    std::vector<Material> glassMaterials;
+
     VulkanDescriptorSetLayout implicitObjectsDescriptorSetLayout;
     VkDescriptorSet implicitObjectsDescriptorSet;
+    const int NUM_SPHERES = 100;
+
 };

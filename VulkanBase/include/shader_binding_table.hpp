@@ -7,6 +7,7 @@
 #include "VulkanBuffer.h"
 #include "glm_format.h"
 #include "spdlog/spdlog.h"
+#include <algorithm>
 
 struct ShaderRecord{
     std::vector<unsigned char> record{};
@@ -21,93 +22,54 @@ struct ShaderRecord{
     }
 
     [[nodiscard]]
-    uint32_t size() const {
+    inline uint32_t size() const {
         return record.size();
+    }
+
+    [[nodiscard]]
+    inline auto data() const {
+        return record.data();
+    }
+
+    inline void clear() {
+        record.clear();
     }
 
 };
 
 struct ShaderGroup {
 
-    uint32_t groupOffset{};
     uint32_t next{};
-    std::map<uint32_t, ShaderRecord> entry{};
-    uint32_t handleSize{0};
+    ShaderRecord record;
     uint32_t handleSizeAligned{0};
     uint32_t shaderGroupBaseAlignment{0};
 
-    explicit ShaderGroup(uint32_t offset):groupOffset{offset}
-    {}
-
-    [[nodiscard]]
-    uint32_t handleCount() const {
-        return entry.size();
-    }
-
-    void addEntry(){
-        const auto index = groupOffset + next++;
-        entry.insert(std::make_pair(index, ShaderRecord{}));
-    }
-
-    void set(uint32_t pHandleSize, uint32_t pHandleSizeAligned, uint32_t pShaderGroupBaseAlignment){
-        handleSize = pHandleSize;
+    void set(uint32_t pHandleSizeAligned, uint32_t pShaderGroupBaseAlignment){
         handleSizeAligned = pHandleSizeAligned;
         shaderGroupBaseAlignment = pShaderGroupBaseAlignment;
     }
 
     template<typename T>
-    void addRecord(uint32_t index, const T& record){
-        const auto key = groupOffset + index;
-        assert(entry.find(key) != entry.end());
-        entry[key].addData(record);
+    inline void addRecord(const T& data){
+        record.addData(data);
     }
 
     [[nodiscard]]
-    uint32_t alignedSize() const {
-        auto size = 0u;
-        for(auto& [_, record] : entry){
-            size += record.size();
-        }
-        return ::alignedSize(handleSize * handleCount() + size, handleSizeAligned);
+    inline uint32_t size() const {
+        return handleSizeAligned + record.size();
+    }
+
+    inline void clear(){
+        record.clear();
     }
 
     [[nodiscard]]
-    uint32_t size() const {
-        auto size = 0u;
-        for(auto& [_, record] : entry){
-            size += record.size();
-        }
-        return handleSize * handleCount() + size;
+    inline uint32_t stride() const {
+        return ::alignedSize(size(), shaderGroupBaseAlignment);
     }
 
-    [[nodiscard]]
-    uint32_t totalHandleSize() const {
-        return handleSizeAligned * handleCount();
-    }
-
-    void clear(){
-        entry.clear();
-    }
-
-    [[nodiscard]]
-    uint32_t stride() const {
-        auto stride = ::alignedSize(handleSizeAligned, shaderGroupBaseAlignment);
-        for(const auto& [_, record] : entry){
-            auto rStride = ::alignedSize(handleSizeAligned + record.size(), shaderGroupBaseAlignment);
-            stride = glm::max(stride, rStride);
-        }
-        return stride;
-    }
-
-    void transferRecords(uint8_t* dest, uint32_t stride){
-        auto offset = 0u;
-        for(auto& [_, record] : entry){
-            offset += handleSizeAligned;
-            const auto src = record.record.data();
-            const auto size = record.record.size();
-            std::memcpy(dest + offset, src, size);
-            offset +=  stride - (offset + record.size());
-        }
+    inline void transferRecords(uint8_t* dest) const {
+        std::memcpy(dest + handleSizeAligned, record.data(), record.size());
     }
 };
 
@@ -118,22 +80,20 @@ struct ShaderGroups{
     GroupType type{NONE};
     std::vector<ShaderGroup> groups{};
     
-    void add(uint32_t groupOffset, uint32_t handleCount = 1){
-        ShaderGroup group = ShaderGroup{ groupOffset };
-        for(auto i = 0; i < handleCount; i++) group.addEntry();
-        groups.push_back(group);
+    void add(){
+        groups.emplace_back();
     }
 
-    void set(uint32_t handleSize, uint32_t handleSizeAligned, uint32_t shaderGroupBaseAlignment){
+    void set(uint32_t handleSizeAligned, uint32_t shaderGroupBaseAlignment){
         for(auto& group : groups){
-            group.set(handleSize, handleSizeAligned, shaderGroupBaseAlignment);
+            group.set(handleSizeAligned, shaderGroupBaseAlignment);
         }
     }
 
     void transferRecords(uint8_t* dest, uint32_t stride){
         for(auto& group : groups){
-            group.transferRecords(dest, stride);
-            dest += stride * group.handleCount();
+            group.transferRecords(dest);
+            dest += stride;
         }
     }
     
@@ -147,58 +107,34 @@ struct ShaderGroups{
     }
     
     ShaderGroup& get(const uint32_t index){
-        assert(groups.size() > index);
+        assert(count() > index);
         return groups[index];
     }
-    
+
     [[nodiscard]]
-    uint32_t sizeAligned() const {
-        auto size = 0u;
-        for(auto& group : groups){
-            size += group.alignedSize();
-        }
-        return size;
+    VkStridedDeviceAddressRegionKHR getStridedDeviceAddressRegionKHR(const VkDeviceAddress& deviceAddress) const{
+        VkStridedDeviceAddressRegionKHR region{};
+        region.deviceAddress = deviceAddress;
+        region.stride = stride();
+        region.size = stride() * count();
+
+        return region;
     }
 
     [[nodiscard]]
-    uint32_t totalHandleSize() const {
-        auto size = 0u;
-        for(auto& group : groups){
-            size += group.totalHandleSize();
-        }
-        return size;
-    }
-
-    [[nodiscard]]
-    uint32_t handleCount() const {
-        auto count = 0u;
-        for(auto& group : groups){
-            count += group.handleCount();
-        }
-        return count;
-    }
-
-    [[nodiscard]]
-    uint32_t groupOffset() const{
-        assert(!groups.empty());
-        return groups[0].groupOffset;
-    }
-
-    [[nodiscard]]
-    VkStridedDeviceAddressRegionKHR getStridedDeviceAddressRegionKHR() const{
-        VkStridedDeviceAddressRegionKHR stridedDeviceAddressRegionKHR{};
-        stridedDeviceAddressRegionKHR.stride = stride();
-        stridedDeviceAddressRegionKHR.size = stride() * handleCount();
-
-        return stridedDeviceAddressRegionKHR;
-    }
-
-    [[nodiscard]]
-    uint32_t groupCount() const {
+    inline uint32_t count() const {
         return groups.size();
     }
+    
+    inline auto begin(){
+        return groups.begin();
+    }
+    
+    inline auto end() {
+        return groups.end();
+    }
 
-    void clear(){
+    inline void clear(){
         groups.clear();
     }
 };
@@ -226,12 +162,13 @@ struct ShaderTablesDescription{
     ShaderGroups callableGroups{ GroupType::CALLABLE };
 
     VkRayTracingShaderGroupCreateInfoKHR rayGenGroup(){
-        rayGen.add(totalHandles);
+        numGroups++;
+        rayGen.add();
 
         VkRayTracingShaderGroupCreateInfoKHR shaderGroupInfo{};
         shaderGroupInfo.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
         shaderGroupInfo.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
-        shaderGroupInfo.generalShader = totalHandles++;
+        shaderGroupInfo.generalShader = shaderIndex++;
         shaderGroupInfo.closestHitShader = VK_SHADER_UNUSED_KHR;
         shaderGroupInfo.anyHitShader = VK_SHADER_UNUSED_KHR;
         shaderGroupInfo.intersectionShader = VK_SHADER_UNUSED_KHR;
@@ -240,12 +177,13 @@ struct ShaderTablesDescription{
     }
 
     VkRayTracingShaderGroupCreateInfoKHR addMissGroup(){
-        missGroups.add(totalHandles);
+        numGroups++;
+        missGroups.add();
 
         VkRayTracingShaderGroupCreateInfoKHR shaderGroupInfo{};
         shaderGroupInfo.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
         shaderGroupInfo.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
-        shaderGroupInfo.generalShader = totalHandles++;
+        shaderGroupInfo.generalShader = shaderIndex++;
         shaderGroupInfo.closestHitShader = VK_SHADER_UNUSED_KHR;
         shaderGroupInfo.anyHitShader = VK_SHADER_UNUSED_KHR;
         shaderGroupInfo.intersectionShader = VK_SHADER_UNUSED_KHR;
@@ -255,26 +193,28 @@ struct ShaderTablesDescription{
 
     VkRayTracingShaderGroupCreateInfoKHR addHitGroup(VkRayTracingShaderGroupTypeKHR type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR,
                                                      bool closestHitShader = true, bool anyHitShader = false, bool intersectionShader = false){
-        auto prevNumGroups = totalHandles;
+        numGroups++;
+        auto prevNumGroups = shaderIndex;
         VkRayTracingShaderGroupCreateInfoKHR shaderGroupInfo{};
         shaderGroupInfo.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
         shaderGroupInfo.type = type;
         shaderGroupInfo.generalShader = VK_SHADER_UNUSED_KHR;
-        shaderGroupInfo.closestHitShader = closestHitShader ? totalHandles++ : VK_SHADER_UNUSED_KHR;
-        shaderGroupInfo.anyHitShader = anyHitShader ? totalHandles++ : VK_SHADER_UNUSED_KHR;
-        shaderGroupInfo.intersectionShader = intersectionShader ? totalHandles++ : VK_SHADER_UNUSED_KHR;
+        shaderGroupInfo.closestHitShader = closestHitShader ? shaderIndex++ : VK_SHADER_UNUSED_KHR;
+        shaderGroupInfo.anyHitShader = anyHitShader ? shaderIndex++ : VK_SHADER_UNUSED_KHR;
+        shaderGroupInfo.intersectionShader = intersectionShader ? shaderIndex++ : VK_SHADER_UNUSED_KHR;
 
-        auto handleCount = totalHandles - prevNumGroups;
-        hitGroups.add(prevNumGroups, handleCount);
+        auto handleCount = shaderIndex - prevNumGroups;
+        hitGroups.add();
         return shaderGroupInfo;
     }
 
     VkRayTracingShaderGroupCreateInfoKHR addCallableGroup(){
-        callableGroups.add(totalHandles);
+        numGroups++;
+        callableGroups.add();
         VkRayTracingShaderGroupCreateInfoKHR shaderGroupInfo{};
         shaderGroupInfo.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
         shaderGroupInfo.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
-        shaderGroupInfo.generalShader = totalHandles++;
+        shaderGroupInfo.generalShader = shaderIndex++;
         shaderGroupInfo.closestHitShader = VK_SHADER_UNUSED_KHR;
         shaderGroupInfo.anyHitShader = VK_SHADER_UNUSED_KHR;
         shaderGroupInfo.intersectionShader = VK_SHADER_UNUSED_KHR;
@@ -284,21 +224,21 @@ struct ShaderTablesDescription{
 
     ShaderBindingTables compile(const VulkanDevice& device, const VulkanPipeline& pipeline){
         initHandleSizeInfo(device);
-        uint32_t sbtSize = totalHandles * handleSizeAligned;
+        uint32_t sbtSize = numGroups * handleSizeAligned;
         spdlog::info("handleSize: {}, handleSizeAligned {}, sbtSize: {}", handleSize, handleSizeAligned, sbtSize);
 
         std::vector<uint8_t> shaderHandleStorage(sbtSize);
 
-        auto groupCount = rayGen.groupCount() + missGroups.groupCount() + hitGroups.groupCount() + callableGroups.groupCount();
+        auto groupCount = numGroups;
         vkGetRayTracingShaderGroupHandlesKHR(device, pipeline, 0, groupCount, sbtSize, shaderHandleStorage.data());
 
         const VkBufferUsageFlags usageFlags = VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
 
 
         auto rayGenPtr = shaderHandleStorage.data();
-        auto missPtr = rayGenPtr + rayGen.totalHandleSize();
-        auto hitPtr = missPtr + missGroups.totalHandleSize();
-        auto callablePtr = hitPtr + hitGroups.totalHandleSize();
+        auto missPtr = rayGenPtr + rayGen.count() * handleSizeAligned;
+        auto hitPtr = missPtr + missGroups.count() * handleSizeAligned;
+        auto callablePtr = hitPtr + hitGroups.count() * handleSizeAligned;
 
 
         ShaderBindingTables sbt;
@@ -322,44 +262,44 @@ struct ShaderTablesDescription{
         shaderGroupBaseAlignment = rayTraceProps.shaderGroupBaseAlignment;
         handleSizeAligned = alignedSize(handleSize, shaderGroupHandleAlignment);
 
-        rayGen.set(handleSize, handleSizeAligned, shaderGroupBaseAlignment);
-        missGroups.set(handleSize, handleSizeAligned, shaderGroupBaseAlignment);
-        hitGroups.set(handleSize, handleSizeAligned, shaderGroupBaseAlignment);
-        callableGroups.set(handleSize, handleSizeAligned, shaderGroupBaseAlignment);
+        rayGen.set(handleSizeAligned, shaderGroupBaseAlignment);
+        missGroups.set(handleSizeAligned, shaderGroupBaseAlignment);
+        hitGroups.set(handleSizeAligned, shaderGroupBaseAlignment);
+        callableGroups.set(handleSizeAligned, shaderGroupBaseAlignment);
     }
 
-    void createShaderBindingTable(const VulkanDevice& device, ShaderBindingTable& shaderBindingTable, void* shaderHandleStoragePtr, VkBufferUsageFlags usageFlags, VmaMemoryUsage memoryUsage, ShaderGroups& groups) const {
-        if(groups.handleCount() == 0) return;
+    void createShaderBindingTable(const VulkanDevice& device, ShaderBindingTable& shaderBindingTable, uint8_t* shaderHandleStoragePtr, VkBufferUsageFlags usageFlags, VmaMemoryUsage memoryUsage, ShaderGroups& groups) const {
+        if(groups.count() == 0) return;
 
         const auto stride = groups.stride();
-        const auto numHandles = groups.handleCount();
-        VkDeviceSize size =  stride * numHandles;
+        const auto groupCount = groups.count();
+        VkDeviceSize size =  stride * groupCount;
         auto stagingBuffer = device.createStagingBuffer(size);
 
         auto buffer = reinterpret_cast<uint8_t*>(stagingBuffer.map());
-        for(int i = 0; i < numHandles; i++){
-            std::memcpy(buffer + i * stride, shaderHandleStoragePtr, handleSizeAligned);
+        auto dest = buffer;
+        auto src = shaderHandleStoragePtr;
+
+        for(auto& group : groups){
+            std::memcpy(dest, src, handleSizeAligned);
+            src += handleSizeAligned;
+            dest += stride;
         }
+
         groups.transferRecords(buffer, stride);
         stagingBuffer.unmap();
 
         shaderBindingTable.buffer = device.createBuffer(usageFlags | VK_BUFFER_USAGE_TRANSFER_DST_BIT, memoryUsage, size);
         device.copy(stagingBuffer, shaderBindingTable.buffer, size, 0, 0);
 
-        shaderBindingTable.stridedDeviceAddressRegion = getSbtEntryStrideDeviceAddressRegion(device, shaderBindingTable.buffer, groups);
-    }
-
-     [[nodiscard]]
-     VkStridedDeviceAddressRegionKHR getSbtEntryStrideDeviceAddressRegion(const VulkanDevice& device, const VulkanBuffer& buffer, const ShaderGroups& groups) const{
-        VkStridedDeviceAddressRegionKHR strideDeviceAddressRegion = groups.getStridedDeviceAddressRegionKHR();
-        strideDeviceAddressRegion.deviceAddress = device.getAddress(buffer);
-
-        return strideDeviceAddressRegion;
+        shaderBindingTable.stridedDeviceAddressRegion =
+                groups.getStridedDeviceAddressRegionKHR(device.getAddress(shaderBindingTable.buffer));
     }
 
 
     void clear(){
-        totalHandles = 0;
+        shaderIndex = 0;
+        numGroups = 0;
         rayGen.clear();
         missGroups.clear();
         hitGroups.clear();
@@ -370,5 +310,6 @@ private:
     uint32_t handleSizeAligned{};
     uint32_t shaderGroupHandleAlignment{};
     uint32_t shaderGroupBaseAlignment{};
-    uint32_t totalHandles = 0;
+    uint32_t shaderIndex = 0; // FIXME remove this and pass in shaderIndex
+    uint32_t numGroups = 0;
 };
