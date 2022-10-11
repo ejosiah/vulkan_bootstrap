@@ -30,6 +30,7 @@ struct LightSource{
 
 #define PATTERN_PARAM 0
 #define PATTERN_FUNCTION 0
+#define HIT_MARGIN 0.0001
 
 #define rgb(r, g, b) (vec3(r, g, b) * 0.0039215686274509803921568627451f)
 
@@ -57,6 +58,8 @@ layout(shaderRecord, std430) buffer SBT {
 hitAttribute vec2 attribs;
 
 layout(location = 0) rayPayloadIn vec3 hitValue;
+layout(location = 1) rayPayload bool isShadowed;
+
 layout(location = PATTERN_PARAM) callableData PatternParams pattern;
 
 
@@ -82,7 +85,7 @@ void main(){
     int matOffset = 0;
     Material material;
     vec3 albedo = vec3(0);
-    LightSource light = LightSource(vec3(0, 10, 0), vec3(10));
+    LightSource light = LightSource(vec3(0, 10, 10), vec3(10));
 
     if(gl_HitKind == IMPLICIT_TYPE_SPHERE){
         scale = 2;
@@ -100,9 +103,8 @@ void main(){
     float roughness = material.roughness;
 
     vec3 viewPos = gl_WorldRayOrigin;
-//    vec3 lightPos = light.locaiton;
-    vec3 lightPos = viewPos;
-    vec3 lightDir = -gl_WorldRayDirection;
+    vec3 lightPos = light.locaiton;
+    vec3 lightDir = lightPos - worldPos;
     vec3 viewDir = viewPos - worldPos;
 
     vec3 L = normalize(lightDir);
@@ -132,14 +134,32 @@ void main(){
     vec3 diffuse = albedo * max(0, dot(N, L));
     vec3 pSpecular = vec3(1) * pow(max(0, dot(N, H)), 250);
     vec3 radiance = light.intensity * attenuation;
-    vec3 irradience = ambiance + (kD * albedo / PI + specular) * radiance * max(0, dot(N, L));
-//    vec3 irradience = ambiance + radiance * (diffuse + pSpecular);
 
+    isShadowed = true;
+    uint flags = gl_RayFlagsSkipClosestHitShader | gl_RayFlagsTerminateOnFirstHit;
+
+    float NdotL = max(0, dot(N, L));
+
+    if(NdotL > 0){
+        traceRay(topLevelAS, flags, 0xFF, 0, 0, 1, worldPos, HIT_MARGIN, L, dist, 1);
+    }
+
+    float visibility = 1;
+    if(isShadowed){
+        visibility = 0.3;
+        specular = vec3(0);
+    }
+
+    vec3 irradience = visibility * (kD * albedo / PI + specular) * radiance * NdotL;
+//    vec3 irradience = ambiance + radiance * (diffuse + pSpecular);
     irradience = irradience/(irradience + 1);
 
     vec3 fog = rgb(91, 89, 78);
-    float density = 0.1;
+    float density = 0.05;
     float distFromOrigin = gl_HitT;
     float t = clamp(exp(-density * distFromOrigin), 0, 1);
     hitValue = mix(fog, irradience, t);
+
+    vec3 direction = reflect(gl_WorldRayDirection, normal);
+    direction = normalize(direction);
 }

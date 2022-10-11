@@ -6,7 +6,7 @@
  struct Material{
     alignas(16) glm::vec3 albedo{0};
     glm::vec2 padding{0};
-    float metalness{0};
+    float metalness{1};
     float roughness{0};
 };
 

@@ -253,6 +253,7 @@ void WhittedRayTracer::createInverseCam() {
 void WhittedRayTracer::createRayTracingPipeline() {
     auto rayGenShaderModule = VulkanShaderModule{ resource("raygen.rgen.spv"), device };
     auto missShaderModule = VulkanShaderModule{ resource("miss.rmiss.spv"), device };
+    auto shadowMissModule = VulkanShaderModule{ resource("shadow.rmiss.spv"), device };
     auto diffuseHitShaderModule = VulkanShaderModule{ resource("diffuse_hit.rchit.spv"), device };
     auto mirrorHitShaderModule = VulkanShaderModule{ resource("mirror.rchit.spv"), device };
     auto glassHitShaderModule = VulkanShaderModule{ resource("glass.rchit.spv"), device };
@@ -261,6 +262,7 @@ void WhittedRayTracer::createRayTracingPipeline() {
 
     device.setName<VK_OBJECT_TYPE_SHADER_MODULE>("ray_gen", rayGenShaderModule);
     device.setName<VK_OBJECT_TYPE_SHADER_MODULE>("miss", missShaderModule);
+    device.setName<VK_OBJECT_TYPE_SHADER_MODULE>("shadow_miss", shadowMissModule);
     device.setName<VK_OBJECT_TYPE_SHADER_MODULE>("ct_hit", diffuseHitShaderModule);
     device.setName<VK_OBJECT_TYPE_SHADER_MODULE>("mirror_hit", mirrorHitShaderModule);
     device.setName<VK_OBJECT_TYPE_SHADER_MODULE>("glass_hit", glassHitShaderModule);
@@ -270,22 +272,22 @@ void WhittedRayTracer::createRayTracingPipeline() {
     auto stages = initializers::rayTraceShaderStages({
          { rayGenShaderModule, VK_SHADER_STAGE_RAYGEN_BIT_KHR},
          { missShaderModule, VK_SHADER_STAGE_MISS_BIT_KHR},
+         { shadowMissModule, VK_SHADER_STAGE_MISS_BIT_KHR},
          { diffuseHitShaderModule, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR},
          { implicitsIntersectShaderModule, VK_SHADER_STAGE_INTERSECTION_BIT_KHR},   // FIXME share intersect shader
          { mirrorHitShaderModule, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR},
-         { implicitsIntersectShaderModule, VK_SHADER_STAGE_INTERSECTION_BIT_KHR},  // FIXME share intersect shader
          { glassHitShaderModule, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR},
-         { implicitsIntersectShaderModule, VK_SHADER_STAGE_INTERSECTION_BIT_KHR},
          { checkerboardShaderModule, VK_SHADER_STAGE_CALLABLE_BIT_KHR},
      });
 
     std::vector<VkRayTracingShaderGroupCreateInfoKHR> shaderGroups;
     shaderGroups.push_back(shaderTablesDesc.rayGenGroup());
-    shaderGroups.push_back(shaderTablesDesc.addMissGroup());
-    shaderGroups.push_back(shaderTablesDesc.addHitGroup(VK_RAY_TRACING_SHADER_GROUP_TYPE_PROCEDURAL_HIT_GROUP_KHR, true, false, true));
-    shaderGroups.push_back(shaderTablesDesc.addHitGroup(VK_RAY_TRACING_SHADER_GROUP_TYPE_PROCEDURAL_HIT_GROUP_KHR, true, false, true));
-    shaderGroups.push_back(shaderTablesDesc.addHitGroup(VK_RAY_TRACING_SHADER_GROUP_TYPE_PROCEDURAL_HIT_GROUP_KHR, true, false, true));
-    shaderGroups.push_back(shaderTablesDesc.addCallableGroup());
+    shaderGroups.push_back(shaderTablesDesc.addMissGroup(1));
+    shaderGroups.push_back(shaderTablesDesc.addMissGroup(2));
+    shaderGroups.push_back(shaderTablesDesc.addHitGroup(3, 4, VK_SHADER_UNUSED_KHR, VK_RAY_TRACING_SHADER_GROUP_TYPE_PROCEDURAL_HIT_GROUP_KHR));
+    shaderGroups.push_back(shaderTablesDesc.addHitGroup(5, 4, VK_SHADER_UNUSED_KHR, VK_RAY_TRACING_SHADER_GROUP_TYPE_PROCEDURAL_HIT_GROUP_KHR));
+    shaderGroups.push_back(shaderTablesDesc.addHitGroup(6, 4, VK_SHADER_UNUSED_KHR, VK_RAY_TRACING_SHADER_GROUP_TYPE_PROCEDURAL_HIT_GROUP_KHR));
+    shaderGroups.push_back(shaderTablesDesc.addCallableGroup(7));
 
     auto address = device.getAddress(spheres[0].buffer);
     shaderTablesDesc.hitGroups.get(Cook_Torrance).addRecord(address);

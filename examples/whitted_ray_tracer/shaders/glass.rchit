@@ -55,6 +55,36 @@ void swap(inout float a, inout float b){
     b = temp;
 }
 
+float fresnelDielectric(float cosThetaI, float etaI, float etaT) {
+    cosThetaI = clamp(cosThetaI, -1.0, 1.0);
+    // Potentially swap indices of refraction
+    bool entering = cosThetaI > 0.f;
+    if (!entering) {
+        swap(etaI, etaT);
+        cosThetaI = abs(cosThetaI);
+    }
+
+    // Compute _cosThetaT_ using Snell's law
+    float sinThetaI = sqrt(max(0, 1 - cosThetaI * cosThetaI));
+    float sinThetaT = etaI / etaT * sinThetaI;
+
+    // Handle total internal reflection
+    if (sinThetaT >= 1) {
+        return 1;
+    }
+    float cosThetaT = sqrt(max(0, 1 - sinThetaT * sinThetaT));
+    float Rparl = ((etaT * cosThetaI) - (etaI * cosThetaT)) /
+    ((etaT * cosThetaI) + (etaI * cosThetaT));
+    float Rperp = ((etaI * cosThetaI) - (etaT * cosThetaT)) /
+    ((etaI * cosThetaI) + (etaT * cosThetaT));
+    return (Rparl * Rparl + Rperp * Rperp) / 2;
+}
+
+float fresnel(float cosTheta, float etaI, float etaT) {
+    //return fresnelSchlick(cosTheta, f0(etaI, etaT));
+    return fresnelDielectric(cosTheta, etaI, etaT);
+}
+
 void main(){
     LightSource light = LightSource(vec3(0, 10, 0), vec3(10));
 
@@ -73,7 +103,11 @@ void main(){
     float n1 = Medium;
     vec3 I = normalize(gl_WorldRayDirection);
     vec3 N = normal;
-    float cos0 = dot(I, N);
+    float cos0 = dot(-I, N);
+    if(cos0 < 0){
+        swap(n0, n1);
+        N *= -1;
+    }
 
     float eta = n0/n1;
     vec3 direction = refract(I, N, eta);
