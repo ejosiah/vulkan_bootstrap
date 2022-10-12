@@ -8,29 +8,10 @@
 #include "raytracing_implicits/hash.glsl"
 #include "ray_tracing_lang.glsl"
 #include "pbr/common.glsl"
-
-struct Material{
-    vec3 albedo;
-    vec2 padding;
-    float metalness;
-    float roughness;
-};
-
-struct PatternParams{
-    vec3 worldPos;
-    vec3 normal;
-    vec3 color;
-    float scale;
-};
-
-struct LightSource{
-    vec3 locaiton;
-    vec3 intensity;
-};
+#include "common.glsl"
 
 #define PATTERN_PARAM 0
 #define PATTERN_FUNCTION 0
-#define HIT_MARGIN 0.0001
 
 #define rgb(r, g, b) (vec3(r, g, b) * 0.0039215686274509803921568627451f)
 
@@ -57,7 +38,7 @@ layout(shaderRecord, std430) buffer SBT {
 
 hitAttribute vec2 attribs;
 
-layout(location = 0) rayPayloadIn vec3 hitValue;
+layout(location = 0) rayPayloadIn RaytraceData rtData;
 layout(location = 1) rayPayload bool isShadowed;
 
 layout(location = PATTERN_PARAM) callableData PatternParams pattern;
@@ -76,7 +57,8 @@ const float preventDivideByZero = 0.0001;
 
 
 void main(){
-
+    if(rtData.depth >= 5) return;
+    rtData.depth += 1;
     vec3 worldPos = gl_WorldRayOrigin + gl_HitT * gl_WorldRayDirection;
 
     vec3 normal = vec3(0);
@@ -85,7 +67,7 @@ void main(){
     int matOffset = 0;
     Material material;
     vec3 albedo = vec3(0);
-    LightSource light = LightSource(vec3(0, 10, 10), vec3(10));
+    LightSource light = LightSource(vec3(0, 10, 10), vec3(1000));
 
     if(gl_HitKind == IMPLICIT_TYPE_SPHERE){
         scale = 2;
@@ -97,6 +79,10 @@ void main(){
         material = materials.at[gl_PrimitiveID];
         albedo = checkerboardPattern(worldPos, normal, scale);
         normal = planes.at[gl_PrimitiveID].normal;
+        bool viewIsBelowPlane = dot(normal, -gl_WorldRayDirection) < 0;
+        if(viewIsBelowPlane){
+            normal *= -1;
+        }
     }
 
     float metalness = material.metalness;
@@ -114,7 +100,7 @@ void main(){
     vec3 F0 = vec3(0.04);
     F0 = mix(F0, albedo, metalness);
 
-    float dist = gl_HitT;
+    float dist = length(lightDir);
     float attenuation = 1/(dist * dist);
 
     // Cook-Torrance BRDF
@@ -129,6 +115,16 @@ void main(){
     vec3 kS = F;
     vec3 kD = vec3(1.0) - kS;
     kD *= 1.0 - metalness;
+
+    vec3 reflectColor = vec3(1);
+    if(length(kS) > 0.001){
+        rtData.hitValue = reflectColor;
+        vec3 direction = reflect(gl_WorldRayDirection, normal);
+        direction = normalize(direction);
+
+        traceRay(topLevelAS, gl_RayFlagsOpaque, 0xFF, 0, 0, 0, worldPos, HIT_MARGIN, direction, 10000, 0);
+        reflectColor = rtData.hitValue;
+    }
 
     vec3 ambiance = albedo * 0.2;
     vec3 diffuse = albedo * max(0, dot(N, L));
@@ -151,15 +147,13 @@ void main(){
     }
 
     vec3 irradience = visibility * (kD * albedo / PI + specular) * radiance * NdotL;
+    irradience += reflectColor * kS;
 //    vec3 irradience = ambiance + radiance * (diffuse + pSpecular);
-    irradience = irradience/(irradience + 1);
+    rtData.hitValue = irradience/(irradience + 1);
 
     vec3 fog = rgb(91, 89, 78);
     float density = 0.05;
     float distFromOrigin = gl_HitT;
     float t = clamp(exp(-density * distFromOrigin), 0, 1);
-    hitValue = mix(fog, irradience, t);
-
-    vec3 direction = reflect(gl_WorldRayDirection, normal);
-    direction = normalize(direction);
+    rtData.hitValue = mix(fog, rtData.hitValue, t);
 }

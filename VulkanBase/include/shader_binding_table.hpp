@@ -112,6 +112,20 @@ struct ShaderGroups{
     }
 
     [[nodiscard]]
+    const ShaderGroup& get(const uint32_t index) const {
+        assert(count() > index);
+        return groups[index];
+    }
+
+    ShaderGroup& operator[](const int index){
+        return groups[index];
+    }
+
+    const ShaderGroup& operator[](const int index) const {
+        return groups[index];
+    }
+
+    [[nodiscard]]
     VkStridedDeviceAddressRegionKHR getStridedDeviceAddressRegionKHR(const VkDeviceAddress& deviceAddress) const{
         VkStridedDeviceAddressRegionKHR region{};
         region.deviceAddress = deviceAddress;

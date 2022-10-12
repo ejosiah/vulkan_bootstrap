@@ -1,0 +1,51 @@
+#version 460
+#extension GL_EXT_ray_tracing : require
+#extension GL_EXT_buffer_reference : require
+#extension GL_GOOGLE_include_directive : require
+
+#include "ray_tracing_lang.glsl"
+#include "raytracing_implicits/implicits.glsl"
+#include "raytracing_implicits/common.glsl"
+
+layout(buffer_reference, buffer_reference_align=8) buffer SphereBuffer{
+    Sphere at[];
+};
+
+layout(buffer_reference, buffer_reference_align=8) buffer PlaneBuffer{
+    Plane at[];
+};
+
+
+layout(shaderRecord, std430) buffer SBT {
+    SphereBuffer spheres;
+    PlaneBuffer planes;
+};
+
+
+hitAttributeEXT vec2 attribs;
+
+void main(){
+    Ray ray = Ray(gl_WorldRayOriginEXT, gl_WorldRayDirectionEXT);
+    float t = 0;
+
+    if(gl_InstanceCustomIndexEXT == IMPLICIT_TYPE_SPHERE){
+
+        Sphere sphere = spheres.at[gl_PrimitiveID];
+        if (sphere_ray_test(sphere, ray, t)){
+            attribs = getUV(sphere, ray, t);
+
+            reportIntersectionEXT(t, IMPLICIT_TYPE_SPHERE);
+        }
+    }else if (gl_InstanceCustomIndexEXT == IMPLICIT_TYPE_PLANE){
+        Plane plane = planes.at[gl_PrimitiveID];
+        if(plane_ray_test(plane, ray, t)){
+            vec3 x, y;
+            vec3 p = ray.origin + ray.direction * t;
+            orthonormalBasis(plane.normal, x, y);
+            attribs.x = dot(p, x);
+            attribs.y = dot(p, y);
+            reportIntersectionEXT(t, IMPLICIT_TYPE_PLANE);
+        }
+    }
+
+}

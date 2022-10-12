@@ -5,17 +5,17 @@
 
  struct Material{
     alignas(16) glm::vec3 albedo{0};
-    glm::vec2 padding{0};
     float metalness{1};
-    float roughness{0};
+    float roughness{0.5};
+    float pad0, pad1;
 };
 
-struct Glass{
+struct GlassMaterial{
     alignas(16) glm::vec3 albedo{0};
     float ior{1.52};
 };
 
-enum Brdf{ Cook_Torrance = 0, Mirror, Glass };
+enum Brdf{ Cook_Torrance = 0, Mirror, Glass, Count };
 
 class WhittedRayTracer : public VulkanRayTraceBaseApp {
 public:
@@ -31,6 +31,8 @@ protected:
     void createPlanes();
 
     void createSpheres();
+
+    void createSpheres(Brdf brdf, int numSpheres);
 
     void createSkyBox();
 
@@ -110,10 +112,8 @@ protected:
     VulkanBuffer ctMatBuffer;
     VulkanBuffer glassMatBuffer;
     std::vector<Material> ctMaterials;
-    std::vector<Material> glassMaterials;
+    std::vector<GlassMaterial> glassMaterials;
 
-    VulkanDescriptorSetLayout implicitObjectsDescriptorSetLayout;
-    VkDescriptorSet implicitObjectsDescriptorSet;
     const int NUM_SPHERES = 100;
 
 };

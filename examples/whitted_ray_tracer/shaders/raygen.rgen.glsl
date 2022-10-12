@@ -2,6 +2,7 @@
 #extension GL_EXT_ray_tracing : require
 
 #include "ray_tracing_lang.glsl"
+#include "common.glsl"
 
 layout(set = 0, binding = 0) uniform accelerationStructure topLevelAs;
 layout(set = 0, binding = 1) uniform CameraProperties{
@@ -11,7 +12,7 @@ layout(set = 0, binding = 1) uniform CameraProperties{
 layout(set = 0, binding = 2, rgba8) uniform image2D image;
 layout(set = 0, binding = 3) uniform samplerCube skybox;
 
-layout(location = 0) rayPayload vec3 hitValue;
+layout(location = 0) rayPayload RaytraceData rtData;
 
 void main(){
     const vec2 pixelCenter = vec2(gl_LaunchID.xy) + vec2(0.5);
@@ -25,11 +26,12 @@ void main(){
     float tmin = 0.001;
     float tmax = 10000.0;
 
-    hitValue = vec3(0);
+    rtData.depth = 0;
+    rtData.hitValue = vec3(0);
 
     traceRay(topLevelAs, gl_RayFlagsOpaque, 0xFF, 0, 0, 0, origin.xyz, tmin, direction.xyz, tmax, 0);
 
     vec2 uv = vec2(gl_LaunchID.xy + uvec2(1))/vec2(gl_LaunchSize.xy);
-    imageStore(image, ivec2(gl_LaunchID.xy), vec4(hitValue, 0.0));
+    imageStore(image, ivec2(gl_LaunchID.xy), vec4(rtData.hitValue, 0.0));
 
 }

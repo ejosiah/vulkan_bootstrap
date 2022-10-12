@@ -6,6 +6,8 @@
 #include "ray_tracing_lang.glsl"
 #include "model.glsl"
 
+#define rgb(r, g, b) (vec3(r, g, b) * 0.0039215686274509803921568627451f)
+
 layout(set = 0, binding = 0) uniform accelerationStructure topLevelAS;
 
 layout(set = 1, binding = 1) buffer MATERIAL_ID {
@@ -31,19 +33,17 @@ layout(set = 2, binding = 2) buffer VETEX_OFFSETS {
 
 layout(location = 0) rayPayloadInEXT vec3 hitValue;
 layout(location = 1) rayPayload vec3 hitGroupColor;
-layout(location = 0) callableData vec3 outColor;
 
 //layout(shaderRecord) buffer block {
 //    vec3 color;
 //};
 
-vec3 color = vec3(0, 0, 1);
+vec3 color = rgb(52, 137, 235);
 
 hitAttributeEXT vec3 attribs;
 
 void main()
 {
-    uint launchId = gl_LaunchIDEXT.y * gl_LaunchSizeEXT.x + gl_LaunchIDEXT.x;
 
     float u = 1 - attribs.x - attribs.y;
     float v = attribs.x;
@@ -78,10 +78,8 @@ void main()
     float shininess = 50;
     float attenuation = 1.0;
 
-//    executeCallable(0, 0);
-////    vec3 diffuseColor = outColor * max(0, dot(N, L));
-//    vec3 diffuseColor = vec3(1, 0, 0) * max(0, dot(N, L));
-//    hitValue = attenuation * diffuseColor;
-    hitGroupColor = vec3(0);
-    traceRay(topLevelAS, gl_RayFlagsOpaque, 0xFF, 0, 1, 0, worldPos, gl_RayTmin, vec3(-1, 0, 0), gl_RayTmax, 0);
+//    vec3 diffuseColor = color * max(0, dot(N, L));
+    vec3 diffuseColor = vec3(0, 0, 1) * max(0, dot(N, L));
+    hitValue = attenuation * diffuseColor;
+    hitGroupColor = color;
 }

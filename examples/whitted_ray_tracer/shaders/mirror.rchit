@@ -7,20 +7,7 @@
 #include "raytracing_implicits/implicits.glsl"
 #include "raytracing_implicits/common.glsl"
 #include "raytracing_implicits/hash.glsl"
-
-#define HIT_MARGIN 0.0001
-
-struct LightSource{
-    vec3 locaiton;
-    vec3 intensity;
-};
-
-struct Material{
-    vec3 albedo;
-    vec2 padding;
-    float metalness;
-    float roughness;
-};
+#include "common.glsl"
 
 layout(set = 0, binding = 0) uniform accelerationStructure topLevelAS;
 
@@ -42,12 +29,14 @@ layout(shaderRecord, std430) buffer SBT {
     MaterialBuffer materials;
 };
 
-layout(location = 0) rayPayloadIn vec3 hitValue;
+layout(location = 0) rayPayloadIn RaytraceData rtData;
 
 hitAttribute vec2 attribs;
 
 
 void main(){
+    if(rtData.depth >= 5) return;
+    rtData.depth += 1;
     LightSource light = LightSource(vec3(0, 10, 0), vec3(10));
 
     vec3 normal = vec3(0);
@@ -64,5 +53,5 @@ void main(){
     vec3 direction = reflect(gl_WorldRayDirection, normal);
     direction = normalize(direction);
 
-    traceRay(topLevelAS, gl_RayFlagsOpaque, 0xFF, 0, 0, 0, hitPoint, HIT_MARGIN, direction, 10000, 0);
+    traceRay(topLevelAS, gl_RayFlagsOpaque, 0xFF, 0, 1, 0, hitPoint, HIT_MARGIN, direction, 10000, 0);
 }
