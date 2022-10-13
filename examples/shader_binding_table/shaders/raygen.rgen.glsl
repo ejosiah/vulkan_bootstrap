@@ -26,6 +26,6 @@ void main(){
 
     hitValue = vec3(0.0);
 
-    traceRay(topLevelAs, gl_RayFlagsOpaque, 0xff, 0, 1, 0, origin.xyz, tmin, direction.xyz, tmax, 0);
+    traceRay(topLevelAs, gl_RayFlagsOpaque, 0xff, 3, 0, 0, origin.xyz, tmin, direction.xyz, tmax, 0);
     imageStore(image, ivec2(gl_LaunchID.xy), vec4(hitValue, 0.0));
 }

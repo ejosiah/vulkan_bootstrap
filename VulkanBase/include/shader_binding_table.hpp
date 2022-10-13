@@ -75,6 +75,16 @@ struct ShaderGroup {
 
 enum class GroupType { RAY_GEN, MISS, CLOSEST_HIT, CALLABLE, NONE };
 
+inline std::string groupToString(GroupType type){
+    switch (type) {
+        case GroupType::RAY_GEN: return "ray generation group";
+        case GroupType::MISS: return "miss group";
+        case GroupType::CLOSEST_HIT: return "hit group";
+        case GroupType::CALLABLE: return "callable group";
+        default: throw std::runtime_error{"unsupported type"};
+    }
+}
+
 struct ShaderGroups{
     
     GroupType type{NONE};
@@ -320,6 +330,7 @@ struct ShaderTablesDescription{
 
         groups.transferRecords(buffer, stride);
         stagingBuffer.unmap();
+        spdlog::info("{} size: {}", groupToString(groups.type), stagingBuffer.size);
 
         shaderBindingTable.buffer = device.createBuffer(usageFlags | VK_BUFFER_USAGE_TRANSFER_DST_BIT, memoryUsage, size);
         device.copy(stagingBuffer, shaderBindingTable.buffer, size, 0, 0);

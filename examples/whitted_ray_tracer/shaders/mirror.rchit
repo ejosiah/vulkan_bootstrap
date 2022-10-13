@@ -54,4 +54,5 @@ void main(){
     direction = normalize(direction);
 
     traceRay(topLevelAS, gl_RayFlagsOpaque, 0xFF, 0, 1, 0, hitPoint, HIT_MARGIN, direction, 10000, 0);
+    rtData.hitValue *= vec3(0.9);
 }

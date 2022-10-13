@@ -48,7 +48,7 @@ void ShaderBindingTableDemo::loadModels() {
     bunnyInstance.object = rt::TriangleMesh{ &drawables["bunny"]};
     bunnyInstance.hitGroupId = 0;
     bunnyInstance.xform = glm::rotate(glm::mat4(1), -glm::half_pi<float>(), {1, 0, 0});
-    bunnyInstance.xform = glm::translate(bunnyInstance.xform, -drawables["bunny"].bounds.min);
+    bunnyInstance.xform = glm::translate(bunnyInstance.xform, -drawables["bunny"].bounds.min - glm::vec3(1, 0, 0));
     bunnyInstance.xformIT = glm::inverseTranspose(bunnyInstance.xform);
     instances.push_back(bunnyInstance);
 
@@ -57,7 +57,7 @@ void ShaderBindingTableDemo::loadModels() {
     instances.push_back(bunnyInstance);
 
     bunnyInstance.hitGroupId = 2;
-    bunnyInstance.xform = glm::translate(bunnyInstance.xform, glm::vec3(-2, 0, 0));
+    bunnyInstance.xform = glm::translate(bunnyInstance.xform, glm::vec3(1, 0, 0));
     instances.push_back(bunnyInstance);
     createAccelerationStructure(instances);
 }
@@ -352,9 +352,6 @@ void ShaderBindingTableDemo::createRenderPipeline() {
 void ShaderBindingTableDemo::createRayTracingPipeline() {
     auto rayGenShaderModule = VulkanShaderModule{ resource("raygen.rgen.spv"), device };
     auto hitGroup0ShaderModule = VulkanShaderModule{ resource("hitgroup0.rchit.spv"), device };
-    auto hitGroup1ShaderModule = VulkanShaderModule{ resource("hitgroup1.rchit.spv"), device };
-    auto hitGroup2ShaderModule = VulkanShaderModule{ resource("hitgroup2.rchit.spv"), device };
-    auto hitGroup3ShaderModule = VulkanShaderModule{ resource("hitgroup3.rchit.spv"), device };
     auto missGroup0ShaderModule = VulkanShaderModule{ resource("miss0.rmiss.spv"), device };
     auto callable0ShaderModule = VulkanShaderModule{ resource("callable0.rcall.spv"), device };
 
@@ -362,24 +359,30 @@ void ShaderBindingTableDemo::createRayTracingPipeline() {
         { rayGenShaderModule, VK_SHADER_STAGE_RAYGEN_BIT_KHR},
         { missGroup0ShaderModule, VK_SHADER_STAGE_MISS_BIT_KHR},
         { hitGroup0ShaderModule, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR},
-        { hitGroup1ShaderModule, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR},
-        { hitGroup2ShaderModule, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR},
-        { hitGroup3ShaderModule, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR},
         { callable0ShaderModule, VK_SHADER_STAGE_CALLABLE_BIT_KHR},
     });
     std::vector<VkRayTracingShaderGroupCreateInfoKHR> shaderGroups;
     shaderGroups.push_back(shaderTablesDesc.rayGenGroup());
     shaderGroups.push_back(shaderTablesDesc.addMissGroup(1));
-    shaderGroups.push_back(shaderTablesDesc.addHitGroup(2));
-    shaderGroups.push_back(shaderTablesDesc.addHitGroup(3));
-    shaderGroups.push_back(shaderTablesDesc.addHitGroup(4));
-    shaderGroups.push_back(shaderTablesDesc.addHitGroup(5));
-    shaderGroups.push_back(shaderTablesDesc.addHitGroup(5));
-    shaderGroups.push_back(shaderTablesDesc.addHitGroup(5));
-    shaderGroups.push_back(shaderTablesDesc.addCallableGroup(6));
 
-    shaderTablesDesc.hitGroups.get(0).addRecord(rgba(49, 245, 219));
-//    shaderTablesDesc.hitGroups.get(1).addRecord(0, rgba(29, 224, 205));
+    shaderGroups.push_back(shaderTablesDesc.addHitGroup(2));
+    shaderGroups.push_back(shaderTablesDesc.addHitGroup(2));
+
+    shaderGroups.push_back(shaderTablesDesc.addHitGroup(2));
+    shaderGroups.push_back(shaderTablesDesc.addHitGroup(2));
+
+    shaderGroups.push_back(shaderTablesDesc.addHitGroup(2));
+    shaderGroups.push_back(shaderTablesDesc.addHitGroup(2));
+
+
+    const auto stride = 2;
+    shaderTablesDesc.hitGroups.get(0).addRecord(glm::vec3(1, 0, 0));
+    shaderTablesDesc.hitGroups.get(1).addRecord(glm::vec3(0, 1, 0));
+    shaderTablesDesc.hitGroups.get(2).addRecord(glm::vec3(0, 0, 1));
+
+    shaderTablesDesc.hitGroups.get(3).addRecord(glm::vec3(1, 1, 0));
+    shaderTablesDesc.hitGroups.get(4).addRecord(glm::vec3(0, 1, 1));
+    shaderTablesDesc.hitGroups.get(5).addRecord(glm::vec3(1, 0, 1));
 
     dispose(raytrace.layout);
 

@@ -29,3 +29,22 @@ struct PatternParams{
     vec3 color;
     float scale;
 };
+
+struct ShadowData{
+    vec3 color;
+    float visibility;
+    bool isShadowed;
+};
+
+struct FresnelParams{
+    float cos0;
+    float etaI; // ior of incident medium
+    float etaT; // ior of transmision medium;
+    float result;
+};
+
+void swap(inout float a, inout float b){
+    float temp = a;
+    a = b;
+    b = temp;
+}

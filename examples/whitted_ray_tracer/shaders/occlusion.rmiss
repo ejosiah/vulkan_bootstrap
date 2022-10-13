@@ -3,8 +3,8 @@
 
 #include "ray_tracing_lang.glsl"
 
-layout(location = 1) rayPayloadIn float visibility;
+layout(location = 1) rayPayloadIn vec3 visibility;
 
 void main(){
-    visibility = 1.0;
+    visibility = vec3(1.0);
 }

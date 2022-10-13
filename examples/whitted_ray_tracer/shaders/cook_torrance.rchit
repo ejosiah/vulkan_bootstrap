@@ -39,7 +39,7 @@ layout(shaderRecord, std430) buffer SBT {
 hitAttribute vec2 attribs;
 
 layout(location = 0) rayPayloadIn RaytraceData rtData;
-layout(location = 1) rayPayload bool isShadowed;
+layout(location = 1) rayPayload ShadowData sd;
 
 layout(location = PATTERN_PARAM) callableData PatternParams pattern;
 
@@ -70,16 +70,15 @@ void main(){
     LightSource light = LightSource(vec3(0, 10, 10), vec3(1000));
 
     if(gl_HitKind == IMPLICIT_TYPE_SPHERE){
-        scale = 2;
         Sphere sphere = spheres.at[gl_PrimitiveID];
         normal = normalize(worldPos - sphere.center);
-        material = materials.at[1 + gl_PrimitiveID];
-        albedo = material.albedo;
+        material = materials.at[gl_PrimitiveID];
+        albedo = gl_PrimitiveID == 0 ? checkerboardPattern(worldPos, normal, 1) :  material.albedo;
     }else{
         material = materials.at[gl_PrimitiveID];
         albedo = checkerboardPattern(worldPos, normal, scale);
         normal = planes.at[gl_PrimitiveID].normal;
-        bool viewIsBelowPlane = dot(normal, -gl_WorldRayDirection) < 0;
+        bool viewIsBelowPlane = dot(normal, -gl_WorldRayDirection) < 0.0001;
         if(viewIsBelowPlane){
             normal *= -1;
         }
@@ -118,7 +117,8 @@ void main(){
 
     vec3 reflectColor = vec3(1);
     if(length(kS) > 0.001){
-        rtData.hitValue = reflectColor;
+
+
         vec3 direction = reflect(gl_WorldRayDirection, normal);
         direction = normalize(direction);
 
@@ -131,22 +131,16 @@ void main(){
     vec3 pSpecular = vec3(1) * pow(max(0, dot(N, H)), 250);
     vec3 radiance = light.intensity * attenuation;
 
-    isShadowed = true;
-    uint flags = gl_RayFlagsSkipClosestHitShader | gl_RayFlagsTerminateOnFirstHit;
-
+    uint flags =  gl_RayFlagsOpaque;
+    sd = ShadowData(vec3(0), 0.3, true);
     float NdotL = max(0, dot(N, L));
 
     if(NdotL > 0){
-        traceRay(topLevelAS, flags, 0xFF, 0, 0, 1, worldPos, HIT_MARGIN, L, dist, 1);
+        traceRay(topLevelAS, gl_RayFlagsNoOpaque, 0xFF, 3, 0, 1, worldPos, HIT_MARGIN, L, dist, 1);
     }
 
-    float visibility = 1;
-    if(isShadowed){
-        visibility = 0.3;
-        specular = vec3(0);
-    }
 
-    vec3 irradience = visibility * (kD * albedo / PI + specular) * radiance * NdotL;
+    vec3 irradience = sd.visibility * (kD * albedo / PI + specular) * radiance * NdotL;
     irradience += reflectColor * kS;
 //    vec3 irradience = ambiance + radiance * (diffuse + pSpecular);
     rtData.hitValue = irradience/(irradience + 1);

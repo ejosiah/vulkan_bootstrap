@@ -15,7 +15,26 @@ struct GlassMaterial{
     float ior{1.52};
 };
 
-enum Brdf{ Cook_Torrance = 0, Mirror, Glass, Count };
+enum Brdf{ Cook_Torrance = 0, Glass, Mirror, Count };
+
+enum ShaderIndices {
+    eRayGen = 0,
+    eMiss,
+    eShadowMiss,
+    eOcclusionMiss,
+    eCookTorranceHit,
+    eImplicitIntersect,
+    eGlassHit,
+    eMirrorHit,
+    eOcclusionHit,
+    eOcclusionHitAny,
+    eGlassOcclusionHit,
+    eCheckerboardCallable,
+    eFresnelCallable,
+    eShaderGroupCount
+};
+
+enum HitGroups{ ePrimary = 0, eOcclusion, eNumHitGroups};
 
 class WhittedRayTracer : public VulkanRayTraceBaseApp {
 public:

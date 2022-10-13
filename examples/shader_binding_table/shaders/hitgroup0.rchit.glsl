@@ -76,7 +76,6 @@ void main()
     float shininess = 50;
     float attenuation = 1.0;
 
-//    vec3 diffuseColor = color * max(0, dot(N, L));
-    vec3 diffuseColor = vec3(1, 0, 0) * max(0, dot(N, L));
+    vec3 diffuseColor = color * max(0, dot(N, L));
     hitValue = attenuation * diffuseColor;
 }

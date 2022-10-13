@@ -9,6 +9,9 @@
 #include "raytracing_implicits/hash.glsl"
 #include "common.glsl"
 
+#define FRESNEL_CALLABLE_PARAMS_INDEX 1
+#define FRESNEL_CALLABLE_FUNC_INDEX 1
+
 layout(set = 0, binding = 0) uniform accelerationStructure topLevelAS;
 
 layout(buffer_reference, buffer_reference_align=8) buffer SphereBuffer {
@@ -30,45 +33,16 @@ layout(shaderRecord, std430) buffer SBT {
 };
 
 layout(location = 0) rayPayloadIn RaytraceData rtData;
+layout(location = 1) callableData FresnelParams fParams;
 
 hitAttribute vec2 attribs;
 
 const float Air = 1.0003;
 
-void swap(inout float a, inout float b){
-    float temp = a;
-    a = b;
-    b = temp;
-}
-
-float fresnelDielectric(float cosThetaI, float etaI, float etaT) {
-    cosThetaI = clamp(cosThetaI, -1.0, 1.0);
-    // Potentially swap indices of refraction
-    bool entering = cosThetaI > 0.f;
-    if (!entering) {
-        swap(etaI, etaT);
-        cosThetaI = abs(cosThetaI);
-    }
-
-    // Compute _cosThetaT_ using Snell's law
-    float sinThetaI = sqrt(max(0, 1 - cosThetaI * cosThetaI));
-    float sinThetaT = etaI / etaT * sinThetaI;
-
-    // Handle total internal reflection
-    if (sinThetaT >= 1) {
-        return 1;
-    }
-    float cosThetaT = sqrt(max(0, 1 - sinThetaT * sinThetaT));
-    float Rparl = ((etaT * cosThetaI) - (etaI * cosThetaT)) /
-    ((etaT * cosThetaI) + (etaI * cosThetaT));
-    float Rperp = ((etaI * cosThetaI) - (etaT * cosThetaT)) /
-    ((etaI * cosThetaI) + (etaT * cosThetaT));
-    return (Rparl * Rparl + Rperp * Rperp) / 2;
-}
-
 float fresnel(float cosTheta, float etaI, float etaT) {
-    //return fresnelSchlick(cosTheta, f0(etaI, etaT));
-    return fresnelDielectric(cosTheta, etaI, etaT);
+    fParams = FresnelParams(cosTheta, etaI, etaT, 0);
+    executeCallable(FRESNEL_CALLABLE_FUNC_INDEX, FRESNEL_CALLABLE_PARAMS_INDEX);
+    return fParams.result;
 }
 
 void main(){

@@ -51,7 +51,6 @@ void WhittedRayTracer::createModels() {
     createPlanes();
     createSpheres();
 
-
     if(ctMaterials.empty()){
         ctMaterials.push_back({});
     }
@@ -71,17 +70,20 @@ void WhittedRayTracer::createPlanes() {
     planes.buffer = device.createDeviceLocalBuffer(planes.planes.data(),
                                                    planes.planes.size() * sizeof(imp::Plane),
                                                    VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT);
-    rtBuilder.add(planes.planes, static_cast<uint32_t>(imp::ImplicitType::PLANE), 1000, Brdf::Cook_Torrance);
+    rtBuilder.add(planes.planes, static_cast<uint32_t>(imp::ImplicitType::PLANE), 0, Brdf::Cook_Torrance);
 
+    float radius = 1000;
+    imp::Sphere sphere{glm::vec3(0, -radius, 0), radius};
+    spheres[Cook_Torrance].spheres.push_back(sphere);
     Material mat{glm::vec3(1), 0.1, 1.0};
     ctMaterials.push_back(mat);
 
 }
 
 void WhittedRayTracer::createSpheres() {
-    createSpheres(Cook_Torrance, 100);
-    createSpheres(Glass, 0);
-    createSpheres(Mirror, 0);
+    createSpheres(Cook_Torrance, 50);
+    createSpheres(Glass, 50);
+    createSpheres(Mirror, 5);
 }
 
 void WhittedRayTracer::createSpheres(Brdf brdf, int numSpheres) {
@@ -95,7 +97,7 @@ void WhittedRayTracer::createSpheres(Brdf brdf, int numSpheres) {
         auto p = sampling::uniformSampleDisk(u()) * placementArea;
         return glm::vec3(p.x, y, p.y);
     };
-    auto checkCollision = [&](auto& sphere){
+    auto checkCollision = [&](auto& sphere) {
         bool collided = false;
         for(auto & group : spheres){
             const auto& lSpheres = group.spheres;
@@ -161,7 +163,6 @@ void WhittedRayTracer::createDescriptorPool() {
             }
     };
     descriptorPool = device.createDescriptorPool(maxSets, poolSizes, VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT);
-
 }
 
 void WhittedRayTracer::createDescriptorSetLayouts() {
@@ -187,7 +188,7 @@ void WhittedRayTracer::createDescriptorSetLayouts() {
         .createLayout();
 }
 
-void WhittedRayTracer::updateDescriptorSets(){
+void WhittedRayTracer::updateDescriptorSets() {
     auto sets = descriptorPool.allocate( { raytrace.descriptorSetLayout });
     raytrace.descriptorSet = sets[0];
 
@@ -257,13 +258,16 @@ void WhittedRayTracer::createRayTracingPipeline() {
     auto rayGenShaderModule = VulkanShaderModule{ resource("raygen.rgen.spv"), device };
     auto missShaderModule = VulkanShaderModule{ resource("miss.rmiss.spv"), device };
     auto shadowMissModule = VulkanShaderModule{ resource("shadow.rmiss.spv"), device };
-    auto diffuseHitShaderModule = VulkanShaderModule{ resource("diffuse_hit.rchit.spv"), device };
+    auto diffuseHitShaderModule = VulkanShaderModule{ resource("cook_torrance.rchit.spv"), device };
     auto mirrorHitShaderModule = VulkanShaderModule{ resource("mirror.rchit.spv"), device };
     auto glassHitShaderModule = VulkanShaderModule{ resource("glass.rchit.spv"), device };
     auto implicitsIntersectShaderModule = VulkanShaderModule{resource("implicits.rint.spv"), device};
-    auto checkerboardShaderModule = VulkanShaderModule{resource("checkerboard.rcall.spv"), device};
+    auto occlusionHitShaderModule = VulkanShaderModule{resource("occlusion.rchit.spv"), device};
     auto occlusionAnyHitShaderModule = VulkanShaderModule{resource("occlusion.rahit.spv"), device};
+    auto glassOcclusionHitShaderModule = VulkanShaderModule{resource("glass_occlusion.rchit.spv"), device};
     auto occlusionMissShaderModule = VulkanShaderModule{resource("occlusion.rmiss.spv"), device};
+    auto checkerboardShaderModule = VulkanShaderModule{resource("checkerboard.rcall.spv"), device};
+    auto fresnelShaderModule = VulkanShaderModule{resource("fresnel.rcall.spv"), device};
 
     device.setName<VK_OBJECT_TYPE_SHADER_MODULE>("ray_gen", rayGenShaderModule);
     device.setName<VK_OBJECT_TYPE_SHADER_MODULE>("miss", missShaderModule);
@@ -272,42 +276,50 @@ void WhittedRayTracer::createRayTracingPipeline() {
     device.setName<VK_OBJECT_TYPE_SHADER_MODULE>("mirror_hit", mirrorHitShaderModule);
     device.setName<VK_OBJECT_TYPE_SHADER_MODULE>("glass_hit", glassHitShaderModule);
     device.setName<VK_OBJECT_TYPE_SHADER_MODULE>("implicit_intersect", implicitsIntersectShaderModule);
+    device.setName<VK_OBJECT_TYPE_SHADER_MODULE>("occlusion_hit", occlusionHitShaderModule);
+    device.setName<VK_OBJECT_TYPE_SHADER_MODULE>("glass_occlusion", glassOcclusionHitShaderModule);
+    device.setName<VK_OBJECT_TYPE_SHADER_MODULE>("occlusion_anyhit", occlusionAnyHitShaderModule);
+    device.setName<VK_OBJECT_TYPE_SHADER_MODULE>("occlusion_miss", occlusionMissShaderModule);
     device.setName<VK_OBJECT_TYPE_SHADER_MODULE>("checker_board_callable", checkerboardShaderModule);
-    device.setName<VK_OBJECT_TYPE_SHADER_MODULE>("occlusion_anyhit_callable", occlusionAnyHitShaderModule);
-    device.setName<VK_OBJECT_TYPE_SHADER_MODULE>("occlusion_miss_callable", occlusionMissShaderModule);
-
-    enum ShaderIndices {
-        eRayGen = 0,
-        eMiss,
-        eShadowMiss,
-        eCookTorranceHit,
-        eImplicitIntersect,
-        eMirrorHit,
-        eGlassHit,
-        eCheckerboardCallable,
-        eShaderGroupCount
-    };
+    device.setName<VK_OBJECT_TYPE_SHADER_MODULE>("fresnel_callable", fresnelShaderModule);
 
     std::vector<ShaderInfo> shaders(eShaderGroupCount);
     shaders[eRayGen] = { rayGenShaderModule, VK_SHADER_STAGE_RAYGEN_BIT_KHR};
     shaders[eMiss] =   { missShaderModule, VK_SHADER_STAGE_MISS_BIT_KHR};
     shaders[eShadowMiss] =   { shadowMissModule, VK_SHADER_STAGE_MISS_BIT_KHR};
+    shaders[eOcclusionMiss] =   { occlusionMissShaderModule, VK_SHADER_STAGE_MISS_BIT_KHR};
     shaders[eCookTorranceHit] =   { diffuseHitShaderModule, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR};
     shaders[eImplicitIntersect] =   { implicitsIntersectShaderModule, VK_SHADER_STAGE_INTERSECTION_BIT_KHR};
     shaders[eMirrorHit] =   { mirrorHitShaderModule, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR};
     shaders[eGlassHit] =   { glassHitShaderModule, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR};
+    shaders[eOcclusionHit] = { occlusionHitShaderModule, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR};
+    shaders[eGlassOcclusionHit] = { glassOcclusionHitShaderModule, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR};
+    shaders[eOcclusionHitAny] = { occlusionAnyHitShaderModule, VK_SHADER_STAGE_ANY_HIT_BIT_KHR};
     shaders[eCheckerboardCallable] =   { checkerboardShaderModule, VK_SHADER_STAGE_CALLABLE_BIT_KHR};
+    shaders[eFresnelCallable] =   { fresnelShaderModule, VK_SHADER_STAGE_CALLABLE_BIT_KHR};
 
-            auto stages = initializers::rayTraceShaderStages(shaders);
+    auto stages = initializers::rayTraceShaderStages(shaders);
 
     std::vector<VkRayTracingShaderGroupCreateInfoKHR> shaderGroups;
     shaderGroups.push_back(shaderTablesDesc.rayGenGroup(eRayGen));
     shaderGroups.push_back(shaderTablesDesc.addMissGroup(eMiss));
     shaderGroups.push_back(shaderTablesDesc.addMissGroup(eShadowMiss));
+    shaderGroups.push_back(shaderTablesDesc.addMissGroup(eOcclusionMiss));
+
     shaderGroups.push_back(shaderTablesDesc.addHitGroup(eCookTorranceHit, eImplicitIntersect, VK_SHADER_UNUSED_KHR, VK_RAY_TRACING_SHADER_GROUP_TYPE_PROCEDURAL_HIT_GROUP_KHR));
-    shaderGroups.push_back(shaderTablesDesc.addHitGroup(eMirrorHit, eImplicitIntersect, VK_SHADER_UNUSED_KHR, VK_RAY_TRACING_SHADER_GROUP_TYPE_PROCEDURAL_HIT_GROUP_KHR));
     shaderGroups.push_back(shaderTablesDesc.addHitGroup(eGlassHit, eImplicitIntersect, VK_SHADER_UNUSED_KHR, VK_RAY_TRACING_SHADER_GROUP_TYPE_PROCEDURAL_HIT_GROUP_KHR));
+    shaderGroups.push_back(shaderTablesDesc.addHitGroup(eMirrorHit, eImplicitIntersect, VK_SHADER_UNUSED_KHR, VK_RAY_TRACING_SHADER_GROUP_TYPE_PROCEDURAL_HIT_GROUP_KHR));
+
+    shaderGroups.push_back(shaderTablesDesc.addHitGroup(eOcclusionHit, eImplicitIntersect, VK_SHADER_UNUSED_KHR, VK_RAY_TRACING_SHADER_GROUP_TYPE_PROCEDURAL_HIT_GROUP_KHR));
+    shaderGroups.push_back(shaderTablesDesc.addHitGroup(eGlassOcclusionHit, eImplicitIntersect, VK_SHADER_UNUSED_KHR, VK_RAY_TRACING_SHADER_GROUP_TYPE_PROCEDURAL_HIT_GROUP_KHR));
+    shaderGroups.push_back(shaderTablesDesc.addHitGroup(eOcclusionHit, eImplicitIntersect, VK_SHADER_UNUSED_KHR, VK_RAY_TRACING_SHADER_GROUP_TYPE_PROCEDURAL_HIT_GROUP_KHR));
+
+//    shaderGroups.push_back(shaderTablesDesc.addHitGroup(VK_SHADER_UNUSED_KHR, eImplicitIntersect, eOcclusionHitAny, VK_RAY_TRACING_SHADER_GROUP_TYPE_PROCEDURAL_HIT_GROUP_KHR));
+//    shaderGroups.push_back(shaderTablesDesc.addHitGroup(eGlassOcclusionHit, eImplicitIntersect, eOcclusionHitAny, VK_RAY_TRACING_SHADER_GROUP_TYPE_PROCEDURAL_HIT_GROUP_KHR));
+//    shaderGroups.push_back(shaderTablesDesc.addHitGroup(VK_SHADER_UNUSED_KHR, eImplicitIntersect, eOcclusionHitAny, VK_RAY_TRACING_SHADER_GROUP_TYPE_PROCEDURAL_HIT_GROUP_KHR));
+
     shaderGroups.push_back(shaderTablesDesc.addCallableGroup(eCheckerboardCallable));
+    shaderGroups.push_back(shaderTablesDesc.addCallableGroup(eFresnelCallable));
 
     shaderTablesDesc.hitGroups[Cook_Torrance].addRecord(device.getAddress(spheres[Cook_Torrance].buffer));
     shaderTablesDesc.hitGroups[Glass].addRecord(device.getAddress(spheres[Glass].buffer));
@@ -315,14 +327,24 @@ void WhittedRayTracer::createRayTracingPipeline() {
 
     auto address = device.getAddress(planes.buffer);
     shaderTablesDesc.hitGroups[Cook_Torrance].addRecord(address);
-    shaderTablesDesc.hitGroups[Mirror].addRecord(address);
     shaderTablesDesc.hitGroups[Glass].addRecord(address);
+    shaderTablesDesc.hitGroups[Mirror].addRecord(address);
 
     address = device.getAddress(ctMatBuffer);
     shaderTablesDesc.hitGroups.get(Cook_Torrance).addRecord(address);
 
     address = device.getAddress(glassMatBuffer);
     shaderTablesDesc.hitGroups[Glass].addRecord(address);
+
+    shaderTablesDesc.hitGroups[Cook_Torrance + eOcclusion * Brdf::Count].addRecord(device.getAddress(spheres[Cook_Torrance].buffer));
+    shaderTablesDesc.hitGroups[Glass + eOcclusion * Brdf::Count].addRecord(device.getAddress(spheres[Glass].buffer));
+    shaderTablesDesc.hitGroups[Mirror + eOcclusion * Brdf::Count].addRecord(device.getAddress(spheres[Mirror].buffer));
+
+    address = device.getAddress(planes.buffer);
+    shaderTablesDesc.hitGroups[Cook_Torrance + eOcclusion * Brdf::Count].addRecord(address);
+    shaderTablesDesc.hitGroups[Glass + eOcclusion * Brdf::Count].addRecord(address);
+    shaderTablesDesc.hitGroups[Mirror + eOcclusion * Brdf::Count].addRecord(address);
+
 
     dispose(raytrace.layout);
 
