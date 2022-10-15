@@ -1,8 +1,3 @@
-
-include_directories(include)
-
-file(GLOB_RECURSE CPP_FILES ${CMAKE_CURRENT_LIST_DIR}/source/*.cpp)
-file(GLOB_RECURSE HPP_FILES ${CMAKE_CURRENT_LIST_DIR}/include/*.*)
-
-add_executable(FontTest ${CPP_FILES} ${HPP_FILES})
-target_link_libraries(FontTest VulkanBase ImGuiPlugin)
+version https://git-lfs.github.com/spec/v1
+oid sha256:a797ee68aa3069341d55bc1fea9e4881fdbd27fc3ffd6a2c03efdc4b0e5135bc
+size 279

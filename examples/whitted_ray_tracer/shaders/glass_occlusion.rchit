@@ -1,14 +1,3 @@
-#version 460
-#extension GL_EXT_ray_tracing : require
-#extension GL_EXT_buffer_reference2 : require
-
-#include "ray_tracing_lang.glsl"
-#include "common.glsl"
-
-layout(location = 1) rayPayloadIn ShadowData sd;
-
-void main(){
-    sd.isShadowed = true;
-    sd.color = vec3(1, 1, 0);
-    sd.visibility = 0.7;
-}
+version https://git-lfs.github.com/spec/v1
+oid sha256:7e06041c92dd0c9d7b7279d1ae9e5a653f54bf7c23c142bbff46b76ade0726ff
+size 302

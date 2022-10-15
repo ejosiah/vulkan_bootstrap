@@ -1,12 +1,3 @@
-#version 460
-#extension GL_EXT_ray_tracing : enable
-#extension GL_GOOGLE_include_directive : enable
-
-#include "common.glsl"
-#include "implicits.glsl"
-
-layout(location = 0) rayPayloadInEXT RayTracePayload payload;
-
-void main(){
-    payload.hitValue = payload.bgColor;
-}
+version https://git-lfs.github.com/spec/v1
+oid sha256:b70920b161090e6f5674c799ce779ca80dfccdde7f41bb78e6dfcd128feb93fa
+size 279

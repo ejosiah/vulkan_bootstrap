@@ -1,11 +1,3 @@
-project(ImGuiPlugin VERSION 0.0.0)
-
-include_directories(${CMAKE_CURRENT_LIST_DIR}/include)
-
-add_definitions(-DGLFW_INCLUDE_VULKAN)
-
-file(GLOB_RECURSE CPP_FILES ${CMAKE_CURRENT_LIST_DIR}/source/*.cpp)
-file(GLOB_RECURSE HPP_FILES ${CMAKE_CURRENT_LIST_DIR}/include/*.*)
-
-add_library(ImGuiPlugin ${CPP_FILES} ${HPP_FILES})
-target_link_libraries(ImGuiPlugin PRIVATE VulkanBase)
+version https://git-lfs.github.com/spec/v1
+oid sha256:1b3c8a9d49312ecff822b191b90a7afb674422bb9817c79f3ce6effb908d72b5
+size 382

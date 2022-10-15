@@ -1,17 +1,3 @@
-#version 460
-
-layout(location = 0) in vec4 position;
-layout(location = 1) in vec4 color;
-
-layout(push_constant) uniform UniformBufferObject{
-    mat4 model;
-    mat4 view;
-    mat4 proj;
-};
-
-layout(location = 0) out vec4 vColor;
-
-void main(){
-    vColor = color;
-    gl_Position = proj * view * model * position;
-}
+version https://git-lfs.github.com/spec/v1
+oid sha256:b06e2b800e9244108aa6cbfd05d5a62fb07677e5683fefc3b604a140c7db1600
+size 330

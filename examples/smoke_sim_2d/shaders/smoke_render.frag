@@ -1,22 +1,3 @@
-#version 460 core
-#define PI 3.14159265358979
-
-layout(set = 0, binding = 0) uniform sampler2D smokeField;
-layout(set = 1, binding = 0) uniform sampler2D cloudMap;
-layout(set = 2, binding = 0) uniform sampler2D vectorField;
-
-layout(location = 0) in vec2 uv;
-layout(location = 0) out vec4 fragColor;
-
-layout(push_constant) uniform Constants {
-    vec3 dye;
-};
-
-const float ppm = 1E6;
-
-void main(){
-    float density = texture(smokeField, uv).y/ppm;
-    vec3 smoke = dye * density;
-    fragColor = vec4(smoke, density);
-    fragColor /= (1 + fragColor);
-}
+version https://git-lfs.github.com/spec/v1
+oid sha256:3701d9c0b770b7b0240c13bf4eb2e62f8c6f1a9528c983f344eb19c8b2150631
+size 552

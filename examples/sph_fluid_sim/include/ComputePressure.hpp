@@ -1,33 +1,3 @@
-#pragma once
-
-#include "ComputePipelins.hpp"
-#include "VulkanDevice.h"
-
-
-struct ComputePressure : public ComputePipelines{
-
-    ComputePressure() = default;
-
-    ComputePressure(VulkanDevice* device,
-                    VulkanDescriptorSetLayout* particleLayout,
-                    float eosExponent, float targetDensity,
-                    float speedOfSound, float negativePressureScale);
-
-    std::vector<PipelineMetaData> pipelineMetaData() final;
-
-    void init();
-
-    void setNumParticles(int numParticles);
-
-    void operator ()(VkCommandBuffer commandBuffer, VkDescriptorSet particleDescriptorSet);
-
-    VulkanDescriptorSetLayout* particleLayout{nullptr};
-
-    struct {
-        int numParticles{0};
-        float eosExponent{7};
-        float targetDensity{1000};
-        float speedOfSound{100};
-        float negativePressureScale{0};
-    } constants;
-};
+version https://git-lfs.github.com/spec/v1
+oid sha256:57ec14270c7be3a6fecb3e1374896e99edbc64f92cf6bb5ccdb9325ef0c87349
+size 899

@@ -1,7 +1,3 @@
-#version 450
-
-layout(location = 0) in vec2 position;
-
-void main(){
-    gl_Position = vec4(position, 0, 1);
-}
+version https://git-lfs.github.com/spec/v1
+oid sha256:f6bcd53a37936aabfc63402e506729bc41e8c88434b7979f8703ffbbce23220d
+size 108

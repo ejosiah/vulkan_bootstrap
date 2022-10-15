@@ -1,21 +1,3 @@
-#ifndef PLANE_SURFACE_GLSL
-#define PLANE_SURFACE_GLSL
-
-struct Plane{
-    vec3 normal;
-    float d;
-};
-
-vec3 closestPoint(Plane p, vec3 q){
-    float t = (dot(p.normal, q) - p.d)/dot(p.normal, p.normal);
-    return q - t * p.normal;
-}
-
-Plane createPlane(vec3 normal, vec3 point){
-    Plane p;
-    p.normal = normal;
-    p.d = dot(normal, point);
-    return p;
-}
-
-#endif // PLANE_SURFACE_GLSL
+version https://git-lfs.github.com/spec/v1
+oid sha256:d3e2e52826580d79499495fc77f02d4d961d5ff1d3b4955c6b5de42619da2379
+size 410

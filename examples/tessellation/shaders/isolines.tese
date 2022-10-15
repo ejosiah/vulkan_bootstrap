@@ -1,17 +1,3 @@
-#version 450
-
-layout(isolines, equal_spacing, ccw) in;
-
-void main(){
-    float u = gl_TessCoord.x;
-    float v = gl_TessCoord.y;
-
-    vec4 p0 = gl_in[0].gl_Position;
-    vec4 p1 = gl_in[1].gl_Position;
-    vec4 p2 = gl_in[2].gl_Position;
-    vec4 p3 = gl_in[3].gl_Position;
-
-    vec4 p = mix(mix(p0, p1, u), mix(p3, p2, u), v);
-
-    gl_Position = p;
-}
+version https://git-lfs.github.com/spec/v1
+oid sha256:f15f6a29f5c13e201ad9993be2c25f9bb75bba0747cebfcbd973497f25553334
+size 351

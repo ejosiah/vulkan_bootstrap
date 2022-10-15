@@ -1,4 +1,3 @@
-file(GLOB_RECURSE CPP_FILES ${CMAKE_CURRENT_LIST_DIR}/*.cpp)
-
-add_executable(Playground EXCLUDE_FROM_ALL ${CPP_FILES})
-target_link_libraries(Playground VulkanBase)
+version https://git-lfs.github.com/spec/v1
+oid sha256:a0a74dbd0da4bee8f9fee49ba769dc981397339961dcfb4c086230fd6456772f
+size 166

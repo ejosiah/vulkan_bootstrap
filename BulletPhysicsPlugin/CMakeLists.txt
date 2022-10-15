@@ -1,9 +1,3 @@
-include_directories(${CMAKE_CURRENT_LIST_DIR}/include)
-
-add_definitions(-DGLFW_INCLUDE_VULKAN)
-
-file(GLOB_RECURSE CPP_FILES ${CMAKE_CURRENT_LIST_DIR}/source/*.cpp)
-file(GLOB_RECURSE HPP_FILES ${CMAKE_CURRENT_LIST_DIR}/include/*.*)
-
-add_library(BulletPhysicsPlugin ${CPP_FILES} ${HPP_FILES})
-target_link_libraries(BulletPhysicsPlugin PRIVATE VulkanBase)
+version https://git-lfs.github.com/spec/v1
+oid sha256:568a3477d608f277734a25b036aec06c9f983e8e0bb73143da321bebc9a4b779
+size 360

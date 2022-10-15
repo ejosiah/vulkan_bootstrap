@@ -1,12 +1,3 @@
-#version 460 core
-
-layout(set = 0, binding = 0) uniform sampler2D image;
-
-layout(location = 0) in vec3 vColor;
-layout(location = 1) in vec2 vUv;
-layout(location = 0) out vec4 fragColor;
-
-void main(){
-    vec4 texColor = texture(image, vUv).rgba;
-    fragColor = vec4(mix(vColor, texColor.rgb, texColor.a), 1.0);
-}
+version https://git-lfs.github.com/spec/v1
+oid sha256:765ce524d05fa21d24b09f04faf348ea7d448a7f2cb25157d565644fd78935d3
+size 324

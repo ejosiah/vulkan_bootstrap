@@ -1,12 +1,3 @@
-#version 460 core
-
-layout(binding = 0) uniform sampler2D albedoMap;
-layout(binding = 1) uniform sampler2D lightMap;
-
-layout(location = 0) in vec2 vUv;
-
-layout(location = 0) out vec4 fragColor;
-
-void main(){
-    fragColor = texture(albedoMap, vUv * 8) * texture(lightMap, vUv);
-}
+version https://git-lfs.github.com/spec/v1
+oid sha256:682bd10629a765ae484132b04554d143ef4421446006cc8400fc4e7345c952b4
+size 289

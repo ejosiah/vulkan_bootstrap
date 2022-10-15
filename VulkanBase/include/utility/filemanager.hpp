@@ -1,19 +1,3 @@
-#pragma once
-
-#include "common.h"
-
-class FileManager{
-public:
-    explicit FileManager(std::vector<fs::path> searchPaths = {});
-
-    void addSearchPath(const fs::path& searchPath);
-
-    [[nodiscard]]
-    byte_string load(const std::string& resource) const;
-
-    [[nodiscard]]
-    std::optional<fs::path> getFullPath(const std::string& resource) const;
-
-private:
-    std::vector<fs::path> searchPaths_;
-};
+version https://git-lfs.github.com/spec/v1
+oid sha256:448bed43cfb06e08e6defa24734e868ccf1139d26ad1d902ba5f5899789ea275
+size 422

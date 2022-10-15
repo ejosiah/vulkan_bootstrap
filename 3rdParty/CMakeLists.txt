@@ -1,12 +1,3 @@
-find_package("Vulkan")
-project(3rdParty VERSION 0.0.0)
-
-message(STATUS "setting up conan")
-include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
-conan_basic_setup()
-
-file(GLOB_RECURSE CPP_FILES ${CMAKE_CURRENT_LIST_DIR}/source/*.cpp)
-file(GLOB_RECURSE HPP_FILES ${CMAKE_CURRENT_LIST_DIR}/include/*.*)
-
-add_library(3rdParty ${CPP_FILES} ${HPP_FILES})
-target_link_libraries(3rdParty Vulkan::Vulkan ${CONAN_LIBS})
+version https://git-lfs.github.com/spec/v1
+oid sha256:48521e73b166bf76ed69d625d9075b98f4423e5c63c76cdf8fd97afeb68095d3
+size 417

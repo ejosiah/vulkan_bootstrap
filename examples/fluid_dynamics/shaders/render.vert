@@ -1,11 +1,3 @@
-#version 460 core
-
-layout(location = 0) in vec2 pos;
-layout(location = 1) in vec2 uv;
-
-layout(location = 0) out vec2 vUv;
-
-void main(){
-    vUv = uv;
-    gl_Position = vec4(pos, 0.9, 1);
-}
+version https://git-lfs.github.com/spec/v1
+oid sha256:212a9cb95db965b9b0df7cadf8053264f66abfc9abd1bb42d54276ec4f2a7a4f
+size 188

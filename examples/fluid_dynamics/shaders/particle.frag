@@ -1,11 +1,3 @@
-#version 450
-
-layout(location = 0) in vec2 velocity;
-
-layout(location = 0) out vec4 fragColor;
-
-void main(){
-    float magintude = length(velocity);
-    if(isnan(magintude) || magintude < 0.0001) discard;
-    fragColor = vec4(1);
-}
+version https://git-lfs.github.com/spec/v1
+oid sha256:97bbfabc2535df267d105fa616a4c421777b8bf5c97e6a7df4aa254ab0083578
+size 231

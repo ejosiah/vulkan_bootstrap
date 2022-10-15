@@ -1,28 +1,3 @@
-#pragma once
-
-#include "ComputePipelins.hpp"
-#include "VulkanDevice.h"
-
-struct TimeIntegration : public ComputePipelines{
-
-    TimeIntegration() = default;
-
-    TimeIntegration(VulkanDevice* device, VulkanDescriptorSetLayout* particleLayout, VulkanDescriptorSetLayout*  forceLayout);
-
-    void init();
-
-    std::vector<PipelineMetaData> pipelineMetaData() override;
-
-    void operator ()(VkCommandBuffer commandBuffer, std::array<VkDescriptorSet, 2>& particleDescriptorSets, VkDescriptorSet forceSet);
-
-    void update(uint32_t numParticles, float time);
-
-    VulkanDescriptorSetLayout* particleLayout{nullptr};
-    VulkanDescriptorSetLayout* forceLayout{nullptr };
-
-    struct {
-        uint32_t numParticles{0};
-        float time{0.0};
-        float invMass;
-    } constants;
-};
+version https://git-lfs.github.com/spec/v1
+oid sha256:0b48b57481f0318954f5e0f7602f55332bd05beefa78d6ee272cc64fe08c3097
+size 808

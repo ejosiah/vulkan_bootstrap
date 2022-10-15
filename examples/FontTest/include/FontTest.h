@@ -1,26 +1,3 @@
-#include "VulkanBaseApp.h"
-#include "VulkanSink.h"
-
-class FontTest : public VulkanBaseApp {
-public:
-    FontTest();
-
-protected:
-    void initApp() override;
-
-    void update(float time) override;
-
-    void onSwapChainDispose() override;
-
-    void onSwapChainRecreation() override;
-
-    VkCommandBuffer *buildCommandBuffers(uint32_t imageIndex, uint32_t &numCommandBuffers) override;
-
-    void cleanup() override;
-
-private:
-    std::vector<VkCommandBuffer> commandBuffers;
-    VulkanCommandPool commandPool;
-    std::string msg;
-    std::shared_ptr<VulkanSink<spdlog::details::null_mutex, 20>> cappedSink;
-};
+version https://git-lfs.github.com/spec/v1
+oid sha256:558b83477043ec5934b8b9b7daf81b8d804c3913e9d24ff6b5aa902b729e28d7
+size 632

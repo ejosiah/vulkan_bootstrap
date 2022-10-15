@@ -1,7 +1,3 @@
-include_directories(include)
-
-file(GLOB_RECURSE CPP_FILES ${CMAKE_CURRENT_LIST_DIR}/include/*.*)
-file(GLOB_RECURSE HPP_FILES ${CMAKE_CURRENT_LIST_DIR}/source/*.cpp)
-
-add_executable(MarchingCubes ${CPP_FILES} ${HPP_FILES})
-target_link_libraries(MarchingCubes VulkanBase ImGuiPlugin)
+version https://git-lfs.github.com/spec/v1
+oid sha256:dcb2c87ad3c5c936c33727e5da37f1f2e3f097759296441b6427d69db4293e08
+size 287

@@ -1,26 +1,3 @@
-#include "TessellationStateBuilder.hpp"
-
-TessellationStateBuilder::TessellationStateBuilder(VulkanDevice *device, GraphicsPipelineBuilder *parent)
-        : GraphicsPipelineBuilder(device, parent) {
-}
-
-TessellationStateBuilder &TessellationStateBuilder::patchControlPoints(uint32_t count) {
-    _info.patchControlPoints = count;
-    return *this;
-}
-
-TessellationStateBuilder &TessellationStateBuilder::domainOrigin(VkTessellationDomainOrigin origin) {
-    originStateInfo.domainOrigin = origin;
-    return *this;
-}
-
-VkPipelineTessellationStateCreateInfo &TessellationStateBuilder::buildTessellationState() {
-    _info.pNext = &originStateInfo;
-    return _info;
-}
-
-GraphicsPipelineBuilder &TessellationStateBuilder::clear() {
-    auto graphicsPipelineBuilder = reinterpret_cast<GraphicsPipelineBuilder*>(_parent);
-    _info = {VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO};
-    return *graphicsPipelineBuilder;
-}
+version https://git-lfs.github.com/spec/v1
+oid sha256:3f08e86c8425ce26718c62cb97ba6efdfb094cee9075714d2a81c076d2fc4e7b
+size 926

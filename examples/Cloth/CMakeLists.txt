@@ -1,21 +1,3 @@
-if (NOT NO_OPENCL)
-    find_package(OpenCL QUIET)
-endif()
-
-include_directories(include)
-
-file(GLOB_RECURSE CPP_FILES ${CMAKE_CURRENT_LIST_DIR}/include/*.*)
-file(GLOB_RECURSE HPP_FILES ${CMAKE_CURRENT_LIST_DIR}/source/*.cpp)
-
-set(GLSL_SOURCE_DIR "shaders")
-set(SPV_DIR "${CMAKE_CURRENT_LIST_DIR}/spv")
-compile_glsl_directory(SRC_DIR "${GLSL_SOURCE_DIR}" OUT_DIR "${SPV_DIR}" INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/data/shaders")
-
-add_executable(Cloth ${CPP_FILES} ${HPP_FILES})
-target_link_libraries(Cloth VulkanBase ImGuiPlugin)
-
-if (OpenCL_FOUND)
-    include_directories("${OpenCL_INCLUDE_DIRS}")
-    add_definitions( -DOPENCL_FOUND=1 )
-    target_link_libraries(Cloth ${OpenCL_LIBRARIES})
-endif()
+version https://git-lfs.github.com/spec/v1
+oid sha256:bb769937aa1efebd786ec9449cae0954795a5b8808b65beb7a4771f1f7933b9e
+size 713

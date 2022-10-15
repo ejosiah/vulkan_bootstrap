@@ -1,22 +1,3 @@
-#pragma once
-
-#include <glm/glm.hpp>
-#include <glm/gtc/quaternion.hpp>
-
-inline glm::mat4 qLeft(const glm::quat& q){
-    return {
-            {q.w, -q.x, -q.y, -q.z},
-            {q.x, q.w,  -q.z, q.y},
-            {q.y, q.z,  q.w,  -q.x},
-            {q.z, -q.y, q.x,  q.w}
-    };
-}
-
-inline glm::mat4 qRight(const glm::quat& q){
-    return {
-            {q.w, -q.x, -q.y, -q.z},
-            {q.x,  q.w,  q.z, -q.y},
-            {q.y, -q.z,  q.w,  q.x},
-            {q.z,  q.y, -q.x,  q.w}
-    };
-}
+version https://git-lfs.github.com/spec/v1
+oid sha256:cfca022c745cf31bd37da1d8a99046b9772e3f8e4babe8896c5781ad9a536e09
+size 497

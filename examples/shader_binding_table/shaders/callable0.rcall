@@ -1,14 +1,3 @@
-#version 460
-
-#extension GL_EXT_ray_tracing : require
-
-#include "ray_tracing_lang.glsl"
-
-#define rgb(r, g, b) (vec3(r, g, b) * 0.0039215686274509803921568627451f)
-
-
-layout(location = 0) callableDataIn vec3 outColor;
-
-void main(){
-    outColor = rgb(168, 84, 56);
-}
+version https://git-lfs.github.com/spec/v1
+oid sha256:55385de596f0d1b357592a227ad036af191ff9db2a6c7ec684bd921c599f9e89
+size 264

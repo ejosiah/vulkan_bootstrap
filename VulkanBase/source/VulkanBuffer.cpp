@@ -1,3 +1,3 @@
-#include "VulkanBuffer.h"
-
-std::map<VkBuffer, std::atomic_uint32_t> VulkanBuffer::refCounts;
+version https://git-lfs.github.com/spec/v1
+oid sha256:3f08ff17ae82783a72a74fd43d503937751ff38736ade22fa3cfb3f34920b23c
+size 94

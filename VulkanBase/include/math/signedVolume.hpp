@@ -1,15 +1,3 @@
-#include <glm/glm.hpp>
-
-#pragma once
-
-struct SignedVolume{
-
-    static glm::vec2 _1D(const glm::vec3& s1, const glm::vec3& s2);
-
-    static glm::vec3 _2D(const glm::vec3& s1, const glm::vec3& s2, const glm::vec3& s3);
-
-    static glm::vec4 _3D(const glm::vec3& s1, const glm::vec3& s2, const glm::vec3& s3, const glm::vec3& s4);
-
-    static bool compareSigns(float a, float b);
-
-};
+version https://git-lfs.github.com/spec/v1
+oid sha256:2d4b76809c83b82c4d9df7b99ceffc510f6b9692476d778d82ac1244bf3a7d08
+size 382

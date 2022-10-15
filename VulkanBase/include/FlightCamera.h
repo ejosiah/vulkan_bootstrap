@@ -1,21 +1,3 @@
-#pragma once
-
-#include "camera_base.h"
-
-constexpr float DEFAULT_YAW_SPEED = 100.0F;
-
-struct FlightCameraSettings : BaseCameraSettings{
-    float  yawSpeed = DEFAULT_YAW_SPEED;
-};
-
-class FlightCameraController : public BaseCameraController{
-public:
-    FlightCameraController(InputManager& inputManager, const FlightCameraSettings& settings = {});
-
-    void update(float elapsedTime) override;
-
-    void rotate(float headingDegrees, float pitchDegrees, float rollDegrees) override;
-
-private:
-    float YawSpeed;
-};
+version https://git-lfs.github.com/spec/v1
+oid sha256:75a9203fe88e575cf6aa5b5e40e447812b809dd2a81742b8be8679ba97eb320b
+size 533

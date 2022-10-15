@@ -1,12 +1,3 @@
-#version 460
-#extension GL_EXT_ray_tracing : enable
-
-#include "ray_tracing_lang.glsl"
-
-#define rgb(r, g, b) (vec3(r, g, b) * 0.0039215686274509803921568627451f)
-
-layout(location = 0) rayPayloadInEXT vec3 hitValue;
-
-void main(){
-    hitValue = mix(rgb(184, 224, 242), rgb(65, 186, 242), gl_WorldRayDirection.y);
-}
+version https://git-lfs.github.com/spec/v1
+oid sha256:291dfd226dd443dd50f7bbd94cec9f3d20826f273bc01b92e5e718536223225d
+size 312

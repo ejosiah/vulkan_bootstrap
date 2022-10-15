@@ -1,36 +1,3 @@
-#pragma once
-
-#include "model.hpp"
-#include "ComputePipelins.hpp"
-
-class SdfCompute : public ComputePipelines{
-public:
-    SdfCompute() = default;
-
-    SdfCompute(VulkanDevice* device, VulkanDescriptorPool* pool, BoundingBox domain, std::string sdfPath, glm::uvec3 resolution);
-
-    void init();
-
-    std::vector<PipelineMetaData> pipelineMetaData() final;
-
-    void createDescriptorSetLayout();
-
-    void createDescriptorSet();
-
-    void createImage();
-
-    void createBuffers();
-
-    void execute(VkCommandBuffer commandBuffer);
-
-    Sdf sdf;
-
-private:
-    VulkanDescriptorPool* pool{ nullptr };
-    VulkanDescriptorSetLayout setLayout;
-    VulkanBuffer buffer;
-    VkDescriptorSet descriptorSet{ VK_NULL_HANDLE };
-    std::string sdfPath;
-    BoundingBox domain;
-    glm::uvec3 resolution{1};
-};
+version https://git-lfs.github.com/spec/v1
+oid sha256:168f8e838096717a2d9eac3b19dc36d051231ac221652fdadc2de626e7fea6f1
+size 798

@@ -1,13 +1,3 @@
-#version 460 core
-
-layout(set = 0, binding = 0) uniform MVP{
-    mat4 model;
-    mat4 view;
-    mat4 projection;
-};
-
-layout(location = 0) in vec3 position;
-
-void main(){
-    gl_Position = projection * view * model * vec4(position, 1);
-}
+version https://git-lfs.github.com/spec/v1
+oid sha256:da0df5afc4d0194513830360489bbfe8437131d21820b6ad3dccf8236f31ac31
+size 248

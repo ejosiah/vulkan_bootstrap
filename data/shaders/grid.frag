@@ -1,11 +1,3 @@
-#version 460 core
-
-layout(location = 0) out vec4 fragColor;
-
-layout(constant_id = 0) const float r = 1;
-layout(constant_id = 1) const float g = 1;
-layout(constant_id = 2) const float b = 1;
-
-void main(){
-    fragColor = vec4(r, g, b, 1);
-}
+version https://git-lfs.github.com/spec/v1
+oid sha256:b2716d0091a48deded272d703df37285119ff854abec4f2df27884af4b15e666
+size 249

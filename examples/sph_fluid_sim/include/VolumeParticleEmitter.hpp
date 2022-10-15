@@ -1,28 +1,3 @@
-#pragma once
-
-#include "ComputePipelins.hpp"
-#include "Texture.h"
-#include "primitives.h"
-#include "model.hpp"
-#include "PointGenerator.hpp"
-
-class VolumeParticleEmitter : public PointGenerator{
-public:
-    VolumeParticleEmitter() = default;
-
-    explicit VolumeParticleEmitter(VulkanDevice* device, VulkanDescriptorPool* pool, VulkanDescriptorSetLayout* particleDescriptorSetLayout
-                                   , Sdf& sdf, float spacing = 1.0, PointGeneratorType genType = BCC_LATTICE_POINT_GENERATOR);
-
-
-    [[nodiscard]]
-    std::string shaderName() const override{
-        return "volume_emitter";
-    }
-
-    void createDescriptorSetLayout() override;
-
-    void createDescriptorSet() override;
-
-private:
-    Texture* texture{nullptr};
-};
+version https://git-lfs.github.com/spec/v1
+oid sha256:a48055817391c405362150424d88da14e4cc04c77ef5e04fe58f1c1a7c1f0c62
+size 774

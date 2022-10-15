@@ -1,33 +1,3 @@
-#version 460 core
-
-layout(points) in;
-
-layout(line_strip, max_vertices = 2) out;
-
-layout(push_constant) uniform CONTANTS {
-    mat4 model;
-    mat4 view;
-    mat4 projection;
-    vec4 nColor;
-    float nlength;
-};
-
-layout(location = 0) in struct {
-    vec4 color;
-    vec3 normal;
-} vIn[];
-
-layout(location = 0) out vec4 vColor;
-
-void main(){
-    vColor = nColor;
-    vec4 position = gl_in[0].gl_Position;
-    gl_Position = projection * view * model * position;
-    EmitVertex();
-
-    vColor = nColor;
-    position.xyz = position.xyz + vIn[0].normal * nlength;
-    gl_Position = projection * view * model * position;
-    EmitVertex();
-    EndPrimitive();
-}
+version https://git-lfs.github.com/spec/v1
+oid sha256:09cf58a0a4d46248f00b4a242baf9f92ba81de7919ba5caf44debfa19b1c4856
+size 688

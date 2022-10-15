@@ -1,9 +1,3 @@
-#version 460
-
-layout(local_size_x = 10, local_size_y = 10) in;
-
-void main(){
-//    while(true){
-//        // spin indefinitely
-//    }
-}
+version https://git-lfs.github.com/spec/v1
+oid sha256:d4c9cecbe23a5a8d0af53602484027d995733bb322132cd45b05a4e604f45a4e
+size 144

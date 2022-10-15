@@ -1,25 +1,3 @@
-#pragma once
-
-#include "VulkanDevice.h"
-
-struct ForceDescriptor{
-
-    ForceDescriptor() = default;
-
-    ForceDescriptor(VulkanDevice *device, VulkanDescriptorPool* descriptorPool);
-
-    void init();
-
-    void createDescriptorSetLayout();
-
-    void setNumParticles(uint32_t numParticles);
-
-    void createDescriptorSet();
-
-    int numParticles{0};
-    VkDescriptorSet set{ VK_NULL_HANDLE };
-    VulkanDescriptorSetLayout layoutSet;
-    VulkanBuffer forceBuffer;
-    VulkanDescriptorPool* descriptorPool{ nullptr };
-    VulkanDevice *device{ nullptr };
-};
+version https://git-lfs.github.com/spec/v1
+oid sha256:21ff93971963153f1433104b6b400094379484e78d3b7abc4fe008a8ae7a52f7
+size 577

@@ -1,20 +1,3 @@
-vec2 deriveUV(vec3 p0, vec3 p1, vec3 p2, vec3 t, vec2 b){
-    mat3x2 TB = mat3x2(
-        t.x, b.x,
-        t.y, b.x,
-        t.z, b.z
-    );
-
-    vec3 e0 = p1 - p0;
-    vec3 e1 = p2 - p0;
-
-    mat3x2 E = mat3x2(
-        e0.x, e1.x,
-        e0.y, e1.y,
-        e0.z, e1.z
-    );
-
-    mat2 UV = inverse(TB) * E;
-
-    return row(UV, 0);
-}
+version https://git-lfs.github.com/spec/v1
+oid sha256:894ef08878ba9cbc9e078fd358424b1b63508ef6f5116d5ad6344b3140d8c0c0
+size 336

@@ -1,13 +1,3 @@
-#version 460 core
-
-layout(push_constant) uniform Constants{
-    mat4 model;
-    mat4 view;
-    mat4 projection;
-};
-
-layout(location = 0) in vec3 position;
-
-void main(){
-    gl_Position = projection * view * model * vec4(position, 1);
-}
+version https://git-lfs.github.com/spec/v1
+oid sha256:286bb0c470f6cd39294e5e1a6786dc73ee604f9141bd7981992dd00d7e047f22
+size 247

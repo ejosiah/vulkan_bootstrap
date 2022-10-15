@@ -1,24 +1,3 @@
-#include "VulkanBaseApp.h"
-#include "Mesh.h"
-
-class MeshLoading : public VulkanBaseApp{
-public:
-    MeshLoading();
-
-protected:
-    void initApp() override;
-
-    void onSwapChainDispose() override;
-
-    void onSwapChainRecreation() override;
-
-    VkCommandBuffer *buildCommandBuffers(uint32_t imageIndex, uint32_t &numCommandBuffers) override;
-
-    void update(float time) override;
-
-    void checkAppInputs() override;
-
-private:
-    VulkanCommandPool commandPool;
-    std::vector<VkCommandBuffer> commandBuffers;
-};
+version https://git-lfs.github.com/spec/v1
+oid sha256:2be7fbce158592bb9ee55dd9050bf0417d0e2604cca18e65ce900a86e8135a70
+size 538

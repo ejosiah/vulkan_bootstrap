@@ -1,13 +1,3 @@
-#version 460 core
-
-layout(push_constant) uniform UniformBufferObject{
-    mat4 model;
-    mat4 view;
-    mat4 proj;
-};
-
-layout(location = 0) in vec3 position;
-
-void main(){
-    gl_Position = proj * view * model * vec4(position, 1);
-}
+version https://git-lfs.github.com/spec/v1
+oid sha256:59d12a35086be57a69f68e89ceb5632d9e47db0dfd09179b3fdca3eae1cfcb44
+size 245

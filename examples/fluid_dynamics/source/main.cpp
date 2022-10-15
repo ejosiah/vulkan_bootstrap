@@ -1,24 +1,3 @@
-#include "FluidDynamicsDemo.hpp"
-#include "ImGuiPlugin.hpp"
-
-int main(){
-    try{
-
-        Settings settings;
-        settings.queueFlags |= VK_QUEUE_COMPUTE_BIT;
-        settings.width = settings.height = 1024;
-        settings.enabledFeatures.tessellationShader = VK_TRUE;
-        settings.enabledFeatures.wideLines = VK_TRUE;
-        settings.enabledFeatures.geometryShader = VK_TRUE;
-        settings.enabledFeatures.vertexPipelineStoresAndAtomics = VK_TRUE;
-        settings.msaaSamples = VK_SAMPLE_COUNT_8_BIT;
-        settings.depthTest = true;
-
-        auto app = FluidDynamicsDemo{ settings };
-        std::unique_ptr<Plugin> plugin = std::make_unique<ImGuiPlugin>();
-        app.addPlugin(plugin);
-        app.run();
-    }catch(std::runtime_error& err){
-        spdlog::error(err.what());
-    }
-}
+version https://git-lfs.github.com/spec/v1
+oid sha256:a7ecbdfa050fa75d6fce111815c6fba93164fba0a72717e28630d9b8e1027253
+size 807

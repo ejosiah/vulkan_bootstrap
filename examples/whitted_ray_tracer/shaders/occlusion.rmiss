@@ -1,10 +1,3 @@
-#version 460
-#extension GL_EXT_ray_tracing : require
-
-#include "ray_tracing_lang.glsl"
-
-layout(location = 1) rayPayloadIn vec3 visibility;
-
-void main(){
-    visibility = vec3(1.0);
-}
+version https://git-lfs.github.com/spec/v1
+oid sha256:eb6d93b98ffaf6b5ccaa6ce9d856fa2fe50ccff257a2448f7dbc840ffbe03e8c
+size 182

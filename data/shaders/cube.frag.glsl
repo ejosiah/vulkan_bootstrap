@@ -1,9 +1,3 @@
-#version 450 core
-
-layout(location = 0) in vec3 vColor;
-
-layout(location = 0) out vec4 fragColor;
-
-void main() {
-    fragColor = vec4(vColor, 1.0);
-}
+version https://git-lfs.github.com/spec/v1
+oid sha256:4f03afa4a487b5426b6dd0cf8c6ceba9a9f00923aba3ddaae7e0398bd23ee2a6
+size 150

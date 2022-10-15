@@ -1,8 +1,3 @@
-
-include_directories(include)
-
-file(GLOB_RECURSE CPP_FILES ${CMAKE_CURRENT_LIST_DIR}/source/*.cpp)
-file(GLOB_RECURSE HPP_FILES ${CMAKE_CURRENT_LIST_DIR}/include/*.*)
-
-add_executable(ImGuiDemo ${CPP_FILES} ${HPP_FILES})
-target_link_libraries(ImGuiDemo VulkanBase ImGuiPlugin)
+version https://git-lfs.github.com/spec/v1
+oid sha256:353abe39de651f87d7b766ca650d337bfed85e208dc6a66e55f17a97ae16e48e
+size 281

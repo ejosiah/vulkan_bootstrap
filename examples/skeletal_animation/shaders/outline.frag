@@ -1,14 +1,3 @@
-#version 460
-
-layout(location = 0) in struct {
-    vec3 position;
-    vec3 normal;
-    vec3 lightPos;
-    vec2 uv;
-} v_in;
-
-layout(location = 0) out vec4 fragColor;
-
-void main(){
-    fragColor = vec4(0, 0, 0, 1);
-}
+version https://git-lfs.github.com/spec/v1
+oid sha256:2255f2d5d303a0c7c68dc264dd6fd61acc6c66f22b877a163b0d1db260f2299c
+size 214

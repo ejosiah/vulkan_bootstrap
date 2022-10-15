@@ -1,18 +1,3 @@
-#version 460 core
-
-layout(push_constant) uniform Constants{
-    mat4 model;
-    mat4 view;
-    mat4 projection;
-    uint config;
-};
-
-layout(location = 0) in vec3 position;
-layout(location = 0) out vec4 vColor;
-
-void main(){
-    uint val = 1 << gl_VertexIndex;
-    vColor = (val & config) != 0 ? vec4(0, 0, 1, 1) : vec4(1, 0, 0, 1);
-    gl_PointSize = 10.0;
-    gl_Position = projection * view * model * vec4(position, 1);
-}
+version https://git-lfs.github.com/spec/v1
+oid sha256:3fe822117b5a66314a284a65bd08283db8209db0fa2bbabf4a67beaa4bd8e73e
+size 440

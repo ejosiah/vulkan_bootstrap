@@ -1,11 +1,3 @@
-include_directories(${CMAKE_CURRENT_LIST_DIR}/include)
-
-file(GLOB_RECURSE CPP_FILES ${CMAKE_CURRENT_LIST_DIR}/include/*.*)
-file(GLOB_RECURSE HPP_FILES ${CMAKE_CURRENT_LIST_DIR}/source/*.cpp)
-
-set(GLSL_SOURCE_DIR "shaders")
-set(SPV_DIR "${CMAKE_CURRENT_LIST_DIR}/spv")
-compile_glsl_directory(SRC_DIR "${GLSL_SOURCE_DIR}" OUT_DIR "${SPV_DIR}" INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/data/shaders")
-
-add_executable(shadow_mapping ${CPP_FILES} ${HPP_FILES})
-target_link_libraries(shadow_mapping VulkanBase ImGuiPlugin)
+version https://git-lfs.github.com/spec/v1
+oid sha256:31527232a716c17757b3c69619ca3438dce5e49a7e65a754c8c05e541fc3204a
+size 518

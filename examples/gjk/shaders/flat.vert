@@ -1,14 +1,3 @@
-#version 450
-
-layout(location = 0) in vec3 position;
-
-layout(push_constant) uniform UBO{
-    mat4 model;
-    mat4 view;
-    mat4 projection;
-};
-
-void main(){
-    gl_PointSize = 5.0;
-    gl_Position = projection * view * model * vec4(position, 1);
-}
+version https://git-lfs.github.com/spec/v1
+oid sha256:9d7ef47d7fc12f1fece13e2560de6c7351a7cafec26f857d2b095e9313c04854
+size 248

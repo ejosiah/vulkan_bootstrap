@@ -1,32 +1,3 @@
-#include "VulkanDevice.h"
-#include "ComputePipelins.hpp"
-#include "PointHashGrid.hpp"
-#include "model.hpp"
-
-class NeighbourList : public ComputePipelines{
-public:
-    NeighbourList() = default;
-
-    NeighbourList(VulkanDevice* device, VulkanDescriptorPool* descriptorPool,PointHashGrid& grid, uint32_t numParticles, glm::vec3 resolution, float gridSpacing);
-
-    void init();
-
-
-    struct {
-        glm::vec3 resolution{1};
-        float gridSpacing{1};
-        uint32_t pass{0};
-        uint32_t numParticles{0};
-    } constants{};
-
-    struct {
-        VkDescriptorSet descriptorSet{};
-        VkDescriptorSet sumScanDescriptorSet{};
-        VulkanDescriptorSetLayout setLayout{};
-        VulkanBuffer sumsBuffer{};
-        struct {
-            int itemsPerWorkGroup = 8 << 10;
-            int N = 0;
-        } constants{};
-    } prefixScan{};
-};
+version https://git-lfs.github.com/spec/v1
+oid sha256:877559080db7cdf7f6ce1865c9c4e1b61e9ac967855161fe3117b4075b21c6b9
+size 879

@@ -1,17 +1,3 @@
-#pragma once
-
-#include "common.h"
-
-struct Copyable{
-
-    void copy(void* source, VkDeviceSize size) const {
-        void* dest;
-        vmaMapMemory(Allocator(), Allocation(), &dest);
-        memcpy(dest, source, size);
-        vmaUnmapMemory(Allocator(), Allocation());
-    }
-
-    virtual VmaAllocator Allocator() const = 0;
-
-    virtual VmaAllocation Allocation() const = 0;
-};
+version https://git-lfs.github.com/spec/v1
+oid sha256:336ea20d02e158968e9798dd86d3c0721f58cbcc5f120b8a694cb668fe698a8b
+size 395

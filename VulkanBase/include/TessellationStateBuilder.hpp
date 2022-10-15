@@ -1,21 +1,3 @@
-#pragma once
-
-#include "GraphicsPipelineBuilder.hpp"
-
-class TessellationStateBuilder :  public GraphicsPipelineBuilder{
-public:
-    TessellationStateBuilder(VulkanDevice* device, GraphicsPipelineBuilder* parent);
-
-    TessellationStateBuilder& patchControlPoints(uint32_t count);
-
-    TessellationStateBuilder& domainOrigin(VkTessellationDomainOrigin origin);
-
-    GraphicsPipelineBuilder& clear();
-
-    VkPipelineTessellationStateCreateInfo& buildTessellationState();
-
-
-private:
-    VkPipelineTessellationStateCreateInfo _info{VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO};
-    VkPipelineTessellationDomainOriginStateCreateInfo originStateInfo{VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_DOMAIN_ORIGIN_STATE_CREATE_INFO};
-};
+version https://git-lfs.github.com/spec/v1
+oid sha256:f6d4af193f3003e722dc3667b7c6bb1605c3bba8499429290b34c75f44889215
+size 734

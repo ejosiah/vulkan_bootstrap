@@ -1,11 +1,3 @@
-#version 460 core
-
-layout(set = 0, binding = 0) uniform samplerCube skybox;
-
-layout(location = 0) in vec3 texCoord;
-
-layout(location = 0) out vec4 fragColor;
-
-void main(){
-    fragColor = texture(skybox, texCoord);
-}
+version https://git-lfs.github.com/spec/v1
+oid sha256:99010873fe1b4deac7b55cd51195df3efbb46595794a989cac82fe63b706e1ca
+size 226

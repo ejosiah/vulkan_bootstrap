@@ -1,8 +1,3 @@
-
-include_directories(include)
-
-file(GLOB_RECURSE CPP_FILES ${CMAKE_CURRENT_LIST_DIR}/source/*.cpp)
-file(GLOB_RECURSE HPP_FILES ${CMAKE_CURRENT_LIST_DIR}/include/*.*)
-
-add_executable(VulkanCube ${CPP_FILES} ${HPP_FILES})
-target_link_libraries(VulkanCube VulkanBase)
+version https://git-lfs.github.com/spec/v1
+oid sha256:b121068d8c3882c35ef98b22793e48c56b6fee7e2ca30ce0b9c4527fa1962b63
+size 271

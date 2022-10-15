@@ -1,17 +1,3 @@
-#version 450
-
-layout(triangles, fractional_even_spacing, cw) in;
-
-void main(){
-    float u = gl_TessCoord.x;
-    float v = gl_TessCoord.y;
-    float w = gl_TessCoord.z;
-
-    vec4 p0 = gl_in[0].gl_Position;
-    vec4 p1 = gl_in[1].gl_Position;
-    vec4 p2 = gl_in[2].gl_Position;
-
-    vec4 p = u * p0 + v * p1 + w * p2;
-    p.y *= -1;
-    gl_Position =  p;
-}
+version https://git-lfs.github.com/spec/v1
+oid sha256:e8d7c4ce2230ff6633094e0b9a236ec424a4ee0ee0f14d87b6860c9f2e184e9b
+size 356

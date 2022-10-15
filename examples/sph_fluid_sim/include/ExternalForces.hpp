@@ -1,33 +1,3 @@
-#pragma once
-
-#include "ComputePipelins.hpp"
-#include "VulkanDevice.h"
-#include "ForceDescriptor.hpp"
-
-struct ExternalForces : public ComputePipelines{
-
-    ExternalForces() = default;
-
-    ExternalForces(VulkanDevice* device, ForceDescriptor* forceDescriptor, VulkanDescriptorSetLayout* particleLayout, float drag = 0.0f);
-
-    std::vector<PipelineMetaData> pipelineMetaData() final;
-
-    void init();
-
-    void setNumParticles(int numParticles);
-
-    void update(uint32_t numParticles, float time);
-
-    void operator ()(VkCommandBuffer commandBuffer, VkDescriptorSet particleDescriptorSet);
-
-    VulkanDescriptorSetLayout* particleLayout{nullptr};
-    ForceDescriptor* forceDescriptor{nullptr };
-
-    struct {
-        glm::vec3 gravity{0, -9.8, 0};
-        uint32_t numParticles{0};
-        float drag{1e-4};
-        float time{0.0};
-        float invMass{0.0};
-    } constants;
-};
+version https://git-lfs.github.com/spec/v1
+oid sha256:c8ba08fc08c2f71c2b3687f0071216d1d1969d0cc8d022d095ce60e2dfd256f5
+size 916

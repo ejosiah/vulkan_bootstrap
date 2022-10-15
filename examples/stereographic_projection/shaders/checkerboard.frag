@@ -1,35 +1,3 @@
-#version 460 core
-
-#define SQRT_3_INV 0.57735026918962576450914878050196
-
-const vec3 globalAmbient = vec3(0.3);
-const vec3 lightColor = vec3(1);
-
-layout(location = 0) in vec3 vColor;
-layout(location = 1) in vec2 vUv;
-layout(location = 2) in vec3 vPos;
-layout(location = 3) in vec3 eyes;
-layout(location = 4) in vec3 lightPos;
-layout(location = 5) in vec3 vNormal;
-
-layout(location = 0) out vec4 fragColor;
-
-void main(){
-    vec3 N = normalize(vNormal);
-    N = gl_FrontFacing ? N : -N;
-    vec3 L = vec3(SQRT_3_INV);
-    vec3 E = normalize(eyes - vPos);
-    vec3 H = normalize(E + L);
-
-    ivec2 id = ivec2(floor(vUv * 20));
-    vec3 diffuse = mix(vec3(0.4), vec3(1), float((id.x + id.y) % 2 == 0));
-
-    vec3 color = lightColor * max(dot(L, N), 0) * diffuse;
-
-    L.xz *= -1;
-    color += lightColor * max(dot(L, N), 0) * diffuse;
-
-//    L = E;
-//    color += lightColor * max(dot(L, N), 0) * diffuse;
-    fragColor = vec4(color, 1);
-}
+version https://git-lfs.github.com/spec/v1
+oid sha256:b4f4d81710840d04f94c88b86a97e01a24310ee1709d580634d2fd72d9ed1c86
+size 972

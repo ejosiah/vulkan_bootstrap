@@ -1,20 +1,3 @@
-#version 450 core
-
-layout(local_size_x = 1) in;
-
-layout(set = 0, binding = 1) buffer OUTPUT {
-    float average;
-};
-
-layout(set = 1, binding = 0) buffer SUM {
-    float sums[];
-};
-
-layout(push_constant) uniform Constants {
-    int count;
-    int tail;
-};
-
-void main(){
-    average = sums[tail]/count;
-}
+version https://git-lfs.github.com/spec/v1
+oid sha256:039625c65e9958739da66832c45f3364d7926b27b34a573c27d8dde0dc4fd492
+size 302

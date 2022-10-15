@@ -1,15 +1,3 @@
-#version 450
-
-layout(vertices = 4) out;
-
-layout(push_constant) uniform Levels{
-    int levels[2];
-};
-
-void main(){
-    if(gl_InvocationID == 0){
-        gl_TessLevelOuter[0] = levels[0];
-        gl_TessLevelOuter[1] = levels[1];
-    }
-    gl_out[gl_InvocationID].gl_Position = gl_in[gl_InvocationID].gl_Position;
-}
+version https://git-lfs.github.com/spec/v1
+oid sha256:24db654985d33dc19b69311ccbfab961f2ad52dab8c3c381a58707aa5b6b5a94
+size 314

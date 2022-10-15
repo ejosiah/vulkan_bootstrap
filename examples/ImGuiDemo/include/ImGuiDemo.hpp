@@ -1,25 +1,3 @@
-#pragma once
-
-#include "VulkanBaseApp.h"
-#include "ImGuiPlugin.hpp"
-
-class ImGuiDemo : public VulkanBaseApp{
-public:
-    ImGuiDemo(const Settings& settings);
-
-protected:
-    void initApp() override;
-
-    void onSwapChainDispose() override;
-
-    void onSwapChainRecreation() override;
-
-    VkCommandBuffer *buildCommandBuffers(uint32_t imageIndex, uint32_t &numCommandBuffers) override;
-
-private:
-    VulkanCommandPool commandPool;
-    std::vector<VkCommandBuffer> commandBuffers;
-    glm::vec4 clearColor{0.45f, 0.55f, 0.60f, 1.0f};
-    bool show_another_window = true;
-    bool show_demo_window = true;
-};
+version https://git-lfs.github.com/spec/v1
+oid sha256:8afe997b5d9598cb20a53856378443e98cffbe5a18c443541c731c32017c6b66
+size 630

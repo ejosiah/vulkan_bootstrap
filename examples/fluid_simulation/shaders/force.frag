@@ -1,24 +1,3 @@
-#version 450 core
-
-layout(set = 0, binding = 0) uniform sampler2D forceField;
-
-layout(push_constant) uniform Constants{
-    vec2 force;
-    vec2 center;
-    float radius;
-    float dt;
-};
-
-layout(location = 0) in vec2 uv;
-layout(location = 0) out vec4 du;
-
-vec2 accumForce(vec2 coord){
-    return texture(forceField, fract(coord)).xy;
-}
-
-void main(){
-    vec2 d = (center - uv);
-    du.xy = force * exp(-dot(d, d)/radius);
-    du.xy /= dt;
-    du.xy += accumForce(uv);
-}
+version https://git-lfs.github.com/spec/v1
+oid sha256:1daeb0239d6a4f0e4c60b8de72f30400956cc48bedeedf0bfa20d42eb86b3e1a
+size 470

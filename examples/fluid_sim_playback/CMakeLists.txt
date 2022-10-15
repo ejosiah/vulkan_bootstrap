@@ -1,7 +1,3 @@
-include_directories(include)
-
-file(GLOB_RECURSE CPP_FILES ${CMAKE_CURRENT_LIST_DIR}/include/*.*)
-file(GLOB_RECURSE HPP_FILES ${CMAKE_CURRENT_LIST_DIR}/source/*.cpp)
-
-add_executable(fluid_sim_playback ${CPP_FILES} ${HPP_FILES})
-target_link_libraries(fluid_sim_playback VulkanBase ImGuiPlugin)
+version https://git-lfs.github.com/spec/v1
+oid sha256:b7078ec262ef750a7b0f37b0a7ae62c8fc370f3b33b824dc435ad659f88aad7b
+size 297

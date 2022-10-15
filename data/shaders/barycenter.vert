@@ -1,22 +1,3 @@
-#version 460
-
-layout(location = 0) in vec3 position;
-
-layout(push_constant) uniform MVP {
-    mat4 model;
-    mat4 view;
-    mat4 projection;
-};
-
-vec3 color[3] = {
-    vec3(1, 0, 0),
-    vec3(0, 1, 0),
-    vec3(0, 0, 1)
-};
-
-layout(location = 0) out vec3 vColor;
-
-void main(){
-    vColor = color[gl_VertexIndex];
-    gl_Position = projection * view * model * vec4(position, 1);
-}
+version https://git-lfs.github.com/spec/v1
+oid sha256:bcf0bdb3b35446564319b29cf89f208662d75e4d87f5bb6a93b9d0bff6b3d782
+size 399

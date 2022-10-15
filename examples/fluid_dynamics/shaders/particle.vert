@@ -1,10 +1,3 @@
-#version 450
-
-layout(location = 0) in vec2 position;
-layout(location = 0) out vec2 particleId;
-
-void main(){
-    gl_PointSize = 1.0;
-    particleId = vec2(gl_InstanceIndex);
-    gl_Position = vec4(position, -0.1, 1);
-}
+version https://git-lfs.github.com/spec/v1
+oid sha256:2da4d92709aa48abeaa871c76d85b89d3fc1adaec3edbd9d818f728883b811e4
+size 218

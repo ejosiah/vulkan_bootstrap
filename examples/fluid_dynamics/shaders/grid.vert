@@ -1,11 +1,3 @@
-#version 450
-
-layout(location = 0) in vec2 position;
-layout(location = 1) in float orientation;
-
-layout(location = 0) out float vOrientation;
-
-void main(){
-    vOrientation = orientation;
-    gl_Position = vec4(position, 0, 1);
-}
+version https://git-lfs.github.com/spec/v1
+oid sha256:0e8c2922aff69fdf7e548e26ab00f67676597bf34122a66db8c16af24d6b391b
+size 229

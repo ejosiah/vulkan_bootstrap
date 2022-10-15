@@ -1,23 +1,3 @@
-#version 460 core
-#define PI 3.14159265358979
-
-layout(binding = 0) uniform sampler2D temperatureField;
-
-layout(push_constant) uniform Constants{
-    float minTemp;
-    float maxTemp;
-};
-
-layout(location = 0) in vec2 uv;
-layout(location = 0) out vec4 fragColor;
-
-void main(){
-    float temp = min(texture(temperatureField, uv).x, maxTemp);
-
-    float level = (temp - minTemp)/(maxTemp - minTemp);
-    float w = PI * 0.5;
-    fragColor.r = sin(w * level);
-    fragColor.g = sin(2 * w * level);
-    fragColor.b = cos(w * level);
-    fragColor.a = 1;
-}
+version https://git-lfs.github.com/spec/v1
+oid sha256:45e98c815cd923c85ba92cc9254b775c9f51805a8e9431c90f46400ac4d4cbf9
+size 548

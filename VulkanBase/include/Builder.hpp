@@ -1,29 +1,3 @@
-#pragma once
-
-#include "builder_forwards.hpp"
-#include "VulkanDevice.h"
-
-class Builder{
-public:
-    explicit Builder(VulkanDevice* device, Builder* parent = nullptr)
-    : _parent{ parent }
-    , _device{ device }
-    {}
-
-    Builder() = default;
-
-    [[nodiscard]]
-    virtual Builder* parent() {
-        return _parent;
-    }
-
-
-    [[nodiscard]]
-    VulkanDevice& device() const {
-        return *_device;
-    }
-
-protected:
-    VulkanDevice* _device = nullptr;
-    Builder* _parent{nullptr };
-};
+version https://git-lfs.github.com/spec/v1
+oid sha256:541560b062b1e7ca3edfa55527908656db881b4089fa3cde025c220d3841017a
+size 525

@@ -1,7 +1,3 @@
-include_directories(include)
-
-file(GLOB_RECURSE CPP_FILES ${CMAKE_CURRENT_LIST_DIR}/include/*.*)
-file(GLOB_RECURSE HPP_FILES ${CMAKE_CURRENT_LIST_DIR}/source/*.cpp)
-
-add_executable(PrimitivesApp ${CPP_FILES} ${HPP_FILES})
-target_link_libraries(PrimitivesApp VulkanBase)
+version https://git-lfs.github.com/spec/v1
+oid sha256:5fde4450ed2c1252336d6e4ae137011ff25c88ada33e94202dfb767aef8be213
+size 275

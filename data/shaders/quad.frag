@@ -1,9 +1,3 @@
-#version 460 core
-
-layout(binding = 0) uniform sampler2D image;
-layout(location = 0) in vec2 vUv;
-layout(location = 0) out vec4 fragColor;
-
-void main(){
-    fragColor = texture(image, vUv);
-}
+version https://git-lfs.github.com/spec/v1
+oid sha256:2a0ce890dd4824469840eedf352854ee92bf747b8234becf2f1ed88d971f1fc3
+size 199

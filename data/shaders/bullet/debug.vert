@@ -1,16 +1,3 @@
-#version 460 core
-
-layout(push_constant) uniform MVP {
-    mat4 model;
-    mat4 view;
-    mat4 projection;
-    vec3 color;
-};
-
-layout(location = 0) in vec4 position;
-layout(location = 0) out vec3 vColor;
-
-void main(){
-    vColor = color;
-    gl_Position = projection * view * model * position;
-}
+version https://git-lfs.github.com/spec/v1
+oid sha256:8b2da0847353c8c7ad5ed6f41173aea96c9d35c0b820743e1c8e1df7762e07bd
+size 310

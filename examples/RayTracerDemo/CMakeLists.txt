@@ -1,7 +1,3 @@
-include_directories(include)
-
-file(GLOB_RECURSE CPP_FILES ${CMAKE_CURRENT_LIST_DIR}/include/*.*)
-file(GLOB_RECURSE HPP_FILES ${CMAKE_CURRENT_LIST_DIR}/source/*.cpp)
-
-add_executable(RayTracerDemo ${CPP_FILES} ${HPP_FILES})
-target_link_libraries(RayTracerDemo VulkanBase ImGuiPlugin)
+version https://git-lfs.github.com/spec/v1
+oid sha256:985b0db574044e3320c3f85c7987a51266ca9cc01bc1e18d04a2ff29a1ec8bc2
+size 287
