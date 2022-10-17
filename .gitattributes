@@ -35,3 +35,4 @@
 *.rcall filter=lfs diff=lfs merge=lfs -text
 *.rint filter=lfs diff=lfs merge=lfs -text
 *.rahit filter=lfs diff=lfs merge=lfs -text
+*.bin filter=lfs diff=lfs merge=lfs -text
