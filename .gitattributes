@@ -36,3 +36,4 @@
 *.rint filter=lfs diff=lfs merge=lfs -text
 *.rahit filter=lfs diff=lfs merge=lfs -text
 *.bin filter=lfs diff=lfs merge=lfs -text
+*.spd filter=lfs diff=lfs merge=lfs -text
