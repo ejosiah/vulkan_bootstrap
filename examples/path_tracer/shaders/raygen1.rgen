@@ -1,6 +1,7 @@
 #version 460
 #extension GL_EXT_ray_tracing : require
 #extension GL_GOOGLE_include_directive : enable
+#extension GL_EXT_nonuniform_qualifier : enable
 
 #define USE_PCG 0
 #define MIN_BOUNCES 3
@@ -19,6 +20,32 @@ layout(set = 0, binding = 1) uniform CameraProperties{
 } cam;
 layout(set = 0, binding = 2, rgba32f) uniform image2D image;
 layout(set = 0, binding = 3) uniform sampler2D envMap;
+
+layout(set = 1, binding = 0, std430) buffer MATERIALS{
+    Material m[];
+} materials[];
+
+
+layout(binding = 1, set = 1) buffer MATERIAL_ID {
+    int i[];
+} matIds [];
+
+
+layout(binding = 2, set = 1) buffer OBJECT_INSTANCE {
+    SceneObject sceneObjs[];
+};
+
+layout(binding = 0, set = 2) buffer VERTEX_BUFFER {
+    Vertex v[];
+} vertices[];
+
+layout(binding = 1, set = 2) buffer INDEX_BUFFER {
+    int i[];
+} indices[];
+
+layout(binding = 2, set = 2) buffer VETEX_OFFSETS {
+    VertexOffsets vo[];
+} offsets[];
 
 layout(set = 4, binding = 0) uniform sampler2D environmentMap;
 layout(set = 4, binding = 1) uniform sampler2D pConditionalVFunc;
@@ -43,9 +70,13 @@ layout(push_constant) uniform SceneConstants {
     float skyIntensity;
 };
 
-layout(location = 0) rayPayload RayTraceData rtData;
+layout(location = 0) rayPayload HitData hitData;
 
 vec3 loadEnvColor(vec3 direction);
+
+void getTriangle(mat4x3 xform, uint instanceId, uint offsetId, uint primitiveId, out Vertex v0, out Vertex v1, out Vertex v2);
+
+void loadSurfaceData(out vec3 hitPoint, out vec3 sN, out vec3 gN, out vec3 albedo);
 
 void main(){
     RngStateType rngState = initRNG(vec2(gl_LaunchID), vec2(gl_LaunchSize), frame);
@@ -62,18 +93,19 @@ void main(){
     float tmin = 0;
     float tmax = FLT_MAX;
 
-    init(rtData, -direction, rngState);
 
     vec3 color = vec3(0);
     traceRay(topLevelAs, gl_RayFlagsOpaque, mask, 0, 0, 0, origin, tmin, direction, tmax, 0);
 
-    if (!rtData.hit){
+    if (!hitData.hit){
         color = loadEnvColor(direction);
     } else {
+        vec3 sN, gN, albedo, hitPoint;
+        loadSurfaceData(hitPoint, sN, gN, albedo);
         vec3 L = normalize(-direction);
-        color = rtData.brdfWeight * dot(rtData.sn, L);
-    }
+        color = albedo * dot(sN, L);
 
+    }
 
     imageStore(image, ivec2(gl_LaunchID.xy), vec4(color, 1));
 }
@@ -82,4 +114,46 @@ void main(){
 vec3 loadEnvColor(vec3 direction){
     vec2 suv = sampleSphere(direction);
     return texture(envMap, suv).rgb;
+}
+
+void loadSurfaceData(out vec3 hitPoint, out vec3 sN, out vec3 gN, out vec3 albedo){
+    Vertex v0, v1, v2;
+    getTriangle(hitData.objToWorld, hitData.instanceId, hitData.vertexOffsetId, hitData.primitiveId, v0, v1, v2);
+    float u = 1 - hitData.attribs.x - hitData.attribs.y;
+    float v = hitData.attribs.x;
+    float w = hitData.attribs.y;
+
+    hitPoint = u * v0.position + v * v1.position + w * v2.position;
+    sN = normalize(u * v0.normal + v * v1.normal + w * v2.normal);
+    vec3 e0 = v1.position - v0.position;
+    vec3 e1 = v2.position - v0.position;
+    gN = normalize(cross(e0, e1));
+    albedo = vec3(0.6);
+}
+
+void getTriangle(mat4x3 xform, uint instanceId, uint offsetId, uint primitiveId, out Vertex v0, out Vertex v1, out Vertex v2){
+    SceneObject sceneObj = sceneObjs[instanceId];
+    int objId = sceneObj.objId;
+    uint vertexOffsetId = 0;
+    VertexOffsets offset = offsets[objId].vo[offsetId];
+
+    ivec3 index = ivec3(
+    indices[objId].i[offset.firstIndex + 3 * primitiveId + 0],
+    indices[objId].i[offset.firstIndex + 3 * primitiveId + 1],
+    indices[objId].i[offset.firstIndex + 3 * primitiveId + 2]
+    );
+
+    v0 = vertices[objId].v[index.x + offset.vertexOffset];
+    v1 = vertices[objId].v[index.y + offset.vertexOffset];
+    v2 = vertices[objId].v[index.z + offset.vertexOffset];
+
+    v0.position = (xform * vec4(v0.position, 1)).xyz;
+    v1.position = (xform * vec4(v1.position, 1)).xyz;
+    v2.position = (xform * vec4(v2.position, 1)).xyz;
+
+    mat3 nMatrix = inverse(transpose(mat3(xform)));
+
+    v0.normal = nMatrix * v0.normal;
+    v1.normal = nMatrix * v1.normal;
+    v2.normal = nMatrix * v2.normal;
 }
