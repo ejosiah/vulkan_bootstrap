@@ -7,6 +7,11 @@
 #define USE_PCG 0
 #define MIN_BOUNCES 3
 
+#define RIS_CANDIDATES_LIGHTS 8
+
+// Enable this to cast shadow rays for each candidate during resampling. This is expensive but increases quality
+#define SHADOW_RAY_IN_RIS 0
+
 #include "ray_tracing_lang.glsl"
 #include "random.glsl"
 #include "common.glsl"
@@ -93,6 +98,8 @@ vec3 evalBrdf(Surface surface, vec3 wo, vec3 wi);
 
 vec3 evalIndirectBrdf(Surface surface, int brdfType, vec3 wo, inout RngStateType rngState, out vec3 wi);
 
+bool sampleLightRIS(inout RngStateType rngState, Surface surface, out LightInfo selectedSampl, out float lightSampleWeight);
+
 LightInfo sampleLight(inout RngStateType rngState, Surface surface, out float lightWeight);
 
 bool isVisisble(LightInfo light, Surface surface);
@@ -137,12 +144,23 @@ void main(){
         Lo += throughput * surface.emission;
 
         // direct light contribution
+//        float lightWeight;
+//        LightInfo light  = sampleLight(rngState, surface, lightWeight);
+//        if(lightWeight != 0){
+//            if(isVisisble(light, surface)){
+//                vec3 wi = normalize(light.x - surface.x);
+//                Lo += throughput * light.radiance * evalBrdf(surface, wo, wi) * lightWeight;
+//            }
+//        }
+
         float lightWeight;
-        LightInfo light  = sampleLight(rngState, surface, lightWeight);
-        if(lightWeight != 0){
-            if(isVisisble(light, surface)){
-                vec3 wi = normalize(light.x - surface.x);
-                Lo += throughput * light.radiance * evalBrdf(surface, wo, wi) * lightWeight;
+        LightInfo light;
+        if(sampleLightRIS(rngState, surface, light, lightWeight)){
+            if(lightWeight != 0){
+                if(bool(SHADOW_RAY_IN_RIS) || isVisisble(light, surface)){
+                    vec3 wi = normalize(light.x - surface.x);
+                    Lo += throughput * light.radiance * evalBrdf(surface, wo, wi) * lightWeight;
+                }
             }
         }
 
@@ -326,8 +344,47 @@ float fallOff(Light light, vec3 pointToLightDir){
     return smoothstep(cutOff, fallOffStart, cos0);
 }
 
+bool sampleLightRIS(inout RngStateType rngState, Surface surface, out LightInfo selectedSample, out float lightSampleWeight){
+    if(numLights <= 0) return false;
+
+    float totalWeights = 0;
+    float samplePdfG = 0;
+
+    for(int i = 0; i < RIS_CANDIDATES_LIGHTS; i++){
+        float lightWeight;
+        LightInfo light = sampleLight(rngState, surface, lightWeight);
+        if(isBlack(light.radiance)){
+            continue;
+        }
+
+            #if SHADOW_RAY_IN_RIS
+        if(!isVisisble(light, surface)){
+            continue;
+        }
+            #endif
+
+        float candidatePdfG = luminance(light.radiance);
+        float candidateRISWeight = candidatePdfG * lightWeight;
+
+        totalWeights += candidateRISWeight;
+        if(rand(rngState) < (candidateRISWeight / totalWeights)){
+            selectedSample = light;
+            samplePdfG = candidatePdfG;
+        }
+    }
+
+    if(totalWeights == 0.0f){
+        return false;
+    }else {
+        lightSampleWeight = (totalWeights / float(RIS_CANDIDATES_LIGHTS)) / samplePdfG;
+        return true;
+    }
+
+}
+
 LightInfo sampleLight(inout RngStateType rngState, Surface surface, out float lightWeight){
     LightInfo lightInfo;
+    lightInfo.radiance = vec3(0);
     lightInfo.sx = surface.x;
     lightInfo.sn = surface.sN;
     lightInfo.pdf = 0;
@@ -335,7 +392,8 @@ LightInfo sampleLight(inout RngStateType rngState, Surface surface, out float li
     if(numLights <= 0){
         return lightInfo;
     }
-    Light light = lights[0];
+    int id = int(rand(rngState) * numLights);
+    Light light = lights[id];
     lightInfo.x = light.position;
     lightInfo.n = light.normal;
     lightInfo.area = light.area;
