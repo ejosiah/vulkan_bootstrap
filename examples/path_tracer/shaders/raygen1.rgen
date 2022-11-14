@@ -10,7 +10,6 @@
 #define RIS_CANDIDATES_LIGHTS 8
 
 // Enable this to cast shadow rays for each candidate during resampling. This is expensive but increases quality
-#define SHADOW_RAY_IN_RIS 0
 
 #include "constants.glsl"
 #include "ray_tracing_lang.glsl"
@@ -146,7 +145,7 @@ void main(){
         LightInfo light;
         if(sampleLightRIS(rngState, surface, light, lightWeight)){
             if(lightWeight != 0){
-                if(bool(SHADOW_RAY_IN_RIS) || isVisisble(light, surface)){
+                if(bool(shadow_ray_in_ris) || isVisisble(light, surface)){
                     vec3 wi = normalize(light.x - surface.x);
                     Lo += throughput * light.radiance * evalBrdf(surface, wo, wi) * lightWeight;
                 }
@@ -339,11 +338,10 @@ bool sampleLightRIS(inout RngStateType rngState, Surface surface, out LightInfo 
             continue;
         }
 
-            #if SHADOW_RAY_IN_RIS
-        if(!isVisisble(light, surface)){
+
+        if(bool(shadow_ray_in_ris) && !isVisisble(light, surface)){
             continue;
         }
-            #endif
 
         float candidatePdfG = luminance(light.radiance);
         float candidateRISWeight = candidatePdfG * lightWeight;
