@@ -12,6 +12,7 @@
 // Enable this to cast shadow rays for each candidate during resampling. This is expensive but increases quality
 #define SHADOW_RAY_IN_RIS 0
 
+#include "constants.glsl"
 #include "ray_tracing_lang.glsl"
 #include "random.glsl"
 #include "common.glsl"
@@ -74,9 +75,6 @@ layout(push_constant) uniform SceneConstants {
     float worldRadius;
     float pMarginalIntegral;
     uint mask;
-    int diffuseType;
-    int specularType;
-    int ndfFunc;
     float exposure;
     float skyIntensity;
 };
@@ -144,15 +142,6 @@ void main(){
         Lo += throughput * surface.emission;
 
         // direct light contribution
-//        float lightWeight;
-//        LightInfo light  = sampleLight(rngState, surface, lightWeight);
-//        if(lightWeight != 0){
-//            if(isVisisble(light, surface)){
-//                vec3 wi = normalize(light.x - surface.x);
-//                Lo += throughput * light.radiance * evalBrdf(surface, wo, wi) * lightWeight;
-//            }
-//        }
-
         float lightWeight;
         LightInfo light;
         if(sampleLightRIS(rngState, surface, light, lightWeight)){
@@ -302,15 +291,11 @@ vec3 evalBrdf(Surface surface, vec3 wo, vec3 wi){
     args.surfaceAlbedo = surface.albedo;
     args.surfaceMetalness = surface.metalness;
     args.surfaceRoughness = surface.roughness;
-    args.diffuseType = diffuseType;
-    args.specularType = specularType;
-    args.ndfFunc = ndfFunc;
 
     return evalCombinedBRDF(args);
 }
 
 vec3 evalIndirectBrdf(Surface surface, int brdfType, vec3 wo, inout RngStateType rngState, out vec3 wi){
-
 
     BrdfArgs args;
     args.wo = wo;
@@ -320,9 +305,6 @@ vec3 evalIndirectBrdf(Surface surface, int brdfType, vec3 wo, inout RngStateType
     args.surfaceAlbedo = surface.albedo;
     args.surfaceMetalness = surface.metalness;
     args.surfaceRoughness = surface.roughness;
-    args.diffuseType = diffuseType;
-    args.specularType = specularType;
-    args.ndfFunc = ndfFunc;
     args.rngState = rngState;
     args.brdfType = brdfType;
 
@@ -407,7 +389,7 @@ LightInfo sampleLight(inout RngStateType rngState, Surface surface, out float li
         lightInfo.dist = length(wi);
         lightInfo.NdotL = clamp(dot(lightInfo.wi, lightInfo.sn), 0.00001, 1);
         lightInfo.pdf = 1;
-        lightInfo.radiance = light.value / (lightInfo.dist * lightInfo.dist);
+        lightInfo.radiance = light.value * fallOff(light, -lightInfo.wi) / (lightInfo.dist * lightInfo.dist);
     }
 
     if(isDistant(light)){
