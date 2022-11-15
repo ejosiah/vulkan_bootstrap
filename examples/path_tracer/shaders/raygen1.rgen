@@ -19,6 +19,7 @@
 #include "octahedral.glsl"
 #include "util.glsl"
 #include "brdf.glsl"
+#include "scene.glsl"
 
 layout(set = 0, binding = 0) uniform accelerationStructure topLevelAs;
 layout(set = 0, binding = 1) uniform CameraProperties{
@@ -28,35 +29,6 @@ layout(set = 0, binding = 1) uniform CameraProperties{
 layout(set = 0, binding = 2, rgba32f) uniform image2D image;
 layout(set = 0, binding = 3) uniform sampler2D envMap;
 
-layout(set = 1, binding = 0, std430) buffer MATERIALS{
-    Material m[];
-} materials[];
-
-
-layout(binding = 1, set = 1) buffer MATERIAL_ID {
-    int i[];
-} matIds [];
-
-
-layout(binding = 2, set = 1) buffer OBJECT_INSTANCE {
-    SceneObject sceneObjs[];
-};
-
-layout(binding = 0, set = 2) buffer VERTEX_BUFFER {
-    Vertex v[];
-} vertices[];
-
-layout(binding = 1, set = 2) buffer INDEX_BUFFER {
-    int i[];
-} indices[];
-
-layout(binding = 2, set = 2) buffer VETEX_OFFSETS {
-    VertexOffsets vo[];
-} offsets[];
-
-layout(set = 3, binding = 0) buffer LIGHTS {
-    Light lights[];
-};
 
 layout(set = 4, binding = 0) uniform sampler2D environmentMap;
 layout(set = 4, binding = 1) uniform sampler2D pConditionalVFunc;
@@ -83,23 +55,19 @@ layout(location = 1) rayPayload bool isShadowed;
 
 vec3 loadEnvColor(vec3 direction);
 
-void getTriangle(int objId, mat4x3 xform, uint offsetId, uint primitiveId, out Vertex v0, out Vertex v1, out Vertex v2);
-
-Surface getSurfaceData(HitData hitData, vec3 wo);
-
 // Calculates probability of selecting BRDF (specular or diffuse) using the approximate Fresnel term
 float getBrdfProbability(vec3 V, vec3 sN, vec3 albedo, float metalness);
-float getBrdfProbability(Surface surface, vec3 wo);
+float getBrdfProbability(HitData surface, vec3 wo);
 
-vec3 evalBrdf(Surface surface, vec3 wo, vec3 wi);
+vec3 evalBrdf(HitData surface, vec3 wo, vec3 wi);
 
-vec3 evalIndirectBrdf(Surface surface, int brdfType, vec3 wo, inout RngStateType rngState, out vec3 wi);
+vec3 evalIndirectBrdf(HitData surface, int brdfType, vec3 wo, inout RngStateType rngState, out vec3 wi);
 
-bool sampleLightRIS(inout RngStateType rngState, Surface surface, out LightInfo selectedSampl, out float lightSampleWeight);
+bool sampleLightRIS(inout RngStateType rngState, HitData surface, out LightInfo selectedSampl, out float lightSampleWeight);
 
-LightInfo sampleLight(inout RngStateType rngState, Surface surface, out float lightWeight);
+LightInfo sampleLight(inout RngStateType rngState, HitData surface, out float lightWeight);
 
-bool isVisisble(LightInfo light, Surface surface);
+bool isVisisble(LightInfo light, HitData surface);
 
 void main(){
     uint N =  gl_LaunchSize.x * gl_LaunchSize.y * maxBounces * numSamples;
@@ -137,7 +105,8 @@ void main(){
         }
 
         vec3 wo = -direction;
-        Surface surface  = getSurfaceData(hitData, wo);
+//        Surface surface  = getSurfaceData(hitData, wo);
+        HitData surface = hitData;
         Lo += throughput * surface.emission;
 
         // direct light contribution
@@ -196,74 +165,6 @@ vec3 loadEnvColor(vec3 direction){
     return texture(envMap, suv).rgb * skyIntensity;
 }
 
-Surface getSurfaceData(HitData hitData, vec3 wo){
-    Surface surface;
-//    Vertex v0, v1, v2;
-//    SceneObject sceneObj = sceneObjs[hitData.instanceId];
-//    int objId = sceneObj.objId;
-//    getTriangle(objId, hitData.objToWorld, hitData.vertexOffsetId, hitData.primitiveId, v0, v1, v2);
-//    float u = 1 - hitData.attribs.x - hitData.attribs.y;
-//    float v = hitData.attribs.x;
-//    float w = hitData.attribs.y;
-//
-//    surface.x = u * v0.position + v * v1.position + w * v2.position;
-//    surface.sN = normalize(u * v0.normal + v * v1.normal + w * v2.normal);
-//    vec3 e0 = v1.position - v0.position;
-//    vec3 e1 = v2.position - v0.position;
-//    surface.gN = normalize(cross(e0, e1));
-//
-//    VertexOffsets offset = offsets[objId].vo[hitData.vertexOffsetId];
-//    int matId = matIds[objId].i[hitData.primitiveId + offset.material];
-//    Material material = materials[objId].m[matId];
-//    surface.albedo = material.diffuse;
-//    surface.emission = material.emission;
-//    surface.metalness = material.metalness.x;
-//    surface.roughness = material.roughness;
-//
-//    if(hitData.instanceId == 8){
-//        surface.albedo = checkerboard(surface.x, surface.gN);
-//    }
-//
-//    if(dot(surface.gN, wo) < 0){
-//        surface.gN *= -1;
-//        surface.sN *= -1;
-//    }
-    surface.albedo = hitData.albedo;
-    surface.emission = hitData.emission;
-    surface.x = hitData.x;
-    surface.sN = hitData.sN;
-    surface.gN = hitData.gN;
-    surface.roughness = hitData.roughness;
-    surface.metalness = hitData.metalness;
-
-    return surface;
-}
-
-void getTriangle(int objId, mat4x3 xform, uint offsetId, uint primitiveId, out Vertex v0, out Vertex v1, out Vertex v2){
-    uint vertexOffsetId = 0;
-    VertexOffsets offset = offsets[objId].vo[offsetId];
-
-    ivec3 index = ivec3(
-    indices[objId].i[offset.firstIndex + 3 * primitiveId + 0],
-    indices[objId].i[offset.firstIndex + 3 * primitiveId + 1],
-    indices[objId].i[offset.firstIndex + 3 * primitiveId + 2]
-    );
-
-    v0 = vertices[objId].v[index.x + offset.vertexOffset];
-    v1 = vertices[objId].v[index.y + offset.vertexOffset];
-    v2 = vertices[objId].v[index.z + offset.vertexOffset];
-
-    v0.position = (xform * vec4(v0.position, 1)).xyz;
-    v1.position = (xform * vec4(v1.position, 1)).xyz;
-    v2.position = (xform * vec4(v2.position, 1)).xyz;
-
-    mat3 nMatrix = inverse(transpose(mat3(xform)));
-
-    v0.normal = nMatrix * v0.normal;
-    v1.normal = nMatrix * v1.normal;
-    v2.normal = nMatrix * v2.normal;
-}
-
 float getBrdfProbability(vec3 V, vec3 sN, vec3 albedo, float metalness) {
 
     // Evaluate Fresnel term using the shading normal
@@ -283,11 +184,11 @@ float getBrdfProbability(vec3 V, vec3 sN, vec3 albedo, float metalness) {
     return clamp(p, 0.1f, 0.9f);
 }
 
-float getBrdfProbability(Surface surface, vec3 wo){
+float getBrdfProbability(HitData surface, vec3 wo){
     return getBrdfProbability(wo, surface.sN, surface.albedo, surface.metalness);
 }
 
-vec3 evalBrdf(Surface surface, vec3 wo, vec3 wi){
+vec3 evalBrdf(HitData surface, vec3 wo, vec3 wi){
     BrdfArgs args;
     args.wo = wo;
     args.wi = wi;
@@ -301,7 +202,7 @@ vec3 evalBrdf(Surface surface, vec3 wo, vec3 wi){
     return evalCombinedBRDF(args);
 }
 
-vec3 evalIndirectBrdf(Surface surface, int brdfType, vec3 wo, inout RngStateType rngState, out vec3 wi){
+vec3 evalIndirectBrdf(HitData surface, int brdfType, vec3 wo, inout RngStateType rngState, out vec3 wi){
 
     BrdfArgs args;
     args.wo = wo;
@@ -332,7 +233,7 @@ float fallOff(Light light, vec3 pointToLightDir){
     return smoothstep(cutOff, fallOffStart, cos0);
 }
 
-bool sampleLightRIS(inout RngStateType rngState, Surface surface, out LightInfo selectedSample, out float lightSampleWeight){
+bool sampleLightRIS(inout RngStateType rngState, HitData surface, out LightInfo selectedSample, out float lightSampleWeight){
     if(numLights <= 0) return false;
 
     float totalWeights = 0;
@@ -369,7 +270,7 @@ bool sampleLightRIS(inout RngStateType rngState, Surface surface, out LightInfo 
 
 }
 
-LightInfo sampleLight(inout RngStateType rngState, Surface surface, out float lightWeight){
+LightInfo sampleLight(inout RngStateType rngState, HitData surface, out float lightWeight){
     LightInfo lightInfo;
     lightInfo.radiance = vec3(0);
     lightInfo.sx = surface.x;
@@ -456,7 +357,7 @@ LightInfo sampleLight(inout RngStateType rngState, Surface surface, out float li
     return lightInfo;
 }
 
-bool isVisisble(LightInfo light, Surface surface){
+bool isVisisble(LightInfo light, HitData surface){
     isShadowed = true;
     vec3 origin = offsetRay(surface.x, surface.gN);
     vec3 direction = normalize(light.x - surface.x);
