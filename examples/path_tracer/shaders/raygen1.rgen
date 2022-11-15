@@ -198,36 +198,43 @@ vec3 loadEnvColor(vec3 direction){
 
 Surface getSurfaceData(HitData hitData, vec3 wo){
     Surface surface;
-    Vertex v0, v1, v2;
-    SceneObject sceneObj = sceneObjs[hitData.instanceId];
-    int objId = sceneObj.objId;
-    getTriangle(objId, hitData.objToWorld, hitData.vertexOffsetId, hitData.primitiveId, v0, v1, v2);
-    float u = 1 - hitData.attribs.x - hitData.attribs.y;
-    float v = hitData.attribs.x;
-    float w = hitData.attribs.y;
-
-    surface.x = u * v0.position + v * v1.position + w * v2.position;
-    surface.sN = normalize(u * v0.normal + v * v1.normal + w * v2.normal);
-    vec3 e0 = v1.position - v0.position;
-    vec3 e1 = v2.position - v0.position;
-    surface.gN = normalize(cross(e0, e1));
-
-    VertexOffsets offset = offsets[objId].vo[hitData.vertexOffsetId];
-    int matId = matIds[objId].i[hitData.primitiveId + offset.material];
-    Material material = materials[objId].m[matId];
-    surface.albedo = material.diffuse;
-    surface.emission = material.emission;
-    surface.metalness = material.metalness.x;
-    surface.roughness = material.roughness;
-
-    if(hitData.instanceId == 8){
-        surface.albedo = checkerboard(surface.x, surface.gN);
-    }
-
-    if(dot(surface.gN, wo) < 0){
-        surface.gN *= -1;
-        surface.sN *= -1;
-    }
+//    Vertex v0, v1, v2;
+//    SceneObject sceneObj = sceneObjs[hitData.instanceId];
+//    int objId = sceneObj.objId;
+//    getTriangle(objId, hitData.objToWorld, hitData.vertexOffsetId, hitData.primitiveId, v0, v1, v2);
+//    float u = 1 - hitData.attribs.x - hitData.attribs.y;
+//    float v = hitData.attribs.x;
+//    float w = hitData.attribs.y;
+//
+//    surface.x = u * v0.position + v * v1.position + w * v2.position;
+//    surface.sN = normalize(u * v0.normal + v * v1.normal + w * v2.normal);
+//    vec3 e0 = v1.position - v0.position;
+//    vec3 e1 = v2.position - v0.position;
+//    surface.gN = normalize(cross(e0, e1));
+//
+//    VertexOffsets offset = offsets[objId].vo[hitData.vertexOffsetId];
+//    int matId = matIds[objId].i[hitData.primitiveId + offset.material];
+//    Material material = materials[objId].m[matId];
+//    surface.albedo = material.diffuse;
+//    surface.emission = material.emission;
+//    surface.metalness = material.metalness.x;
+//    surface.roughness = material.roughness;
+//
+//    if(hitData.instanceId == 8){
+//        surface.albedo = checkerboard(surface.x, surface.gN);
+//    }
+//
+//    if(dot(surface.gN, wo) < 0){
+//        surface.gN *= -1;
+//        surface.sN *= -1;
+//    }
+    surface.albedo = hitData.albedo;
+    surface.emission = hitData.emission;
+    surface.x = hitData.x;
+    surface.sN = hitData.sN;
+    surface.gN = hitData.gN;
+    surface.roughness = hitData.roughness;
+    surface.metalness = hitData.metalness;
 
     return surface;
 }
