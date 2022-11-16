@@ -69,10 +69,43 @@ LightInfo sampleLight(inout RngStateType rngState, HitData surface, out float li
 
 bool isVisisble(LightInfo light, HitData surface);
 
+vec3 getRadiance(Ray ray);
+
+Ray generateRay();
+
+const float Tmin = 0;
+const float Tmax = FLT_MAX;
+
 void main(){
-    uint N =  gl_LaunchSize.x * gl_LaunchSize.y * maxBounces * numSamples;
-    RngStateType rngState = initRNG(vec2(gl_LaunchID), vec2(gl_LaunchSize), frame);
-    vec2 offset = vec2(rand(rngState), rand(rngState));
+    vec3 Lo = vec3(0);
+    hitData.rngState  = initRNG(vec2(gl_LaunchID), vec2(gl_LaunchSize), frame);
+    Ray ray = generateRay();
+
+    if(adaptiveSampling == 0){
+        for(int i = 0; i < numSamples; i++){
+            Lo += getRadiance(ray);
+        }
+        Lo /= numSamples;
+        Lo = 1 - exp(-Lo * exposure);
+        Lo = linearToSrgb(Lo);
+    }else{
+        if(currentSample > 10 && currentSample >= numSamples) return;
+
+        Lo = getRadiance(ray);
+
+        Lo = 1 - exp(-Lo * exposure);
+        Lo = linearToSrgb(Lo);
+        float t = 1/float(currentSample + 1);
+
+        vec3 dst = imageLoad(image, ivec2(gl_LaunchID.xy)).rgb;
+        Lo = mix(dst, Lo, t);
+    }
+    
+    imageStore(image, ivec2(gl_LaunchID.xy), vec4(Lo, 1));
+}
+
+Ray generateRay(){
+    vec2 offset = vec2(rand(hitData.rngState), rand(hitData.rngState));
     const vec2 pixelCenter = vec2(gl_LaunchID.xy) + offset;
 
     const vec2 uv = pixelCenter/vec2(gl_LaunchSize.xy);
@@ -82,37 +115,28 @@ void main(){
     vec3 target = vec3(cam.projInverse * vec4(d.x, d.y, 1, 1));
     vec3 direction = vec3(cam.viewInverse*vec4(normalize(target.xyz), 0));
 
-    float tmin = 0;
-    float tmax = FLT_MAX;
+    return Ray(origin, direction);
+}
 
-
-    if(currentSample > 10 && currentSample >= numSamples){
-        return;
-    }
-
+vec3 getRadiance(Ray ray){
     vec3 Lo = vec3(0);
     vec3 throughput = vec3(1);
-    int sId = -1;
     for(uint bounce = 0; bounce < maxBounces; bounce++){
-        traceRay(topLevelAs, gl_RayFlagsOpaque, mask, 0, 0, 0, origin, tmin, direction, tmax, 0);
+        traceRay(topLevelAs, gl_RayFlagsOpaque, mask, 0, 0, 0, ray.origin, Tmin, ray.direction, Tmax, 0);
         if(!hitData.hit){
-            Lo += throughput * loadEnvColor(direction);
+            Lo += throughput * loadEnvColor(ray.direction);
             break;
         }
 
-        if(bounce == 0){
-            sId = hitData.instanceId;
-        }
-
-        vec3 wo = -direction;
-//        Surface surface  = getSurfaceData(hitData, wo);
+        vec3 wo = -ray.direction;
+        //        Surface surface  = getSurfaceData(hitData, wo);
         HitData surface = hitData;
         Lo += throughput * surface.emission;
 
         // direct light contribution
         float lightWeight;
         LightInfo light;
-        if(sampleLightRIS(rngState, surface, light, lightWeight)){
+        if(sampleLightRIS(hitData.rngState, surface, light, lightWeight)){
             if(lightWeight != 0){
                 if(bool(shadow_ray_in_ris) || isVisisble(light, surface)){
                     vec3 wi = normalize(light.x - surface.x);
@@ -130,7 +154,7 @@ void main(){
             brdfType = BRDF_SPECULAR;
         }else {
             float brdfProbability = getBrdfProbability(surface, wo);
-            if(rand(rngState) < brdfProbability){
+            if(rand(hitData.rngState) < brdfProbability){
                 brdfType = BRDF_SPECULAR;
                 throughput /= brdfProbability;
             }else{
@@ -139,24 +163,15 @@ void main(){
             }
         }
 
-        vec3 brdfWeight = evalIndirectBrdf(surface, brdfType, wo, rngState, direction);
+        vec3 brdfWeight = evalIndirectBrdf(surface, brdfType, wo, hitData.rngState, ray.direction);
         if(isBlack(brdfWeight)){
             break;
         }
 
         throughput *= brdfWeight;
-
-
-        origin = offsetRay(surface.x, surface.gN);
+        ray.origin = offsetRay(surface.x, surface.gN);
     }
-
-    Lo = 1 - exp(-Lo * exposure);
-    Lo = linearToSrgb(Lo);
-    float t = 1/float(currentSample + 1);
-    vec3 dst = imageLoad(image, ivec2(gl_LaunchID.xy)).rgb;
-    Lo = mix(dst, Lo, t);
-    
-    imageStore(image, ivec2(gl_LaunchID.xy), vec4(Lo, 1));
+    return Lo;
 }
 
 
