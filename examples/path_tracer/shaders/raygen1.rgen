@@ -56,18 +56,13 @@ layout(location = 1) rayPayload bool isShadowed;
 vec3 loadEnvColor(vec3 direction);
 
 // Calculates probability of selecting BRDF (specular or diffuse) using the approximate Fresnel term
-float getBrdfProbability(vec3 V, vec3 sN, vec3 albedo, float metalness);
-float getBrdfProbability(HitData surface, vec3 wo);
+vec3 evalBrdf(Surface surface, vec3 wo, vec3 wi);
 
-vec3 evalBrdf(HitData surface, vec3 wo, vec3 wi);
+bool sampleLightRIS(inout RngStateType rngState, Surface surface, out LightInfo selectedSampl, out float lightSampleWeight);
 
-vec3 evalIndirectBrdf(HitData surface, int brdfType, vec3 wo, inout RngStateType rngState, out vec3 wi);
+LightInfo sampleLight(inout RngStateType rngState, Surface surface, out float lightWeight);
 
-bool sampleLightRIS(inout RngStateType rngState, HitData surface, out LightInfo selectedSampl, out float lightSampleWeight);
-
-LightInfo sampleLight(inout RngStateType rngState, HitData surface, out float lightWeight);
-
-bool isVisisble(LightInfo light, HitData surface);
+bool isVisisble(LightInfo light, Surface surface);
 
 vec3 getRadiance(Ray ray);
 
@@ -129,8 +124,7 @@ vec3 getRadiance(Ray ray){
         }
 
         vec3 wo = -ray.direction;
-        //        Surface surface  = getSurfaceData(hitData, wo);
-        HitData surface = hitData;
+        Surface surface = hitData.surface;
         Lo += throughput * surface.emission;
 
         // direct light contribution
@@ -149,27 +143,19 @@ vec3 getRadiance(Ray ray){
             break;
         }
 
-        int brdfType;
-        if(isMirror(surface)){
-            brdfType = BRDF_SPECULAR;
-        }else {
-            float brdfProbability = getBrdfProbability(surface, wo);
-            if(rand(hitData.rngState) < brdfProbability){
-                brdfType = BRDF_SPECULAR;
-                throughput /= brdfProbability;
-            }else{
-                brdfType = BRDF_DIFFUSE;
-                throughput /= (1 - brdfProbability);
+        if(bounce > MIN_BOUNCES){
+            float rrProbability = min(0.95, luminance(throughput));
+            if(rrProbability < rand(hitData.rngState)){
+                break;
             }
+            throughput /= rrProbability;
         }
 
-        vec3 brdfWeight = evalIndirectBrdf(surface, brdfType, wo, hitData.rngState, ray.direction);
-        if(isBlack(brdfWeight)){
-            break;
-        }
+        throughput *= hitData.brdfWeight;
 
-        throughput *= brdfWeight;
-        ray.origin = offsetRay(surface.x, surface.gN);
+        if(isBlack(throughput)) break;
+
+        ray = hitData.ray;
     }
     return Lo;
 }
@@ -180,30 +166,7 @@ vec3 loadEnvColor(vec3 direction){
     return texture(envMap, suv).rgb * skyIntensity;
 }
 
-float getBrdfProbability(vec3 V, vec3 sN, vec3 albedo, float metalness) {
-
-    // Evaluate Fresnel term using the shading normal
-    // Note: we use the shading normal instead of the microfacet normal (half-vector) for Fresnel term here. That's suboptimal for rough surfaces at grazing angles, but half-vector is yet unknown at this point
-    vec3 specularF0 = vec3(luminance(baseColorToSpecularF0(albedo, metalness)));
-    float diffuseReflectance = luminance(baseColorToDiffuseReflectance(albedo, metalness));
-    float Fresnel = saturate(luminance(evalFresnel(specularF0, shadowedF90(specularF0), max(0.0f, dot(V, sN)))));
-
-    // Approximate relative contribution of BRDFs using the Fresnel term
-    float specular = Fresnel;
-    float diffuse = diffuseReflectance * (1.0f - Fresnel); //< If diffuse term is weighted by Fresnel, apply it here as well
-
-    // Return probability of selecting specular BRDF over diffuse BRDF
-    float p = (specular / max(0.0001f, (specular + diffuse)));
-
-    // Clamp probability to avoid undersampling of less prominent BRDF
-    return clamp(p, 0.1f, 0.9f);
-}
-
-float getBrdfProbability(HitData surface, vec3 wo){
-    return getBrdfProbability(wo, surface.sN, surface.albedo, surface.metalness);
-}
-
-vec3 evalBrdf(HitData surface, vec3 wo, vec3 wi){
+vec3 evalBrdf(Surface surface, vec3 wo, vec3 wi){
     BrdfArgs args;
     args.wo = wo;
     args.wi = wi;
@@ -217,25 +180,6 @@ vec3 evalBrdf(HitData surface, vec3 wo, vec3 wi){
     return evalCombinedBRDF(args);
 }
 
-vec3 evalIndirectBrdf(HitData surface, int brdfType, vec3 wo, inout RngStateType rngState, out vec3 wi){
-
-    BrdfArgs args;
-    args.wo = wo;
-    args.surfacePoint = surface.x;
-    args.surfaceNormal = surface.sN;
-    args.surfaceGeomNormal = surface.gN;
-    args.surfaceAlbedo = surface.albedo;
-    args.surfaceMetalness = surface.metalness;
-    args.surfaceRoughness = surface.roughness;
-    args.rngState = rngState;
-    args.brdfType = brdfType;
-
-    vec3 sampleWeight = evalIndirectCombinedBRDF(args);
-
-    rngState = args.rngState;
-    wi = args.wi;
-    return sampleWeight;
-}
 
 float fallOff(Light light, vec3 pointToLightDir){
     vec3 n = light.normal;
@@ -248,7 +192,7 @@ float fallOff(Light light, vec3 pointToLightDir){
     return smoothstep(cutOff, fallOffStart, cos0);
 }
 
-bool sampleLightRIS(inout RngStateType rngState, HitData surface, out LightInfo selectedSample, out float lightSampleWeight){
+bool sampleLightRIS(inout RngStateType rngState, Surface surface, out LightInfo selectedSample, out float lightSampleWeight){
     if(numLights <= 0) return false;
 
     float totalWeights = 0;
@@ -285,7 +229,7 @@ bool sampleLightRIS(inout RngStateType rngState, HitData surface, out LightInfo 
 
 }
 
-LightInfo sampleLight(inout RngStateType rngState, HitData surface, out float lightWeight){
+LightInfo sampleLight(inout RngStateType rngState, Surface surface, out float lightWeight){
     LightInfo lightInfo;
     lightInfo.radiance = vec3(0);
     lightInfo.sx = surface.x;
@@ -372,7 +316,7 @@ LightInfo sampleLight(inout RngStateType rngState, HitData surface, out float li
     return lightInfo;
 }
 
-bool isVisisble(LightInfo light, HitData surface){
+bool isVisisble(LightInfo light, Surface surface){
     isShadowed = true;
     vec3 origin = offsetRay(surface.x, surface.gN);
     vec3 direction = normalize(light.x - surface.x);
