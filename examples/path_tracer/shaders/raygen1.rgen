@@ -74,8 +74,8 @@ const float Tmax = FLT_MAX;
 void main(){
     vec3 Lo = vec3(0);
     hitData.rngState  = initRNG(vec2(gl_LaunchID), vec2(gl_LaunchSize), frame);
+    hitData.hit = false;
     Ray ray = generateRay();
-
     if(adaptiveSampling == 0){
         for(int i = 0; i < numSamples; i++){
             Lo += getRadiance(ray);
@@ -117,7 +117,7 @@ vec3 getRadiance(Ray ray){
     vec3 Lo = vec3(0);
     vec3 throughput = vec3(1);
     for(uint bounce = 0; bounce < maxBounces; bounce++){
-        traceRay(topLevelAs, gl_RayFlagsOpaque, mask, 0, 0, 0, ray.origin, Tmin, ray.direction, Tmax, 0);
+        traceRay(topLevelAs, gl_RayFlagsNoOpaque, mask, 0, 0, 0, ray.origin, Tmin, ray.direction, Tmax, 0);
         if(!hitData.hit){
             Lo += throughput * loadEnvColor(ray.direction);
             break;
@@ -156,6 +156,7 @@ vec3 getRadiance(Ray ray){
         if(isBlack(throughput)) break;
 
         ray = hitData.ray;
+        hitData.hit = false;
     }
     return Lo;
 }
