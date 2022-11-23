@@ -77,8 +77,8 @@ Ray generateRay(vec2 offset){
     vec3 origin = vec3(cam.viewInverse * vec4(0,0,0,1));
     vec3 target = vec3(cam.projInverse * vec4(d.x, d.y, 1, 1));
     vec3 direction = vec3(cam.viewInverse*vec4(normalize(target.xyz), 0));
-
-    return Ray(origin, direction);
+    vec3 transmission = vec3(1);
+    return Ray(origin, direction, transmission);
 }
 
 vec3 getRadiance(Ray ray){
