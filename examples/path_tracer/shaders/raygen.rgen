@@ -91,6 +91,12 @@ vec3 getRadiance(Ray ray){
             break;
         }
 
+        throughput *= hitData.transmission;
+
+        if(isBlack(throughput)){
+            break;
+        }
+
         vec3 wo = -ray.direction;
         Lo += throughput * hitData.surface.emission;
 
